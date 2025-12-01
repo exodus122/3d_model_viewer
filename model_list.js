@@ -355,3 +355,11 @@ const BT_Maps = [
 	{ name: "CS - Get out of the House!", pointer: "7988", sceneID: "AB", modelAPointer: "", modelBPointer: "" },
 	{ name: "CS - Come on!", pointer: "798c", sceneID: "AC", modelAPointer: "", modelBPointer: "" },*/
 ];
+
+const OOT3D_Maps = [
+	
+];
+
+const MM3D_Maps = [
+	
+];
