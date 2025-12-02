@@ -80,7 +80,7 @@
           <option value="orbit">Orbit (mouse drag + wheel)</option>
         </select>
         <div id="status" role="status" aria-live="polite">Status: starting...</div>
-        <label>Flying Speed <input id="movementSpeedSlider" type="range" min="500" max="5000" step="500" value="2500"></label>
+        <label>Flying Speed <input id="movementSpeedSlider" type="range" min="500" max="5000" step="500" value="2000"></label>
         <label><input id="wireframe" type="checkbox" checked> Draw triangle edges</label>
         <label><input id="backface" type="checkbox"> Double-sided</label>
         <label style="display:none;"><input id="translucent" type="checkbox" checked> Translucent (opacity)</label>
@@ -121,7 +121,9 @@
     import * as THREE from 'three';
     import { PointerLockControls } from 'https://unpkg.com/three@0.152.2/examples/jsm/controls/PointerLockControls.js';
     import { OrbitControls } from 'https://unpkg.com/three@0.152.2/examples/jsm/controls/OrbitControls.js';
-    
+    import { LineMaterial } from 'https://unpkg.com/three@0.152.2/examples/jsm/lines/LineMaterial.js';
+    import { LineGeometry } from 'https://unpkg.com/three@0.152.2/examples/jsm/lines/LineGeometry.js';
+    import { LineSegments2 } from 'https://unpkg.com/three@0.152.2/examples/jsm/lines/LineSegments2.js';
     
     ////////////////////////////////////////
     // System: DOM / Static UI Elements
@@ -182,7 +184,7 @@
     let selectedTriangles = []; // Store multiple selections
     const pointerControls = new PointerLockControls(camera, renderer.domElement);
     let orbitControls = null; // lazy-created when needed
-    let speed = 2500; // movement units per second
+    let speed = 2000; // movement units per second
     
     // Material used as base for clones per mesh
     const material = new THREE.MeshStandardMaterial({color:0x3aa6ff,side:THREE.FrontSide,transparent:true,opacity:1.0,flatShading:true});
@@ -311,7 +313,7 @@
     ////////////////////////////////////////
     // System: Load Map button
     ////////////////////////////////////////
-	
+    
     function getModelAPointer(game, mapName) {
         if (game == "BK"){
             const found = BK_Maps.find(map => map.name === mapName);
@@ -338,7 +340,7 @@
             return null
     }
     
-	function getFileName(game, mapName) {
+    function getFileName(game, mapName) {
         if (game == "OOT3D"){
             const found = OOT3D_Maps.find(map => map.name === mapName);
             return found ? found.file : null;
@@ -351,43 +353,65 @@
             return null
     }
     
+    function getSeamsFileName(game, mapName) {
+        if (game == "OOT3D"){
+            const found = OOT3D_Maps.find(map => map.name === mapName);
+            return found ? found.seams : null;
+        }
+        else if (game == "MM3D"){
+            const found = MM3D_Maps.find(map => map.name === mapName);
+            return found ? found.seams : null;
+        }
+        else
+            return null
+    }
+    
     // Load selected map
     loadMap.addEventListener('click', async (e) => {
         const game = document.getElementById("selected-game").value;
-		
-		if (game == "BK" || game == "BT"){
-			
-			const mapName = document.getElementById("mapDropdown").value;
-			let mapFilename = getModelAPointer(game, mapName);
-			let mapFilename2 = getModelBPointer(game, mapName);
+        
+        if (game == "BK" || game == "BT"){
+            
+            const mapName = document.getElementById("mapDropdown").value;
+            let mapFilename = getModelAPointer(game, mapName);
+            let mapFilename2 = getModelBPointer(game, mapName);
 
-			try {
-				const res1 = await fetch('./' + game + '/' + mapFilename);
-				const buffer1 = await res1.arrayBuffer();
-				console.log("Binary file length:", buffer1.byteLength);
-				parseBKModelBinary(buffer1, true);
+            try {
+                const res1 = await fetch('./' + game + '/' + mapFilename);
+                const buffer1 = await res1.arrayBuffer();
+                console.log(mapFilename+": Binary file length:", buffer1.byteLength);
+                parseBKModelBinary(buffer1, true);
 
-				const res2 = await fetch('./' + game + '/' + mapFilename2);
-				const buffer2 = await res2.arrayBuffer();
-				console.log("Binary file length:", buffer2.byteLength);
-				parseBKModelBinary(buffer2, false);
-			} catch (err) {
-				console.error(err);
-			}
-		}
-		else if (game == "OOT3D" || game == "MM3D"){
-			const mapName = document.getElementById("mapDropdown").value;
-			let mapFilename = getFileName(game, mapName);
+                const res2 = await fetch('./' + game + '/' + mapFilename2);
+                const buffer2 = await res2.arrayBuffer();
+                console.log(mapFilename2+": Binary file length:", buffer2.byteLength);
+                parseBKModelBinary(buffer2, false);
+            } catch (err) {
+                console.error(err);
+            }
+        }
+        else if (game == "OOT3D" || game == "MM3D"){
+            const mapName = document.getElementById("mapDropdown").value;
+            let mapFilename = getFileName(game, mapName);
 
-			try {
-				const res1 = await fetch('./' + game + '/' + mapFilename);
-				const buffer1 = await res1.arrayBuffer();
-				console.log("Binary file length:", buffer1.byteLength);
-				parseZeldaModelBinary(buffer1, true);
-			} catch (err) {
-				console.error(err);
-			}
-		}
+            try {
+                const res1 = await fetch('./' + game + '/' + mapFilename);
+                const buffer1 = await res1.arrayBuffer();
+                console.log(mapFilename+": Binary file length:", buffer1.byteLength);
+                parseZeldaModelBinary(buffer1, true);
+                
+                if (game == "MM3D") {
+                    let mapFilename2 = getSeamsFileName(game, mapName);
+                    
+                    const res2 = await fetch('./' + game + '/seams/' + mapFilename2);
+                    const buffer2 = await res2.arrayBuffer();
+                    console.log(mapFilename2+": Binary file length:", buffer2.byteLength);
+                    parseEdgeText(new TextDecoder().decode(buffer2));
+                }
+            } catch (err) {
+                console.error(err);
+            }
+        }
     });
 
     ////////////////////////////////////////
@@ -408,7 +432,7 @@
 
     // Detect binary vs text simple heuristic
     function parseModel(buffer){
-      if(typeof buffer === 'string') { parseModelText(buffer); return; }
+      if(typeof buffer === 'string') { parseEdgeText(buffer); return; }
       const uint8 = new Uint8Array(buffer);
       let isText = true;
       for(let i=0;i<Math.min(64,uint8.length);i++){
@@ -416,7 +440,7 @@
         if(c===9||c===10||c===13) continue;
         if(c<32 || c>126){ isText=false; break; }
       }
-      if(isText) parseModelText(new TextDecoder().decode(buffer));
+      if(isText) parseEdgeText(new TextDecoder().decode(buffer));
       else {
         if(game == "BK" || game == "BT")
             parseBKModelBinary(buffer, true);
@@ -634,6 +658,39 @@
       
       if(fresh)
         buildGeometry(verts, tris, `Main Model`, fresh);
+      else
+        buildGeometry(verts, tris, `Model ${loadedModels.length+1}`, fresh);
+    }
+    
+    function parseEdgeText(text) {
+        const lines = text.split(/\r?\n/).map(s => s.trim()).filter(s => s && s[0] !== "#");
+
+        const verts = [];      // unique vertices
+        const vertMap = new Map(); // map "x,y,z" -> index
+        const edges = [];      // pairs of vertex indices
+
+        function getVertIndex(v) {
+            const key = v.join(",");
+            if (vertMap.has(key)) return vertMap.get(key);
+            const idx = verts.length;
+            verts.push(v);
+            vertMap.set(key, idx);
+            return idx;
+        }
+
+        for (const l of lines) {
+            const parts = l.split(",").map(Number);
+            if (parts.length === 6) {
+                const v1 = parts.slice(0, 3);
+                const v2 = parts.slice(3, 6);
+                const i1 = getVertIndex(v1);
+                const i2 = getVertIndex(v2);
+                edges.push([i1, i2]);
+            }
+        }
+
+        //console.log(`Model "${name}": ${verts.length} verts, ${edges.length} edges`);
+        buildGeometryFromEdges(verts, edges, "Edge Model", false);
     }
 
     ////////////////////////////////////////
@@ -705,7 +762,7 @@
         edgeGeom.setAttribute('position', new THREE.Float32BufferAttribute(edgePositions, 3));
         const edgesObj = new THREE.LineSegments(
             edgeGeom,
-            new THREE.LineBasicMaterial({ color: 0xffffff, linewidth: 1, opacity: 0.8, transparent: true })
+            new THREE.LineBasicMaterial({ color: 0x3240a8, linewidth: 1, opacity: 0.8, transparent: true }) // 3240a8
         );
         edgesObj.visible = wireframeCheckbox.checked;
         scene.add(edgesObj);
@@ -714,6 +771,60 @@
         loadedModels.push({ name, mesh: meshObj, edges: edgesObj });
         //console.log(loadedModels);
         addModelCheckbox(name, meshObj, edgesObj, clearFirst);
+    }
+    
+    function buildGeometryFromEdges(verts, edges, name = "Edge Model", clearFirst = true) {
+
+        if ((!verts || !edges || verts.length === 0 || edges.length === 0) && clearFirst) {
+            alert('No valid vertices or edges found');
+            return;
+        }
+
+        // Clear existing models
+        if (clearFirst) {
+            loadedModels.forEach(m => {
+                if(m.mesh) scene.remove(m.mesh);
+                if(m.edges) scene.remove(m.edges);
+            });
+            loadedModels = [];
+            removeAllModelCheckboxes();
+            clearSelection();
+        }
+
+        // Flatten edge positions (original logic)
+        const edgePositions = [];
+        for (let i = 0; i < edges.length; i++) {
+            const [a, b] = edges[i];
+            const va = verts[a];
+            const vb = verts[b];
+            edgePositions.push(
+                va[0], va[1], va[2],
+                vb[0], vb[1], vb[2]
+            );
+        }
+
+        const edgeGeom = new THREE.BufferGeometry();
+        edgeGeom.setAttribute('position', new THREE.Float32BufferAttribute(edgePositions, 3));
+
+        // Improve visibility
+        const edgesObj = new THREE.LineSegments(
+            edgeGeom,
+            new THREE.LineBasicMaterial({
+                color: 0x00ff00,   // green
+                linewidth: 0.02,   // thickness in world units
+                transparent: false,
+                opacity: 1,
+                depthTest: true
+            })
+        );
+
+        edgesObj.visible = true;
+        scene.add(edgesObj);
+
+        loadedModels.push({ name, mesh: null, edges: edgesObj });
+
+        // Register in UI
+        addModelCheckbox(name, null, edgesObj, clearFirst);
     }
     
     function removeAllModelCheckboxes() {
