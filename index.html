@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Banjo Model Viewer</title>
+  <title>3D Model Viewer</title>
   <style>
     :root{--sidebar-w:320px}
     html,body{height:100%;margin:0;font-family:Inter,Segoe UI,Roboto,Helvetica,Arial}
@@ -52,13 +52,15 @@
     </div>
 
     <div id="sidebar">
-      <h2>Banjo Model Viewer</h2>
+      <h2>3D Model Viewer</h2>
 
       <div class="section">
         <!--<div class="muted">Game:</div>-->
         <select id="selected-game">
             <option value="BK">Banjo-Kazooie</option>
             <option value="BT">Banjo-Tooie</option>
+            <option value="OOT3D">OOT3D</option>
+            <option value="MM3D">MM3D</option>
             <!--<option value="Default">Default</option>-->
         </select>
         <select id="mapDropdown"></select>
@@ -78,7 +80,7 @@
           <option value="orbit">Orbit (mouse drag + wheel)</option>
         </select>
         <div id="status" role="status" aria-live="polite">Status: starting...</div>
-        <label>Flying Speed <input id="movementSpeedSlider" type="range" min="500" max="5000" step="500" value="3000"></label>
+        <label>Flying Speed <input id="movementSpeedSlider" type="range" min="500" max="5000" step="500" value="2500"></label>
         <label><input id="wireframe" type="checkbox" checked> Draw triangle edges</label>
         <label><input id="backface" type="checkbox"> Double-sided</label>
         <label style="display:none;"><input id="translucent" type="checkbox" checked> Translucent (opacity)</label>
@@ -180,7 +182,7 @@
     let selectedTriangles = []; // Store multiple selections
     const pointerControls = new PointerLockControls(camera, renderer.domElement);
     let orbitControls = null; // lazy-created when needed
-    let speed = 3000; // movement units per second
+    let speed = 2500; // movement units per second
     
     // Material used as base for clones per mesh
     const material = new THREE.MeshStandardMaterial({color:0x3aa6ff,side:THREE.FrontSide,transparent:true,opacity:1.0,flatShading:true});
@@ -288,12 +290,28 @@
             mapDropdown.appendChild(option);
           });
       }
+      else if(game == "OOT3D") {
+          OOT3D_Maps.forEach(map => {
+            const option = document.createElement("option");
+            option.value = map.name; // This will be the value when selected
+            option.textContent = map.name; // This is what’s shown to the user
+            mapDropdown.appendChild(option);
+          });
+      }
+      else if(game == "MM3D") {
+          MM3D_Maps.forEach(map => {
+            const option = document.createElement("option");
+            option.value = map.name; // This will be the value when selected
+            option.textContent = map.name; // This is what’s shown to the user
+            mapDropdown.appendChild(option);
+          });
+      }
     });
     
     ////////////////////////////////////////
     // System: Load Map button
     ////////////////////////////////////////
-    
+	
     function getModelAPointer(game, mapName) {
         if (game == "BK"){
             const found = BK_Maps.find(map => map.name === mapName);
@@ -320,26 +338,56 @@
             return null
     }
     
+	function getFileName(game, mapName) {
+        if (game == "OOT3D"){
+            const found = OOT3D_Maps.find(map => map.name === mapName);
+            return found ? found.file : null;
+        }
+        else if (game == "MM3D"){
+            const found = MM3D_Maps.find(map => map.name === mapName);
+            return found ? found.file : null;
+        }
+        else
+            return null
+    }
+    
     // Load selected map
     loadMap.addEventListener('click', async (e) => {
         const game = document.getElementById("selected-game").value;
-        const mapName = document.getElementById("mapDropdown").value;
-        let mapFilename = getModelAPointer(game, mapName);
-        let mapFilename2 = getModelBPointer(game, mapName);
+		
+		if (game == "BK" || game == "BT"){
+			
+			const mapName = document.getElementById("mapDropdown").value;
+			let mapFilename = getModelAPointer(game, mapName);
+			let mapFilename2 = getModelBPointer(game, mapName);
 
-        try {
-            const res1 = await fetch('./' + game + '/' + mapFilename);
-            const buffer1 = await res1.arrayBuffer();
-            console.log("Binary file length:", buffer1.byteLength);
-            parseBKModelBinary(buffer1, true);
+			try {
+				const res1 = await fetch('./' + game + '/' + mapFilename);
+				const buffer1 = await res1.arrayBuffer();
+				console.log("Binary file length:", buffer1.byteLength);
+				parseBKModelBinary(buffer1, true);
 
-            const res2 = await fetch('./' + game + '/' + mapFilename2);
-            const buffer2 = await res2.arrayBuffer();
-            console.log("Binary file length:", buffer2.byteLength);
-            parseBKModelBinary(buffer2, false);
-        } catch (err) {
-            console.error(err);
-        }
+				const res2 = await fetch('./' + game + '/' + mapFilename2);
+				const buffer2 = await res2.arrayBuffer();
+				console.log("Binary file length:", buffer2.byteLength);
+				parseBKModelBinary(buffer2, false);
+			} catch (err) {
+				console.error(err);
+			}
+		}
+		else if (game == "OOT3D" || game == "MM3D"){
+			const mapName = document.getElementById("mapDropdown").value;
+			let mapFilename = getFileName(game, mapName);
+
+			try {
+				const res1 = await fetch('./' + game + '/' + mapFilename);
+				const buffer1 = await res1.arrayBuffer();
+				console.log("Binary file length:", buffer1.byteLength);
+				parseZeldaModelBinary(buffer1, true);
+			} catch (err) {
+				console.error(err);
+			}
+		}
     });
 
     ////////////////////////////////////////
@@ -372,6 +420,8 @@
       else {
         if(game == "BK" || game == "BT")
             parseBKModelBinary(buffer, true);
+        else if (game == "OOT3D" || game == "MM3D")
+            parseZeldaModelBinary(buffer, true);
         else
             parseModelBinary(buffer);
       }
@@ -440,33 +490,33 @@
     
     function parseBKModelBinary(buffer, fresh){
       const dv = new DataView(buffer);
-        if (dv.byteLength < 4) {
-          alert('binary too small');
-          return;
-        }
+      if (dv.byteLength < 4) {
+        alert('binary too small');
+        return;
+      }
 
-        let vtx_list_offset = dv.getUint32(0x10, false);
-        //console.log("vtx_list_offset is " + vtx_list_offset.toString(16));
+      let vtx_list_offset = dv.getUint32(0x10, false);
+      //console.log("vtx_list_offset is " + vtx_list_offset.toString(16));
 
-        // original vertexCount is ignored now
-        // const vertexCount = dv.getInt16(vtx_list_offset + 0x14, false);
-        // console.log("vertexCount is " + vertexCount.toString(16));
+      // original vertexCount is ignored now
+      // const vertexCount = dv.getInt16(vtx_list_offset + 0x14, false);
+      // console.log("vertexCount is " + vertexCount.toString(16));
 
-        let offset = vtx_list_offset + 0x18;
+      let offset = vtx_list_offset + 0x18;
 
-        const verts = [];
-        while (offset + 0x10 <= dv.byteLength) {
-          const x = dv.getInt16(offset, false); offset += 2;
-          const y = dv.getInt16(offset, false); offset += 2;
-          const z = dv.getInt16(offset, false); offset += 2;
+      const verts = [];
+      while (offset + 0x10 <= dv.byteLength) {
+        const x = dv.getInt16(offset, false); offset += 2;
+        const y = dv.getInt16(offset, false); offset += 2;
+        const z = dv.getInt16(offset, false); offset += 2;
 
-          // skip the remaining 10 bytes of this vertex record
-          offset += 10;
+        // skip the remaining 10 bytes of this vertex record
+        offset += 10;
 
-          verts.push([x, y, z]);
-        }
+        verts.push([x, y, z]);
+      }
 
-        //console.log(verts);
+      //console.log(verts);
       
       let collision_list_offset = dv.getUint32(0x1C,false);
       //console.log("collision_list_offset is "+collision_list_offset.toString(16))
@@ -500,6 +550,90 @@
         buildGeometry(verts, tris, `Main Model`, fresh);
       else
         buildGeometry(verts, tris, `Model ${loadedModels.length+1}`, fresh);
+    }
+    
+    function parseZeldaModelBinary(buffer, fresh){
+      const dv = new DataView(buffer);
+      if (dv.byteLength < 4) {
+        alert('binary too small');
+        return;
+      }
+        
+      let current_addr = 0x10;
+      let cmd1 = dv.getUint8(current_addr);
+      let cmd2 = dv.getUint32(current_addr+0x4, true);
+      let numVtxs = 0, numPolygons = 0, vtxListStart = 0, polygonListStart = 0;
+      
+      while (cmd1 != 0x14) {
+        if (cmd1 == 0x03) {
+            //console.log("current_addr: "+current_addr+", "+cmd1+", "+cmd2);
+            
+            if (game == "OOT3D") {
+                numVtxs = dv.getUint16(cmd2+0x10+0x0C, true);
+                numPolygons = dv.getUint16(cmd2+0x10+0x0E, true);
+                vtxListStart = dv.getUint32(cmd2+0x10+0x18, true);
+                polygonListStart = dv.getUint32(cmd2+0x10+0x1C, true);
+            }
+            else if (game == "MM3D") {
+                numVtxs = dv.getUint16(cmd2+0x10+0x0E, true);
+                numPolygons = dv.getUint16(cmd2+0x10+0x10, true);
+                vtxListStart = dv.getUint32(cmd2+0x10+0x18, true);
+                polygonListStart = dv.getUint32(cmd2+0x10+0x1C, true);
+            }
+            break;
+        }
+        
+        current_addr = current_addr + 0x8;
+        cmd1 = dv.getUint8(current_addr);
+        cmd2 = dv.getUint32(current_addr+0x4, true);
+      }
+      
+      console.log("numVtxs: "+numVtxs);
+      console.log("numPolygons: "+numPolygons);
+      //console.log("vtxListStart: "+vtxListStart);
+      //console.log("polygonListStart: "+polygonListStart);
+      
+      const verts = [];
+      let offset = vtxListStart + 0x10;
+      for(let i=0;i<numVtxs;i++){
+        const x = dv.getInt16(offset, true); offset += 2;
+        const y = dv.getInt16(offset, true); offset += 2;
+        const z = dv.getInt16(offset, true); offset += 2;
+
+        verts.push([x, y, z]);
+      }
+      //console.log(verts);
+      
+      const tris = [];
+      offset = polygonListStart + 0x10;
+      for(let i=0;i<numPolygons;i++){
+        if(offset+0x14>dv.byteLength) break;
+        offset+=2;
+        const a = dv.getUint16(offset,true) & 0x1FFF; offset+=2;
+        const b = dv.getUint16(offset,true) & 0x1FFF; offset+=2;
+        const c = dv.getUint16(offset,true) & 0x1FFF; offset+=2;
+        offset+=0xC;
+        tris.push([a,b,c]);
+      }
+      //console.log(tris)
+      
+      const allIdx = [].concat(...tris);
+      const maxIdx = Math.max(...allIdx);
+      const minIdx = Math.min(...allIdx);
+      if(minIdx>=1 && maxIdx<=verts.length) {
+        for(let i=0;i<tris.length;i++) tris[i]=tris[i].map(x=>x-1);
+      }
+      
+      for (let i = 0; i < tris.length; i++) {
+        const [a,b,c] = tris[i];
+        if (a < 0 || b < 0 || c < 0 ||
+          a >= verts.length || b >= verts.length || c >= verts.length) {
+          //console.warn("Invalid triangle index", i, a,b,c, "verts:", verts.length);
+        }
+      }
+      
+      if(fresh)
+        buildGeometry(verts, tris, `Main Model`, fresh);
     }
 
     ////////////////////////////////////////
