@@ -690,7 +690,7 @@
         }
 
         //console.log(`Model "${name}": ${verts.length} verts, ${edges.length} edges`);
-        buildGeometryFromEdges(verts, edges, "Edge Model", false);
+        buildGeometryFromEdges(verts, edges, "Seams Model", false);
     }
 
     ////////////////////////////////////////
@@ -856,7 +856,8 @@
         chk.type = 'checkbox';
         chk.checked = true;
         chk.addEventListener('change', () => {
-            meshObj.visible = chk.checked;
+			if (meshObj != null)
+				meshObj.visible = chk.checked;
             edgesObj.visible = chk.checked && wireframeCheckbox.checked;
             clearSelection();
         });
@@ -869,10 +870,14 @@
         colorInput.type = 'color';
         colorInput.value = clearFirst ? '#3aa6ff' : '#3aff78';
         colorInput.addEventListener('input', () => {
-            if (meshObj.material) {
+            if (meshObj != null && meshObj.material) {
                 meshObj.material.color.set(colorInput.value);
                 meshObj.material.needsUpdate = true;
             }
+			else {
+				edgesObj.material.color.set(colorInput.value);
+                edgesObj.material.needsUpdate = true;
+			}
         });
 
         // Assemble
