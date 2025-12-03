@@ -1,7 +1,7 @@
 import csv
 from collections import defaultdict
 
-input_csv = "mm3d.csv"  # change this to your filename
+input_csv = "oot3d.csv"  # change this to your filename
 scenes = defaultdict(list)
 
 # Read CSV and group rows by column 2

@@ -400,7 +400,7 @@
                 console.log(mapFilename+": Binary file length:", buffer1.byteLength);
                 parseZeldaModelBinary(buffer1, true);
                 
-                if (game == "MM3D") {
+                if (game == "MM3D" || game == "OOT3D") {
                     let mapFilename2 = getSeamsFileName(game, mapName);
                     
                     const res2 = await fetch('./' + game + '/seams/' + mapFilename2);
@@ -856,8 +856,8 @@
         chk.type = 'checkbox';
         chk.checked = true;
         chk.addEventListener('change', () => {
-			if (meshObj != null)
-				meshObj.visible = chk.checked;
+            if (meshObj != null)
+                meshObj.visible = chk.checked;
             edgesObj.visible = chk.checked && wireframeCheckbox.checked;
             clearSelection();
         });
@@ -874,10 +874,10 @@
                 meshObj.material.color.set(colorInput.value);
                 meshObj.material.needsUpdate = true;
             }
-			else {
-				edgesObj.material.color.set(colorInput.value);
+            else {
+                edgesObj.material.color.set(colorInput.value);
                 edgesObj.material.needsUpdate = true;
-			}
+            }
         });
 
         // Assemble

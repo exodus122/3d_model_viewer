@@ -2,7 +2,7 @@ import os
 import json
 import re
 
-# Original MM3D_Maps array as Python list of dicts
+# Original OOT3D_Maps array as Python list of dicts
 MM3D_Maps = [
 	{ "name": "Ancient Castle of Ikana", "file": "z2_castle_info.zsi" },
 	{ "name": "Astral Observatory", "file": "z2_tenmon_dai_info.zsi" },
@@ -117,8 +117,123 @@ MM3D_Maps = [
 	{ "name": "zolashop", "file": "z2_zolashop_info.zsi" }
 ]
 
+OOT3D_Maps = [
+	{ "name": "Back Alley (Day)", "file": "market_alley_info.zsi" },
+	{ "name": "Back Alley (Night)", "file": "market_alley_n_info.zsi" },
+	{ "name": "Back Alley House (Dog Lady)", "file": "kakariko_impa_info.zsi" },
+	{ "name": "Back Alley House (Man in Green)", "file": "kakariko_home3_info.zsi" },
+	{ "name": "Barinade's Lair", "file": "bdan_boss_info.zsi" },
+	{ "name": "Bazaar", "file": "shop_info.zsi" },
+	{ "name": "Bombchu Bowling Alley", "file": "bowling_info.zsi" },
+	{ "name": "Bombchu Shop", "file": "shop_night_info.zsi" },
+	{ "name": "Bongo Bongo's Lair", "file": "hakadan_boss_info.zsi" },
+	{ "name": "Bottom of the Well", "file": "hakadan_ch_info.zsi" },
+	#{ "name": "Bottom of the Well (MQ)", "file": "hakadan_ch_dd_info.zsi" },
+	{ "name": "Carpenter Boss's House", "file": "kakariko_info.zsi" },
+	{ "name": "Carpenters' Tent", "file": "tent_info.zsi" },
+	{ "name": "Castle Courtyard", "file": "nakaniwa_info.zsi" },
+	{ "name": "Castle Hedge Maze (Day)", "file": "hairal_niwa_info.zsi" },
+	{ "name": "Castle Hedge Maze (Night)", "file": "hairal_niwa_n_info.zsi" },
+	{ "name": "Chamber of the Sages", "file": "kenjyanoma_info.zsi" },
+	{ "name": "Cutscene Map", "file": "hiral_demo_info.zsi" },
+	{ "name": "Dampe's Grave & Windmill", "file": "hakasitarelay_info.zsi" },
+	{ "name": "Dodongo's Cavern", "file": "ddan_info.zsi" },
+	#{ "name": "Dodongo's Cavern (MQ)", "file": "ddan_dd_info.zsi" },
+	{ "name": "Fairy's Fountain (Healing Fairies)", "file": "yousei_izumi_tate_info.zsi" },
+	{ "name": "Fire Temple", "file": "hidan_info.zsi" },
+	#{ "name": "Fire Temple (MQ)", "file": "hidan_dd_info.zsi" },
+	{ "name": "Fishing Pond", "file": "turibori_info.zsi" },
+	{ "name": "Forest Temple", "file": "bmori1_info.zsi" },
+	#{ "name": "Forest Temple (MQ)", "file": "bmori1_dd_info.zsi" },
+	{ "name": "Ganon's Castle Exterior", "file": "ganon_tou_info.zsi" },
+	{ "name": "Ganon's Tower", "file": "ganon_info.zsi" },
+	{ "name": "Ganon's Tower (Collapsing)", "file": "ganon_sonogo_info.zsi" },
+	{ "name": "Ganon's Tower Collapse & Battle Arena", "file": "ganon_demo_info.zsi" },
+	{ "name": "Ganondorf's Death Scene (Tower Escape Exterior)", "file": "ganon_final_info.zsi" },
+	{ "name": "Ganondorf's Lair", "file": "ganon_boss_info.zsi" },
+	{ "name": "Gerudo Training Ground", "file": "men_info.zsi" },
+	#{ "name": "Gerudo Training Ground (MQ)", "file": "men_dd_info.zsi" },
+	{ "name": "Gohma's Lair", "file": "ydan_boss_info.zsi" },
+	{ "name": "Goron Shop", "file": "shop_golon_info.zsi" },
+	{ "name": "Granny's Potion Shop", "file": "mahouya_info.zsi" },
+	{ "name": "Grave (Fairy's Fountain)", "file": "hakaana2_info.zsi" },
+	{ "name": "Grave (Redead)", "file": "hakaana_info.zsi" },
+	{ "name": "Gravekeeper's Hut", "file": "hut_info.zsi" },
+	{ "name": "Great Fairy's Fountain (Upgrades)", "file": "daiyousei_izumi_info.zsi" },
+	{ "name": "Grottos", "file": "kakusiana_info.zsi" },
+	{ "name": "Guard House", "file": "miharigoya_info.zsi" },
+	{ "name": "Happy Mask Shop", "file": "shop_face_info.zsi" },
+	{ "name": "House of Skulltula", "file": "kinsuta_info.zsi" },
+	{ "name": "Ice Cavern", "file": "ice_doukutu_info.zsi" },
+	#{ "name": "Ice Cavern (MQ)", "file": "ice_doukutu_dd_info.zsi" },
+	{ "name": "Impa's House", "file": "labo_info.zsi" },
+	{ "name": "Inside Ganon's Castle", "file": "ganontika_info.zsi" },
+	{ "name": "Inside Ganon's Castle (Collapsing)", "file": "ganontikasonogo_info.zsi" },
+	#{ "name": "Inside Ganon's Castle (MQ)", "file": "ganontika_dd_info.zsi" },
+	{ "name": "Inside Jabu-Jabu's Belly", "file": "bdan_info.zsi" },
+	#{ "name": "Inside Jabu-Jabu's Belly (MQ)", "file": "bdan_dd_info.zsi" },
+	{ "name": "Inside the Deku Tree", "file": "ydan_info.zsi" },
+	#{ "name": "Inside the Deku Tree (MQ)", "file": "ydan_dd_info.zsi" },
+	{ "name": "Kakariko Potion Shop", "file": "shop_drag_info.zsi" },
+	{ "name": "King Dodongo's Lair", "file": "ddan_boss_info.zsi" },
+	{ "name": "Know-It-All Brothers' House", "file": "k_home_info.zsi" },
+	{ "name": "Kokiri Shop", "file": "kokiri_info.zsi" },
+	{ "name": "Lakeside Laboratory", "file": "hylia_labo_info.zsi" },
+	{ "name": "Link's House", "file": "link_info.zsi" },
+	{ "name": "Lon Lon Ranch House & Tower", "file": "souko_info.zsi" },
+	{ "name": "Market (Child - Day)", "file": "market_day_info.zsi" },
+	{ "name": "Market (Child - Night)", "file": "market_night_info.zsi" },
+	{ "name": "Market (Ruins)", "file": "market_ruins_info.zsi" },
+	{ "name": "Market Entrance (Child - Day)", "file": "entra_day_info.zsi" },
+	{ "name": "Market Entrance (Child - Night)", "file": "entra_night_info.zsi" },
+	{ "name": "Market Entrance (Ruins)", "file": "entra_ruins_info.zsi" },
+	{ "name": "Market Potion Shop", "file": "shop_alley_info.zsi" },
+	{ "name": "Mido's House", "file": "k_home4_info.zsi" },
+	{ "name": "Morpha's Lair", "file": "mizusin_boss_info.zsi" },
+	{ "name": "Phantom Ganon's Lair", "file": "moriboss_info.zsi" },
+	{ "name": "Royal Family's Tomb", "file": "hakaana_ouke_info.zsi" },
+	{ "name": "Saria's House", "file": "k_home5_info.zsi" },
+	{ "name": "Shadow Temple", "file": "hakadan_info.zsi" },
+	#{ "name": "Shadow Temple (MQ)", "file": "hakadan_dd_info.zsi" },
+	{ "name": "Shooting Gallery", "file": "syatekijyou_info.zsi" },
+	{ "name": "Spirit Temple", "file": "jyasinzou_info.zsi" },
+	#{ "name": "Spirit Temple (MQ)", "file": "jyasinzou_dd_info.zsi" },
+	{ "name": "Spot 00 - Hyrule Field", "file": "spot00_info.zsi" },
+	{ "name": "Spot 01 - Kakariko Village", "file": "spot01_info.zsi" },
+	{ "name": "Spot 02 - Graveyard", "file": "spot02_info.zsi" },
+	{ "name": "Spot 03 - Zora's River", "file": "spot03_info.zsi" },
+	{ "name": "Spot 04 - Kokiri Forest", "file": "spot04_info.zsi" },
+	{ "name": "Spot 05 - Sacred Forest Meadow", "file": "spot05_info.zsi" },
+	{ "name": "Spot 06 - Lake Hylia", "file": "spot06_info.zsi" },
+	{ "name": "Spot 07 - Zora's Domain", "file": "spot07_info.zsi" },
+	{ "name": "Spot 08 - Zora's Fountain", "file": "spot08_info.zsi" },
+	{ "name": "Spot 09 - Gerudo Valley", "file": "spot09_info.zsi" },
+	{ "name": "Spot 10 - Lost Woods", "file": "spot10_info.zsi" },
+	{ "name": "Spot 11 - Desert Colossus", "file": "spot11_info.zsi" },
+	{ "name": "Spot 12 - Gerudo's Fortress", "file": "spot12_info.zsi" },
+	{ "name": "Spot 13 - Haunted Wasteland", "file": "spot13_info.zsi" },
+	{ "name": "Spot 15 - Hyrule Castle", "file": "spot15_info.zsi" },
+	{ "name": "Spot 16 - Death Mountain Trail", "file": "spot16_info.zsi" },
+	{ "name": "Spot 17 - Death Mountain Crater", "file": "spot17_info.zsi" },
+	{ "name": "Spot 18 - Goron City", "file": "spot18_info.zsi" },
+	{ "name": "Spot 20 - Lon Lon Ranch", "file": "spot20_info.zsi" },
+	{ "name": "Spot 99 - Hyrule Field (Title)", "file": "spot99_info.zsi" },
+	{ "name": "Stable", "file": "stable_info.zsi" },
+	{ "name": "Temple of Time", "file": "tokinoma_info.zsi" },
+	{ "name": "Temple of Time Exterior (Day)", "file": "shrine_info.zsi" },
+	{ "name": "Temple of Time Exterior (Night)", "file": "shrine_n_info.zsi" },
+	{ "name": "Temple of Time Exterior (Ruins)", "file": "shrine_r_info.zsi" },
+	{ "name": "Thieves' Hideout", "file": "gerudoway_info.zsi" },
+	{ "name": "Treasure Chest Shop", "file": "takaraya_info.zsi" },
+	{ "name": "Twinrova's Lair & Iron Knuckle Mini-Boss Room", "file": "jyasinzou_boss_info.zsi" },
+	{ "name": "Twins' House", "file": "k_home3_info.zsi" },
+	{ "name": "Volvagia's Lair", "file": "fire_bs_info.zsi" },
+	{ "name": "Water Temple", "file": "mizusin_info.zsi" },
+	#{ "name": "Water Temple (MQ)", "file": "mizusin_dd_info.zsi" }
+];
+
 # Build a lookup from file prefix -> map object
-prefix_to_map = {entry["file"].replace(".zsi", ""): entry for entry in MM3D_Maps}
+prefix_to_map = {entry["file"].replace(".zsi", ""): entry for entry in OOT3D_Maps}
 
 # Scan current directory for *_seams.txt files
 for fname in os.listdir("."):
@@ -128,12 +243,12 @@ for fname in os.listdir("."):
         if prefix in prefix_to_map:
             prefix_to_map[prefix]["seams"] = fname
         else:
-            print(f"Warning: {fname} does not match any map in MM3D_Maps")
+            print(f"Warning: {fname} does not match any map in OOT3D_Maps")
 
 # Output updated JS array
-js_array = "const MM3D_Maps = " + json.dumps(MM3D_Maps, indent=4) + ";"
+js_array = "const OOT3D_Maps = " + json.dumps(OOT3D_Maps, indent=4) + ";"
 
-with open("MM3D_Maps_updated.js", "w", encoding="utf-8") as f:
+with open("OOT3D_Maps_updated.js", "w", encoding="utf-8") as f:
     f.write(js_array)
 
-print("Done. Updated MM3D_Maps with seams files.")
+print("Done. Updated OOT3D_Maps with seams files.")
