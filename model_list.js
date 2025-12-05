@@ -455,7 +455,7 @@ const OOT_Maps = [
     { name: "Thieves' Hideout", file: "gerudoway_scene", seams: "gerudoway_scene_seams.txt" },
     { name: "Treasure Chest Shop", file: "takaraya_scene", seams: "takaraya_scene_seams.txt" },
     { name: "Twinrova's Lair & Iron Knuckle's Lair", file: "jyasinboss_scene", seams: "jyasinboss_scene_seams.txt" },
-    { name: "Volvagia's Lair", file: "FIRE_bs_scene" },
+    { name: "Volvagia's Lair", file: "FIRE_bs_scene", seams: "FIRE_bs_scene_seams.txt" },
     { name: "Water Temple", file: "MIZUsin_scene", seams: "MIZUsin_scene_seams.txt" },
     { name: "Zora Shop", file: "zoora_scene", seams: "zoora_scene_seams.txt" }
 ];
