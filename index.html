@@ -59,7 +59,9 @@
         <select id="selected-game">
             <option value="BK">Banjo-Kazooie</option>
             <option value="BT">Banjo-Tooie</option>
+            <option value="OOT">OOT</option>
             <option value="OOT3D">OOT3D</option>
+            <option value="MM">MM</option>
             <option value="MM3D">MM3D</option>
             <!--<option value="Default">Default</option>-->
         </select>
@@ -292,6 +294,22 @@
             mapDropdown.appendChild(option);
           });
       }
+      else if(game == "OOT") {
+          OOT_Maps.forEach(map => {
+            const option = document.createElement("option");
+            option.value = map.name; // This will be the value when selected
+            option.textContent = map.name; // This is what’s shown to the user
+            mapDropdown.appendChild(option);
+          });
+      }
+      else if(game == "MM") {
+          MM_Maps.forEach(map => {
+            const option = document.createElement("option");
+            option.value = map.name; // This will be the value when selected
+            option.textContent = map.name; // This is what’s shown to the user
+            mapDropdown.appendChild(option);
+          });
+      }
       else if(game == "OOT3D") {
           OOT3D_Maps.forEach(map => {
             const option = document.createElement("option");
@@ -341,7 +359,15 @@
     }
     
     function getFileName(game, mapName) {
-        if (game == "OOT3D"){
+        if (game == "OOT"){
+            const found = OOT_Maps.find(map => map.name === mapName);
+            return found ? found.file : null;
+        }
+        else if (game == "MM"){
+            const found = MM_Maps.find(map => map.name === mapName);
+            return found ? found.file : null;
+        }
+        else if (game == "OOT3D"){
             const found = OOT3D_Maps.find(map => map.name === mapName);
             return found ? found.file : null;
         }
@@ -354,7 +380,15 @@
     }
     
     function getSeamsFileName(game, mapName) {
-        if (game == "OOT3D"){
+        if (game == "OOT"){
+            const found = OOT_Maps.find(map => map.name === mapName);
+            return found ? found.seams : null;
+        }
+        else if (game == "MM"){
+            const found = MM_Maps.find(map => map.name === mapName);
+            return found ? found.seams : null;
+        }
+        else if (game == "OOT3D"){
             const found = OOT3D_Maps.find(map => map.name === mapName);
             return found ? found.seams : null;
         }
@@ -382,15 +416,20 @@
                 console.log(mapFilename+": Binary file length:", buffer1.byteLength);
                 parseBKModelBinary(buffer1, true);
 
-                const res2 = await fetch('./' + game + '/' + mapFilename2);
-                const buffer2 = await res2.arrayBuffer();
-                console.log(mapFilename2+": Binary file length:", buffer2.byteLength);
-                parseBKModelBinary(buffer2, false);
+				if (mapFilename2 === undefined) {
+				
+				}
+				else {
+					const res2 = await fetch('./' + game + '/' + mapFilename2);
+					const buffer2 = await res2.arrayBuffer();
+					console.log(mapFilename2+": Binary file length:", buffer2.byteLength);
+					parseBKModelBinary(buffer2, false);
+				}
             } catch (err) {
                 console.error(err);
             }
         }
-        else if (game == "OOT3D" || game == "MM3D"){
+        else if (game == "OOT" || game == "MM" || game == "OOT3D" || game == "MM3D"){
             const mapName = document.getElementById("mapDropdown").value;
             let mapFilename = getFileName(game, mapName);
 
@@ -400,13 +439,17 @@
                 console.log(mapFilename+": Binary file length:", buffer1.byteLength);
                 parseZeldaModelBinary(buffer1, true);
                 
-                if (game == "MM3D" || game == "OOT3D") {
+                if (game == "OOT" || game == "MM" || game == "OOT3D" || game == "MM3D") {
                     let mapFilename2 = getSeamsFileName(game, mapName);
-                    
-                    const res2 = await fetch('./' + game + '/seams/' + mapFilename2);
-                    const buffer2 = await res2.arrayBuffer();
-                    console.log(mapFilename2+": Binary file length:", buffer2.byteLength);
-                    parseEdgeText(new TextDecoder().decode(buffer2));
+					if (mapFilename2 === undefined) {
+					
+					}
+                    else {
+						const res2 = await fetch('./' + game + '/seams/' + mapFilename2);
+						const buffer2 = await res2.arrayBuffer();
+						console.log(mapFilename2+": Binary file length:", buffer2.byteLength);
+						parseEdgeText(new TextDecoder().decode(buffer2));
+					}
                 }
             } catch (err) {
                 console.error(err);
@@ -444,7 +487,7 @@
       else {
         if(game == "BK" || game == "BT")
             parseBKModelBinary(buffer, true);
-        else if (game == "OOT3D" || game == "MM3D")
+        else if (game == "OOT" || game == "MM" || game == "OOT3D" || game == "MM3D")
             parseZeldaModelBinary(buffer, true);
         else
             parseModelBinary(buffer);
@@ -582,34 +625,54 @@
         alert('binary too small');
         return;
       }
-        
-      let current_addr = 0x10;
+      
+	  let endianness = false;
+	  let current_addr = 0x0;
+	  let address_offset = 0x0;
+	  let poly_length = 0x10;
+	  if (game == "OOT3D" || game == "MM3D") {
+		endianness = true;
+        current_addr = 0x10;
+		address_offset = 0x10;
+		poly_length = 0x14;
+	  }
+	  
       let cmd1 = dv.getUint8(current_addr);
-      let cmd2 = dv.getUint32(current_addr+0x4, true);
+	  let cmd2 = dv.getUint32(current_addr+0x4, endianness);
+		
       let numVtxs = 0, numPolygons = 0, vtxListStart = 0, polygonListStart = 0;
       
       while (cmd1 != 0x14) {
         if (cmd1 == 0x03) {
-            //console.log("current_addr: "+current_addr+", "+cmd1+", "+cmd2);
+			if (game == "OOT" || game == "MM")
+			    cmd2 = dv.getUint32(current_addr+0x4, endianness) - 0x02000000;
+		    
+            console.log("current_addr: "+current_addr+", "+cmd1+", "+cmd2);
             
-            if (game == "OOT3D") {
-                numVtxs = dv.getUint16(cmd2+0x10+0x0C, true);
-                numPolygons = dv.getUint16(cmd2+0x10+0x0E, true);
-                vtxListStart = dv.getUint32(cmd2+0x10+0x18, true);
-                polygonListStart = dv.getUint32(cmd2+0x10+0x1C, true);
+			if (game == "OOT" || game == "MM") {
+                numVtxs = dv.getUint16(cmd2+0x0C, endianness);
+                vtxListStart = dv.getUint32(cmd2+0x10, endianness);
+                numPolygons = dv.getUint16(cmd2+0x14, endianness);
+                polygonListStart = dv.getUint32(cmd2+0x18, endianness);
+            }
+            else if (game == "OOT3D") {
+                numVtxs = dv.getUint16(cmd2+address_offset+0x0C, endianness);
+                numPolygons = dv.getUint16(cmd2+address_offset+0x0E, endianness);
+                vtxListStart = dv.getUint32(cmd2+address_offset+0x18, endianness);
+                polygonListStart = dv.getUint32(cmd2+address_offset+0x1C, endianness);
             }
             else if (game == "MM3D") {
-                numVtxs = dv.getUint16(cmd2+0x10+0x0E, true);
-                numPolygons = dv.getUint16(cmd2+0x10+0x10, true);
-                vtxListStart = dv.getUint32(cmd2+0x10+0x18, true);
-                polygonListStart = dv.getUint32(cmd2+0x10+0x1C, true);
+                numVtxs = dv.getUint16(cmd2+address_offset+0x0E, endianness);
+                numPolygons = dv.getUint16(cmd2+address_offset+0x10, endianness);
+                vtxListStart = dv.getUint32(cmd2+address_offset+0x18, endianness);
+                polygonListStart = dv.getUint32(cmd2+address_offset+0x1C, endianness);
             }
             break;
         }
         
         current_addr = current_addr + 0x8;
         cmd1 = dv.getUint8(current_addr);
-        cmd2 = dv.getUint32(current_addr+0x4, true);
+        cmd2 = dv.getUint32(current_addr+0x4, endianness);
       }
       
       console.log("numVtxs: "+numVtxs);
@@ -618,26 +681,32 @@
       //console.log("polygonListStart: "+polygonListStart);
       
       const verts = [];
-      let offset = vtxListStart + 0x10;
+      let offset = vtxListStart + address_offset;
+	  if (game == "OOT" || game == "MM")
+		offset = vtxListStart + address_offset - 0x02000000;
       for(let i=0;i<numVtxs;i++){
-        const x = dv.getInt16(offset, true); offset += 2;
-        const y = dv.getInt16(offset, true); offset += 2;
-        const z = dv.getInt16(offset, true); offset += 2;
+        const x = dv.getInt16(offset, endianness); offset += 2;
+        const y = dv.getInt16(offset, endianness); offset += 2;
+        const z = dv.getInt16(offset, endianness); offset += 2;
 
         verts.push([x, y, z]);
       }
       //console.log(verts);
       
       const tris = [];
-      offset = polygonListStart + 0x10;
+      offset = polygonListStart + address_offset;
+	  if (game == "OOT" || game == "MM")
+		offset = polygonListStart + address_offset - 0x02000000;
       for(let i=0;i<numPolygons;i++){
-        if(offset+0x14>dv.byteLength) break;
+        if(offset+poly_length>dv.byteLength) break;
+		
         offset+=2;
-        const a = dv.getUint16(offset,true) & 0x1FFF; offset+=2;
-        const b = dv.getUint16(offset,true) & 0x1FFF; offset+=2;
-        const c = dv.getUint16(offset,true) & 0x1FFF; offset+=2;
-        offset+=0xC;
-        tris.push([a,b,c]);
+        const a = dv.getUint16(offset,endianness) & 0x1FFF; offset+=2;
+        const b = dv.getUint16(offset,endianness) & 0x1FFF; offset+=2;
+        const c = dv.getUint16(offset,endianness) & 0x1FFF; offset+=2;
+		
+	    offset += poly_length-0x8;
+        tris.push([a+1,b+1,c+1]);
       }
       //console.log(tris)
       
