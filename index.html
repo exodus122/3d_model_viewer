@@ -85,6 +85,8 @@
         <label>Flying Speed <input id="movementSpeedSlider" type="range" min="500" max="5000" step="500" value="2000"></label>
         <label><input id="wireframe" type="checkbox" checked> Draw triangle edges</label>
         <label><input id="backface" type="checkbox"> Double-sided</label>
+		<div style="display: flex; align-items: center; margin-bottom: 4px; gap: 8px;">
+		<label><input type="checkbox" id="flatGroundCheckbox">Flat Ground Clips</label><input type="color" id="flatGroundColorPicker" value="#ff00ff">
         <label style="display:none;"><input id="translucent" type="checkbox" checked> Translucent (opacity)</label>
         <label style="display:none;">Opacity <input id="opacity" type="range" min="0" max="1" step="0.01" value="1.0"></label>
         <label style="display:none;"><input id="grid" type="checkbox"> Draw grid</label>
@@ -840,6 +842,10 @@
         loadedModels.push({ name, mesh: meshObj, edges: edgesObj });
         //console.log(loadedModels);
         addModelCheckbox(name, meshObj, edgesObj, clearFirst);
+		
+		// After loading model
+		scanAndBuildFlatGroundMarkers();
+		updateFlatGroundUIVisibility();
     }
     
     function buildGeometryFromEdges(verts, edges, name = "Edge Model", clearFirst = true) {
@@ -1100,6 +1106,135 @@
         addSelectionMarker(newTri);
         updateSelectionUI();
     }
+	
+	////////////////////////////////////////
+	// System: Flat Ground Preview (auto triangle markers)
+	////////////////////////////////////////
+
+	let flatGroundEnabled = false;
+	let flatGroundColor = 0xff00ff; // default
+	let flatGroundMarkers = [];     // stored meshes
+
+	// UI elements (create them somewhere in your sidebar)
+	const flatGroundContainer = document.getElementById("flatGroundContainer"); 
+	const flatGroundCheckbox  = document.getElementById("flatGroundCheckbox");
+	const flatGroundColorPicker = document.getElementById("flatGroundColorPicker");
+
+	// UI logic
+	function updateFlatGroundUIVisibility() {
+		if (["OOT","MM","OOT3D","MM3D"].includes(game)) {
+			flatGroundCheckbox.style.display = "inline-block";
+			flatGroundColorPicker.style.display = "inline-block";
+			flatGroundLabel.style.display = "inline-block";
+		} else {
+			flatGroundCheckbox.style.display = "none";
+			flatGroundColorPicker.style.display = "none";
+			flatGroundLabel.style.display = "none";
+			clearFlatGroundMarkers();
+		}
+	}
+
+	flatGroundCheckbox.addEventListener("change", () => {
+		flatGroundEnabled = flatGroundCheckbox.checked;
+		if (flatGroundEnabled) {
+			scanAndBuildFlatGroundMarkers();
+		} else {
+			clearFlatGroundMarkers();
+		}
+	});
+
+	flatGroundColorPicker.addEventListener("input", () => {
+		flatGroundColor = parseInt(flatGroundColorPicker.value.replace("#",""), 16);
+		recolorFlatGroundMarkers();
+	});
+
+
+	////////////////////////////////////////
+	// Building / clearing markers
+	////////////////////////////////////////
+
+	function clearFlatGroundMarkers() {
+		for (const m of flatGroundMarkers) {
+			scene.remove(m);
+			if (m.geometry) m.geometry.dispose();
+			if (m.material) m.material.dispose();
+		}
+		flatGroundMarkers.length = 0;
+	}
+
+	function recolorFlatGroundMarkers() {
+		for (const m of flatGroundMarkers) {
+			m.material.color.setHex(flatGroundColor);
+		}
+	}
+
+	function createFlatGroundMarker(verts) {
+		const geom = new THREE.BufferGeometry();
+		const arr = new Float32Array([
+			verts[0].x, verts[0].y, verts[0].z,
+			verts[1].x, verts[1].y, verts[1].z,
+			verts[2].x, verts[2].y, verts[2].z
+		]);
+		geom.setAttribute("position", new THREE.BufferAttribute(arr, 3));
+		geom.setIndex([0,1,2]);
+
+		const mat = new THREE.MeshBasicMaterial({
+			color: flatGroundColor,
+			side: THREE.DoubleSide,
+			transparent: true,
+			opacity: 0.9,
+			polygonOffset: true,
+			polygonOffsetFactor: -1,
+			polygonOffsetUnits: -1
+		});
+
+		const mesh = new THREE.Mesh(geom, mat);
+		scene.add(mesh);
+		flatGroundMarkers.push(mesh);
+	}
+
+	////////////////////////////////////////
+	// Scan loaded models for flat ground
+	////////////////////////////////////////
+
+	function scanAndBuildFlatGroundMarkers() {
+		clearFlatGroundMarkers();
+		if (!flatGroundEnabled) return;
+
+		for (const model of loadedModels) {
+			if (!model.mesh || !model.mesh.visible) continue;
+
+			const geom = model.mesh.geometry;
+			const pos = geom.attributes.position;
+			const index = geom.index;
+
+			for (let i = 0; i < index.count; i += 3) {
+				const a = index.getX(i);
+				const b = index.getX(i + 1);
+				const c = index.getX(i + 2);
+
+				const va = new THREE.Vector3().fromBufferAttribute(pos, a);
+				const vb = new THREE.Vector3().fromBufferAttribute(pos, b);
+				const vc = new THREE.Vector3().fromBufferAttribute(pos, c);
+				
+				const edge1 = new THREE.Vector3().subVectors(vb, va);
+				const edge2 = new THREE.Vector3().subVectors(vc, va);
+				const normal = new THREE.Vector3().crossVectors(edge1, edge2).normalize();
+
+				// All y equal?
+				if (va.y === vb.y && vb.y === vc.y && normal.y > 0) {
+					// In table?
+					if (flat_ground_clip_y_table.has(Math.round(va.y))) {
+						createFlatGroundMarker([va, vb, vc]);
+					}
+				}
+			}
+		}
+	}
+	
+	
+	
+	
     
     ////////////////////////////////////////
     // System: Canvas / Pointer interactions
