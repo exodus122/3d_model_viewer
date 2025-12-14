@@ -1317,8 +1317,10 @@
         const chk = document.createElement('input');
         chk.type = 'checkbox';
         chk.checked = checked;
-		meshObj.visible = checked;
-		edgesObj.visible = checked;
+		if (meshObj != null)
+			meshObj.visible = checked;
+		if (edgesObj != null)
+			edgesObj.visible = checked;
         chk.addEventListener('change', () => {
             if (meshObj != null)
                 meshObj.visible = chk.checked;
