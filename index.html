@@ -182,6 +182,7 @@
     let controlMode = 'pointer'; // State regarding which control mode is active: 'pointer' | 'orbit' | 'auto'
     let pointerLockBlocked = false; // whether requestPointerLock is blocked (sandboxed iframe)
     let loadedModels = []; // { name, mesh, edges }
+    let loadedModels2 = []; // { name, mesh, edges }
     let mesh = null;
     let edges = null;
     let selectedTriangles = []; // Store multiple selections
@@ -446,10 +447,19 @@
 					
 					}
                     else {
-						const res2 = await fetch('./' + game + '/seams/' + mapFilename2);
+						let seams_path = "seams";
+						if (game == "OOT3D" || game == "MM3D")
+							seams_path = "seams2";
+						const res2 = await fetch('./' + game + '/' + seams_path + '/' + mapFilename2);
+						//const res2 = await fetch('./' + game + '/' + seams_path + '/' + "test.txt");
+							
 						const buffer2 = await res2.arrayBuffer();
 						console.log(mapFilename2+": Binary file length:", buffer2.byteLength);
-						parseEdgeText(new TextDecoder().decode(buffer2));
+						
+						if (game == "OOT3D" || game == "MM3D")
+							parseInvisibleSeams2D_2(new TextDecoder().decode(buffer2));
+						else
+							parseInvisibleSeams1D(new TextDecoder().decode(buffer2));
 					}
                 }
             } catch (err) {
@@ -476,7 +486,7 @@
 
     // Detect binary vs text simple heuristic
     function parseModel(buffer){
-      if(typeof buffer === 'string') { parseEdgeText(buffer); return; }
+      if(typeof buffer === 'string') { parseInvisibleSeams1D(buffer); return; }
       const uint8 = new Uint8Array(buffer);
       let isText = true;
       for(let i=0;i<Math.min(64,uint8.length);i++){
@@ -484,7 +494,7 @@
         if(c===9||c===10||c===13) continue;
         if(c<32 || c>126){ isText=false; break; }
       }
-      if(isText) parseEdgeText(new TextDecoder().decode(buffer));
+      if(isText) parseInvisibleSeams1D(new TextDecoder().decode(buffer));
       else {
         if(game == "BK" || game == "BT")
             parseBKModelBinary(buffer, true);
@@ -732,7 +742,7 @@
         buildGeometry(verts, tris, `Model ${loadedModels.length+1}`, fresh);
     }
     
-    function parseEdgeText(text) {
+    function parseInvisibleSeams1D(text) {
         const lines = text.split(/\r?\n/).map(s => s.trim()).filter(s => s && s[0] !== "#");
 
         const verts = [];      // unique vertices
@@ -762,6 +772,379 @@
         //console.log(`Model "${name}": ${verts.length} verts, ${edges.length} edges`);
         buildGeometryFromEdges(verts, edges, "Seams Model", false);
     }
+	
+	function parseInvisibleSeams2D(text) {
+		const lines = text
+			.split(/\r?\n/)
+			.map(s => s.trim())
+			.filter(s => s && s[0] !== "#");
+
+		const verts = [];
+		const vertMap = new Map();
+		const tris = [];
+		const edgeLines = []; // will store line segments for the edges
+
+		function getVertIndex(v) {
+			const key = v.join(",");
+			if (vertMap.has(key)) return vertMap.get(key);
+			const idx = verts.length;
+			verts.push(v);
+			vertMap.set(key, idx);
+			return idx;
+		}
+
+		// Process in groups of 3 edges
+		for (let i = 0; i < lines.length; i += 3) {
+			const edges = [];
+
+			for (let j = 0; j < 3; j++) {
+				const parts = lines[i + j].split(",").map(Number);
+				const v0 = parts.slice(0, 3);
+				const v1 = parts.slice(3, 6);
+
+				const i0 = getVertIndex(v0);
+				const i1 = getVertIndex(v1);
+
+				edges.push([i0, i1]); // edges = [[A,A2],[B,B2],[C,C2]]
+			}
+
+			// Helper to create a quad (2 triangles) and its outer edges
+			function quad(e0, e1) {
+				const [a, a2] = e0;
+				const [b, b2] = e1;
+
+				// Add triangles
+				tris.push([a, b, b2]);
+				tris.push([a, b2, a2]);
+
+				// Add edges (perimeter)
+				edgeLines.push([a, b]);
+				edgeLines.push([b, b2]);
+				edgeLines.push([b2, a2]);
+				edgeLines.push([a2, a]);
+			}
+
+			// Shade quads 1↔2, 2↔3, 1↔3
+			quad(edges[0], edges[1]);
+			quad(edges[1], edges[2]);
+			quad(edges[0], edges[2]);
+		}
+
+		// -----------------------
+		// Build geometry for mesh
+		// -----------------------
+		const positions = new Float32Array(verts.length * 3);
+		for (let i = 0; i < verts.length; i++) {
+			positions.set(verts[i], i * 3);
+		}
+
+		const indices = new (verts.length > 65535 ? Uint32Array : Uint16Array)(tris.length * 3);
+		tris.forEach((t, i) => indices.set(t, i * 3));
+
+		const geom = new THREE.BufferGeometry();
+		geom.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+		geom.setIndex(new THREE.BufferAttribute(indices, 1));
+		geom.computeVertexNormals();
+
+		const mat = new THREE.MeshBasicMaterial({
+			color: 0x00ff00,
+			side: THREE.DoubleSide,
+            polygonOffset: true,
+            polygonOffsetFactor: 4,
+            polygonOffsetUnits: 4
+		});
+
+		const mesh = new THREE.Mesh(geom, mat);
+		scene.add(mesh);
+
+		// -----------------------
+		// Build edges
+		// -----------------------
+		const edgePositions = [];
+		for (const [i1, i2] of edgeLines) {
+			const v1 = verts[i1];
+			const v2 = verts[i2];
+			edgePositions.push(v1[0], v1[1], v1[2]);
+			edgePositions.push(v2[0], v2[1], v2[2]);
+		}
+
+		const edgeGeom = new THREE.BufferGeometry();
+		edgeGeom.setAttribute('position', new THREE.Float32BufferAttribute(edgePositions, 3));
+
+		const edgeMaterial = new THREE.LineBasicMaterial({
+			color: 0x3240a8,
+			transparent: true,
+			opacity: 1.0,
+                depthTest: true
+		});
+
+		const edgesObj = new THREE.LineSegments(edgeGeom, edgeMaterial);
+		scene.add(edgesObj);
+
+        loadedModels.push({ name: "Invis Seams", mesh: mesh, edges: edgesObj });
+
+        // Register in UI
+        addModelCheckbox("Invis Seams", mesh, edgesObj, false, true);
+	}
+	
+	function parseInvisibleSeams2D_2(text) {
+		const lines = text
+			.split(/\r?\n/)
+			.map(s => s.trim())
+			.filter(s => s && s[0] !== "#");
+
+		const verts = [];
+		const vertMap = new Map();
+		const tris = [];
+		const quadEdges = []; // store edges for each quad
+
+		function getVertIndex(v) {
+			const key = v.join(",");
+			if (vertMap.has(key)) return vertMap.get(key);
+			const idx = verts.length;
+			verts.push(v);
+			vertMap.set(key, idx);
+			return idx;
+		}
+
+		for (let i = 0; i < lines.length; i += 3) {
+			const edges = [];
+
+			for (let j = 0; j < 3; j++) {
+				const parts = lines[i + j].split(",").map(Number);
+				const bottom = parts.slice(0, 3);
+				const top = parts.slice(3, 6);
+				const iBottom = getVertIndex(bottom);
+				const iTop = getVertIndex(top);
+				edges.push([iBottom, iTop]); // [[A,A2],[B,B2],[C,C2]]
+			}
+
+			// Build 1 quad per edge (2 triangles each)
+			function addQuad(edge) {
+				const idx = edges.indexOf(edge);
+				const [b, t] = edge; // bottom, top
+				const nextEdge = edges[(idx + 1) % 3];
+				const [bNext, tNext] = nextEdge;
+
+				// Add triangles for this quad
+				tris.push([b, tNext, t]);
+				tris.push([b, bNext, tNext]);
+
+				// Store edges for this quad (4 sides)
+				quadEdges.push([b, t]);       // left vertical
+				quadEdges.push([t, tNext]);   // top
+				quadEdges.push([tNext, bNext]); // right vertical
+				quadEdges.push([bNext, b]);   // bottom
+			}
+
+			edges.forEach(addQuad);
+		}
+
+		// -----------------------
+		// Build mesh geometry
+		// -----------------------
+		const positions = new Float32Array(verts.length * 3);
+		for (let i = 0; i < verts.length; i++) positions.set(verts[i], i * 3);
+
+		const indices = new (verts.length > 65535 ? Uint32Array : Uint16Array)(tris.length * 3);
+		tris.forEach((t, i) => indices.set(t, i * 3));
+
+		const geom = new THREE.BufferGeometry();
+		geom.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+		geom.setIndex(new THREE.BufferAttribute(indices, 1));
+		geom.computeVertexNormals();
+
+		const mat = new THREE.MeshBasicMaterial({
+			color: 0x5cff90, // 0x00ff00,
+			side: THREE.DoubleSide,
+			polygonOffset: true,
+			polygonOffsetFactor: 4,
+			polygonOffsetUnits: 4
+		});
+
+		const mesh = new THREE.Mesh(geom, mat);
+		scene.add(mesh);
+
+		// -----------------------
+		// Build edges for each quad
+		// -----------------------
+		const edgeMap = new Map(); // deduplicate edges
+		for (const [i1, i2] of quadEdges) {
+			const key = i1 < i2 ? `${i1},${i2}` : `${i2},${i1}`;
+			edgeMap.set(key, [i1, i2]);
+		}
+
+		const edgePositions = [];
+		for (const [i1, i2] of edgeMap.values()) {
+			const v1 = verts[i1];
+			const v2 = verts[i2];
+			edgePositions.push(v1[0], v1[1], v1[2]);
+			edgePositions.push(v2[0], v2[1], v2[2]);
+		}
+
+		const edgeGeom = new THREE.BufferGeometry();
+		edgeGeom.setAttribute('position', new THREE.Float32BufferAttribute(edgePositions, 3));
+
+		const edgeMaterial = new THREE.LineBasicMaterial({
+			color: 0x3240a8,
+			transparent: true,
+			opacity: 1.0,
+			depthTest: true
+		});
+
+		const edgesObj = new THREE.LineSegments(edgeGeom, edgeMaterial);
+		scene.add(edgesObj);
+
+		loadedModels.push({ name: "Invis Seams", mesh, edges: edgesObj });
+		addModelCheckbox("Invis Seams", mesh, edgesObj, false, true);
+	}
+	
+	function parseInvisibleSeams2D_outerQuad(text) {
+		const lines = text
+			.split(/\r?\n/)
+			.map(s => s.trim())
+			.filter(s => s && s[0] !== "#");
+
+		const verts = [];
+		const vertMap = new Map();
+		const tris = [];
+		const quadEdges = [];
+
+		function getVertIndex(v) {
+			const key = v.join(",");
+			if (vertMap.has(key)) return vertMap.get(key);
+			const idx = verts.length;
+			verts.push(v);
+			vertMap.set(key, idx);
+			return idx;
+		}
+
+		for (let i = 0; i < lines.length; i += 3) {
+			const bottom = [];
+			const top = [];
+
+			for (let j = 0; j < 3; j++) {
+				const parts = lines[i + j].split(",").map(Number);
+				bottom.push(parts.slice(0, 3));
+				top.push(parts.slice(3, 6));
+			}
+
+			// Pick the top 2 vertices (highest Y) to form the outer quad
+			const topIndices = [0, 1, 2].sort((a, b) => bottom[b][1] - bottom[a][1]).slice(0, 2);
+			const iBottom = topIndices.map(idx => getVertIndex(bottom[idx]));
+			const iTop = topIndices.map(idx => getVertIndex(top[idx]));
+
+			// Add exactly 2 triangles for the outer quad
+			tris.push([iBottom[0], iTop[0], iTop[1]]);
+			tris.push([iBottom[0], iTop[1], iBottom[1]]);
+
+			// Add edges for the quad
+			quadEdges.push([iBottom[0], iTop[0]]);
+			quadEdges.push([iTop[0], iTop[1]]);
+			quadEdges.push([iTop[1], iBottom[1]]);
+			quadEdges.push([iBottom[1], iBottom[0]]);
+		}
+
+		// --- Build mesh geometry ---
+		const positions = new Float32Array(verts.length * 3);
+		for (let i = 0; i < verts.length; i++) positions.set(verts[i], i * 3);
+
+		const indices = new (verts.length > 65535 ? Uint32Array : Uint16Array)(tris.length * 3);
+		tris.forEach((t, i) => indices.set(t, i * 3));
+
+		const geom = new THREE.BufferGeometry();
+		geom.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+		geom.setIndex(new THREE.BufferAttribute(indices, 1));
+		geom.computeVertexNormals();
+
+		const mat = new THREE.MeshBasicMaterial({
+			color: 0x00ff00,
+			side: THREE.DoubleSide,
+			polygonOffset: true,
+			polygonOffsetFactor: 4,
+			polygonOffsetUnits: 4
+		});
+
+		const mesh = new THREE.Mesh(geom, mat);
+		scene.add(mesh);
+
+		// --- Build edges ---
+		const edgeMap = new Map();
+		for (const [i1, i2] of quadEdges) {
+			const key = i1 < i2 ? `${i1},${i2}` : `${i2},${i1}`;
+			edgeMap.set(key, [i1, i2]);
+		}
+
+		const edgePositions = [];
+		for (const [i1, i2] of edgeMap.values()) {
+			const v1 = verts[i1];
+			const v2 = verts[i2];
+			edgePositions.push(v1[0], v1[1], v1[2], v2[0], v2[1], v2[2]);
+		}
+
+		const edgeGeom = new THREE.BufferGeometry();
+		edgeGeom.setAttribute('position', new THREE.Float32BufferAttribute(edgePositions, 3));
+
+		const edgeMat = new THREE.LineBasicMaterial({
+			color: 0x3240a8,
+			transparent: true,
+			opacity: 1.0,
+			depthTest: true
+		});
+
+		const edgesObj = new THREE.LineSegments(edgeGeom, edgeMat);
+		scene.add(edgesObj);
+
+		loadedModels.push({ name: "Invis Seams", mesh, edges: edgesObj });
+		addModelCheckbox("Invis Seams", mesh, edgesObj, false, true);
+	}
+	
+	function parseInvisibleSeams_Alt(text) {
+		const lines = text.split(/\r?\n/)
+			.map(s => s.trim())
+			.filter(s => s && s[0] !== "#");
+
+		if (lines.length % 3 !== 0) {
+			console.warn("Warning: file does not contain 3-line groups");
+		}
+
+		const allVerts = [];
+		const allTris = [];
+		let offset = 0;
+
+		for (let i = 0; i < lines.length; i += 3) {
+			const pA = lines[i].split(",").map(Number);
+			const pB = lines[i+1].split(",").map(Number);
+			const pC = lines[i+2].split(",").map(Number);
+
+			const A = pA.slice(0,3), A2 = pA.slice(3,6);
+			const B = pB.slice(0,3), B2 = pB.slice(3,6);
+			const C = pC.slice(0,3), C2 = pC.slice(3,6);
+
+			// Vertices: bottom + top
+			const shapeVerts = [A, B, C, A2, B2, C2];
+			const bA = 0, bB = 1, bC = 2;
+			const tA = 3, tB = 4, tC = 5;
+
+			const shapeTris = [];
+
+			// Side walls
+			shapeTris.push([bA, bB, tB], [bA, tB, tA]); // side AB
+			shapeTris.push([bB, bC, tC], [bB, tC, tB]); // side BC
+			shapeTris.push([bC, bA, tA], [bC, tA, tC]); // side CA
+
+			// Top triangle only (exclude bottom)
+			shapeTris.push([tA, tB, tC]);
+
+			// Append to global arrays
+			for (const v of shapeVerts) allVerts.push(v);
+			for (const t of shapeTris) allTris.push([t[0]+offset, t[1]+offset, t[2]+offset]);
+
+			offset += shapeVerts.length;
+		}
+
+		buildGeometry(allVerts, allTris, "Extruded Shape Model", false);
+	}
 
     ////////////////////////////////////////
     // System: Geometry creation / model UI helpers
@@ -780,6 +1163,11 @@
                 scene.remove(m.edges);
             });
             loadedModels = [];
+            loadedModels2.forEach(m => {
+                scene.remove(m.mesh);
+                scene.remove(m.edges);
+            });
+            loadedModels2 = [];
 
             // Remove all model checkboxes
             removeAllModelCheckboxes();
@@ -840,7 +1228,7 @@
         // Store and register in UI
         loadedModels.push({ name, mesh: meshObj, edges: edgesObj });
         //console.log(loadedModels);
-        addModelCheckbox(name, meshObj, edgesObj, clearFirst);
+        addModelCheckbox(name, meshObj, edgesObj, clearFirst, true);
 		
 		// After loading model
 		scanAndBuildFlatGroundMarkers();
@@ -885,9 +1273,9 @@
             edgeGeom,
             new THREE.LineBasicMaterial({
                 color: 0x00ff00,   // green
-                linewidth: 0.02,   // thickness in world units
+                linewidth: 1,   // thickness in world units
                 transparent: false,
-                opacity: 1,
+                opacity: 0.8,
                 depthTest: true
             })
         );
@@ -898,7 +1286,7 @@
         loadedModels.push({ name, mesh: null, edges: edgesObj });
 
         // Register in UI
-        addModelCheckbox(name, null, edgesObj, clearFirst);
+        addModelCheckbox(name, null, edgesObj, clearFirst, true);
     }
     
     function removeAllModelCheckboxes() {
@@ -912,7 +1300,7 @@
         });
     }
 
-    function addModelCheckbox(name, meshObj, edgesObj, clearFirst) {
+    function addModelCheckbox(name, meshObj, edgesObj, clearFirst, checked) {
         const section = document.querySelector('.controls');
 
         // Container
@@ -928,11 +1316,14 @@
         label.style.alignItems = 'center';
         const chk = document.createElement('input');
         chk.type = 'checkbox';
-        chk.checked = true;
+        chk.checked = checked;
+		meshObj.visible = checked;
+		edgesObj.visible = checked;
         chk.addEventListener('change', () => {
             if (meshObj != null)
                 meshObj.visible = chk.checked;
-            edgesObj.visible = chk.checked && wireframeCheckbox.checked;
+            if (edgesObj != null)
+				edgesObj.visible = chk.checked && wireframeCheckbox.checked;
             clearSelection();
         });
         label.appendChild(chk);
@@ -963,15 +1354,21 @@
     ////////////////////////////////////////
     // System: Selection (raycast, markers, UI)
     ////////////////////////////////////////
-
+	
     // Update selection UI
     function updateSelectionUI() {
         if (selectedTriangles.length === 0) {
             selectionListEl.value = '';
             return;
         }
+		
+		function formatNumber(v) {
+			return (v % 1 === 0) ? v.toString() : v.toFixed(7);
+		}
+		
         selectionListEl.value = selectedTriangles.map(sel => {
-            const pts = sel.verts.map(v => `${v.x.toFixed(0)} ${v.y.toFixed(0)} ${v.z.toFixed(0)}`);
+            //const pts = sel.verts.map(v => `${v.x.toFixed(0)} ${v.y.toFixed(0)} ${v.z.toFixed(0)}`);
+            const pts = sel.verts.map(v => `${formatNumber(v.x)} ${formatNumber(v.y)} ${formatNumber(v.z)}`);
             //return `${sel.index} | ${pts.join(' ')}`;
             return `${pts.join(' ')}`;
         }).join('\n');
