@@ -83,6 +83,7 @@
         </select>
         <div id="status" role="status" aria-live="polite">Status: starting...</div>
         <label>Flying Speed <input id="movementSpeedSlider" type="range" min="500" max="5000" step="500" value="2000"></label>
+        <label id="display_fwc_label" style="display:none;"><input id="display_fwc" type="checkbox"> Display floors/walls/ceilings on load</label>
         <label><input id="wireframe" type="checkbox" checked> Draw triangle edges</label>
         <label><input id="backface" type="checkbox"> Double-sided</label>
 		<div style="display: flex; align-items: center; margin-bottom: 4px; gap: 8px;"><label id="flatGroundLabel"><input type="checkbox" id="flatGroundCheckbox">Flat Ground Clips</label><input type="color" id="flatGroundColorPicker" value="#ff00ff"></div>
@@ -149,6 +150,8 @@
     const statusEl = document.getElementById('status');
     const controlModeSel = document.getElementById('control-mode');
     const gameSel = document.getElementById('selected-game');
+    const display_fwc = document.getElementById('display_fwc');
+    const display_fwc_label = document.getElementById('display_fwc_label');
     
     const multiSelectCheckbox = document.getElementById('multiSelect');
     const selectionListEl = document.getElementById('selectionListEl');
@@ -192,6 +195,8 @@
     
     // Material used as base for clones per mesh
     const material = new THREE.MeshStandardMaterial({color:0x3aa6ff,side:THREE.FrontSide,transparent:true,opacity:1.0,flatShading:true});
+    const material2 = new THREE.MeshStandardMaterial({color:0xf56342,side:THREE.FrontSide,transparent:true,opacity:1.0,flatShading:true});
+    const material3 = new THREE.MeshStandardMaterial({color:0xe1eb34,side:THREE.FrontSide,transparent:true,opacity:1.0,flatShading:true});
     
     // Raycaster for selection
     const raycaster = new THREE.Raycaster();
@@ -328,6 +333,12 @@
             mapDropdown.appendChild(option);
           });
       }
+	  
+	  if (game == "BK" || game == "BT")
+		display_fwc_label.style.display = "none";
+	  else
+		display_fwc_label.style.display = "block";
+	    
     });
     
     ////////////////////////////////////////
@@ -494,7 +505,8 @@
         if(c===9||c===10||c===13) continue;
         if(c<32 || c>126){ isText=false; break; }
       }
-      if(isText) parseInvisibleSeams1D(new TextDecoder().decode(buffer));
+      if(isText && (game == "OOT" || game == "MM")) parseZeldaModelTextTriangles(new TextDecoder().decode(buffer), true);
+      else if(isText) parseInvisibleSeams1D(new TextDecoder().decode(buffer));
       else {
         if(game == "BK" || game == "BT")
             parseBKModelBinary(buffer, true);
@@ -629,6 +641,63 @@
       else
         buildGeometry(verts, tris, `Model ${loadedModels.length+1}`, fresh);
     }
+	
+	function parseZeldaModelTextTriangles(text, fresh) {
+		const lines = text
+			.split(/\r?\n/)
+			.map(s => s.trim())
+			.filter(s => s && s[0] !== "#");
+		
+		console.log("hi")
+		const verts = [];
+		const vertMap = new Map(); // "x,y,z" -> index
+		const tris = [];
+
+		function getVertIndex(v) {
+			const key = v.join(",");
+			if (vertMap.has(key)) return vertMap.get(key);
+			const idx = verts.length;
+			verts.push(v);
+			vertMap.set(key, idx);
+			return idx;
+		}
+
+		for (const line of lines) {
+			const p = line.split(",").map(Number);
+			if (p.length !== 9) continue;
+
+			const v1 = p.slice(0, 3);
+			const v2 = p.slice(3, 6);
+			const v3 = p.slice(6, 9);
+
+			const a = getVertIndex(v1);
+			const b = getVertIndex(v2);
+			const c = getVertIndex(v3);
+
+			tris.push([a, b, c]);
+		}
+
+		// sanity check (matches your binary loader behavior)
+		for (let i = 0; i < tris.length; i++) {
+			const [a, b, c] = tris[i];
+			if (
+				a < 0 || b < 0 || c < 0 ||
+				a >= verts.length ||
+				b >= verts.length ||
+				c >= verts.length
+			) {
+				//console.warn("Invalid triangle index", i, tris[i]);
+			}
+		}
+
+		if (fresh)
+			if (display_fwc.checked)
+				buildGeometry_fwc(verts, tris, "Main Model", fresh);
+			else
+				buildGeometry(verts, tris, "Main Model", fresh);
+		else
+			buildGeometry(verts, tris, `Model ${loadedModels.length + 1}`, fresh);
+	}
     
     function parseZeldaModelBinary(buffer, fresh){
       const dv = new DataView(buffer);
@@ -737,7 +806,10 @@
       }
       
       if(fresh)
-        buildGeometry(verts, tris, `Main Model`, fresh);
+		if (display_fwc.checked)
+			buildGeometry_fwc(verts, tris, `Main Model`, fresh);
+		else
+			buildGeometry(verts, tris, "Main Model", fresh);
       else
         buildGeometry(verts, tris, `Model ${loadedModels.length+1}`, fresh);
     }
@@ -1149,7 +1221,178 @@
     ////////////////////////////////////////
     // System: Geometry creation / model UI helpers
     ////////////////////////////////////////
-    function buildGeometry(verts, tris, name = "Main Model", clearFirst = true) {
+	function triangleNormalY(a, b, c) {
+		const ax = b[0] - a[0];
+		const ay = b[1] - a[1];
+		const az = b[2] - a[2];
+
+		const bx = c[0] - a[0];
+		const by = c[1] - a[1];
+		const bz = c[2] - a[2];
+
+		const nx = ay * bz - az * by;
+		const ny = az * bx - ax * bz;
+		const nz = ax * by - ay * bx;
+
+		const len = Math.sqrt(nx*nx + ny*ny + nz*nz) || 1;
+		return ny / len;
+	}
+	
+    function buildGeometry_fwc(verts, tris, name = "Main Model", clearFirst = true) {
+
+		if ((!verts || !tris || verts.length === 0 || tris.length === 0) && clearFirst) {
+			alert('No valid vertices or triangles found');
+			return;
+		}
+
+		// Clear existing models
+		if (clearFirst) {
+			loadedModels.forEach(m => {
+				scene.remove(m.mesh);
+				scene.remove(m.edges);
+			});
+			loadedModels = [];
+
+			loadedModels2.forEach(m => {
+				scene.remove(m.mesh);
+				scene.remove(m.edges);
+			});
+			loadedModels2 = [];
+
+			removeAllModelCheckboxes();
+			clearSelection();
+		}
+
+		// Build vertex buffer
+		const positions = new Float32Array(verts.length * 3);
+		for (let i = 0; i < verts.length; i++) {
+			positions[i * 3 + 0] = verts[i][0];
+			positions[i * 3 + 1] = verts[i][1];
+			positions[i * 3 + 2] = verts[i][2];
+		}
+
+		// Build index buffer
+		const indices = new (verts.length > 65535 ? Uint32Array : Uint16Array)(tris.length * 3);
+		for (let i = 0; i < tris.length; i++) {
+			indices[i * 3 + 0] = tris[i][0];
+			indices[i * 3 + 1] = tris[i][1];
+			indices[i * 3 + 2] = tris[i][2];
+		}
+
+		const geom = new THREE.BufferGeometry();
+		geom.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+		geom.setIndex(new THREE.BufferAttribute(indices, 1));
+		geom.clearGroups();
+
+		// --- normal.y helper ---
+		function triangleNormalY(a, b, c) {
+			const ax = b[0] - a[0];
+			const ay = b[1] - a[1];
+			const az = b[2] - a[2];
+
+			const bx = c[0] - a[0];
+			const by = c[1] - a[1];
+			const bz = c[2] - a[2];
+
+			const nx = ay * bz - az * by;
+			const ny = az * bx - ax * bz;
+			const nz = ax * by - ay * bx;
+
+			const len = Math.sqrt(nx * nx + ny * ny + nz * nz) || 1;
+			return ny / len;
+		}
+
+		// --- build geometry groups ---
+		let groupStart = 0;
+		let currentGroup = null;
+
+		for (let i = 0; i < tris.length; i++) {
+			const [ia, ib, ic] = tris[i];
+			const ny = triangleNormalY(verts[ia], verts[ib], verts[ic]);
+
+			let group;
+			if (ny > 0.5) {
+				group = 0;          // floor / gentle
+			} else if (ny < -0.8) {
+				group = 2;          // ceiling
+			} else {
+				group = 1;          // wall / steep
+			}
+
+			if (currentGroup === null) {
+				currentGroup = group;
+				groupStart = i * 3;
+			}
+
+			if (group !== currentGroup) {
+				geom.addGroup(groupStart, (i * 3) - groupStart, currentGroup);
+				groupStart = i * 3;
+				currentGroup = group;
+			}
+		}
+
+		// flush final group
+		geom.addGroup(groupStart, tris.length * 3 - groupStart, currentGroup);
+
+		// --- mesh ---
+		const meshObj = new THREE.Mesh(
+			geom,
+			[
+				material.clone(),   // group 0
+				material2.clone(),  // group 1
+				material3.clone()   // group 2
+			]
+		);
+
+		meshObj.material.forEach(m => {
+			m.polygonOffset = true;
+			m.polygonOffsetFactor = 1;
+			m.polygonOffsetUnits = 1;
+		});
+
+		if (!clearFirst) {
+			meshObj.material.forEach(m => m.color.set(0x3aff78));
+		}
+
+		scene.add(meshObj);
+
+		// --- wireframe edges ---
+		const edgePositions = [];
+		for (let i = 0; i < indices.length; i += 3) {
+			const a = indices[i], b = indices[i + 1], c = indices[i + 2];
+			const va = verts[a], vb = verts[b], vc = verts[c];
+			edgePositions.push(
+				va[0], va[1], va[2], vb[0], vb[1], vb[2],
+				vb[0], vb[1], vb[2], vc[0], vc[1], vc[2],
+				vc[0], vc[1], vc[2], va[0], va[1], va[2]
+			);
+		}
+
+		const edgeGeom = new THREE.BufferGeometry();
+		edgeGeom.setAttribute('position', new THREE.Float32BufferAttribute(edgePositions, 3));
+
+		const edgesObj = new THREE.LineSegments(
+			edgeGeom,
+			new THREE.LineBasicMaterial({
+				color: 0x3240a8,
+				linewidth: 1,
+				opacity: 0.8,
+				transparent: true
+			})
+		);
+
+		edgesObj.visible = wireframeCheckbox.checked;
+		scene.add(edgesObj);
+
+		// Register model
+		loadedModels.push({ name, mesh: meshObj, edges: edgesObj });
+		addModelCheckbox(name, meshObj, edgesObj, clearFirst, true);
+
+		scanAndBuildFlatGroundMarkers();
+		updateFlatGroundUIVisibility();
+	}
+	
+	function buildGeometry(verts, tris, name = "Main Model", clearFirst = true) {
         
         if ((!verts || !tris || verts.length === 0 || tris.length === 0) && clearFirst) { 
             alert('No valid vertices or triangles found'); 
@@ -1196,7 +1439,7 @@
         const geom = new THREE.BufferGeometry();
         geom.setAttribute('position', new THREE.BufferAttribute(positions, 3));
         geom.setIndex(new THREE.BufferAttribute(indices, 1));
-
+		
         const meshObj = new THREE.Mesh(geom, material.clone());
         meshObj.material.polygonOffset = true;
         meshObj.material.polygonOffsetFactor = 1;
