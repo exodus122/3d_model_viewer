@@ -458,16 +458,15 @@
 					
 					}
                     else {
-						let seams_path = "seams";
-						if (game == "OOT3D" || game == "MM3D")
-							seams_path = "seams2";
+						//let seams_path = "seams";
+						let seams_path = "seams2";
 						const res2 = await fetch('./' + game + '/' + seams_path + '/' + mapFilename2);
 						//const res2 = await fetch('./' + game + '/' + seams_path + '/' + "test.txt");
 							
 						const buffer2 = await res2.arrayBuffer();
 						console.log(mapFilename2+": Binary file length:", buffer2.byteLength);
 						
-						if (game == "OOT3D" || game == "MM3D")
+						if (game == "OOT" || game == "MM" || game == "OOT3D" || game == "MM3D")
 							parseInvisibleSeams2D_2(new TextDecoder().decode(buffer2));
 						else
 							parseInvisibleSeams1D(new TextDecoder().decode(buffer2));
