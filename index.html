@@ -86,7 +86,7 @@
         <label id="display_fwc_label" style="display:none;"><input id="display_fwc" type="checkbox"> Display floors/walls/ceilings on load</label>
         <label><input id="wireframe" type="checkbox" checked> Draw triangle edges</label>
         <label><input id="backface" type="checkbox"> Double-sided</label>
-		<div style="display: flex; align-items: center; margin-bottom: 4px; gap: 8px;"><label id="flatGroundLabel"><input type="checkbox" id="flatGroundCheckbox">Flat Ground Clips</label><input type="color" id="flatGroundColorPicker" value="#ff00ff"></div>
+		<div style="display: flex; align-items: center; margin-bottom: 4px; gap: 8px;" id="flatGroundContainer"><label id="flatGroundLabel"><input type="checkbox" id="flatGroundCheckbox">Flat Ground Clips</label><input type="color" id="flatGroundColorPicker" value="#ff00ff"></div>
         <label style="display:none;"><input id="translucent" type="checkbox" checked> Translucent (opacity)</label>
         <label style="display:none;">Opacity <input id="opacity" type="range" min="0" max="1" step="0.01" value="1.0"></label>
         <label style="display:none;"><input id="grid" type="checkbox"> Draw grid</label>
@@ -458,15 +458,16 @@
 					
 					}
                     else {
-						//let seams_path = "seams";
-						let seams_path = "seams2";
+						let seams_path = "seams";
+						if (game == "OOT3D" || game == "MM3D")
+							seams_path = "seams2";
 						const res2 = await fetch('./' + game + '/' + seams_path + '/' + mapFilename2);
 						//const res2 = await fetch('./' + game + '/' + seams_path + '/' + "test.txt");
 							
 						const buffer2 = await res2.arrayBuffer();
 						console.log(mapFilename2+": Binary file length:", buffer2.byteLength);
 						
-						if (game == "OOT" || game == "MM" || game == "OOT3D" || game == "MM3D")
+						if (game == "OOT3D" || game == "MM3D")
 							parseInvisibleSeams2D_2(new TextDecoder().decode(buffer2));
 						else
 							parseInvisibleSeams1D(new TextDecoder().decode(buffer2));
@@ -946,7 +947,7 @@
 			color: 0x3240a8,
 			transparent: true,
 			opacity: 1.0,
-                depthTest: true
+            depthTest: true
 		});
 
 		const edgesObj = new THREE.LineSegments(edgeGeom, edgeMaterial);
@@ -1763,13 +1764,9 @@
 	// UI logic
 	function updateFlatGroundUIVisibility() {
 		if (["OOT","MM","OOT3D","MM3D"].includes(game)) {
-			flatGroundCheckbox.style.display = "inline-block";
-			flatGroundColorPicker.style.display = "inline-block";
-			flatGroundLabel.style.display = "inline-block";
+			flatGroundContainer.style.display = "flex";
 		} else {
-			flatGroundCheckbox.style.display = "none";
-			flatGroundColorPicker.style.display = "none";
-			flatGroundLabel.style.display = "none";
+			flatGroundContainer.style.display = "none";
 			clearFlatGroundMarkers();
 		}
 	}
@@ -1871,10 +1868,6 @@
 			}
 		}
 	}
-	
-	
-	
-	
     
     ////////////////////////////////////////
     // System: Canvas / Pointer interactions
