@@ -136,11 +136,7 @@ def point_on_edge_in_y_band_f32(
 
 # vtx1A vtx1B vtx1C vtx2A vtx2B vtx2C vtx3A vtx3B vtx3C normalX normalY normalZ dist
 tri_data = (
-    -58, -504, 3694,
-    -233, -635, 3696,
-    -230, -441, 3696,
-    -379, 6, -32765,
-    3693.1726074219
+    878, 162, -2187, 829, 119, -2123, 830, 140, -2123, -26400, 1257, -19368, -592
 )
 
 tri_verts, nx, ny, nz, d = unpack_tri_flat(tri_data)
@@ -148,11 +144,11 @@ tri_verts, nx, ny, nz, d = unpack_tri_flat(tri_data)
 result = find_standable_point(
     tri_verts=tri_verts,
     nx=nx, ny=ny, nz=nz, d=d,
-    x_min=-300, x_max=-200,
-    z_min=3650.0, z_max=3750.0,
+    x_min=850, x_max=860,
+    z_min=-2190, z_max=-2130,
     step=0.1,
-    y_target=-380.0,
-    y_range=5.0
+    y_target=173,
+    y_range=8.0
 )
 
 if result:

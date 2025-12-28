@@ -82,7 +82,7 @@
           <option value="orbit">Orbit (mouse drag + wheel)</option>
         </select>
         <div id="status" role="status" aria-live="polite">Status: starting...</div>
-        <label>Flying Speed <input id="movementSpeedSlider" type="range" min="500" max="5000" step="500" value="2000"></label>
+        <label>Flying Speed <input id="movementSpeedSlider" type="range" min="300" max="4500" step="300" value="1500"></label>
         <label id="display_fwc_label" style="display:none;"><input id="display_fwc" type="checkbox"> Display floors/walls/ceilings on load</label>
         <label><input id="wireframe" type="checkbox" checked> Draw triangle edges</label>
         <label><input id="backface" type="checkbox"> Double-sided</label>
@@ -116,6 +116,7 @@
     </div>
   </div>
   <script type="text/javascript"  src="model_list.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/d3-delaunay@6.0.4/dist/d3-delaunay.min.js"></script>
   <script type="module">
     
     ////////////////////////////////////////
@@ -191,7 +192,7 @@
     let selectedTriangles = []; // Store multiple selections
     const pointerControls = new PointerLockControls(camera, renderer.domElement);
     let orbitControls = null; // lazy-created when needed
-    let speed = 2000; // movement units per second
+    let speed = 1500; // movement units per second
     
     // Material used as base for clones per mesh
     const material = new THREE.MeshStandardMaterial({color:0x3aa6ff,side:THREE.FrontSide,transparent:true,opacity:1.0,flatShading:true});
@@ -308,6 +309,8 @@
             option.textContent = map.name; // This is what’s shown to the user
             mapDropdown.appendChild(option);
           });
+		  
+		  EPS = 0.008;
       }
       else if(game == "MM") {
           MM_Maps.forEach(map => {
@@ -316,6 +319,8 @@
             option.textContent = map.name; // This is what’s shown to the user
             mapDropdown.appendChild(option);
           });
+		  
+		  EPS = 0.008;
       }
       else if(game == "OOT3D") {
           OOT3D_Maps.forEach(map => {
@@ -324,6 +329,8 @@
             option.textContent = map.name; // This is what’s shown to the user
             mapDropdown.appendChild(option);
           });
+		  
+		  EPS = 0.00008;
       }
       else if(game == "MM3D") {
           MM3D_Maps.forEach(map => {
@@ -332,6 +339,8 @@
             option.textContent = map.name; // This is what’s shown to the user
             mapDropdown.appendChild(option);
           });
+		  
+		  EPS = 0.00008;
       }
 	  
 	  if (game == "BK" || game == "BT")
@@ -459,7 +468,7 @@
 					}
                     else {
 						let seams_path = "seams";
-						if (game == "OOT3D" || game == "MM3D")
+						if (game == "OOT3D" || game == "MM3D" || game == "MM" || game == "OOT")
 							seams_path = "seams2";
 						const res2 = await fetch('./' + game + '/' + seams_path + '/' + mapFilename2);
 						//const res2 = await fetch('./' + game + '/' + seams_path + '/' + "test.txt");
@@ -467,7 +476,7 @@
 						const buffer2 = await res2.arrayBuffer();
 						console.log(mapFilename2+": Binary file length:", buffer2.byteLength);
 						
-						if (game == "OOT3D" || game == "MM3D")
+						if ((game == "OOT3D" || game == "MM3D") && false)
 							parseInvisibleSeams2D_2(new TextDecoder().decode(buffer2));
 						else
 							parseInvisibleSeams1D(new TextDecoder().decode(buffer2));
@@ -648,7 +657,7 @@
 			.map(s => s.trim())
 			.filter(s => s && s[0] !== "#");
 		
-		console.log("hi")
+		//console.log("hi")
 		const verts = [];
 		const vertMap = new Map(); // "x,y,z" -> index
 		const tris = [];
@@ -716,6 +725,7 @@
 		address_offset = 0x10;
 		poly_length = 0x14;
 	  }
+	  let allTriangleData = [];
 	  
       let cmd1 = dv.getUint8(current_addr);
 	  let cmd2 = dv.getUint32(current_addr+0x4, endianness);
@@ -784,9 +794,37 @@
         const a = dv.getUint16(offset,endianness) & 0x1FFF; offset+=2;
         const b = dv.getUint16(offset,endianness) & 0x1FFF; offset+=2;
         const c = dv.getUint16(offset,endianness) & 0x1FFF; offset+=2;
+		if (game == "OOT3D" || game == "MM3D") {
+			offset+=2;
+		}
+		const normX = dv.getInt16(offset,endianness); offset+=2;
+		const normY = dv.getInt16(offset,endianness); offset+=2;
+		const normZ = dv.getInt16(offset,endianness); offset+=2;
+		//console.log("normal: " + normX + ", " + normY + ", " + normZ)
+		let dist = null;
 		
-	    offset += poly_length-0x8;
+		if (game == "OOT" || game == "MM") {
+			dist = dv.getInt16(offset,endianness); offset+=2;
+		}
+		else {
+			dist = dv.getFloat32(offset, endianness); offset+=4;
+		}
+		
+	    //offset += poly_length-0x8;
         tris.push([a+1,b+1,c+1]);
+		
+		// --- Build triangle object directly for allTriangleData ---
+		const vtxs = [
+			new THREE.Vector3(verts[a][0], verts[a][1], verts[a][2]),
+			new THREE.Vector3(verts[b][0], verts[b][1], verts[b][2]),
+			new THREE.Vector3(verts[c][0], verts[c][1], verts[c][2])
+		];
+
+		allTriangleData.push({
+			vtxs,
+			normals: [normX, normY, normZ],
+			d: dist
+		});
       }
       //console.log(tris)
       
@@ -812,6 +850,86 @@
 			buildGeometry(verts, tris, "Main Model", fresh);
       else
         buildGeometry(verts, tris, `Model ${loadedModels.length+1}`, fresh);
+	  
+	  
+	  //buildTriangle(); // just no
+	  //buildTriangle2(); // maybe close but not rounded?
+	  //buildTriangle3(); // maybe close but maybe rounded in wrong way?
+	  //buildTriangle4(); // nothing
+	  //buildTriangle5();
+	  //buildTriangle6(); // working
+	  //buildTriangle7();
+	  /*allTriangleData = [ // test data
+		{
+			vtxs: [
+				new THREE.Vector3(878,162,-2187),
+				new THREE.Vector3(829,119,-2123),
+				new THREE.Vector3(830,140,-2123)
+			],
+			normals: [-26400,1257,-19368],
+			d: -592
+		},
+		{
+			vtxs: [
+				new THREE.Vector3(857,140,-2088),
+				new THREE.Vector3(878,162,-2187),
+				new THREE.Vector3(830,140,-2123)
+			],
+			normals: [-7119,31509,5492],
+			d: 402
+		}
+	  ];*/
+
+	  //const modelGroup = buildTriangleModel(allTriangleData, "FloorTriangles", 1.0, 12, 7); // doesn't really work well
+	  //drawAnalytic(scene, analyticStandableFootprint(allTriangleData[0])); // doesn't really work well
+	  //drawSampled(scene, sampledStandableFootprint2(allTriangleData[0], 0.1)); // WORKS WELL
+	  //drawSampled(scene, sampledStandableFootprint2(allTriangleData[1], 0.1)); // WORKS WELL
+	  
+	  //drawSampledPoints(scene, allTriangleData, sampledStandableFootprint2, 0.1);
+	  
+	  //const mesh = sampledStandableFootprintMesh(allTriangleData[0], 0.25, 1.0);
+	  //scene.add(mesh);
+	  
+	  //for (const tri of allTriangleData) {
+		//renderStandableConcaveHull(scene, tri, 0.1, 12);
+	  //}
+	  
+	  const standableSurfaceMesh = renderStandableSurfaceWithEdges(allTriangleData);
+	  //const standableSurfaceMesh = renderStandableSurfaceWithEdgesV2(allTriangleData);
+	  scene.add(standableSurfaceMesh);
+	  
+	  loadedModels2.push({ name: "Standable surface", mesh: standableSurfaceMesh, edges: null });
+
+	  // Register in UI
+	  addModelCheckbox("Standable surface", standableSurfaceMesh, null, false, true, "#ff0000");
+	  
+	  
+	  
+	  //const standableMesh = renderFastGridMesh(scene, allTriangleData, 0.25);
+	  
+	  // Instead of crazy dense 0.1 resolution, try 0.3 or 0.5
+      //const sampled = sampledStandableFootprint(allTriangleData[0], 0.3);
+      //meshFromSampledPoints(scene, sampled, 0.3);
+	  
+	  //const cleanMesh = renderCleanStandableMesh(scene, allTriangleData, 0.25);
+	  
+	  /*allTriangleData.forEach(tri => {
+		const sampled = sampledStandableFootprint(tri, 0.25);
+		renderGridMesh(scene, sampled, 0.25);
+	});*/
+	
+	//const standableMesh = renderCleanNeighborMesh(scene, allTriangleData, 0.25);
+	  
+	  //const allStandablePolygonsMesh = renderAllStandablePolygons(scene, allTriangleData, false, 0.25);
+	  //const allStandablePolygonsMesh = triangulateAllPolygons(scene, allTriangleData);
+	  //const allStandablePolygonsMesh = renderSampledMesh(scene, allTriangleData, 0.25);
+	  //const meshes = renderTriangulatedSampledPolygons(scene, allTriangleData, 0.25);
+	  //const standableMesh = renderSampledMeshMerged(scene, allTriangleData, 0.01);
+	  
+	  //loadedModels.push({ name: "Standable", mesh: allStandablePolygonsMesh, edges: null });
+
+	  // Register in UI
+	  //addModelCheckbox("Standable", allStandablePolygonsMesh, null, false, true);
     }
     
     function parseInvisibleSeams1D(text) {
@@ -1531,7 +1649,1450 @@
         // Register in UI
         addModelCheckbox(name, null, edgesObj, clearFirst, true);
     }
+	
+	function buildTriangle() {
+		const COLPOLY_NORMAL_FRAC = 1 / 32767;
+
+		const vtxs = [
+			new THREE.Vector3(878,162,-2187),
+			new THREE.Vector3(829,119,-2123),
+			new THREE.Vector3(830,140,-2123)
+		];
+
+		const normal = new THREE.Vector3(
+			-26400 * COLPOLY_NORMAL_FRAC,
+			  1257 * COLPOLY_NORMAL_FRAC,
+			-19368 * COLPOLY_NORMAL_FRAC
+		);
+
+		const d = -592;
+		const radius = 1;
+
+		const triMesh = createInflatedRoundedTriangle(vtxs, normal, d, 1.0, radius);
+		scene.add(triMesh);
+		//const testPoints = getStandableTestPoints(vtxs, normals, d, 1.0, 7);
+	}
+	
+	function createInflatedTriangleMesh(v1, v2, v3, normals, d, offset = 1.0) {
+		const COLPOLY_NORMAL_FRAC = 1.0 / 32767.0;
+
+		// Normalize (x,z) vector
+		function normalize2D(v) {
+			const lx = v[0];
+			const lz = v[1];
+			const L = Math.hypot(lx, lz);
+			if (L === 0) return [0, 0];
+			return [lx / L, lz / L];
+		}
+
+		// Compute y from plane
+		function y_from_plane(x, z, Nx, Ny, Nz, d) {
+			return -(Nx * x + Nz * z + d) / Ny;
+		}
+
+		// Python offset_triangle_3points port
+		function offset_triangle_3points(verts, offset) {
+			const result = [];
+			const V = verts;
+
+			for (let i = 0; i < 3; i++) {
+				const prev = V[(i + 2) % 3];
+				const curr = V[i];
+				const next = V[(i + 1) % 3];
+
+				const v1 = normalize2D([prev[0] - curr[0], prev[1] - curr[1]]);
+				const v2 = normalize2D([next[0] - curr[0], next[1] - curr[1]]);
+
+				// bisector outward = normalize(-(v1 + v2))
+				const bx = -(v1[0] + v2[0]);
+				const bz = -(v1[1] + v2[1]);
+				const Bnorm = normalize2D([bx, bz]);
+
+				const inflated = [
+					curr[0] + Bnorm[0] * offset,
+					curr[1] + Bnorm[1] * offset
+				];
+
+				result.push(inflated);
+			}
+
+			return result;
+		}
+
+		// Extract plane normal
+		const Nx = normals[0] * COLPOLY_NORMAL_FRAC;
+		const Ny = normals[1] * COLPOLY_NORMAL_FRAC;
+		const Nz = normals[2] * COLPOLY_NORMAL_FRAC;
+
+		// Triangle XZ coordinates
+		const verts2d = [
+			[v1.x, v1.z],
+			[v2.x, v2.z],
+			[v3.x, v3.z]
+		];
+
+		// Inflate triangle in XZ
+		const inflatedXZ = offset_triangle_3points(verts2d, offset);
+
+		// Convert inflated XZ → 3D using plane
+		const inflated3D = inflatedXZ.map(([x, z]) => {
+			const y = y_from_plane(x, z, Nx, Ny, Nz, d);
+			return new THREE.Vector3(x, y, z);
+		});
+
+		// Create geometry (triangle)
+		const geom = new THREE.BufferGeometry();
+		const pos = new Float32Array([
+			inflated3D[0].x, inflated3D[0].y, inflated3D[0].z,
+			inflated3D[1].x, inflated3D[1].y, inflated3D[1].z,
+			inflated3D[2].x, inflated3D[2].y, inflated3D[2].z
+		]);
+		geom.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+		geom.computeVertexNormals();
+
+		// Simple material
+		const mat = new THREE.MeshStandardMaterial({
+			color: 0x00ff88,
+			side: THREE.DoubleSide
+		});
+
+		return new THREE.Mesh(geom, mat);
+	}
+	
+	function createRoundedInflatedTriangleMesh(v1, v2, v3, normals, d, offset = 1.0, arcSegments = 12) {
+		const COLPOLY_NORMAL_FRAC = 1.0 / 32767.0;
+
+		function normalize2D(v) {
+			const L = Math.hypot(v[0], v[1]);
+			return L === 0 ? [0, 0] : [v[0] / L, v[1] / L];
+		}
+
+		function y_from_plane(x, z, Nx, Ny, Nz, d) {
+			return -(Nx * x + Nz * z + d) / Ny;
+		}
+
+		function offset_triangle_3points(verts) {
+			const result = [];
+			for (let i = 0; i < 3; i++) {
+				const prev = verts[(i + 2) % 3];
+				const curr = verts[i];
+				const next = verts[(i + 1) % 3];
+
+				const v1 = normalize2D([prev[0] - curr[0], prev[1] - curr[1]]);
+				const v2 = normalize2D([next[0] - curr[0], next[1] - curr[1]]);
+
+				const bx = -(v1[0] + v2[0]);
+				const bz = -(v1[1] + v2[1]);
+				const Bnorm = normalize2D([bx, bz]);
+
+				result.push([
+					curr[0] + Bnorm[0] * offset,
+					curr[1] + Bnorm[1] * offset
+				]);
+			}
+			return result;
+		}
+
+		// Plane normal
+		const Nx = normals[0] * COLPOLY_NORMAL_FRAC;
+		const Ny = normals[1] * COLPOLY_NORMAL_FRAC;
+		const Nz = normals[2] * COLPOLY_NORMAL_FRAC;
+
+		// Original XZ triangle
+		const verts2d = [
+			[v1.x, v1.z],
+			[v2.x, v2.z],
+			[v3.x, v3.z]
+		];
+
+		// Get inflated (sharp) corners
+		const inflated = offset_triangle_3points(verts2d);
+
+		// Build rounded polygon in XZ
+		const shape = new THREE.Shape();
+
+		for (let i = 0; i < 3; i++) {
+			const prev = inflated[(i + 2) % 3];
+			const curr = inflated[i];
+			const next = inflated[(i + 1) % 3];
+
+			// Directions around the corner
+			const d1 = normalize2D([prev[0] - curr[0], prev[1] - curr[1]]);
+			const d2 = normalize2D([next[0] - curr[0], next[1] - curr[1]]);
+
+			// Start/end angles for fillet
+			let start = Math.atan2(d1[1], d1[0]);
+			let end   = Math.atan2(d2[1], d2[0]);
+
+			// Ensure correct winding for arc
+			if (end < start) end += Math.PI * 2;
+
+			// Add arc samples
+			for (let s = 0; s <= arcSegments; s++) {
+				const t = start + (end - start) * (s / arcSegments);
+				const x = curr[0] + Math.cos(t) * offset;
+				const z = curr[1] + Math.sin(t) * offset;
+
+				if (i === 0 && s === 0)
+					shape.moveTo(x, z);
+				else
+					shape.lineTo(x, z);
+			}
+		}
+
+		// Convert shape points (x,z) → 3D (x,y,z)
+		const pts = shape.getPoints(3 * arcSegments);
+		const verts3d = pts.map(p => {
+			const y = y_from_plane(p.x, p.y, Nx, Ny, Nz, d);
+			return new THREE.Vector3(p.x, y, p.y);
+		});
+
+		// Build BufferGeometry
+		const geom = new THREE.BufferGeometry();
+		const flat = [];
+		for (let v of verts3d) {
+			flat.push(v.x, v.y, v.z);
+		}
+		geom.setAttribute('position', new THREE.Float32BufferAttribute(flat, 3));
+		geom.computeVertexNormals();
+
+		const mat = new THREE.MeshStandardMaterial({
+			color: 0xffaa00,
+			side: THREE.DoubleSide
+		});
+
+		return new THREE.Mesh(geom, mat);
+	}
+	
+	function buildTriangle3() {
+		const v1 = new THREE.Vector3(878, 162, -2187);
+		const v2 = new THREE.Vector3(829, 119, -2123);
+		const v3 = new THREE.Vector3(830, 140, -2123);
+
+		const normals = [-26400, 1257, -19368];
+		const d = -592;
+
+		const mesh = createRoundedInflatedTriangleMesh(v1, v2, v3, normals, d, 1.0);
+		scene.add(mesh);
+		//const testPoints = getStandableTestPoints(vtxs, normals, d, 1.0, 7);
+	}
+	
+	function buildTriangle2() {
+		const v1 = new THREE.Vector3(878, 162, -2187);
+		const v2 = new THREE.Vector3(829, 119, -2123);
+		const v3 = new THREE.Vector3(830, 140, -2123);
+
+		const normals = [-26400, 1257, -19368];
+		const d = -592;
+
+		const mesh = createInflatedTriangleMesh(v1, v2, v3, normals, d, 1.0);
+		scene.add(mesh);
+		//const testPoints = getStandableTestPoints(vtxs, normals, d, 1.0, 7);
+	}
+	
+	// create rounded outer triangle
+	function createInflatedRoundedTriangle(vtxs, normal, d, offset, radius) {
+
+		const A = vtxs[0], B = vtxs[1], C = vtxs[2];
+
+		// ----------------------------------------
+		// Helpers
+		// ----------------------------------------
+		function normalize2(v) {
+			const L = Math.hypot(v.x, v.y);
+			return L === 0 ? new THREE.Vector2() : v.clone().multiplyScalar(1 / L);
+		}
+
+		// Make 2D basis for triangle plane
+		function makeBasis(a, b, c) {
+			const n = new THREE.Vector3()
+				.subVectors(b, a)
+				.cross(new THREE.Vector3().subVectors(c, a))
+				.normalize();
+
+			// match collision normal orientation
+			if (n.dot(normal) < 0) n.negate();
+
+			const u = new THREE.Vector3().subVectors(b, a).normalize();
+			const v = new THREE.Vector3().crossVectors(n, u).normalize();
+
+			return { origin: a.clone(), u, v, normal: n };
+		}
+
+		// Project vector to local 2D
+		function project2D(p, basis) {
+			const d = p.clone().sub(basis.origin);
+			return new THREE.Vector2(d.dot(basis.u), d.dot(basis.v));
+		}
+
+		const basis = makeBasis(A, B, C);
+
+		// ----------------------------------------
+		// 1. Project to 2D
+		// ----------------------------------------
+		const v1 = project2D(A, basis);
+		const v2 = project2D(B, basis);
+		const v3 = project2D(C, basis);
+		const pts = [v1, v2, v3];
+
+		// ----------------------------------------
+		// 2. Inflate using your Python bisector logic
+		// ----------------------------------------
+		function inflateTriangleXZ(pts, offset) {
+			const out = [];
+			for (let i = 0; i < 3; i++) {
+				const prev = pts[(i + 2) % 3];
+				const curr = pts[i];
+				const next = pts[(i + 1) % 3];
+
+				const v1 = normalize2(prev.clone().sub(curr));
+				const v2 = normalize2(next.clone().sub(curr));
+
+				const bis = normalize2(new THREE.Vector2(-(v1.x + v2.x), -(v1.y + v2.y)));
+				out.push(curr.clone().add(bis.multiplyScalar(offset)));
+			}
+			return out;
+		}
+
+		const inflated = inflateTriangleXZ(pts, offset);
+
+		// ----------------------------------------
+		// 3. Apply fillets around inflated triangle
+		// ----------------------------------------
+		function roundedPolygonFromInflated(pts, r) {
+			const shape = new THREE.Shape();
+			const N = pts.length;
+
+			function dir(a, b) {
+				return b.clone().sub(a).normalize();
+			}
+
+			for (let i = 0; i < N; i++) {
+				const prev = pts[(i + N - 1) % N];
+				const curr = pts[i];
+				const next = pts[(i + 1) % N];
+
+				const v1 = dir(curr, prev);
+				const v2 = dir(curr, next);
+
+				const angle = Math.acos(v1.dot(v2));
+				const t = r / Math.tan(angle / 2);
+
+				const start = curr.clone().add(v1.clone().multiplyScalar(t));
+				const end   = curr.clone().add(v2.clone().multiplyScalar(t));
+
+				if (i === 0) shape.moveTo(start.x, start.y);
+				else shape.lineTo(start.x, start.y);
+
+				shape.quadraticCurveTo(curr.x, curr.y, end.x, end.y);
+			}
+
+			shape.closePath();
+			return shape;
+		}
+
+		const shape2D = roundedPolygonFromInflated(inflated, radius);
+		const geom2D = new THREE.ShapeGeometry(shape2D);
+
+		// ----------------------------------------
+		// 4. Map back to 3D
+		// ----------------------------------------
+		const basisMatrix = new THREE.Matrix4().makeBasis(basis.u, basis.v, basis.normal);
+		geom2D.applyMatrix4(basisMatrix);
+		geom2D.applyMatrix4(new THREE.Matrix4().makeTranslation(
+			basis.origin.x, basis.origin.y, basis.origin.z
+		));
+
+		// ----------------------------------------
+		// 5. Mesh
+		// ----------------------------------------
+		return new THREE.Mesh(
+			geom2D,
+			new THREE.MeshStandardMaterial({
+				color: 0xffffff,
+				side: THREE.DoubleSide
+			})
+		);
+	}
+
+
+	function createRoundedInflatedTriangleMesh2(v1, v2, v3, normals, d, offset = 1.0, arcSegments = 8) {
+		const COLPOLY_NORMAL_FRAC = 1.0 / 32767.0;
+
+		function normalize2D(v) {
+			const L = Math.hypot(v[0], v[1]);
+			return L === 0 ? [0,0] : [v[0]/L, v[1]/L];
+		}
+
+		function y_from_plane(x, z, Nx, Ny, Nz, d) {
+			return -(Nx*x + Nz*z + d)/Ny;
+		}
+
+		// Inflate triangle (Python logic)
+		function offset_triangle_3points(verts) {
+			const result = [];
+			for (let i = 0; i < 3; i++) {
+				const prev = verts[(i + 2) % 3];
+				const curr = verts[i];
+				const next = verts[(i + 1) % 3];
+
+				const v1 = normalize2D([prev[0]-curr[0], prev[1]-curr[1]]);
+				const v2 = normalize2D([next[0]-curr[0], next[1]-curr[1]]);
+
+				const bx = -(v1[0]+v2[0]);
+				const bz = -(v1[1]+v2[1]);
+				const Bnorm = normalize2D([bx,bz]);
+
+				result.push([
+					curr[0] + Bnorm[0]*offset,
+					curr[1] + Bnorm[1]*offset
+				]);
+			}
+			return result;
+		}
+
+		// Plane normal
+		const Nx = normals[0]*COLPOLY_NORMAL_FRAC;
+		const Ny = normals[1]*COLPOLY_NORMAL_FRAC;
+		const Nz = normals[2]*COLPOLY_NORMAL_FRAC;
+
+		// Original XZ triangle
+		const verts2d = [
+			[v1.x,v1.z],
+			[v2.x,v2.z],
+			[v3.x,v3.z]
+		];
+
+		// 1️⃣ Inflate triangle
+		const inflated = offset_triangle_3points(verts2d);
+
+		// 2️⃣ Round corners properly in XZ
+		const shape = new THREE.Shape();
+
+		for (let i = 0; i < 3; i++) {
+			const prev = inflated[(i+2)%3];
+			const curr = inflated[i];
+			const next = inflated[(i+1)%3];
+
+			// Edge directions
+			const v1 = normalize2D([curr[0]-prev[0], curr[1]-prev[1]]);
+			const v2 = normalize2D([next[0]-curr[0], next[1]-curr[1]]);
+
+			// Bisector
+			let bis = [-(v1[0]+v2[0]), -(v1[1]+v2[1])];
+			bis = normalize2D(bis);
+
+			// Compute angle between edges
+			const angle = Math.acos(v1[0]*v2[0]+v1[1]*v2[1]);
+
+			// Distance along edges to tangent points
+			const t = offset / Math.tan(angle/2);
+
+			// Tangent points along edges
+			const start = [curr[0]+v1[0]*t, curr[1]+v1[1]*t];
+			const end   = [curr[0]+v2[0]*t, curr[1]+v2[1]*t];
+
+			// Arc center = curr + bis*offset
+			const cx = curr[0] + bis[0]*offset;
+			const cz = curr[1] + bis[1]*offset;
+
+			// Compute start/end angles for arc
+			const startAngle = Math.atan2(start[1]-cz, start[0]-cx);
+			const endAngle   = Math.atan2(end[1]-cz, end[0]-cx);
+
+			// Draw arc
+			for (let s = 0; s <= arcSegments; s++) {
+				const alpha = startAngle + (endAngle-startAngle)*(s/arcSegments);
+				const x = cx + Math.cos(alpha)*offset;
+				const z = cz + Math.sin(alpha)*offset;
+				if (i===0 && s===0) shape.moveTo(x,z);
+				else shape.lineTo(x,z);
+			}
+		}
+
+		// 3️⃣ Map shape points to 3D
+		const pts2D = shape.getPoints(arcSegments*3);
+		const verts3D = pts2D.map(p=>{
+			const y = y_from_plane(p.x,p.y,Nx,Ny,Nz,d);
+			return new THREE.Vector3(p.x,y,p.y);
+		});
+
+		// 4️⃣ BufferGeometry
+		const geom = new THREE.BufferGeometry();
+		const flat = [];
+		verts3D.forEach(v=>flat.push(v.x,v.y,v.z));
+		geom.setAttribute('position', new THREE.Float32BufferAttribute(flat,3));
+		geom.computeVertexNormals();
+
+		// 5️⃣ Mesh
+		return new THREE.Mesh(geom,new THREE.MeshStandardMaterial({color:0xffaa00,side:THREE.DoubleSide}));
+	}
+	
+	function buildTriangle4() {
+		const v1 = new THREE.Vector3(878,162,-2187);
+		const v2 = new THREE.Vector3(829,119,-2123);
+		const v3 = new THREE.Vector3(830,140,-2123);
+
+		const normals = [-26400,1257,-19368];
+		const d = -592;
+
+		const mesh = createRoundedInflatedTriangleMesh2(v1,v2,v3,normals,d,1.0);
+		scene.add(mesh);
+		//const testPoints = getStandableTestPoints(vtxs, normals, d, 1.0, 7);
+	}
+	
+	function createRoundedInflatedTriangleMeshFilled(v1, v2, v3, normals, d, offset = 1.0, arcSegments = 12) {
+		const COLPOLY_NORMAL_FRAC = 1.0 / 32767.0;
+
+		function normalize2D(v) {
+			const L = Math.hypot(v[0], v[1]);
+			return L === 0 ? [0, 0] : [v[0] / L, v[1] / L];
+		}
+
+		function y_from_plane(x, z, Nx, Ny, Nz, d) {
+			return -(Nx * x + Nz * z + d) / Ny;
+		}
+
+		function offset_triangle_3points(verts) {
+			const result = [];
+			for (let i = 0; i < 3; i++) {
+				const prev = verts[(i + 2) % 3];
+				const curr = verts[i];
+				const next = verts[(i + 1) % 3];
+
+				const v1 = normalize2D([prev[0] - curr[0], prev[1] - curr[1]]);
+				const v2 = normalize2D([next[0] - curr[0], next[1] - curr[1]]);
+
+				const bx = -(v1[0] + v2[0]);
+				const bz = -(v1[1] + v2[1]);
+				const Bnorm = normalize2D([bx, bz]);
+
+				result.push([curr[0] + Bnorm[0] * offset, curr[1] + Bnorm[1] * offset]);
+			}
+			return result;
+		}
+
+		const Nx = normals[0] * COLPOLY_NORMAL_FRAC;
+		const Ny = normals[1] * COLPOLY_NORMAL_FRAC;
+		const Nz = normals[2] * COLPOLY_NORMAL_FRAC;
+
+		const verts2d = [
+			[v1.x, v1.z],
+			[v2.x, v2.z],
+			[v3.x, v3.z]
+		];
+
+		// 1️⃣ Inflate triangle
+		const inflated = offset_triangle_3points(verts2d);
+
+		// 2️⃣ Create a shape with rounded corners
+		const shape = new THREE.Shape();
+		for (let i = 0; i < 3; i++) {
+			const prev = inflated[(i + 2) % 3];
+			const curr = inflated[i];
+			const next = inflated[(i + 1) % 3];
+
+			// Edge directions
+			const v1 = normalize2D([curr[0] - prev[0], curr[1] - prev[1]]);
+			const v2 = normalize2D([next[0] - curr[0], next[1] - curr[1]]);
+
+			// Bisector
+			let bis = [-(v1[0] + v2[0]), -(v1[1] + v2[1])];
+			bis = normalize2D(bis);
+
+			// Tangent distance along edges
+			const angle = Math.acos(v1[0]*v2[0] + v1[1]*v2[1]);
+			const t = offset / Math.tan(angle / 2);
+
+			const start = [curr[0] + v1[0]*t, curr[1] + v1[1]*t];
+			const end   = [curr[0] + v2[0]*t, curr[1] + v2[1]*t];
+
+			const cx = curr[0] + bis[0]*offset;
+			const cz = curr[1] + bis[1]*offset;
+
+			const startAngle = Math.atan2(start[1]-cz, start[0]-cx);
+			const endAngle   = Math.atan2(end[1]-cz, end[0]-cx);
+
+			for (let s = 0; s <= arcSegments; s++) {
+				const alpha = startAngle + (endAngle - startAngle) * (s/arcSegments);
+				const x = cx + Math.cos(alpha)*offset;
+				const z = cz + Math.sin(alpha)*offset;
+
+				if (i===0 && s===0) shape.moveTo(x, z);
+				else shape.lineTo(x, z);
+			}
+		}
+
+		// 3️⃣ Build ShapeGeometry (triangulated) in XZ plane
+		const geom2D = new THREE.ShapeGeometry(shape);
+
+		// 4️⃣ Map to 3D
+		const posAttr = geom2D.getAttribute('position');
+		for (let i = 0; i < posAttr.count; i++) {
+			const x = posAttr.getX(i);
+			const z = posAttr.getY(i);
+			const y = y_from_plane(x, z, Nx, Ny, Nz, d);
+			posAttr.setXYZ(i, x, y, z);
+		}
+
+		geom2D.computeVertexNormals();
+
+		// 5️⃣ Mesh
+		return new THREE.Mesh(
+			geom2D,
+			new THREE.MeshStandardMaterial({color: 0xffaa00, side: THREE.DoubleSide})
+		);
+	}
+	
+	function buildTriangle5() {
+		const v1 = new THREE.Vector3(878,162,-2187);
+		const v2 = new THREE.Vector3(829,119,-2123);
+		const v3 = new THREE.Vector3(830,140,-2123);
+
+		const normals = [-26400,1257,-19368];
+		const d = -592;
+
+		const mesh = createRoundedInflatedTriangleMeshFilled(v1, v2, v3, normals, d, 1.0, 12);
+		scene.add(mesh);
+		//const testPoints = getStandableTestPoints(vtxs, normals, d, 1.0, 7);
+	}
+	
+	function renderRoundedInflatedTriangle(vtxs, normals, d, offset = 1.0, arcSegments = 12) {
+		const COLPOLY_NORMAL_FRAC = 1.0 / 32767.0;
+
+		function normalize2D(v) {
+			const L = Math.hypot(v[0], v[1]);
+			if (!isFinite(L) || L < 1e-6) return [0,0];
+			return [v[0]/L, v[1]/L];
+		}
+
+		function y_from_plane(x,z,Nx,Ny,Nz,d){
+			if (Math.abs(Ny) < 1e-6) return 0;
+			return -(Nx*x + Nz*z + d)/Ny;
+		}
+
+		// Inflate triangle in XZ
+		function offset_triangle_3points(verts){
+			const result=[];
+			for(let i=0;i<3;i++){
+				const prev = verts[(i+2)%3];
+				const curr = verts[i];
+				const next = verts[(i+1)%3];
+
+				const v1 = normalize2D([prev[0]-curr[0], prev[1]-curr[1]]);
+				const v2 = normalize2D([next[0]-curr[0], next[1]-curr[1]]);
+
+				let bx = -(v1[0]+v2[0]);
+				let bz = -(v1[1]+v2[1]);
+				let B = normalize2D([bx,bz]);
+
+				result.push([
+					curr[0] + B[0]*offset,
+					curr[1] + B[1]*offset
+				]);
+			}
+			return result;
+		}
+
+		const Nx = normals[0] * COLPOLY_NORMAL_FRAC;
+		const Ny = normals[1] * COLPOLY_NORMAL_FRAC;
+		const Nz = normals[2] * COLPOLY_NORMAL_FRAC;
+
+		// Skip steep downward-facing triangles
+		if (Ny < -0.8) {
+			return null; // tell caller to ignore it
+		}
+		
+		const verts2d = vtxs.map(v=>[v.x, v.z]);
+		const inflated = offset_triangle_3points(verts2d);
+
+		const shape = new THREE.Shape();
+
+		for(let i=0;i<3;i++){
+			const prev = inflated[(i+2)%3];
+			const curr = inflated[i];
+			const next = inflated[(i+1)%3];
+
+			const v1 = normalize2D([curr[0]-prev[0], curr[1]-prev[1]]);
+			const v2 = normalize2D([next[0]-curr[0], next[1]-curr[1]]);
+
+			let dot = v1[0]*v2[0] + v1[1]*v2[1];
+			dot = Math.min(Math.max(dot, -1), 1);
+			let angle = Math.acos(dot);
+
+			// Degenerate angle → no rounding
+			if (!isFinite(angle) || angle < 1e-6) {
+				if (i===0) shape.moveTo(curr[0], curr[1]);
+				else shape.lineTo(curr[0], curr[1]);
+				continue;
+			}
+
+			const tanHalf = Math.tan(angle/2);
+			if (Math.abs(tanHalf) < 1e-6) {
+				// Hard corner fallback
+				if (i===0) shape.moveTo(curr[0], curr[1]);
+				else shape.lineTo(curr[0], curr[1]);
+				continue;
+			}
+
+			const t = offset / tanHalf;
+
+			const start = [curr[0]+v1[0]*t, curr[1]+v1[1]*t];
+			const end   = [curr[0]+v2[0]*t, curr[1]+v2[1]*t];
+
+			let bis = normalize2D([-(v1[0]+v2[0]), -(v1[1]+v2[1])]);
+			const cx = curr[0] + bis[0]*offset;
+			const cz = curr[1] + bis[1]*offset;
+
+			if (!isFinite(cx) || !isFinite(cz)) {
+				// Hard corner fallback
+				if (i===0) shape.moveTo(curr[0], curr[1]);
+				else shape.lineTo(curr[0], curr[1]);
+				continue;
+			}
+
+			const startAngle = Math.atan2(start[1]-cz, start[0]-cx);
+			const endAngle   = Math.atan2(end[1]-cz, end[0]-cx);
+
+			for(let s=0;s<=arcSegments;s++){
+				const alpha = startAngle + (endAngle-startAngle)*(s/arcSegments);
+				const x = cx + Math.cos(alpha)*offset;
+				const z = cz + Math.sin(alpha)*offset;
+
+				if (!isFinite(x) || !isFinite(z)) continue;
+
+				if (i===0 && s===0) shape.moveTo(x,z);
+				else shape.lineTo(x,z);
+			}
+		}
+
+		// Triangulate to 2D geometry
+		const geom2D = new THREE.ShapeGeometry(shape);
+		const posAttr = geom2D.getAttribute('position');
+
+		for(let i=0;i<posAttr.count;i++){
+			const x = posAttr.getX(i);
+			const z = posAttr.getY(i);
+
+			const y = y_from_plane(x,z,Nx,Ny,Nz,d);
+			if (!isFinite(y)) continue;
+
+			posAttr.setXYZ(i, x, y, z);
+		}
+
+		geom2D.computeVertexNormals();
+
+		return new THREE.Mesh(
+			geom2D,
+			new THREE.MeshStandardMaterial({color:0xffaa00, side:THREE.DoubleSide/*, 
+			polygonOffset: true,
+			polygonOffsetFactor: -3,
+			polygonOffsetUnits: -3*/
+			})
+		);
+	}
+	
+	function renderRoundedInflatedTriangle2(
+		vtxs, normals, d,
+		offset = 1.0,
+		arcSegments = 12
+	) {
+		const COLPOLY_NORMAL_FRAC = 1.0 / 32767.0;
+
+		// ---- F32 helpers ----
+		const f32 = x => Math.fround(x);  // force float32
+
+		function f32_clamp(x, lo, hi) {
+			return Math.fround(Math.min(Math.max(x, lo), hi));
+		}
+
+		function normalize2D(v) {
+			const L = Math.hypot(v[0], v[1]);
+			if (!Number.isFinite(L) || L < 1e-12) return [0.0, 0.0];
+			return [
+				Math.fround(v[0] / L),
+				Math.fround(v[1] / L),
+			];
+		}
+
+		function y_from_plane(x, z, Nx, Ny, Nz, d) {
+			if (Math.abs(Ny) < 1e-12) return 0.0; // avoid division nan
+			return Math.fround(-(Nx * x + Nz * z + d) / Ny);
+		}
+
+		// ---- Inflate triangle in XZ ----
+		function offset_triangle_3points(verts){
+			const result = [];
+			for (let i = 0; i < 3; i++) {
+				const prev = verts[(i+2)%3];
+				const curr = verts[i];
+				const next = verts[(i+1)%3];
+
+				const v1 = normalize2D([prev[0]-curr[0], prev[1]-curr[1]]);
+				const v2 = normalize2D([next[0]-curr[0], next[1]-curr[1]]);
+
+				let bx = Math.fround(-(v1[0]+v2[0]));
+				let bz = Math.fround(-(v1[1]+v2[1]));
+				const B = normalize2D([bx, bz]);
+
+				result.push([
+					Math.fround(curr[0] + B[0]*offset),
+					Math.fround(curr[1] + B[1]*offset),
+				]);
+			}
+			return result;
+		}
+
+		// ---- Normals ----
+		const Nx = f32(normals[0] * COLPOLY_NORMAL_FRAC);
+		const Ny = f32(normals[1] * COLPOLY_NORMAL_FRAC);
+		const Nz = f32(normals[2] * COLPOLY_NORMAL_FRAC);
+		const fd = f32(d);
+
+		// Skip downward-facing
+		if (Ny < -0.8) return null;
+
+		// ---- Project to XZ ----
+		const verts2d = vtxs.map(v => [f32(v.x), f32(v.z)]);
+		const inflated = offset_triangle_3points(verts2d);
+
+		// ---- Build rounded 2D outline ----
+		const shape = new THREE.Shape();
+
+		for (let i = 0; i < 3; i++) {
+			const prev = inflated[(i+2)%3];
+			const curr = inflated[i];
+			const next = inflated[(i+1)%3];
+
+			const v1 = normalize2D([curr[0]-prev[0], curr[1]-prev[1]]);
+			const v2 = normalize2D([next[0]-curr[0], next[1]-curr[1]]);
+
+			let dot = f32(v1[0]*v2[0] + v1[1]*v2[1]);
+			dot = f32_clamp(dot, -1.0, 1.0);
+
+			let angle = Math.acos(dot);
+			if (!Number.isFinite(angle) || angle < 1e-6) {
+				if (i===0) shape.moveTo(curr[0], curr[1]);
+				else shape.lineTo(curr[0], curr[1]);
+				continue;
+			}
+
+			let tanHalf = Math.tan(angle/2);
+			if (!Number.isFinite(tanHalf) || Math.abs(tanHalf) < 1e-6) {
+				if (i===0) shape.moveTo(curr[0], curr[1]);
+				else shape.lineTo(curr[0], curr[1]);
+				continue;
+			}
+
+			const t = f32(offset / tanHalf);
+
+			const start = [
+				f32(curr[0] + v1[0]*t),
+				f32(curr[1] + v1[1]*t),
+			];
+			const end = [
+				f32(curr[0] + v2[0]*t),
+				f32(curr[1] + v2[1]*t),
+			];
+
+			let bis = normalize2D([-(v1[0]+v2[0]), -(v1[1]+v2[1])]);
+			const cx = f32(curr[0] + bis[0]*offset);
+			const cz = f32(curr[1] + bis[1]*offset);
+
+			if (!Number.isFinite(cx) || !Number.isFinite(cz)) {
+				if (i===0) shape.moveTo(curr[0], curr[1]);
+				else shape.lineTo(curr[0], curr[1]);
+				continue;
+			}
+
+			const startAngle = Math.atan2(start[1]-cz, start[0]-cx);
+			const endAngle   = Math.atan2(end[1]-cz,   end[0]-cx);
+
+			for (let s = 0; s <= arcSegments; s++) {
+				const t = s / arcSegments;
+				const alpha = f32(startAngle + (endAngle-startAngle)*t);
+
+				const x = f32(cx + Math.cos(alpha)*offset);
+				const z = f32(cz + Math.sin(alpha)*offset);
+
+				if (!Number.isFinite(x) || !Number.isFinite(z)) continue;
+
+				if (i===0 && s===0) shape.moveTo(x,z);
+				else shape.lineTo(x,z);
+			}
+		}
+
+		// ---- Triangulate (BufferGeometry is float32 only) ----
+		const geom2D = new THREE.ShapeGeometry(shape);
+		const posAttr = geom2D.getAttribute('position');
+
+		for (let i = 0; i < posAttr.count; i++) {
+			const x = f32(posAttr.getX(i));
+			const z = f32(posAttr.getY(i));
+			const y = f32(y_from_plane(x, z, Nx, Ny, Nz, fd));
+
+			posAttr.setXYZ(i, x, y, z);
+		}
+
+		posAttr.needsUpdate = true;
+		geom2D.computeVertexNormals();
+
+		return new THREE.Mesh(
+			geom2D,
+			new THREE.MeshStandardMaterial({
+				color: 0xffaa00,
+				side: THREE.DoubleSide
+			})
+		);
+	}
+	
+	function renderStandableTriangle(vtxs, normals, d) {
+
+		const f32 = Math.fround;
+		const COLPOLY_NORMAL_FRAC = f32(1.0 / 32767.0);
+
+		// Convert normals to float32 plane normal
+		const Nx = f32(normals[0] * COLPOLY_NORMAL_FRAC);
+		const Ny = f32(normals[1] * COLPOLY_NORMAL_FRAC);
+		const Nz = f32(normals[2] * COLPOLY_NORMAL_FRAC);
+		const D  = f32(d);
+
+		// Skip non-standable triangles (downward or vertical)
+		if (Ny <= f32(0.0)) return null;
+
+		// Convert vertices to float32 AND ensure exact Y via plane
+		function liftVertex(x, z) {
+			if (Math.abs(Ny) < 1e-12) return 0.0;
+			return f32(-(Nx*x + Nz*z + D) / Ny);
+		}
+
+		// Build Float32Array geometry (3 vertices)
+		const pos = new Float32Array(9);
+
+		for (let i = 0; i < 3; i++) {
+			const vx = f32(vtxs[i].x);
+			const vz = f32(vtxs[i].z);
+			const vy = liftVertex(vx, vz);
+
+			pos[i*3+0] = vx;
+			pos[i*3+1] = vy;
+			pos[i*3+2] = vz;
+		}
+
+		const geom = new THREE.BufferGeometry();
+		geom.setAttribute("position", new THREE.BufferAttribute(pos, 3));
+		geom.computeVertexNormals();
+
+		const mesh = new THREE.Mesh(
+			geom,
+			new THREE.MeshStandardMaterial({
+				color: 0x00ff99,
+				side: THREE.DoubleSide,
+			})
+		);
+
+		return mesh;
+	}
+
+	function renderStandableSurfaceWithEdges(allTriangleData) {
+		const f32 = Math.fround;
+		const COLPOLY_NORMAL_FRAC = f32(1.0 / 32767.0);
+
+		const positions = [];
+		const indices = [];
+		let vertexOffset = 0;
+
+		allTriangleData.forEach(tri => {
+			const vtxs = tri.vtxs;
+			const normals = tri.normals;
+			const D = f32(tri.d);
+
+			const Nx = f32(normals[0] * COLPOLY_NORMAL_FRAC);
+			const Ny = f32(normals[1] * COLPOLY_NORMAL_FRAC);
+			const Nz = f32(normals[2] * COLPOLY_NORMAL_FRAC);
+
+			if (Ny <= f32(0.0)) return;
+
+			function liftVertex(x, z) {
+				if (Math.abs(Ny) < 1e-12) return 0.0;
+				return f32(-(Nx*x + Nz*z + D) / Ny);
+			}
+
+			for (let i = 0; i < 3; i++) {
+				const vx = f32(vtxs[i].x);
+				const vz = f32(vtxs[i].z);
+				const vy = liftVertex(vx, vz);
+				positions.push(vx, vy, vz);
+			}
+
+			indices.push(vertexOffset, vertexOffset + 1, vertexOffset + 2);
+			vertexOffset += 3;
+		});
+
+		// Main mesh
+		const geometry = new THREE.BufferGeometry();
+		geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+		geometry.setIndex(indices);
+		geometry.computeVertexNormals();
+
+		const mesh = new THREE.Mesh(
+			geometry,
+			new THREE.MeshStandardMaterial({
+				//color: 0x00ff99,
+				color: 0xff0000,
+				side: THREE.DoubleSide,
+				flatShading: true,
+				polygonOffset: true,
+				polygonOffsetFactor: 4,
+				polygonOffsetUnits: 4
+			})
+		);
+
+		// Edges
+		const edgesGeom = new THREE.EdgesGeometry(geometry);
+		const edgesMat = new THREE.LineBasicMaterial({ color: 0x000000 });
+		const edges = new THREE.LineSegments(edgesGeom, edgesMat);
+
+		// Create a group containing both mesh and edges
+		const group = new THREE.Group();
+		group.add(mesh);
+		group.add(edges);
+
+		return group;
+	}
+	
+	function renderStandableSurfaceWithEdgesV2(allTriangleData) {
+		const f32 = Math.fround;
+		const COLPOLY_NORMAL_FRAC = f32(1.0 / 32767.0);
+
+		const positions = [];
+		const indices = [];
+		let vertexOffset = 0;
+
+		allTriangleData.forEach(tri => {
+			const vtxs = tri.vtxs;
+			const normals = tri.normals;
+			const D = f32(tri.d);
+
+			const Nx = f32(normals[0] * COLPOLY_NORMAL_FRAC);
+			const Ny = f32(normals[1] * COLPOLY_NORMAL_FRAC);
+			const Nz = f32(normals[2] * COLPOLY_NORMAL_FRAC);
+
+			if (Ny <= f32(0.0)) return;
+
+			// Find original lowest Y vertex
+			let minY = Math.min(vtxs[0].y, vtxs[1].y, vtxs[2].y);
+
+			function liftVertex(x, z) {
+				if (Math.abs(Ny) < 1e-12) return 0.0;
+				return f32(-(Nx * x + Nz * z + D) / Ny);
+			}
+
+			// Determine if we need to offset triangle
+			let expandedVertices = vtxs.map(v => ({ x: f32(v.x), z: f32(v.z) }));
+
+			if (Math.abs(Ny) > 0.5) {
+				// Expand triangle by 1 unit on all sides with rounded corners
+				// Simple approach: move each vertex away from centroid
+				const centroid = {
+					x: (expandedVertices[0].x + expandedVertices[1].x + expandedVertices[2].x) / 3,
+					z: (expandedVertices[0].z + expandedVertices[1].z + expandedVertices[2].z) / 3
+				};
+
+				expandedVertices = expandedVertices.map(v => {
+					const dx = v.x - centroid.x;
+					const dz = v.z - centroid.z;
+					const len = Math.sqrt(dx*dx + dz*dz);
+					const factor = len > 0 ? (len + 1) / len : 1;
+					return {
+						x: centroid.x + dx * factor,
+						z: centroid.z + dz * factor
+					};
+				});
+			}
+
+			for (let i = 0; i < 3; i++) {
+				const vx = expandedVertices[i].x;
+				const vz = expandedVertices[i].z;
+				let vy = liftVertex(vx, vz);
+
+				// Clamp to original lowest vertex
+				vy = Math.max(vy, minY);
+
+				positions.push(vx, vy, vz);
+			}
+
+			indices.push(vertexOffset, vertexOffset + 1, vertexOffset + 2);
+			vertexOffset += 3;
+		});
+
+		// Create main mesh
+		const geometry = new THREE.BufferGeometry();
+		geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+		geometry.setIndex(indices);
+		geometry.computeVertexNormals();
+
+		const mesh = new THREE.Mesh(
+			geometry,
+			new THREE.MeshStandardMaterial({
+				color: 0x00ff99,
+				side: THREE.DoubleSide,
+				flatShading: true
+			})
+		);
+
+		// Edges
+		const edgesGeom = new THREE.EdgesGeometry(geometry);
+		const edgesMat = new THREE.LineBasicMaterial({ color: 0x000000 });
+		const edges = new THREE.LineSegments(edgesGeom, edgesMat);
+
+		// Group
+		const group = new THREE.Group();
+		group.add(mesh);
+		group.add(edges);
+
+		return group;
+	}
+	
+	function renderRoundedInflatedTriangleWithMinThickness(vtxs, normals, d, offset = 1.0, arcSegments = 12, minThickness = 0.05) {
+		const mesh = renderRoundedInflatedTriangle(vtxs, normals, d, offset, arcSegments);
+
+		// Extrude along plane normal by a small amount
+		const Nx = normals[0]/32767, Ny = normals[1]/32767, Nz = normals[2]/32767;
+		const normal = new THREE.Vector3(Nx, Ny, Nz).normalize();
+
+		const geom = mesh.geometry;
+		const pos = geom.attributes.position;
+		const count = pos.count;
+
+		// Duplicate vertices and offset along normal to create a thin "extruded" solid
+		const newPos = [];
+		for(let i=0;i<count;i++){
+			const x = pos.getX(i);
+			const y = pos.getY(i);
+			const z = pos.getZ(i);
+			newPos.push(x,y,z);
+		}
+		for(let i=0;i<count;i++){
+			const x = pos.getX(i) + normal.x * minThickness;
+			const y = pos.getY(i) + normal.y * minThickness;
+			const z = pos.getZ(i) + normal.z * minThickness;
+			newPos.push(x,y,z);
+		}
+
+		const newGeom = new THREE.BufferGeometry();
+		newGeom.setAttribute('position', new THREE.Float32BufferAttribute(newPos,3));
+
+		// Optional: compute faces for top/bottom (or just render as lines)
+		newGeom.computeVertexNormals();
+
+		return new THREE.Mesh(newGeom, new THREE.MeshStandardMaterial({color:0xffaa00, side:THREE.DoubleSide}));
+	}
+	
+	function buildTriangle6() {
+		const vtxs = [
+			new THREE.Vector3(878,162,-2187),
+			new THREE.Vector3(829,119,-2123),
+			new THREE.Vector3(830,140,-2123)
+		];
+
+		const normals = [-26400,1257,-19368];
+		const d = -592;
+
+		//const mesh = renderRoundedInflatedTriangle(vtxs, normals, d, 1.0, 12);
+		const mesh = renderStandableTriangle(vtxs, normals, d);
+		const wire = new THREE.LineSegments(
+			new THREE.EdgesGeometry(mesh.geometry),
+			new THREE.LineBasicMaterial({color:0x000000})
+		);
+		scene.add(wire);
+		scene.add(mesh);
+		//const testPoints = getStandableTestPoints(vtxs, normals, d, 1.0, 7);
+		
+		// Store and register in UI
+        loadedModels.push({ name: "New", mesh: mesh, edges: wire });
+        //console.log(loadedModels);
+        addModelCheckbox("New", mesh, wire, false, true);
+	}
     
+	function validate2DPolygon(points, label="poly") {
+		for (let i = 0; i < points.length; i++) {
+			const [x, z] = points[i];
+
+			if (!isFinite(x) || !isFinite(z)) {
+				console.error("❌ NaN point in polygon:", label, "point:", i, points[i]);
+				return false;
+			}
+
+			if (i > 0) {
+				const [px, pz] = points[i - 1];
+				const dx = x - px, dz = z - pz;
+				if (Math.hypot(dx, dz) < 1e-6) {
+					console.warn("⚠ Degenerate edge in", label, "between points", i-1, "and", i);
+					return false;
+				}
+			}
+		}
+
+		// also check last → first
+		const [fx, fz] = points[0];
+		const [lx, lz] = points[points.length - 1];
+		if (Math.hypot(fx - lx, fz - lz) < 1e-6) {
+			console.warn("⚠ Degenerate closing edge in", label);
+			return false;
+		}
+
+		return true;
+	}
+	
+	function buildTriangleModel(trianglesData, modelName="NewModel", offset=1.0, arcSegments=12, testPointsPerTri=7) {
+		const group = new THREE.Group(); // parent for all triangles
+
+		const allTestPoints = [];
+
+		trianglesData.forEach((triData, index) => {
+			const { vtxs, normals, d } = triData;
+
+			// 1️⃣ Render mesh
+			const mesh = renderRoundedInflatedTriangle2(vtxs, normals, d, offset, arcSegments);
+			if (!mesh) return;
+
+			// 2️⃣ Create edges
+			const wire = new THREE.LineSegments(
+				new THREE.EdgesGeometry(mesh.geometry),
+				new THREE.LineBasicMaterial({color:0x000000})
+			);
+
+			// 3️⃣ Add to group
+			group.add(mesh);
+			group.add(wire);
+
+			// 4️⃣ Collect test points
+			//const testPoints = getStandableTestPoints(vtxs, normals, d, offset, testPointsPerTri);
+			//allTestPoints.push(...testPoints);
+		});
+
+		// 5️⃣ Add the group to the scene
+		scene.add(group);
+
+		// 6️⃣ Store in loadedModels only once
+		loadedModels.push({
+			name: modelName,
+			mesh: group,
+			edges: null, // optional, edges are inside group
+			//testPoints: allTestPoints
+		});
+
+		// 7️⃣ Add one checkbox in UI
+		addModelCheckbox(modelName, group, null, false, true);
+
+		console.log(`Model "${modelName}" built with ${trianglesData.length} triangles and ${allTestPoints.length} test points.`);
+
+		return group;
+	}
+	
+	function buildTriangle7() {
+		const vtxs = [
+			new THREE.Vector3(878,162,-2187),
+			new THREE.Vector3(829,119,-2123),
+			new THREE.Vector3(830,140,-2123)
+		];
+
+		const normals = [-26400,1257,-19368];
+		const d = -592;
+
+		const mesh = renderRoundedInflatedTriangleAdaptive(vtxs,normals,d,1.0,12,0.1);
+		scene.add(mesh);
+		const testPoints = getStandableTestPoints(vtxs, normals, d, 1.0, 7);
+	}
+	
+	function renderRoundedInflatedTriangleAdaptive(vtxs, normals, d, offset = 1.0, arcSegments = 12, minSize = 0.1) {
+		const COLPOLY_NORMAL_FRAC = 1.0 / 32767.0;
+
+		function normalize2D(v) {
+			const L = Math.hypot(v[0], v[1]);
+			return L === 0 ? [0,0] : [v[0]/L, v[1]/L];
+		}
+
+		function y_from_plane(x,z,Nx,Ny,Nz,d){
+			return -(Nx*x + Nz*z + d)/Ny;
+		}
+
+		function offset_triangle_3points(verts){
+			const result=[];
+			for(let i=0;i<3;i++){
+				const prev = verts[(i+2)%3];
+				const curr = verts[i];
+				const next = verts[(i+1)%3];
+
+				const v1 = normalize2D([prev[0]-curr[0], prev[1]-curr[1]]);
+				const v2 = normalize2D([next[0]-curr[0], next[1]-curr[1]]);
+
+				const bx = -(v1[0]+v2[0]);
+				const bz = -(v1[1]+v2[1]);
+				const Bnorm = normalize2D([bx,bz]);
+
+				result.push([curr[0]+Bnorm[0]*offset, curr[1]+Bnorm[1]*offset]);
+			}
+			return result;
+		}
+
+		const Nx = normals[0]*COLPOLY_NORMAL_FRAC;
+		const Ny = normals[1]*COLPOLY_NORMAL_FRAC;
+		const Nz = normals[2]*COLPOLY_NORMAL_FRAC;
+
+		const verts2d = vtxs.map(v=>[v.x,v.z]);
+
+		const inflated = offset_triangle_3points(verts2d);
+
+		// Create rounded shape
+		const shape = new THREE.Shape();
+		for(let i=0;i<3;i++){
+			const prev = inflated[(i+2)%3];
+			const curr = inflated[i];
+			const next = inflated[(i+1)%3];
+
+			const v1 = normalize2D([curr[0]-prev[0], curr[1]-prev[1]]);
+			const v2 = normalize2D([next[0]-curr[0], next[1]-curr[1]]);
+
+			let bis = [-(v1[0]+v2[0]), -(v1[1]+v2[1])];
+			bis = normalize2D(bis);
+
+			const angle = Math.acos(Math.min(Math.max(v1[0]*v2[0]+v1[1]*v2[1],-1),1));
+			const t = offset / Math.tan(angle / 2);
+
+			const start = [curr[0]+v1[0]*t, curr[1]+v1[1]*t];
+			const end   = [curr[0]+v2[0]*t, curr[1]+v2[1]*t];
+
+			const cx = curr[0]+bis[0]*offset;
+			const cz = curr[1]+bis[1]*offset;
+
+			const startAngle = Math.atan2(start[1]-cz, start[0]-cx);
+			const endAngle   = Math.atan2(end[1]-cz, end[0]-cx);
+
+			for(let s=0;s<=arcSegments;s++){
+				const alpha = startAngle + (endAngle-startAngle)*(s/arcSegments);
+				const x = cx + Math.cos(alpha)*offset;
+				const z = cz + Math.sin(alpha)*offset;
+				if(i===0 && s===0) shape.moveTo(x,z);
+				else shape.lineTo(x,z);
+			}
+		}
+
+		// Check 2D bounding box size
+		const pts2D = shape.getPoints(arcSegments*3);
+		let minX=Infinity,maxX=-Infinity,minZ=Infinity,maxZ=-Infinity;
+		pts2D.forEach(p=>{
+			minX=Math.min(minX,p.x); maxX=Math.max(maxX,p.x);
+			minZ=Math.min(minZ,p.y); maxZ=Math.max(maxZ,p.y);
+		});
+		const sizeX = maxX-minX, sizeZ=maxZ-minZ;
+
+		if(sizeX<minSize || sizeZ<minSize){
+			// Too small → render as edges
+			const geom = new THREE.BufferGeometry();
+			const flat = [];
+			pts2D.forEach(p=>{
+				const y = y_from_plane(p.x,p.y,Nx,Ny,Nz,d);
+				flat.push(p.x,y,p.y);
+			});
+			// Close the loop
+			const y0 = y_from_plane(pts2D[0].x, pts2D[0].y, Nx,Ny,Nz,d);
+			flat.push(pts2D[0].x,y0,pts2D[0].y);
+
+			geom.setAttribute('position', new THREE.Float32BufferAttribute(flat,3));
+			return new THREE.Line(geom,new THREE.LineBasicMaterial({color:0x000000}));
+		} else {
+			// Normal filled mesh
+			const geom2D = new THREE.ShapeGeometry(shape);
+			const posAttr = geom2D.getAttribute('position');
+			for(let i=0;i<posAttr.count;i++){
+				const x = posAttr.getX(i);
+				const z = posAttr.getY(i);
+				const y = y_from_plane(x,z,Nx,Ny,Nz,d);
+				posAttr.setXYZ(i,x,y,z);
+			}
+			geom2D.computeVertexNormals();
+			return new THREE.Mesh(geom2D,new THREE.MeshStandardMaterial({color:0xffaa00, side:THREE.DoubleSide}));
+		}
+	}
+	
+	function getStandableTestPoints(vtxs, normals, d, offset = 1.0, numPoints = 7) {
+		const COLPOLY_NORMAL_FRAC = 1.0 / 32767.0;
+
+		function normalize2D(v) {
+			const L = Math.hypot(v[0], v[1]);
+			return L === 0 ? [0,0] : [v[0]/L, v[1]/L];
+		}
+
+		function y_from_plane(x,z,Nx,Ny,Nz,d){
+			return -(Nx*x + Nz*z + d)/Ny;
+		}
+
+		function offset_triangle_3points(verts){
+			const result=[];
+			for(let i=0;i<3;i++){
+				const prev = verts[(i+2)%3];
+				const curr = verts[i];
+				const next = verts[(i+1)%3];
+
+				const v1 = normalize2D([prev[0]-curr[0], prev[1]-curr[1]]);
+				const v2 = normalize2D([next[0]-curr[0], next[1]-curr[1]]);
+
+				const bx = -(v1[0]+v2[0]);
+				const bz = -(v1[1]+v2[1]);
+				const Bnorm = normalize2D([bx,bz]);
+
+				result.push([curr[0]+Bnorm[0]*offset, curr[1]+Bnorm[1]*offset]);
+			}
+			return result;
+		}
+
+		const Nx = normals[0]*COLPOLY_NORMAL_FRAC;
+		const Ny = normals[1]*COLPOLY_NORMAL_FRAC;
+		const Nz = normals[2]*COLPOLY_NORMAL_FRAC;
+
+		// Project triangle to XZ and inflate
+		const verts2d = vtxs.map(v=>[v.x,v.z]);
+		const inflated = offset_triangle_3points(verts2d);
+
+		// Barycentric sampling
+		const [v0,v1,v2] = inflated;
+		const points = [];
+
+		// include corners
+		points.push(v0.slice(), v1.slice(), v2.slice());
+
+		for(let i=0;i<numPoints-3;i++){
+			let r1 = Math.random();
+			let r2 = Math.random();
+			if(r1+r2>1){ r1=1-r1; r2=1-r2; }
+			const x = v0[0]+r1*(v1[0]-v0[0])+r2*(v2[0]-v0[0]);
+			const z = v0[1]+r1*(v1[1]-v0[1])+r2*(v2[1]-v0[1]);
+			points.push([x,z]);
+		}
+
+		// Map to 3D
+		const points3D = points.map(p=>{
+			const x = p[0];
+			const z = p[1];
+			const y = y_from_plane(x,z,Nx,Ny,Nz,d);
+			return new THREE.Vector3(
+				Math.fround(x),
+				Math.fround(y),
+				Math.fround(z)
+			);
+		});
+
+		// Print for in-game testing
+		console.log("Standable test points (f32):");
+		points3D.forEach((p,i)=>{
+			console.log(`Point ${i}: x=${p.x}, y=${p.y}, z=${p.z}`);
+		});
+
+		return points3D;
+	}
+	
     function removeAllModelCheckboxes() {
         const section = document.querySelector('.controls');
         // Remove all containers that hold the model checkbox + color picker
@@ -1543,7 +3104,7 @@
         });
     }
 
-    function addModelCheckbox(name, meshObj, edgesObj, clearFirst, checked) {
+    function addModelCheckbox(name, meshObj, edgesObj, clearFirst, checked, color = null) {
         const section = document.querySelector('.controls');
 
         // Container
@@ -1578,7 +3139,10 @@
         // Color picker
         const colorInput = document.createElement('input');
         colorInput.type = 'color';
-        colorInput.value = clearFirst ? '#3aa6ff' : '#3aff78';
+		if (color != null)
+			colorInput.value = color;
+		else
+			colorInput.value = clearFirst ? '#3aa6ff' : '#3aff78';
         colorInput.addEventListener('input', () => {
             if (meshObj != null && meshObj.material) {
                 meshObj.material.color.set(colorInput.value);
@@ -1690,7 +3254,7 @@
             .filter(m => m.mesh && m.mesh.visible)
             .map(m => m.mesh);
 
-        const inter = raycaster.intersectObjects(visibleMeshes, false);
+        const inter = raycaster.intersectObjects(visibleMeshes, true);
         if (inter.length === 0) {
             clearSelection();
             updateSelectionUI();
@@ -2084,6 +3648,1284 @@
         enableOrbitControls();
       }
     })();
+	
+	// ===============================================================
+	// OoT Polygon Standable Surface Debugger
+	// JavaScript (Three.js compatible)
+	// ===============================================================
+
+	// Constants
+	const COLPOLY_NORMAL_FRAC = 1.0 / 32767.0;
+	let EPS = 0.008;
+	// ------------------------
+	// Helper Functions
+	// ------------------------
+
+	function f32(v) { return Math.fround(v); }
+	function isZero(f) { return Math.abs(f) < EPS; }
+
+	// Distance squared from point (x0,z0) to segment (x1,z1)-(x2,z2)
+	function pointDistSqToLine2D(x0,z0, x1,z1, x2,z2) {
+		const dx = x2-x1, dz = z2-z1;
+		const distSq = dx*dx + dz*dz;
+		if (isZero(distSq)) return {hit:false, d2:0};
+		const t = ((x0-x1)*dx + (z0-z1)*dz)/distSq;
+		const hit = t >= 0 && t <= 1;
+		const px = x1 + dx*t;
+		const pz = z1 + dz*t;
+		const d2 = (px-x0)*(px-x0) + (pz-z0)*(pz-z0);
+		return {hit, d2};
+	}
+
+	// Cir-square vs tri-square
+	function cirSquareVsTriSquare(x0,y0, x1,y1, x2,y2, cx,cy, r) {
+		let minX = Math.min(x0,x1,x2), maxX = Math.max(x0,x1,x2);
+		let minY = Math.min(y0,y1,y2), maxY = Math.max(y0,y1,y2);
+		return (minX-r)<=cx && (maxX+r)>=cx && (minY-r)<=cy && (maxY+r)>=cy;
+	}
+
+	// Determinant test for point-in-triangle
+	function detTestXZ(v0,v1,v2,x,z) {
+		const d0 = (v0.z - z)*(v1.x - x) - (v0.x - x)*(v1.z - z);
+		const d1 = (v1.z - z)*(v2.x - x) - (v1.x - x)*(v2.z - z);
+		const d2 = (v2.z - z)*(v0.x - x) - (v2.x - x)*(v0.z - z);
+		return (d0>=0 && d1>=0 && d2>=0) || (d0<=0 && d1<=0 && d2<=0);
+	}
+
+	// Compute Y from plane
+	function computeYFromPlane(nx,ny,nz,d,x,z) {
+		if (isZero(ny)) return 0;
+		return f32((-(nx*x + nz*z) - d)/ny);
+	}
+
+	// ------------------------
+	// Analytic Standable Footprint
+	// Minkowski sum triangle ⊕ circle(radius)
+	// ------------------------
+	function analyticStandableFootprint(tri, radius=1.0, samplesPerArc=5) {
+		const pts = tri.vtxs.map(v => ({x:v.x, z:v.z}));
+		// Compute outward edge normals
+		const N = [];
+		for (let i=0;i<3;i++){
+			const a=pts[i], b=pts[(i+1)%3];
+			const ex = b.x-a.x, ez = b.z-a.z;
+			const len = Math.hypot(ez,-ex);
+			N.push({nx: ez/len, nz:-ex/len});
+		}
+		// Vertex offsets
+		const expanded = [];
+		for (let i=0;i<3;i++){
+			const prev=N[(i+2)%3], next=N[i];
+			let nx = prev.nx + next.nx, nz = prev.nz + next.nz;
+			const len = Math.hypot(nx,nz); if(len>1e-6){ nx/=len; nz/=len;}
+			expanded.push({x: pts[i].x + nx*radius, z: pts[i].z + nz*radius});
+		}
+		// Compute Y per vertex
+		const nx = tri.normals[0]*COLPOLY_NORMAL_FRAC;
+		const ny = tri.normals[1]*COLPOLY_NORMAL_FRAC;
+		const nz = tri.normals[2]*COLPOLY_NORMAL_FRAC;
+		const d = tri.d;
+		return expanded.map(p => ({x:p.x, z:p.z, y: computeYFromPlane(nx,ny,nz,d,p.x,p.z)}));
+	}
+
+	// ------------------------
+	// Game-accurate Sampling
+	// ------------------------
+	function sampledStandableFootprint(tri, resolution=0.25) {
+		const v0 = tri.vtxs[0], v1=tri.vtxs[1], v2=tri.vtxs[2];
+		const nx = tri.normals[0]*COLPOLY_NORMAL_FRAC;
+		const ny = tri.normals[1]*COLPOLY_NORMAL_FRAC;
+		const nz = tri.normals[2]*COLPOLY_NORMAL_FRAC;
+		const d = tri.d;
+		const chkDist = 1.0;
+
+		// Compute bounds
+		const xs=[v0.x,v1.x,v2.x], zs=[v0.z,v1.z,v2.z];
+		const minX=Math.min(...xs)-chkDist, maxX=Math.max(...xs)+chkDist;
+		const minZ=Math.min(...zs)-chkDist, maxZ=Math.max(...zs)+chkDist;
+
+		const result = [];
+		let total = Math.ceil((maxX-minX)/resolution) * Math.ceil((maxZ-minZ)/resolution);
+		let count = 0;
+
+		for (let x=minX;x<=maxX;x+=resolution){
+			for (let z=minZ;z<=maxZ;z+=resolution){
+				count++;
+				if(count % Math.floor(total/100) === 0) console.log("Sampling progress: "+Math.floor(count/total*100)+"%");
+
+				// Cir-square vs tri-square
+				if(!cirSquareVsTriSquare(v0.x,v0.z,v1.x,v1.z,v2.x,v2.z,x,z,chkDist)) continue;
+
+				// Vertex distance check
+				const chkDistSq = chkDist*chkDist;
+				if(((v0.x-x)**2+(v0.z-z)**2)<chkDistSq || ((v1.x-x)**2+(v1.z-z)**2)<chkDistSq || ((v2.x-x)**2+(v2.z-z)**2)<chkDistSq){
+					result.push({x:f32(x), z:f32(z), y:computeYFromPlane(nx,ny,nz,d,x,z)});
+					continue;
+				}
+
+				// Determinant check
+				if(detTestXZ(v0,v1,v2,x,z)){
+					result.push({x:f32(x), z:f32(z), y:computeYFromPlane(nx,ny,nz,d,x,z)});
+					continue;
+				}
+
+				// Edge distance check if |ny|>0.5
+				if(Math.abs(ny)>0.5){
+					const L0=pointDistSqToLine2D(x,z,v0.x,v0.z,v1.x,v1.z);
+					const L1=pointDistSqToLine2D(x,z,v1.x,v1.z,v2.x,v2.z);
+					const L2=pointDistSqToLine2D(x,z,v2.x,v2.z,v0.x,v0.z);
+					if((L0.hit && L0.d2<chkDistSq)||(L1.hit && L1.d2<chkDistSq)||(L2.hit && L2.d2<chkDistSq)){
+						result.push({x:f32(x), z:f32(z), y:computeYFromPlane(nx,ny,nz,d,x,z)});
+					}
+				}
+			}
+		}
+		console.log("Sampling complete: 100%");
+		return result;
+	}
+
+	function sampledStandableFootprint2(tri, resolution=0.25) {
+		const v0 = tri.vtxs[0], v1 = tri.vtxs[1], v2 = tri.vtxs[2];
+		const nx = tri.normals[0] * COLPOLY_NORMAL_FRAC;
+		const ny = tri.normals[1] * COLPOLY_NORMAL_FRAC;
+		const nz = tri.normals[2] * COLPOLY_NORMAL_FRAC;
+		const d = tri.d;
+		const chkDist = 1.0;
+
+		// Compute bounds
+		const xs = [v0.x, v1.x, v2.x], zs = [v0.z, v1.z, v2.z];
+		const minX = Math.min(...xs) - chkDist, maxX = Math.max(...xs) + chkDist;
+		const minZ = Math.min(...zs) - chkDist, maxZ = Math.max(...zs) + chkDist;
+
+		const result = [];
+		let total = Math.ceil((maxX - minX) / resolution) * Math.ceil((maxZ - minZ) / resolution);
+		let count = 0;
+
+		for (let x = minX; x <= maxX; x += resolution) {
+			for (let z = minZ; z <= maxZ; z += resolution) {
+				count++;
+				//if (count % Math.floor(total / 100) === 0) console.log("Sampling progress: " + Math.floor(count / total * 100) + "%");
+
+				const y = computeYFromPlane(nx, ny, nz, d, x, z);
+
+				// --- NEW: vertex-Y early out (match OoT) ---
+				const minVertexY = Math.min(v0.y, v1.y, v2.y);
+				if (y < minVertexY) continue;
+
+				// Cir-square vs tri-square
+				if (!cirSquareVsTriSquare(v0.x, v0.z, v1.x, v1.z, v2.x, v2.z, x, z, chkDist)) continue;
+
+				// Vertex distance check
+				const chkDistSq = chkDist * chkDist;
+				if (((v0.x - x) ** 2 + (v0.z - z) ** 2) < chkDistSq ||
+					((v1.x - x) ** 2 + (v1.z - z) ** 2) < chkDistSq ||
+					((v2.x - x) ** 2 + (v2.z - z) ** 2) < chkDistSq) {
+					result.push({ x: f32(x), z: f32(z), y });
+					continue;
+				}
+
+				// Determinant check (point inside triangle)
+				if (detTestXZ(v0, v1, v2, x, z)) {
+					result.push({ x: f32(x), z: f32(z), y });
+					continue;
+				}
+
+				// Edge distance check if |ny| > 0.5
+				if (Math.abs(ny) > 0.5) {
+					const L0 = pointDistSqToLine2D(x, z, v0.x, v0.z, v1.x, v1.z);
+					const L1 = pointDistSqToLine2D(x, z, v1.x, v1.z, v2.x, v2.z);
+					const L2 = pointDistSqToLine2D(x, z, v2.x, v2.z, v0.x, v0.z);
+					if ((L0.hit && L0.d2 < chkDistSq) || (L1.hit && L1.d2 < chkDistSq) || (L2.hit && L2.d2 < chkDistSq)) {
+						result.push({ x: f32(x), z: f32(z), y });
+					}
+				}
+			}
+		}
+
+		//console.log("Sampling complete: 100%");
+		//console.log(result)
+		return result;
+	}
+	
+	function sampledStandableFootprintMesh(tri, resolution = 0.25, radius = 1.0) {
+		const [v0, v1, v2] = tri.vtxs;
+		const nx = tri.normals[0] * COLPOLY_NORMAL_FRAC;
+		const ny = tri.normals[1] * COLPOLY_NORMAL_FRAC;
+		const nz = tri.normals[2] * COLPOLY_NORMAL_FRAC;
+		const d = tri.d;
+
+		const points = [];
+
+		// --- Helper to sample a vertex blob ---
+		function sampleVertex(v) {
+			const minX = v.x - radius, maxX = v.x + radius;
+			const minZ = v.z - radius, maxZ = v.z + radius;
+
+			for (let x = minX; x <= maxX; x += resolution) {
+				for (let z = minZ; z <= maxZ; z += resolution) {
+					const dx = x - v.x, dz = z - v.z;
+					if (dx*dx + dz*dz > radius*radius) continue; // circle filter
+					const y = computeYFromPlane(nx, ny, nz, d, x, z);
+					if (y < v.y) continue; // OoT vertex-Y early out
+					points.push(new THREE.Vector3(x, y, z));
+				}
+			}
+		}
+
+		// --- Sample triangle body ---
+		function sampleTriangleBody() {
+			const xs = [v0.x, v1.x, v2.x], zs = [v0.z, v1.z, v2.z];
+			const minX = Math.min(...xs) - radius, maxX = Math.max(...xs) + radius;
+			const minZ = Math.min(...zs) - radius, maxZ = Math.max(...zs) + radius;
+
+			for (let x = minX; x <= maxX; x += resolution) {
+				for (let z = minZ; z <= maxZ; z += resolution) {
+					const y = computeYFromPlane(nx, ny, nz, d, x, z);
+					if (y < Math.min(v0.y, v1.y, v2.y)) continue;
+					if (detTestXZ(v0, v1, v2, x, z)) {
+						points.push(new THREE.Vector3(x, y, z));
+					}
+				}
+			}
+		}
+
+		// --- Generate points ---
+		sampleVertex(v0);
+		sampleVertex(v1);
+		sampleVertex(v2);
+		sampleTriangleBody();
+
+		// --- Create geometry ---
+		const geometry = new THREE.BufferGeometry();
+		const vertices = new Float32Array(points.length * 3);
+		points.forEach((p, i) => {
+			vertices[i * 3 + 0] = p.x;
+			vertices[i * 3 + 1] = p.y;
+			vertices[i * 3 + 2] = p.z;
+		});
+		geometry.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
+		
+		geometry.computeVertexNormals();
+
+		// --- Create mesh ---
+		const material = new THREE.MeshStandardMaterial({
+			color: 0x88cc88,
+			side: THREE.DoubleSide,
+			flatShading: false
+		});
+
+		return new THREE.Mesh(geometry, material);
+	}
+	
+	function fastStandableFootprint2(tri, radius = 1.0, samplesPerEdge = 100) {
+		const v = tri.vtxs;
+		const nx = tri.normals[0] * COLPOLY_NORMAL_FRAC;
+		const ny = tri.normals[1] * COLPOLY_NORMAL_FRAC;
+		const nz = tri.normals[2] * COLPOLY_NORMAL_FRAC;
+		const d = tri.d;
+
+		// Step 1: compute outward edge normals in XZ
+		const N = [];
+		for (let i = 0; i < 3; i++) {
+			const a = v[i], b = v[(i + 1) % 3];
+			const ex = b.x - a.x, ez = b.z - a.z;
+			const len = Math.hypot(ez, -ex);
+			N.push({ nx: ez / len, nz: -ex / len });
+		}
+
+		// Step 2: expand vertices
+		const expanded = [];
+		for (let i = 0; i < 3; i++) {
+			const prev = N[(i + 2) % 3], next = N[i];
+			let nx2 = prev.nx + next.nx, nz2 = prev.nz + next.nz;
+			const len = Math.hypot(nx2, nz2);
+			if (len > 1e-6) { nx2 /= len; nz2 /= len; }
+			expanded.push({ x: v[i].x + nx2 * radius, z: v[i].z + nz2 * radius });
+		}
+
+		const result = [];
+
+		// Step 3: sample along edges
+		for (let i = 0; i < 3; i++) {
+			const a = expanded[i], b = expanded[(i + 1) % 3];
+			for (let s = 0; s <= samplesPerEdge; s++) {
+				const t = s / samplesPerEdge;
+				const x = a.x * (1 - t) + b.x * t;
+				const z = a.z * (1 - t) + b.z * t;
+				const y = computeYFromPlane(nx, ny, nz, d, x, z);
+				result.push({ x: f32(x), y, z: f32(z) });
+			}
+		}
+
+		// Step 4: interior coverage (centroid)
+		const cx = (expanded[0].x + expanded[1].x + expanded[2].x) / 3;
+		const cz = (expanded[0].z + expanded[1].z + expanded[2].z) / 3;
+		const cy = computeYFromPlane(nx, ny, nz, d, cx, cz);
+		result.push({ x: f32(cx), y: cy, z: f32(cz) });
+
+		// Optional: add midpoints of edges for better interior accuracy
+		for (let i = 0; i < 3; i++) {
+			const a = expanded[i], b = expanded[(i + 1) % 3];
+			const mx = (a.x + b.x) / 2, mz = (a.z + b.z) / 2;
+			const my = computeYFromPlane(nx, ny, nz, d, mx, mz);
+			result.push({ x: f32(mx), y: my, z: f32(mz) });
+		}
+
+		return result;
+	}
+	
+	function fastStandableFootprint(tri, radius=1.0, samplesPerEdge=5) {
+		const v = tri.vtxs;
+		const nx = tri.normals[0]*COLPOLY_NORMAL_FRAC;
+		const ny = tri.normals[1]*COLPOLY_NORMAL_FRAC;
+		const nz = tri.normals[2]*COLPOLY_NORMAL_FRAC;
+		const d = tri.d;
+
+		// Step 1: compute outward normals in XZ
+		const N = [];
+		for (let i=0;i<3;i++){
+			const a=v[i], b=v[(i+1)%3];
+			const ex=b.x-a.x, ez=b.z-a.z;
+			const len=Math.hypot(ez,-ex);
+			N.push({nx:ez/len, nz:-ex/len});
+		}
+
+		// Step 2: expand vertices
+		const expanded = [];
+		for (let i=0;i<3;i++){
+			const prev=N[(i+2)%3], next=N[i];
+			let nx2 = prev.nx + next.nx, nz2 = prev.nz + next.nz;
+			const len=Math.hypot(nx2,nz2); if(len>1e-6){ nx2/=len; nz2/=len;}
+			expanded.push({x:v[i].x + nx2*radius, z:v[i].z + nz2*radius});
+		}
+
+		// Step 3: sample along edges
+		const result = [];
+		for (let i=0;i<3;i++){
+			const a=expanded[i], b=expanded[(i+1)%3];
+			for (let s=0;s<=samplesPerEdge;s++){
+				const t=s/samplesPerEdge;
+				const x=a.x*(1-t)+b.x*t;
+				const z=a.z*(1-t)+b.z*t;
+				const y = computeYFromPlane(nx, ny, nz, d, x, z);
+				result.push({x: f32(x), y, z: f32(z)});
+			}
+		}
+
+		// Optional: add interior point at centroid
+		const cx=(expanded[0].x+expanded[1].x+expanded[2].x)/3;
+		const cz=(expanded[0].z+expanded[1].z+expanded[2].z)/3;
+		const cy = computeYFromPlane(nx, ny, nz, d, cx, cz);
+		result.push({x:f32(cx), y:cy, z:f32(cz)});
+
+		return result;
+	}
+
+	// ------------------------
+	// Example usage
+	// ------------------------
+	/*const poly = {
+		vtxs: [
+			new THREE.Vector3(878,162,-2187),
+			new THREE.Vector3(829,119,-2123),
+			new THREE.Vector3(830,140,-2123)
+		],
+		normals: [-26400,1257,-19368],
+		d: -592
+	};
+
+	const analytic = analyticStandableFootprint(poly);
+	const sampled = sampledStandableFootprint(poly, 0.25);
+
+	console.log("Analytic footprint:", analytic);
+	console.log("Sampled footprint points:", sampled.length);*/
+	
+	// ------------------------
+	// Optional: draw in Three.js
+	// Example: analytic (blue), sampled (red)
+	function drawAnalytic(scene, points){
+		const geometry = new THREE.BufferGeometry();
+		const vertices = [];
+		points.forEach(p => vertices.push(p.x,p.y,p.z));
+		geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices,3));
+		const material = new THREE.LineBasicMaterial({color:0x0000ff});
+		const line = new THREE.LineLoop(geometry,material);
+		scene.add(line);
+	}
+
+	function drawSampled_old(scene, points){
+		const geometry = new THREE.BufferGeometry();
+		const vertices = [];
+		points.forEach(p => vertices.push(p.x,p.y,p.z));
+		geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices,3));
+		const material = new THREE.PointsMaterial({color:0xff0000,size:0.5});
+		const pts = new THREE.Points(geometry,material);
+		scene.add(pts);
+	}
+	
+	function drawSampled(scene, points) {
+		const n = points.length;
+		const vertices = new Float32Array(n * 3); // preallocate memory
+
+		for (let i = 0; i < n; i++) {
+			const p = points[i];
+			vertices[i*3 + 0] = Math.fround(p.x);
+			vertices[i*3 + 1] = Math.fround(p.y);
+			vertices[i*3 + 2] = Math.fround(p.z);
+		}
+
+		const geometry = new THREE.BufferGeometry();
+		geometry.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
+
+		const material = new THREE.PointsMaterial({ color: 0xff0000, size: 0.5 });
+		const pts = new THREE.Points(geometry, material);
+
+		scene.add(pts);
+	}
+	
+	function drawSampledPoints(scene, allTriangleData, sampleFunc, sampleStep = 0.1) {
+		// First, count total number of points
+		let totalPoints = 0;
+		allTriangleData.forEach(tri => {
+			totalPoints += sampleFunc(tri, sampleStep).length;
+		});
+
+		// Pre-allocate Float32Array
+		const vertices = new Float32Array(totalPoints * 3);
+		let offset = 0;
+
+		// Fill vertices
+		let count = 0
+		allTriangleData.forEach(tri => {
+			const points = sampleFunc(tri, sampleStep);
+			points.forEach(p => {
+				vertices[offset++] = Math.fround(p.x);
+				vertices[offset++] = Math.fround(p.y);
+				vertices[offset++] = Math.fround(p.z);
+			});
+			count += 1;
+			console.log("completed "+count+"/"+allTriangleData.length)
+		});
+
+		// Build BufferGeometry
+		const geometry = new THREE.BufferGeometry();
+		geometry.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
+
+		// Single Points object
+		const material = new THREE.PointsMaterial({ color: 0xff0000, size: 0.5 });
+		const pts = new THREE.Points(geometry, material);
+
+		scene.add(pts);
+		return pts;
+	}
+	
+	// Renders all polygons as a single Three.js Points object (or LineLoop for analytic)
+	function renderAllStandablePolygons(scene, allTriangleData, useSampled=true, resolution=0.25) {
+		const points = [];
+
+		// Loop through all polygons
+		allTriangleData.forEach(tri => {
+			let polyPoints;
+			if (useSampled) {
+				polyPoints = sampledStandableFootprint(tri, resolution);
+			} else {
+				polyPoints = analyticStandableFootprint(tri);
+			}
+			points.push(...polyPoints);
+		});
+
+		// Create single geometry
+		const geometry = new THREE.BufferGeometry();
+		const vertices = [];
+		points.forEach(p => vertices.push(p.x, p.y, p.z));
+		geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+
+		// Choose material: points for sampled, line for analytic
+		let object3D;
+		if (useSampled) {
+			const material = new THREE.PointsMaterial({ color: 0xff0000, size: 0.5 });
+			object3D = new THREE.Points(geometry, material);
+		} else {
+			const material = new THREE.LineBasicMaterial({ color: 0x0000ff });
+			object3D = new THREE.LineSegments(geometry, material);
+		}
+
+		scene.add(object3D);
+		return object3D;
+	}
+	
+	function triangulateAllPolygons(scene, allTriangleData) {
+		const vertices = [];
+		const indices = [];
+		let indexOffset = 0;
+
+		allTriangleData.forEach(tri => {
+			// Analytic footprint (polygon with offsets)
+			const footprint = analyticStandableFootprint(tri, 1.0);
+
+			// Flatten X/Z for Earcut
+			const flatXY = [];
+			footprint.forEach(p => flatXY.push(p.x, p.z));
+
+			// Triangulate
+			const flatPoints = footprint.map(p => new THREE.Vector2(p.x, p.z));
+			const holes = []; // no holes
+			const tris = THREE.ShapeUtils.triangulateShape(flatPoints, holes);
+
+			// Push vertices (X,Y,Z)
+			footprint.forEach(p => vertices.push(p.x, p.y, p.z));
+
+			// Push indices, offsetting by current vertex count
+			tris.forEach(i => indices.push(i + indexOffset));
+
+			indexOffset += footprint.length;
+		});
+
+		// Build geometry
+		const geometry = new THREE.BufferGeometry();
+		geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+		geometry.setIndex(indices);
+		geometry.computeVertexNormals();
+
+		// Material
+		const material = new THREE.MeshStandardMaterial({
+			color: 0x00ff00,
+			side: THREE.DoubleSide,
+			flatShading: true
+		});
+
+		const mesh = new THREE.Mesh(geometry, material);
+		scene.add(mesh);
+		return mesh;
+	}
+	
+
+	/**
+	 * Render all standable surfaces as a single mesh using sampled points and Delaunay triangulation.
+	 * @param {THREE.Scene} scene
+	 * @param {Array} allTriangleData - array of polygons {vtxs:[Vector3,Vector3,Vector3], normals:[nx,ny,nz], d:dist}
+	 * @param {Number} resolution - sampling resolution
+	 * @returns {THREE.Mesh}
+	 */
+	function renderSampledMesh(scene, allTriangleData, resolution=0.25) {
+		const allPoints = [];
+
+		// Sample each polygon
+		allTriangleData.forEach(tri => {
+			const sampled = sampledStandableFootprint(tri, resolution);
+			allPoints.push(...sampled);
+		});
+
+		if (allPoints.length < 3) {
+			console.warn("Not enough points to form a mesh");
+			return null;
+		}
+
+		// Flatten X/Z for Delaunay
+		const points2D = allPoints.map(p => [p.x, p.z]);
+
+		// Delaunay triangulation
+		const delaunay = d3.Delaunay.from(points2D);
+		const triangles = delaunay.triangles; // flat array of indices
+
+		// Build Three.js geometry
+		const geometry = new THREE.BufferGeometry();
+		const vertices = [];
+		allPoints.forEach(p => vertices.push(p.x, p.y, p.z));
+		geometry.setAttribute("position", new THREE.Float32BufferAttribute(vertices, 3));
+		geometry.setIndex(Array.from(triangles));
+		geometry.computeVertexNormals();
+
+		// Material
+		const material = new THREE.MeshStandardMaterial({
+			color: 0x00ff00,
+			side: THREE.DoubleSide,
+			flatShading: true
+		});
+
+		const mesh = new THREE.Mesh(geometry, material);
+		scene.add(mesh);
+		return mesh;
+	}
+	
+	function renderTriangulatedSampledPolygons(scene, allTriangleData, resolution=0.25) {
+		const meshes = [];
+
+		allTriangleData.forEach(tri => {
+			// 1️⃣ Sample points for this polygon
+			const sampled = sampledStandableFootprint(tri, resolution);
+			if (sampled.length < 3) return;
+
+			// 2️⃣ Flatten to X/Z plane for Delaunay
+			const points2D = sampled.map(p => [p.x, p.z]);
+
+			// 3️⃣ Delaunay triangulation
+			const delaunay = d3.Delaunay.from(points2D);
+			const triangles = delaunay.triangles;
+
+			// 4️⃣ Build Three.js geometry
+			const geometry = new THREE.BufferGeometry();
+			const vertices = [];
+			sampled.forEach(p => vertices.push(p.x, p.y, p.z));
+			geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+			geometry.setIndex(Array.from(triangles));
+			geometry.computeVertexNormals();
+
+			// 5️⃣ Material
+			const material = new THREE.MeshStandardMaterial({
+				color: 0x00ff00,
+				side: THREE.DoubleSide,
+				flatShading: true
+			});
+
+			const mesh = new THREE.Mesh(geometry, material);
+			scene.add(mesh);
+			meshes.push(mesh);
+		});
+
+		return meshes; // array of meshes, one per polygon
+	}
+	
+	function renderSampledMeshMerged(scene, allTriangleData, resolution = 0.25) {
+		const finalVertices = [];
+		const finalIndices = [];
+		let vertexOffset = 0;
+
+		allTriangleData.forEach(tri => {
+			const sampled = sampledStandableFootprint(tri, resolution);
+			if (sampled.length < 3) return;
+
+			// Build grid map to triangulate only actual sampled points
+			const grid = new Map();
+			sampled.forEach(p => {
+				const key = `${Math.round(p.x / resolution)},${Math.round(p.z / resolution)}`;
+				grid.set(key, p);
+			});
+
+			const pointIndices = new Map(); // key -> local vertex index
+			let localIdx = 0;
+
+			sampled.forEach(p => {
+				const key = `${Math.round(p.x / resolution)},${Math.round(p.z / resolution)}`;
+				if (!pointIndices.has(key)) {
+					pointIndices.set(key, localIdx++);
+					finalVertices.push(p.x, p.y, p.z);
+				}
+			});
+
+			// Triangulate this polygon using grid adjacency
+			grid.forEach((p, key) => {
+				const [gx, gz] = key.split(',').map(Number);
+				const neighbors = [
+					[gx + 1, gz],
+					[gx, gz + 1],
+					[gx + 1, gz + 1]
+				];
+
+				const keys = neighbors.map(n => `${n[0]},${n[1]}`);
+				if (keys.every(k => grid.has(k))) {
+					const i0 = pointIndices.get(key) + vertexOffset;
+					const i1 = pointIndices.get(keys[0]) + vertexOffset;
+					const i2 = pointIndices.get(keys[1]) + vertexOffset;
+					const i3 = pointIndices.get(keys[2]) + vertexOffset;
+
+					finalIndices.push(i0, i1, i2); // triangle 1
+					finalIndices.push(i1, i3, i2); // triangle 2
+				}
+			});
+
+			vertexOffset = finalVertices.length / 3; // update offset for next polygon
+		});
+
+		const geometry = new THREE.BufferGeometry();
+		geometry.setAttribute('position', new THREE.Float32BufferAttribute(finalVertices, 3));
+		geometry.setIndex(finalIndices);
+		geometry.computeVertexNormals();
+
+		const material = new THREE.MeshStandardMaterial({
+			color: 0x00ff00,
+			side: THREE.DoubleSide,
+			flatShading: true
+		});
+
+		const mesh = new THREE.Mesh(geometry, material);
+		scene.add(mesh);
+		return mesh;
+	}
+	
+	function meshFromSampledPoints(scene, sampled, resolution=0.5) {
+		const vertices = [];
+		const indices = [];
+		const grid = new Map();
+		
+		// Build grid map: key = rounded X/Z
+		sampled.forEach(p => {
+			const key = `${Math.round(p.x/resolution)},${Math.round(p.z/resolution)}`;
+			grid.set(key, p);
+		});
+		
+		const pointIndices = new Map();
+		let idx = 0;
+		grid.forEach((p,key)=>{
+			vertices.push(p.x,p.y,p.z);
+			pointIndices.set(key, idx++);
+		});
+
+		// Make triangles from neighboring points
+		grid.forEach((p,key)=>{
+			const [gx,gz] = key.split(',').map(Number);
+			const neighbors = [
+				[gx+1,gz],
+				[gx,gz+1],
+				[gx+1,gz+1]
+			];
+			const keys = neighbors.map(n=>`${n[0]},${n[1]}`);
+			if(keys.every(k=>grid.has(k))){
+				const i0 = pointIndices.get(key);
+				const i1 = pointIndices.get(keys[0]);
+				const i2 = pointIndices.get(keys[1]);
+				const i3 = pointIndices.get(keys[2]);
+				indices.push(i0,i1,i2);
+				indices.push(i1,i3,i2);
+			}
+		});
+
+		const geometry = new THREE.BufferGeometry();
+		geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices,3));
+		geometry.setIndex(indices);
+		geometry.computeVertexNormals();
+
+		const material = new THREE.MeshStandardMaterial({
+			color:0x00ff00,
+			side:THREE.DoubleSide,
+			flatShading:true
+		});
+
+		const mesh = new THREE.Mesh(geometry, material);
+		scene.add(mesh);
+		return mesh;
+	}
+
+	function renderCleanStandableMesh(scene, allTriangleData, resolution = 0.25) {
+		const finalVertices = [];
+		const finalIndices = [];
+		let vertexOffset = 0;
+
+		allTriangleData.forEach(tri => {
+			// 1️⃣ Sample points
+			const sampled = sampledStandableFootprint(tri, resolution);
+			if (sampled.length < 3) return;
+
+			// 2️⃣ Compute convex hull in X/Z
+			const pts2D = sampled.map(p => new THREE.Vector2(p.x, p.z));
+			const hull = getConvexHull2D(pts2D); // returns array of Vector2 points forming boundary
+
+			// 3️⃣ Triangulate inside boundary
+			const tris = THREE.ShapeUtils.triangulateShape(hull, []); // no holes
+
+			// 4️⃣ Convert hull points to vertices with Y from nearest sampled point
+			const hullVertices = hull.map(p2d => {
+				let nearest = sampled[0];
+				let minDist = (p2d.x - nearest.x)**2 + (p2d.y - nearest.z)**2;
+				for (let pt of sampled) {
+					const dist = (p2d.x - pt.x)**2 + (p2d.y - pt.z)**2;
+					if (dist < minDist) {
+						minDist = dist;
+						nearest = pt;
+					}
+				}
+				return new THREE.Vector3(p2d.x, nearest.y, p2d.y);
+			});
+
+			// 5️⃣ Add vertices to final array
+			hullVertices.forEach(v => finalVertices.push(v.x, v.y, v.z));
+
+			// 6️⃣ Add indices (adjusted by vertexOffset)
+			tris.forEach(tri => {
+				finalIndices.push(tri[0] + vertexOffset, tri[1] + vertexOffset, tri[2] + vertexOffset);
+			});
+
+			vertexOffset += hullVertices.length;
+		});
+
+		// 7️⃣ Build Three.js geometry
+		const geometry = new THREE.BufferGeometry();
+		geometry.setAttribute('position', new THREE.Float32BufferAttribute(finalVertices, 3));
+		geometry.setIndex(finalIndices);
+		geometry.computeVertexNormals();
+
+		const material = new THREE.MeshStandardMaterial({
+			color: 0x00ff00,
+			side: THREE.DoubleSide,
+			flatShading: true
+		});
+
+		const mesh = new THREE.Mesh(geometry, material);
+		scene.add(mesh);
+		return mesh;
+	}
+
+	/**
+	 * Simple 2D convex hull (Graham scan) for X/Z plane
+	 * Returns array of THREE.Vector2 in hull order
+	 */
+	function getConvexHull2D(points) {
+		if (points.length < 3) return points.slice();
+
+		// Sort points by X, then Z
+		points = points.slice().sort((a,b)=>a.x !== b.x ? a.x-b.x : a.y-b.y);
+
+		const lower = [];
+		for (let p of points) {
+			while (lower.length >= 2 && cross(lower[lower.length-2], lower[lower.length-1], p) <= 0) {
+				lower.pop();
+			}
+			lower.push(p);
+		}
+
+		const upper = [];
+		for (let i=points.length-1;i>=0;i--) {
+			const p = points[i];
+			while (upper.length >= 2 && cross(upper[upper.length-2], upper[upper.length-1], p) <= 0) {
+				upper.pop();
+			}
+			upper.push(p);
+		}
+
+		// Concatenate lower and upper, remove last point of each (duplicate)
+		lower.pop();
+		upper.pop();
+		return lower.concat(upper);
+
+		function cross(a,b,c) {
+			return (b.x - a.x)*(c.y - a.y) - (b.y - a.y)*(c.x - a.x);
+		}
+	}
+	
+	function renderGridMesh(scene, sampled, resolution=0.25) {
+		const vertices = [];
+		const indices = [];
+		const grid = new Map(); // key = "gx,gz" -> point
+		const pointIndices = new Map(); // key = vertex index
+
+		// 1️⃣ Build grid map
+		sampled.forEach(p => {
+			const gx = Math.round(p.x / resolution);
+			const gz = Math.round(p.z / resolution);
+			const key = `${gx},${gz}`;
+			grid.set(key, p);
+		});
+
+		// 2️⃣ Assign vertex indices
+		let idx = 0;
+		grid.forEach((p, key) => {
+			vertices.push(p.x, p.y, p.z);
+			pointIndices.set(key, idx++);
+		});
+
+		// 3️⃣ Generate triangles for each “quad” where all four points exist
+		grid.forEach((p, key) => {
+			const [gx, gz] = key.split(',').map(Number);
+
+			const neighbors = [
+				[gx + 1, gz],
+				[gx, gz + 1],
+				[gx + 1, gz + 1]
+			];
+
+			const neighborKeys = neighbors.map(n => `${n[0]},${n[1]}`);
+			if (neighborKeys.every(k => grid.has(k))) {
+				const i0 = pointIndices.get(key);
+				const i1 = pointIndices.get(neighborKeys[0]);
+				const i2 = pointIndices.get(neighborKeys[1]);
+				const i3 = pointIndices.get(neighborKeys[2]);
+
+				// two triangles per quad
+				indices.push(i0, i1, i2);
+				indices.push(i1, i3, i2);
+			}
+		});
+
+		// 4️⃣ Build Three.js geometry
+		const geometry = new THREE.BufferGeometry();
+		geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+		geometry.setIndex(indices);
+		geometry.computeVertexNormals();
+
+		const material = new THREE.MeshStandardMaterial({
+			color: 0x00ff00,
+			side: THREE.DoubleSide,
+			flatShading: true
+		});
+
+		const mesh = new THREE.Mesh(geometry, material);
+		scene.add(mesh);
+		return mesh;
+	}
+	
+	function renderCleanNeighborMesh(scene, allTriangleData, resolution = 0.25) {
+		const finalVertices = [];
+		const finalIndices = [];
+		let vertexOffset = 0;
+
+		allTriangleData.forEach(tri => {
+			const sampled = sampledStandableFootprint(tri, resolution);
+			if (sampled.length < 3) return;
+
+			// Map points to grid
+			const grid = new Map(); // key -> sampled point
+			const pointIndex = new Map(); // key -> local index
+			let idx = 0;
+
+			sampled.forEach(p => {
+				const gx = Math.round(p.x / resolution);
+				const gz = Math.round(p.z / resolution);
+				const key = `${gx},${gz}`;
+				if (!grid.has(key)) {
+					grid.set(key, p);
+					pointIndex.set(key, idx++);
+					finalVertices.push(p.x, p.y, p.z);
+				}
+			});
+
+			// Neighbor offsets for forming triangles
+			const neighborOffsets = [
+				[1,0],[0,1],[1,1],[-1,1]
+			];
+
+			// Form triangles only between neighbors
+			grid.forEach((p, key) => {
+				const [gx, gz] = key.split(',').map(Number);
+				const i0 = pointIndex.get(key) + vertexOffset;
+
+				neighborOffsets.forEach(([dx,dz])=>{
+					const neighborKeys = [
+						key,
+						`${gx+dx},${gz}`,
+						`${gx},${gz+dz}`,
+						`${gx+dx},${gz+dz}`
+					].filter(k => grid.has(k));
+
+					if(neighborKeys.length >= 3){
+						finalIndices.push(
+							pointIndex.get(neighborKeys[0]) + vertexOffset,
+							pointIndex.get(neighborKeys[1]) + vertexOffset,
+							pointIndex.get(neighborKeys[2]) + vertexOffset
+						);
+						if(neighborKeys.length === 4){
+							finalIndices.push(
+								pointIndex.get(neighborKeys[0]) + vertexOffset,
+								pointIndex.get(neighborKeys[2]) + vertexOffset,
+								pointIndex.get(neighborKeys[3]) + vertexOffset
+							);
+						}
+					}
+				});
+			});
+
+			vertexOffset = finalVertices.length / 3;
+		});
+
+		// Build geometry
+		const geometry = new THREE.BufferGeometry();
+		geometry.setAttribute('position', new THREE.Float32BufferAttribute(finalVertices, 3));
+		geometry.setIndex(finalIndices);
+		geometry.computeVertexNormals();
+
+		const material = new THREE.MeshStandardMaterial({
+			color: 0x00ff00,
+			side: THREE.DoubleSide,
+			flatShading: true
+		});
+
+		const mesh = new THREE.Mesh(geometry, material);
+		scene.add(mesh);
+		return mesh;
+	}
+		
+	function renderDistanceNeighborMesh(scene, allTriangleData, resolution = 0.25, neighborDistFactor = 1.5) {
+		const finalVertices = [];
+		const finalIndices = [];
+		let vertexOffset = 0;
+
+		allTriangleData.forEach(tri => {
+			const sampled = sampledStandableFootprint(tri, resolution);
+			if (sampled.length < 3) return;
+
+			// Build vertices and vertex index map
+			const vertexIndices = [];
+			sampled.forEach(p => {
+				finalVertices.push(p.x, p.y, p.z);
+				vertexIndices.push(vertexOffset++);
+			});
+
+			// Build triangles based on neighbor distance
+			const n = sampled.length;
+			for (let i = 0; i < n; i++) {
+				const p0 = sampled[i];
+				for (let j = i + 1; j < n; j++) {
+					const p1 = sampled[j];
+					const dx01 = p0.x - p1.x;
+					const dz01 = p0.z - p1.z;
+					const dist01 = Math.sqrt(dx01*dx01 + dz01*dz01);
+
+					if (dist01 > resolution * neighborDistFactor) continue;
+
+					for (let k = j + 1; k < n; k++) {
+						const p2 = sampled[k];
+						const dx02 = p0.x - p2.x;
+						const dz02 = p0.z - p2.z;
+						const dist02 = Math.sqrt(dx02*dx02 + dz02*dz02);
+
+						const dx12 = p1.x - p2.x;
+						const dz12 = p1.z - p2.z;
+						const dist12 = Math.sqrt(dx12*dx12 + dz12*dz12);
+
+						// Only form triangle if all sides are within threshold
+						if (dist02 <= resolution * neighborDistFactor && dist12 <= resolution * neighborDistFactor) {
+							finalIndices.push(
+								vertexIndices[i],
+								vertexIndices[j],
+								vertexIndices[k]
+							);
+						}
+					}
+				}
+			}
+		});
+
+		// Build Three.js geometry
+		const geometry = new THREE.BufferGeometry();
+		geometry.setAttribute('position', new THREE.Float32BufferAttribute(finalVertices, 3));
+		geometry.setIndex(finalIndices);
+		geometry.computeVertexNormals();
+
+		const material = new THREE.MeshStandardMaterial({
+			color: 0x00ff00,
+			side: THREE.DoubleSide,
+			flatShading: true
+		});
+
+		const mesh = new THREE.Mesh(geometry, material);
+		scene.add(mesh);
+		return mesh;
+	}
+	
+	function renderFastGridMesh(scene, allTriangleData, resolution=0.25) {
+		const finalVertices = [];
+		const finalIndices = [];
+		let vertexOffset = 0;
+
+		allTriangleData.forEach(tri => {
+			const sampled = sampledStandableFootprint(tri, resolution);
+			if (sampled.length < 3) return;
+
+			const grid = new Map(); // key -> vertex index
+
+			// 1️⃣ snap points to grid
+			sampled.forEach(p => {
+				const gx = Math.round(p.x / resolution);
+				const gz = Math.round(p.z / resolution);
+				const key = `${gx},${gz}`;
+				if (!grid.has(key)) {
+					grid.set(key, vertexOffset);
+					finalVertices.push(p.x, p.y, p.z);
+					vertexOffset++;
+				}
+			});
+
+			// 2️⃣ neighbor offsets for triangles
+			const neighborOffsets = [
+				[1,0],[0,1],[1,1]
+			];
+
+			grid.forEach((idx, key) => {
+				const [gx,gz] = key.split(',').map(Number);
+
+				neighborOffsets.forEach(([dx,dz]) => {
+					const k1 = `${gx+dx},${gz}`;
+					const k2 = `${gx},${gz+dz}`;
+					const k3 = `${gx+dx},${gz+dz}`;
+
+					const neighbors = [k1,k2,k3].map(k => grid.get(k));
+					if(neighbors.every(v => v !== undefined)){
+						finalIndices.push(idx, neighbors[0], neighbors[1]);
+						finalIndices.push(neighbors[0], neighbors[2], neighbors[1]);
+					}
+				});
+			});
+		});
+
+		const geometry = new THREE.BufferGeometry();
+		geometry.setAttribute('position', new THREE.Float32BufferAttribute(finalVertices,3));
+		geometry.setIndex(finalIndices);
+		geometry.computeVertexNormals();
+
+		const material = new THREE.MeshStandardMaterial({
+			color:0x00ff00,
+			side:THREE.DoubleSide,
+			flatShading:true
+		});
+
+		const mesh = new THREE.Mesh(geometry, material);
+		scene.add(mesh);
+		return mesh;
+	}
+
+
+	function renderStandableConcaveHull(scene, tri, sampleStep = 0.1, k = 10) {
+		const f32 = Math.fround;
+		const COLPOLY_NORMAL_FRAC = f32(1.0 / 32767.0);
+
+		// -----------------------------
+		// 1. Sample standable points
+		// -----------------------------
+		const points = sampledStandableFootprint2(tri, sampleStep);
+		if (!points || points.length < 3) return null;
+
+		// -----------------------------
+		// 2. Compute concave hull in XZ
+		// -----------------------------
+		const outline = concaveHull(points, k);
+		if (!outline || outline.length < 3) return null;
+
+		// -----------------------------
+		// 3. Build THREE.Shape for XZ plane
+		// -----------------------------
+		const shape = new THREE.Shape();
+		shape.moveTo(outline[0].x, outline[0].z);
+		for (let i = 1; i < outline.length; i++) {
+			shape.lineTo(outline[i].x, outline[i].z);
+		}
+		shape.lineTo(outline[0].x, outline[0].z);
+
+		// Triangulate into 2D polygon
+		const geometry2D = new THREE.ShapeGeometry(shape);
+
+		// -----------------------------
+		// 4. Lift all vertices onto plane
+		// -----------------------------
+		const normals = tri.normals;
+		const Nx = f32(normals[0] * COLPOLY_NORMAL_FRAC);
+		const Ny = f32(normals[1] * COLPOLY_NORMAL_FRAC);
+		const Nz = f32(normals[2] * COLPOLY_NORMAL_FRAC);
+		const D  = f32(tri.d);
+
+		function liftVertexXZ(x, z) {
+			return f32(-(Nx*x + Nz*z + D) / Ny);
+		}
+
+		const pos = geometry2D.attributes.position;
+		for (let i = 0; i < pos.count; i++) {
+			const x = pos.getX(i);
+			const z = pos.getY(i);
+			const y = liftVertexXZ(x, z);
+
+			pos.setXYZ(i, x, y, z);
+		}
+		pos.needsUpdate = true;
+
+		geometry2D.computeVertexNormals();
+
+		// -----------------------------
+		// 5. Create mesh
+		// -----------------------------
+		const mesh = new THREE.Mesh(
+			geometry2D,
+			new THREE.MeshStandardMaterial({
+				color: 0x00ff99,
+				side: THREE.DoubleSide,
+				flatShading: true
+			})
+		);
+
+		// optional edges for debugging
+		const edges = new THREE.LineSegments(
+			new THREE.EdgesGeometry(geometry2D),
+			new THREE.LineBasicMaterial({ color: 0x000000 })
+		);
+
+		const group = new THREE.Group();
+		group.add(mesh);
+		group.add(edges);
+		scene.add(group);
+
+		return group;
+	}
+
+	function dist2(a, b) {
+		const dx = a.x - b.x;
+		const dz = a.z - b.z;
+		return dx*dx + dz*dz;
+	}
+
+	function segmentsIntersect(A, B, C, D) {
+		function ccw(a, b, c) {
+			return (c.z - a.z) * (b.x - a.x) > (b.z - a.z) * (c.x - a.x);
+		}
+		return (ccw(A, C, D) !== ccw(B, C, D)) && (ccw(A, B, C) !== ccw(A, B, D));
+	}
+
+	function concaveHull(points, k = 8) {
+		if (points.length < 4) return points;
+		points = points.slice();
+		points.sort((a,b)=>a.x - b.x);
+
+		const hull = [points.shift()];
+		let current = hull[0];
+		let previousAngle = Math.PI;
+
+		while(true) {
+			const neighbors = points
+				.map(p => ({ p, d: dist2(current, p) }))
+				.sort((a,b)=>a.d - b.d)
+				.slice(0, k)
+				.map(o => o.p);
+
+			let best = null;
+			let bestAngle = Infinity;
+
+			for (const n of neighbors) {
+				const angle = Math.atan2(n.z - current.z, n.x - current.x);
+				let dAngle = previousAngle - angle;
+				if (dAngle <= 0) dAngle += Math.PI * 2;
+				if (dAngle < bestAngle) {
+					bestAngle = dAngle;
+					best = n;
+				}
+			}
+
+			if (!best) break;
+
+			const A = current;
+			const B = best;
+
+			let intersects = false;
+			for (let i = 1; i < hull.length - 1; i++) {
+				const C = hull[i-1], D = hull[i];
+				if (segmentsIntersect(A,B,C,D)) {
+					intersects = true;
+					break;
+				}
+			}
+
+			if (intersects) {
+				k++;
+				if (k > points.length) break;
+				continue;
+			}
+
+			hull.push(best);
+			points = points.filter(p => p !== best);
+
+			previousAngle = Math.atan2(best.z - current.z, best.x - current.x);
+			current = best;
+
+			if (dist2(current, hull[0]) < 0.0001) break;
+		}
+
+		return hull;
+	}
 
   </script>
 </body>
