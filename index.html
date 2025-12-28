@@ -794,7 +794,7 @@
         const a = dv.getUint16(offset,endianness) & 0x1FFF; offset+=2;
         const b = dv.getUint16(offset,endianness) & 0x1FFF; offset+=2;
         const c = dv.getUint16(offset,endianness) & 0x1FFF; offset+=2;
-		if (game == "OOT3D" || game == "MM3D") {
+		if (game == "OOT3D") {
 			offset+=2;
 		}
 		const normX = dv.getInt16(offset,endianness); offset+=2;
@@ -807,6 +807,9 @@
 			dist = dv.getInt16(offset,endianness); offset+=2;
 		}
 		else {
+			if (game == "MM3D")
+				offset+=2;
+				
 			dist = dv.getFloat32(offset, endianness); offset+=4;
 		}
 		
