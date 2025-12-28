@@ -897,7 +897,7 @@
 		//renderStandableConcaveHull(scene, tri, 0.1, 12);
 	  //}
 	  
-	  const standableSurfaceMesh = renderStandableSurfaceWithEdges(allTriangleData);
+	  const standableSurfaceMesh = renderStandableSurfaceWithEdgesV2(allTriangleData);
 	  //const standableSurfaceMesh = renderStandableSurfaceWithEdgesV2(allTriangleData);
 	  scene.add(standableSurfaceMesh);
 	  
@@ -2738,9 +2738,13 @@
 		const mesh = new THREE.Mesh(
 			geometry,
 			new THREE.MeshStandardMaterial({
-				color: 0x00ff99,
+				//color: 0x00ff99,
+				color: 0xff0000,
 				side: THREE.DoubleSide,
-				flatShading: true
+				flatShading: true,
+				polygonOffset: true,
+				polygonOffsetFactor: 4,
+				polygonOffsetUnits: 4
 			})
 		);
 
