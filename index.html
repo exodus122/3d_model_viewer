@@ -862,7 +862,7 @@
 	  //buildTriangle5();
 	  //buildTriangle6(); // working
 	  //buildTriangle7();
-	  /*allTriangleData = [ // test data
+	  /*allTriangleData = [ // test data oot ice cavern
 		{
 			vtxs: [
 				new THREE.Vector3(878,162,-2187),
@@ -871,8 +871,11 @@
 			],
 			normals: [-26400,1257,-19368],
 			d: -592
-		},
-		{
+		}
+	  ];*/
+	  
+	  /*allTriangleData = [ // test data ice cavern floor
+		{ 
 			vtxs: [
 				new THREE.Vector3(857,140,-2088),
 				new THREE.Vector3(878,162,-2187),
@@ -882,13 +885,25 @@
 			d: 402
 		}
 	  ];*/
+	  
+	  /*allTriangleData = [ // test data oot3d kokiri
+		{
+			vtxs: [
+				new THREE.Vector3(-1272, 60, -834),
+				new THREE.Vector3(-1276, 0, -834),
+				new THREE.Vector3(-1115, 1, -841)
+			],
+			normals: [1380, -35, 32737],
+			d: 886.93
+		}
+	  ];*/
 
 	  //const modelGroup = buildTriangleModel(allTriangleData, "FloorTriangles", 1.0, 12, 7); // doesn't really work well
 	  //drawAnalytic(scene, analyticStandableFootprint(allTriangleData[0])); // doesn't really work well
 	  //drawSampled(scene, sampledStandableFootprint2(allTriangleData[0], 0.1)); // WORKS WELL
 	  //drawSampled(scene, sampledStandableFootprint2(allTriangleData[1], 0.1)); // WORKS WELL
 	  
-	  //drawSampledPoints(scene, allTriangleData, sampledStandableFootprint2, 0.1);
+	  //drawSampledPoints(scene, allTriangleData, sampledStandableFootprint2, 0.1); // WORKS WELL
 	  
 	  //const mesh = sampledStandableFootprintMesh(allTriangleData[0], 0.25, 1.0);
 	  //scene.add(mesh);
@@ -2561,7 +2576,7 @@
 		const D  = f32(d);
 
 		// Skip non-standable triangles (downward or vertical)
-		if (Ny <= f32(0.0)) return null;
+		if (Ny < f32(-0.8) || isZero(Ny)) return null;
 
 		// Convert vertices to float32 AND ensure exact Y via plane
 		function liftVertex(x, z) {
@@ -2614,7 +2629,7 @@
 			const Ny = f32(normals[1] * COLPOLY_NORMAL_FRAC);
 			const Nz = f32(normals[2] * COLPOLY_NORMAL_FRAC);
 
-			if (Ny <= f32(0.0)) return;
+			if (Ny < f32(-0.8) || isZero(Ny)) return;
 
 			function liftVertex(x, z) {
 				if (Math.abs(Ny) < 1e-12) return 0.0;
@@ -2681,7 +2696,7 @@
 			const Ny = f32(normals[1] * COLPOLY_NORMAL_FRAC);
 			const Nz = f32(normals[2] * COLPOLY_NORMAL_FRAC);
 
-			if (Ny <= f32(0.0)) return;
+			if (Ny < f32(-0.8) || isZero(Ny)) return;
 
 			// Find original lowest Y vertex
 			let minY = Math.min(vtxs[0].y, vtxs[1].y, vtxs[2].y);
@@ -3171,43 +3186,52 @@
     // System: Selection (raycast, markers, UI)
     ////////////////////////////////////////
 	
+	let selectedPoints = [];
+	
     // Update selection UI
     function updateSelectionUI() {
-        if (selectedTriangles.length === 0) {
-            selectionListEl.value = '';
-            return;
-        }
-		
 		function formatNumber(v) {
 			return (v % 1 === 0) ? v.toString() : v.toFixed(7);
 		}
-		
-        selectionListEl.value = selectedTriangles.map(sel => {
-            //const pts = sel.verts.map(v => `${v.x.toFixed(0)} ${v.y.toFixed(0)} ${v.z.toFixed(0)}`);
-            const pts = sel.verts.map(v => `${formatNumber(v.x)} ${formatNumber(v.y)} ${formatNumber(v.z)}`);
-            //return `${sel.index} | ${pts.join(' ')}`;
-            return `${pts.join(' ')}`;
-        }).join('\n');
-    }
+
+		const lines = [];
+
+		for (const t of selectedTriangles) {
+			const pts = t.verts.map(v => `${formatNumber(v.x)} ${formatNumber(v.y)} ${formatNumber(v.z)}`);
+			lines.push(`TRI ${t.index}  ${pts.join(' ')}`);
+		}
+
+		for (const p of selectedPoints) {
+			const v = p.pos;
+			lines.push(`PT  ${formatNumber(v.x)}, ${formatNumber(v.y)}, ${formatNumber(v.z)}`);
+		}
+
+		selectionListEl.value = lines.join("\n");
+	}
     
 
     // Clear selection
     function clearSelection() {
-        // Remove all selection markers from the scene
-        selectedTriangles.forEach(sel => {
-            const markerName = `selectionMarker_${sel.modelName}_${sel.index}`;
-            const marker = scene.getObjectByName(markerName);
-            if (marker) {
-                scene.remove(marker);
-                if (marker.geometry) marker.geometry.dispose();
-                if (marker.material) marker.material.dispose();
-            }
-        });
+		// Triangles
+		selectedTriangles.forEach(sel => {
+			const markerName = `selectionMarker_${sel.modelName}_${sel.index}`;
+			const marker = scene.getObjectByName(markerName);
+			if (marker) {
+				scene.remove(marker);
+				if (marker.geometry) marker.geometry.dispose();
+				if (marker.material) marker.material.dispose();
+			}
+		});
 
-        selectedTriangles.length = 0; // Empty the selection array
-        selectionListEl.value = ''; // Clear selection text box
-        updateSelectionUI(); // Update UI state
-    }
+		// Points
+		selectedPoints.forEach(p => removePointMarker(p));
+
+		selectedTriangles.length = 0;
+		selectedPoints.length = 0;
+
+		selectionListEl.value = '';
+		updateSelectionUI();
+	}
     
     function addSelectionMarker(tri) {
         const selGeom = new THREE.BufferGeometry();
@@ -3239,6 +3263,29 @@
         const marker = scene.getObjectByName(markerName);
         if (marker) scene.remove(marker);
     }
+	
+	function addPointMarker(pointObj) {
+		const geo = new THREE.SphereGeometry(0.08, 12, 12);
+		const mat = new THREE.MeshBasicMaterial({
+			color: 0x44ff44,
+			transparent: true,
+			opacity: 1.0
+		});
+		const mesh = new THREE.Mesh(geo, mat);
+		mesh.position.copy(pointObj.pos);
+		mesh.name = `pointMarker_${pointObj.modelName}_${pointObj.index}_${pointObj.vertex}`;
+		scene.add(mesh);
+	}
+
+	function removePointMarker(pointObj) {
+		const name = `pointMarker_${pointObj.modelName}_${pointObj.index}_${pointObj.vertex}`;
+		const m = scene.getObjectByName(name);
+		if (m) {
+			scene.remove(m);
+			m.geometry.dispose();
+			m.material.dispose();
+		}
+	}
 
     // Handle triangle selection
     function performSelection(ev) {
@@ -3256,6 +3303,58 @@
         }
 
         raycaster.setFromCamera(mouse, camera);
+		
+		// ----- POINT SELECTION PASS -----
+		{
+			// Collect every visible vertex of every model
+			const pointHits = [];
+
+			for (const m of loadedModels) {
+				if (!m.mesh || !m.mesh.visible) continue;
+
+				if (m.mesh.geometry === undefined)
+					continue;
+				const geom = m.mesh.geometry;
+				const pos = geom.attributes.position;
+
+				for (let i = 0; i < pos.count; i++) {
+					const v = new THREE.Vector3().fromBufferAttribute(pos, i);
+					const worldV = m.mesh.localToWorld(v);
+
+					const dist = raycaster.ray.distanceToPoint(worldV);
+					if (dist < 0.1) {   // clickable radius
+						pointHits.push({
+							modelName: m.mesh.name,
+							index: i,
+							pos: worldV
+						});
+					}
+				}
+			}
+
+			if (pointHits.length > 0) {
+				const p = pointHits[0]; // nearest
+
+				// If exists, unselect
+				const idx = selectedPoints.findIndex(
+					q => q.modelName === p.modelName && q.index === p.index
+				);
+
+				if (idx !== -1) {
+					removePointMarker(selectedPoints[idx]);
+					selectedPoints.splice(idx, 1);
+				} else {
+					if (!multiSelectCheckbox.checked)
+						clearSelection();
+					selectedPoints.push(p);
+					addPointMarker(p);
+				}
+
+				updateSelectionUI();
+				return; // prevents triangle selection
+			}
+		}
+		// ----- END POINT PASS -----
 
         const visibleMeshes = loadedModels
             .filter(m => m.mesh && m.mesh.visible)
@@ -3672,7 +3771,7 @@
 	function isZero(f) { return Math.abs(f) < EPS; }
 
 	// Distance squared from point (x0,z0) to segment (x1,z1)-(x2,z2)
-	function pointDistSqToLine2D(x0,z0, x1,z1, x2,z2) {
+	/*function pointDistSqToLine2D(x0,z0, x1,z1, x2,z2) {
 		const dx = x2-x1, dz = z2-z1;
 		const distSq = dx*dx + dz*dz;
 		if (isZero(distSq)) return {hit:false, d2:0};
@@ -3682,13 +3781,54 @@
 		const pz = z1 + dz*t;
 		const d2 = (px-x0)*(px-x0) + (pz-z0)*(pz-z0);
 		return {hit, d2};
+	}*/
+	
+	function pointDistSqToLine2D(z, x, z0, x0, z1, x1) {
+		const dz = z1 - z0;
+		const dx = x1 - x0;
+
+		const lenSq = dz*dz + dx*dx;
+		if (lenSq === 0) return { hit: false, d2: 0 };
+
+		const t = ((z - z0) * dz + (x - x0) * dx) / lenSq;
+		if (t < 0 || t > 1) return { hit: false, d2: 0 };
+
+		const projZ = z0 + t * dz;
+		const projX = x0 + t * dx;
+
+		const dZ = projZ - z;
+		const dX = projX - x;
+
+		return { hit: true, d2: dZ*dZ + dX*dX };
 	}
 
 	// Cir-square vs tri-square
 	function cirSquareVsTriSquare(x0,y0, x1,y1, x2,y2, cx,cy, r) {
-		let minX = Math.min(x0,x1,x2), maxX = Math.max(x0,x1,x2);
-		let minY = Math.min(y0,y1,y2), maxY = Math.max(y0,y1,y2);
-		return (minX-r)<=cx && (maxX+r)>=cx && (minY-r)<=cy && (maxY+r)>=cy;
+		x0 = Math.fround(x0); 
+		x1 = Math.fround(x1); 
+		x2 = Math.fround(x2);
+		y0 = Math.fround(y0);
+		y1 = Math.fround(y1);
+		y2 = Math.fround(y2);
+		cx = Math.fround(cx);
+		cy = Math.fround(cy);
+		r  = Math.fround(r);
+
+		let minX = Math.fround(x0);
+		let maxX = Math.fround(x0);
+		let minY = Math.fround(y0);
+		let maxY = Math.fround(y0);
+
+		if (x1 < minX) minX = Math.fround(x1); else if (maxX < x1) maxX = Math.fround(x1);
+		if (y1 < minY) minY = Math.fround(y1); else if (maxY < y1) maxY = Math.fround(y1);
+
+		if (x2 < minX) minX = Math.fround(x2); else if (maxX < x2) maxX = Math.fround(x2);
+		if (y2 < minY) minY = Math.fround(y2); else if (maxY < y2) maxY = Math.fround(y2);
+
+		return (Math.fround(minX - r) <= cx &&
+				Math.fround(maxX + r) >= cx &&
+				Math.fround(minY - r) <= cy &&
+				Math.fround(maxY + r) >= cy);
 	}
 
 	// Determinant test for point-in-triangle
@@ -3702,7 +3842,8 @@
 	// Compute Y from plane
 	function computeYFromPlane(nx,ny,nz,d,x,z) {
 		if (isZero(ny)) return 0;
-		return f32((-(nx*x + nz*z) - d)/ny);
+		//return f32((-(nx*x + nz*z) - d)/ny);
+		return (f32)((((-nx * x) - (nz * z)) - d) / ny);
 	}
 
 	// ------------------------
@@ -3809,49 +3950,102 @@
 		let count = 0;
 
 		for (let x = minX; x <= maxX; x += resolution) {
+			x = f32(x);
 			for (let z = minZ; z <= maxZ; z += resolution) {
+				z = f32(z);
 				count++;
-				//if (count % Math.floor(total / 100) === 0) console.log("Sampling progress: " + Math.floor(count / total * 100) + "%");
+				if (count % Math.floor(total / 100) === 0) console.log("Sampling progress: " + Math.floor(count / total * 100) + "%");
+
+				if (!triChkPointParaYImpl(v0, v1, v2, z, x, 0.0, chkDist, ny)) {
+					continue;
+				}
 
 				const y = computeYFromPlane(nx, ny, nz, d, x, z);
 
-				// --- NEW: vertex-Y early out (match OoT) ---
+				// --- Vertex-Y early out ---
 				const minVertexY = Math.min(v0.y, v1.y, v2.y);
 				if (y < minVertexY) continue;
 
-				// Cir-square vs tri-square
-				if (!cirSquareVsTriSquare(v0.x, v0.z, v1.x, v1.z, v2.x, v2.z, x, z, chkDist)) continue;
-
-				// Vertex distance check
-				const chkDistSq = chkDist * chkDist;
-				if (((v0.x - x) ** 2 + (v0.z - z) ** 2) < chkDistSq ||
-					((v1.x - x) ** 2 + (v1.z - z) ** 2) < chkDistSq ||
-					((v2.x - x) ** 2 + (v2.z - z) ** 2) < chkDistSq) {
-					result.push({ x: f32(x), z: f32(z), y });
-					continue;
-				}
-
-				// Determinant check (point inside triangle)
-				if (detTestXZ(v0, v1, v2, x, z)) {
-					result.push({ x: f32(x), z: f32(z), y });
-					continue;
-				}
-
-				// Edge distance check if |ny| > 0.5
-				if (Math.abs(ny) > 0.5) {
-					const L0 = pointDistSqToLine2D(x, z, v0.x, v0.z, v1.x, v1.z);
-					const L1 = pointDistSqToLine2D(x, z, v1.x, v1.z, v2.x, v2.z);
-					const L2 = pointDistSqToLine2D(x, z, v2.x, v2.z, v0.x, v0.z);
-					if ((L0.hit && L0.d2 < chkDistSq) || (L1.hit && L1.d2 < chkDistSq) || (L2.hit && L2.d2 < chkDistSq)) {
-						result.push({ x: f32(x), z: f32(z), y });
-					}
-				}
+				result.push({x: f32(x), z: f32(z), y});
 			}
 		}
 
-		//console.log("Sampling complete: 100%");
-		//console.log(result)
+		console.log("Sampling complete: 100%");
+		/*console.log(result)
+		
+		function jsonToCsv(arr) {
+			if (!arr.length) return "";
+
+			const headers = Object.keys(arr[0]);
+			const rows = arr.map(obj =>
+				headers.map(h => JSON.stringify(obj[h] ?? "")).join(",")
+			);
+
+			return headers.join(",") + "\n" + rows.join("\n");
+		}
+
+		console.log(jsonToCsv(result));*/
+		
 		return result;
+	}
+	
+	// z,x order matches OoT exactly
+	function triChkPointParaYImpl(v0, v1, v2, z, x, detMax, chkDist, ny) {
+	
+		//if (x > 842.25 && x < 842.35 && z > -2139.45 && z < -2139.35)
+		//	console.log("test");
+	
+		if (isZero(ny)) {
+			return false;
+		}
+	
+		// ---- Cir-Square vs Tri-Square ----
+		if (!cirSquareVsTriSquare(
+			v0.z, v0.x,
+			v1.z, v1.x,
+			v2.z, v2.x,
+			z, x,
+			chkDist
+		)) {
+			return false;
+		}
+
+		const chkDistSq = chkDist * chkDist;
+
+		// ---- Vertex distance check ----
+		if (((v0.z - z) ** 2 + (v0.x - x) ** 2) < chkDistSq ||
+			((v1.z - z) ** 2 + (v1.x - x) ** 2) < chkDistSq ||
+			((v2.z - z) ** 2 + (v2.x - x) ** 2) < chkDistSq) {
+
+			return true;
+		}
+
+		// ---- Determinant checks ----
+		const detv0v1 = ((v0.z - z) * (v1.x - x)) - ((v0.x - x) * (v1.z - z));
+		const detv1v2 = ((v1.z - z) * (v2.x - x)) - ((v1.x - x) * (v2.z - z));
+		const detv2v0 = ((v2.z - z) * (v0.x - x)) - ((v2.x - x) * (v0.z - z));
+
+		// Same logic as the real game: inside if all ≤ detMax OR all ≥ -detMax
+		if (detMax >= detv0v1 && detMax >= detv1v2 && detMax >= detv2v0) return true;
+		if (-detMax <= detv0v1 && -detMax <= detv1v2 && -detMax <= detv2v0) return true;
+
+		// ---- Edge distance expansion for steep triangles ----
+		if (Math.abs(ny) > 0.5) {
+
+			// PointDistSqToLine2D matches Math3D_PointDistSqToLine2D
+			let L;
+
+			L = pointDistSqToLine2D(z, x, v0.z, v0.x, v1.z, v1.x);
+			if (L.hit && L.d2 < chkDistSq) return true;
+
+			L = pointDistSqToLine2D(z, x, v1.z, v1.x, v2.z, v2.x);
+			if (L.hit && L.d2 < chkDistSq) return true;
+
+			L = pointDistSqToLine2D(z, x, v2.z, v2.x, v0.z, v0.x);
+			if (L.hit && L.d2 < chkDistSq) return true;
+		}
+
+		return false;
 	}
 	
 	function sampledStandableFootprintMesh(tri, resolution = 0.25, radius = 1.0) {
@@ -4123,6 +4317,12 @@
 		const pts = new THREE.Points(geometry, material);
 
 		scene.add(pts);
+		
+		loadedModels.push({ name: "Points", mesh: pts, edges: null });
+
+		// Register in UI
+		addModelCheckbox("Points", pts, null, false, true, "#ff0000");
+		
 		return pts;
 	}
 	
