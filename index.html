@@ -16,6 +16,7 @@
     label{display:block;margin-top:8px;font-size:13px}
     .row{display:flex;gap:8px;align-items:center}
     input[type=range]{width:100%}
+    input[type=number]{background-color: #1e1e1e;color: #efefef;border: 1px solid #555;border-radius: 6px;padding: 6px;font-family: monospace;font-size: 13px;resize: vertical;width: 100%;box-sizing: border-box;margin-top: 6px;margin-bottom: 8px;width: 70px;}
     select, button{margin-top:8px;padding:8px;border-radius:6px;border:none;background:#2563eb;color:white;cursor:pointer}
     .muted{color:#9fb0c8;font-size:13px}
     .info{background:#071624;padding:8px;border-radius:6px;margin-top:8px;font-family:monospace;font-size:13px}
@@ -80,6 +81,7 @@
         <label><input id="wireframe" type="checkbox" checked> Draw triangle edges</label>
         <label><input id="backface" type="checkbox"> Double-sided</label>
         <div style="display: flex; align-items: center; margin-bottom: 4px; gap: 8px;" id="flatGroundContainer"><label id="flatGroundLabel"><input type="checkbox" id="flatGroundCheckbox">Flat Ground Clips</label><input type="color" id="flatGroundColorPicker" value="#ff00ff"></div>
+        <div style="display: flex; align-items: center; margin-bottom: 4px; gap: 8px;" id="samplePointsContainer"><label id="samplePointsLabel"><input type="checkbox" id="samplePointsCheckbox">Sample Standable Points</label><input type="number" id="samplePointsResolution" value="0.1" min="0.01" max="0.2" step="0.01"></div>
         <label style="display:none;"><input id="translucent" type="checkbox" checked> Translucent (opacity)</label>
         <label style="display:none;">Opacity <input id="opacity" type="range" min="0" max="1" step="0.01" value="1.0"></label>
         <label style="display:none;"><input id="grid" type="checkbox"> Draw grid</label>
@@ -150,6 +152,11 @@
     const gameSel = document.getElementById('selected-game');
     const display_fwc = document.getElementById('display_fwc');
     const display_fwc_label = document.getElementById('display_fwc_label');
+	
+	
+    const samplePointsContainer = document.getElementById("samplePointsContainer"); 
+    const samplePointsCheckbox  = document.getElementById("samplePointsCheckbox");
+    const samplePointsResolution  = document.getElementById("samplePointsResolution");
     
     const multiSelectCheckbox = document.getElementById('multiSelect');
     const selectionListEl = document.getElementById('selectionListEl');
@@ -473,10 +480,8 @@
                         const buffer2 = await res2.arrayBuffer();
                         console.log(mapFilename2+": Binary file length:", buffer2.byteLength);
                         
-                        if ((game == "OOT3D" || game == "MM3D") && false)
-                            parseInvisibleSeams2D(new TextDecoder().decode(buffer2));
-                        else
-                            parseInvisibleSeams1D(new TextDecoder().decode(buffer2));
+                        //parseInvisibleSeams2D(new TextDecoder().decode(buffer2));
+                        parseInvisibleSeams1D(new TextDecoder().decode(buffer2));
                     }
                 }
             } catch (err) {
@@ -547,7 +552,7 @@
           for(let i=0;i<tris.length;i++) tris[i]=tris[i].map(x=>x-1);
         }
       }
-      buildGeometry(verts, tris, `Main Model`, true);
+      buildGeometry(verts, tris, null, `Main Model`, true);
     }
 
     // Binary format: [uint16 vertexCount][uint16 triCount] then vertexCount*(int16 x,y,z) then triCount*(uint16 a,b,c)
@@ -581,7 +586,7 @@
       if(minIdx>=1 && maxIdx<=verts.length) {
         for(let i=0;i<tris.length;i++) tris[i]=tris[i].map(x=>x-1);
       }
-      buildGeometry(verts, tris, `Main Model`, true);
+      buildGeometry(verts, tris, null, `Main Model`, true);
     }
     
     function parseBKModelBinary(buffer, fresh){
@@ -643,9 +648,9 @@
         for(let i=0;i<tris.length;i++) tris[i]=tris[i].map(x=>x-1);
       }
       if(fresh)
-        buildGeometry(verts, tris, `Main Model`, fresh);
+        buildGeometry(verts, tris, null, `Main Model`, fresh);
       else
-        buildGeometry(verts, tris, `Model ${loadedModels.length+1}`, fresh);
+        buildGeometry(verts, tris, null, `Model ${loadedModels.length+1}`, fresh);
     }
     
     function parseZeldaModelTextTriangles(text, fresh) {
@@ -698,11 +703,11 @@
 
         if (fresh)
             if (display_fwc.checked)
-                buildGeometry_fwc(verts, tris, "Main Model", fresh);
+                buildGeometry_fwc(verts, tris, null, "Main Model", fresh);
             else
-                buildGeometry(verts, tris, "Main Model", fresh);
+                buildGeometry(verts, tris, null, "Main Model", fresh);
         else
-            buildGeometry(verts, tris, `Model ${loadedModels.length + 1}`, fresh);
+            buildGeometry(verts, tris, null, `Model ${loadedModels.length + 1}`, fresh);
     }
     
     function parseZeldaModelBinary(buffer, fresh){
@@ -734,7 +739,7 @@
             if (game == "OOT" || game == "MM")
                 cmd2 = dv.getUint32(current_addr+0x4, endianness) - 0x02000000;
             
-            console.log("current_addr: "+current_addr+", "+cmd1+", "+cmd2);
+            //console.log("current_addr: "+current_addr+", "+cmd1+", "+cmd2);
             
             if (game == "OOT" || game == "MM") {
                 numVtxs = dv.getUint16(cmd2+0x0C, endianness);
@@ -839,7 +844,7 @@
         const [a,b,c] = tris[i];
         if (a < 0 || b < 0 || c < 0 ||
           a >= verts.length || b >= verts.length || c >= verts.length) {
-          //console.warn("Invalid triangle index", i, a,b,c, "verts:", verts.length);
+          console.warn("Invalid triangle index", i, a,b,c, "verts:", verts.length);
         }
       }
       
@@ -847,9 +852,9 @@
         if (display_fwc.checked)
             buildGeometry_fwc(verts, tris, `Main Model`, fresh);
         else
-            buildGeometry(verts, tris, "Main Model", fresh);
+			buildGeometry(verts, tris, allTriangleData, "Main Model", fresh);
       else
-        buildGeometry(verts, tris, `Model ${loadedModels.length+1}`, fresh);
+		buildGeometry(verts, tris, allTriangleData, `Model ${loadedModels.length+1}`, fresh);
       
       
       /*allTriangleData = [ // test data oot ice cavern wall
@@ -939,7 +944,7 @@
         }
 
         //console.log(`Model "${name}": ${verts.length} verts, ${edges.length} edges`);
-        buildGeometryFromEdges(verts, edges, "Seams Model", false);
+        buildGeometryEdges(verts, edges, "Seams Model", false);
     }
     
     function parseInvisibleSeams2D(text) {
@@ -1072,6 +1077,94 @@
 
         const len = Math.sqrt(nx*nx + ny*ny + nz*nz) || 1;
         return ny / len;
+    }
+    
+    function buildGeometry(verts, tris, allTriangleData, name = "Main Model", clearFirst = true) {
+        
+        if ((!verts || !tris || verts.length === 0 || tris.length === 0) && clearFirst) { 
+            alert('No valid vertices or triangles found'); 
+            return; 
+        }
+
+        // Optionally clear all existing models
+        if (clearFirst) {
+            loadedModels.forEach(m => {
+                scene.remove(m.mesh);
+                scene.remove(m.edges);
+            });
+            loadedModels = [];
+            loadedModels2.forEach(m => {
+                scene.remove(m.mesh);
+                scene.remove(m.edges);
+            });
+            loadedModels2 = [];
+
+            // Remove all model checkboxes
+            removeAllModelCheckboxes();
+            
+            // Clear selection
+            clearSelection();
+        }
+
+        // Create vertex positions
+        const positions = new Float32Array(verts.length * 3);
+        for (let i = 0; i < verts.length; i++) {
+            positions[3 * i]     = verts[i][0];
+            positions[3 * i + 1] = verts[i][1];
+            positions[3 * i + 2] = verts[i][2];
+        }
+
+        // Create triangle indices
+        const indices = new (verts.length > 65535 ? Uint32Array : Uint16Array)(tris.length * 3);
+        for (let i = 0; i < tris.length; i++) {
+            indices[3 * i]     = tris[i][0];
+            indices[3 * i + 1] = tris[i][1];
+            indices[3 * i + 2] = tris[i][2];
+        }
+
+        // Build geometry and mesh
+        const geom = new THREE.BufferGeometry();
+        geom.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+        geom.setIndex(new THREE.BufferAttribute(indices, 1));
+        
+        const meshObj = new THREE.Mesh(geom, material.clone());
+        meshObj.material.polygonOffset = true;
+        meshObj.material.polygonOffsetFactor = 1;
+        meshObj.material.polygonOffsetUnits = 1;
+		meshObj.userData.triangles = allTriangleData;  // Store metadata
+        if(!clearFirst)
+            meshObj.material.color.set(0x3aff78);
+        scene.add(meshObj);
+
+        // Build wireframe edges
+        const edgePositions = [];
+        for (let i = 0; i < indices.length; i += 3) {
+            const a = indices[i], b = indices[i + 1], c = indices[i + 2];
+            const va = verts[a], vb = verts[b], vc = verts[c];
+            edgePositions.push(
+                va[0], va[1], va[2], vb[0], vb[1], vb[2],
+                vb[0], vb[1], vb[2], vc[0], vc[1], vc[2],
+                vc[0], vc[1], vc[2], va[0], va[1], va[2]
+            );
+        }
+        const edgeGeom = new THREE.BufferGeometry();
+        edgeGeom.setAttribute('position', new THREE.Float32BufferAttribute(edgePositions, 3));
+        const edgesObj = new THREE.LineSegments(
+            edgeGeom,
+            new THREE.LineBasicMaterial({ color: 0x3240a8, linewidth: 1, opacity: 0.8, transparent: true }) // 3240a8
+        );
+        edgesObj.visible = wireframeCheckbox.checked;
+        scene.add(edgesObj);
+
+        // Store and register in UI
+        loadedModels.push({ name, mesh: meshObj, edges: edgesObj });
+        //console.log(loadedModels);
+        addModelCheckbox(name, meshObj, edgesObj, clearFirst, true);
+        
+        // After loading model
+        scanAndBuildFlatGroundMarkers();
+        updateFlatGroundUIVisibility();
+        updateSamplePointsUIVisibility();
     }
     
     function buildGeometry_fwc(verts, tris, name = "Main Model", clearFirst = true) {
@@ -1226,95 +1319,127 @@
 
         scanAndBuildFlatGroundMarkers();
         updateFlatGroundUIVisibility();
+        updateSamplePointsUIVisibility();
     }
+	
+	function buildGeometryFromTriangles(allTriangleData, name = "Main Model", clearFirst = true) {
+
+		if ((!allTriangleData || allTriangleData.length === 0) && clearFirst) {
+			alert("No triangle data found");
+			return;
+		}
+
+		// ---------------------
+		// Optional: Clear scene
+		// ---------------------
+		if (clearFirst) {
+			loadedModels.forEach(m => {
+				scene.remove(m.mesh);
+				scene.remove(m.edges);
+			});
+			loadedModels = [];
+
+			loadedModels2.forEach(m => {
+				scene.remove(m.mesh);
+				scene.remove(m.edges);
+			});
+			loadedModels2 = [];
+
+			removeAllModelCheckboxes();
+			clearSelection();
+		}
+
+		// ---------------------
+		// Build position buffer
+		// ---------------------
+		const positions = new Float32Array(allTriangleData.length * 9); // 3 verts × 3 floats
+		const indices   = new (allTriangleData.length > 21845 ? Uint32Array : Uint16Array)(allTriangleData.length * 3);
+
+		let pi = 0;
+		for (let i = 0; i < allTriangleData.length; i++) {
+			const tri = allTriangleData[i];
+			const v0 = tri.vtxs[0], v1 = tri.vtxs[1], v2 = tri.vtxs[2];
+
+			positions[pi++] = v0.x; positions[pi++] = v0.y; positions[pi++] = v0.z;
+			positions[pi++] = v1.x; positions[pi++] = v1.y; positions[pi++] = v1.z;
+			positions[pi++] = v2.x; positions[pi++] = v2.y; positions[pi++] = v2.z;
+
+			const base = i * 3;
+			indices[base]     = base;
+			indices[base + 1] = base + 1;
+			indices[base + 2] = base + 2;
+		}
+
+		// ---------------------
+		// Build geometry object
+		// ---------------------
+		const geom = new THREE.BufferGeometry();
+		geom.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+		geom.setIndex(new THREE.BufferAttribute(indices, 1));
+
+		// Three’s normals are lighting normals. Not what you want for OOT plane normals.
+		// But we let Three compute them anyway for shading.
+		geom.computeVertexNormals();
+
+		const meshObj = new THREE.Mesh(geom, material.clone());
+		meshObj.material.polygonOffset = true;
+		meshObj.material.polygonOffsetFactor = 1;
+		meshObj.material.polygonOffsetUnits = 1;
+		if (!clearFirst)
+			meshObj.material.color.set(0x3aff78);
+
+		// Store original triangle metadata here
+		meshObj.userData.allTriangleData = allTriangleData;
+
+		scene.add(meshObj);
+
+		// ---------------------
+		// Wireframe edges
+		// ---------------------
+		const edgePositions = [];
+		for (let i = 0; i < indices.length; i += 3) {
+			const a = indices[i], b = indices[i+1], c = indices[i+2];
+			const pa = new THREE.Vector3(
+				positions[3*a], positions[3*a+1], positions[3*a+2]
+			);
+			const pb = new THREE.Vector3(
+				positions[3*b], positions[3*b+1], positions[3*b+2]
+			);
+			const pc = new THREE.Vector3(
+				positions[3*c], positions[3*c+1], positions[3*c+2]
+			);
+
+			edgePositions.push(
+				pa.x, pa.y, pa.z, pb.x, pb.y, pb.z,
+				pb.x, pb.y, pb.z, pc.x, pc.y, pc.z,
+				pc.x, pc.y, pc.z, pa.x, pa.y, pa.z
+			);
+		}
+
+		const edgeGeom = new THREE.BufferGeometry();
+		edgeGeom.setAttribute('position', new THREE.Float32BufferAttribute(edgePositions, 3));
+		const edgesObj = new THREE.LineSegments(
+			edgeGeom,
+			new THREE.LineBasicMaterial({
+				color: 0x3240a8,
+				linewidth: 1,
+				opacity: 0.8,
+				transparent: true
+			})
+		);
+		edgesObj.visible = wireframeCheckbox.checked;
+		scene.add(edgesObj);
+
+		// Register in UI
+		loadedModels.push({ name, mesh: meshObj, edges: edgesObj });
+		addModelCheckbox(name, meshObj, edgesObj, clearFirst, true);
+
+		scanAndBuildFlatGroundMarkers();
+		updateFlatGroundUIVisibility();
+        updateSamplePointsUIVisibility();
+	}
     
-    function buildGeometry(verts, tris, name = "Main Model", clearFirst = true) {
-        
-        if ((!verts || !tris || verts.length === 0 || tris.length === 0) && clearFirst) { 
-            alert('No valid vertices or triangles found'); 
-            return; 
-        }
-
-        // Optionally clear all existing models
-        if (clearFirst) {
-            loadedModels.forEach(m => {
-                scene.remove(m.mesh);
-                scene.remove(m.edges);
-            });
-            loadedModels = [];
-            loadedModels2.forEach(m => {
-                scene.remove(m.mesh);
-                scene.remove(m.edges);
-            });
-            loadedModels2 = [];
-
-            // Remove all model checkboxes
-            removeAllModelCheckboxes();
-            
-            // Clear selection
-            clearSelection();
-        }
-
-        // Create vertex positions
-        const positions = new Float32Array(verts.length * 3);
-        for (let i = 0; i < verts.length; i++) {
-            positions[3 * i]     = verts[i][0];
-            positions[3 * i + 1] = verts[i][1];
-            positions[3 * i + 2] = verts[i][2];
-        }
-
-        // Create triangle indices
-        const indices = new (verts.length > 65535 ? Uint32Array : Uint16Array)(tris.length * 3);
-        for (let i = 0; i < tris.length; i++) {
-            indices[3 * i]     = tris[i][0];
-            indices[3 * i + 1] = tris[i][1];
-            indices[3 * i + 2] = tris[i][2];
-        }
-
-        // Build geometry and mesh
-        const geom = new THREE.BufferGeometry();
-        geom.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-        geom.setIndex(new THREE.BufferAttribute(indices, 1));
-        
-        const meshObj = new THREE.Mesh(geom, material.clone());
-        meshObj.material.polygonOffset = true;
-        meshObj.material.polygonOffsetFactor = 1;
-        meshObj.material.polygonOffsetUnits = 1;
-        if(!clearFirst)
-            meshObj.material.color.set(0x3aff78);
-        scene.add(meshObj);
-
-        // Build wireframe edges
-        const edgePositions = [];
-        for (let i = 0; i < indices.length; i += 3) {
-            const a = indices[i], b = indices[i + 1], c = indices[i + 2];
-            const va = verts[a], vb = verts[b], vc = verts[c];
-            edgePositions.push(
-                va[0], va[1], va[2], vb[0], vb[1], vb[2],
-                vb[0], vb[1], vb[2], vc[0], vc[1], vc[2],
-                vc[0], vc[1], vc[2], va[0], va[1], va[2]
-            );
-        }
-        const edgeGeom = new THREE.BufferGeometry();
-        edgeGeom.setAttribute('position', new THREE.Float32BufferAttribute(edgePositions, 3));
-        const edgesObj = new THREE.LineSegments(
-            edgeGeom,
-            new THREE.LineBasicMaterial({ color: 0x3240a8, linewidth: 1, opacity: 0.8, transparent: true }) // 3240a8
-        );
-        edgesObj.visible = wireframeCheckbox.checked;
-        scene.add(edgesObj);
-
-        // Store and register in UI
-        loadedModels.push({ name, mesh: meshObj, edges: edgesObj });
-        //console.log(loadedModels);
-        addModelCheckbox(name, meshObj, edgesObj, clearFirst, true);
-        
-        // After loading model
-        scanAndBuildFlatGroundMarkers();
-        updateFlatGroundUIVisibility();
-    }
-    
-    function buildGeometryFromEdges(verts, edges, name = "Edge Model", clearFirst = true) {
+    function buildGeometryEdges(verts, edges, name = "Edge Model", clearFirst = true) {
 
         if ((!verts || !edges || verts.length === 0 || edges.length === 0) && clearFirst) {
             alert('No valid vertices or edges found');
@@ -1524,7 +1649,7 @@
         });
     }
 
-    function addModelCheckbox(name, meshObj, edgesObj, clearFirst, checked, color = null) {
+    function addModelCheckbox(name, meshObj, edgesObj, clearFirst, checked, color = null, deleteButton = false) {
         const section = document.querySelector('.controls');
 
         // Container
@@ -1533,6 +1658,7 @@
         container.style.alignItems = 'center';
         container.style.marginBottom = '4px';
         container.style.gap = '8px'; // space between checkbox+label and color picker
+		container.dataset.modelName = name;
 
         // Visibility checkbox + label
         const label = document.createElement('label');
@@ -1555,6 +1681,41 @@
         label.appendChild(chk);
         const labelText = document.createTextNode(` Show ${name}`);
         label.appendChild(labelText);
+		
+		// ----- DELETE BUTTON -----
+		const del = document.createElement('button');
+		del.textContent = "×";
+		del.style.marginLeft = "4px";
+		del.style.cursor = "pointer";
+		del.style.padding = "0 4px";
+		del.style.border = "1px solid #888";
+		del.style.borderRadius = "3px";
+		del.style.background = "#333";
+		del.style.color = "#f55";
+		del.title = "Remove this model";
+		del.classList.add("delete-btn");
+		
+		del.addEventListener('click', () => {
+			// Remove from scene
+			if (meshObj) scene.remove(meshObj);
+			if (edgesObj) scene.remove(edgesObj);
+
+			// Dispose
+			if (meshObj?.geometry) meshObj.geometry.dispose();
+			if (meshObj?.material) meshObj.material.dispose();
+			if (edgesObj?.geometry) edgesObj.geometry.dispose();
+			if (edgesObj?.material) edgesObj.material.dispose();
+
+			// Remove from loadedModels
+			const idx = loadedModels.findIndex(m => m.name === name);
+			if (idx !== -1) loadedModels.splice(idx, 1);
+
+			// Remove UI
+			container.remove();
+
+			clearSelection();
+			updateSelectionUI();
+		});
 
         // Color picker
         const colorInput = document.createElement('input');
@@ -1577,6 +1738,9 @@
         // Assemble
         container.appendChild(label);
         container.appendChild(colorInput);
+		if(deleteButton) {
+			container.appendChild(del);
+		}
         section.appendChild(container);
     }
 
@@ -1585,6 +1749,7 @@
     ////////////////////////////////////////
     
     let selectedPoints = [];
+	let selectedEdges = [];
     
     // Update selection UI
     function updateSelectionUI() {
@@ -1593,11 +1758,31 @@
         }
 
         const lines = [];
-
+		
+		let sampled_triangles = [];
         for (const t of selectedTriangles) {
             const pts = t.verts.map(v => `${formatNumber(v.x)} ${formatNumber(v.y)} ${formatNumber(v.z)}`);
-            lines.push(`TRI ${t.index}  ${pts.join(' ')}`);
+            let line = `TRI ${t.index}  ${pts.join(' ')}`;
+
+			if (t.normals) {
+				line += `   NORMAL: ${t.normals[0]}, ${t.normals[1]}, ${t.normals[2]}`;
+			}
+
+			if (t.dist !== null && t.dist !== undefined) {
+				line += `   DIST: ${t.dist}`;
+			}
+
+			lines.push(line);
         }
+		
+		for (const e of selectedEdges) {
+			const a = e.a, b = e.b;
+			lines.push(
+				`EDGE ${e.index}  ` +
+				`${a.x.toFixed(7)}, ${a.y.toFixed(7)}, ${a.z.toFixed(7)},  ` +
+				`${b.x.toFixed(7)}, ${b.y.toFixed(7)}, ${b.z.toFixed(7)}`
+			);
+		}
 
         for (const p of selectedPoints) {
             const v = p.pos;
@@ -1620,12 +1805,15 @@
                 if (marker.material) marker.material.dispose();
             }
         });
+        selectedTriangles.length = 0;
 
         // Points
         selectedPoints.forEach(p => removePointMarker(p));
-
-        selectedTriangles.length = 0;
         selectedPoints.length = 0;
+		
+		// Edges
+		selectedEdges.forEach(e => removeEdgeMarker(e));
+		selectedEdges.length = 0;
 
         selectionListEl.value = '';
         updateSelectionUI();
@@ -1684,6 +1872,33 @@
             m.material.dispose();
         }
     }
+	
+	function addEdgeMarker(edge) {
+		const geom = new THREE.BufferGeometry();
+		geom.setAttribute('position', new THREE.Float32BufferAttribute([
+			edge.a.x, edge.a.y, edge.a.z,
+			edge.b.x, edge.b.y, edge.b.z
+		], 3));
+
+		const mat = new THREE.LineBasicMaterial({
+			color: 0xffff00,
+			linewidth: 3
+		});
+
+		const line = new THREE.LineSegments(geom, mat);
+		line.name = `edgeMarker_${edge.modelName}_${edge.index}`;
+		scene.add(line);
+	}
+
+	function removeEdgeMarker(edge) {
+		const name = `edgeMarker_${edge.modelName}_${edge.index}`;
+		const m = scene.getObjectByName(name);
+		if (m) {
+			scene.remove(m);
+			m.geometry.dispose();
+			m.material.dispose();
+		}
+	}
 
     // Handle triangle/point selection
     function performSelection(ev) {
@@ -1751,7 +1966,59 @@
             return; // prevents triangle selection
         }
         // ----- END POINT PASS -----
+		
+		// ----- EDGE SELECTION PASS -----
+		const edgeHits = [];
+		const edgeThreshold = 0.08;
 
+		for (const m of loadedModels) {
+			if (!m.edges || !m.edges.visible) continue;
+
+			const pos = m.edges.geometry.attributes.position;
+
+			for (let i = 0; i < pos.count; i += 2) {
+				const a = new THREE.Vector3().fromBufferAttribute(pos, i);
+				const b = new THREE.Vector3().fromBufferAttribute(pos, i + 1);
+
+				m.edges.localToWorld(a);
+				m.edges.localToWorld(b);
+
+				const dist = raycaster.ray.distanceSqToSegment(
+					a, b, null, null
+				);
+
+				if (dist < edgeThreshold * edgeThreshold) {
+					edgeHits.push({
+						modelName: m.edges.name || m.name,
+						index: i / 2,
+						a, b
+					});
+				}
+			}
+		}
+
+		if (edgeHits.length > 0) {
+			const e = edgeHits[0];
+
+			const idx = selectedEdges.findIndex(
+				x => x.modelName === e.modelName && x.index === e.index
+			);
+
+			if (idx !== -1) {
+				removeEdgeMarker(selectedEdges[idx]);
+				selectedEdges.splice(idx, 1);
+			} else {
+				if (!multiSelectCheckbox.checked)
+					clearSelection();
+				selectedEdges.push(e);
+				addEdgeMarker(e);
+			}
+
+			updateSelectionUI();
+			return;
+		}
+		// ----- END EDGE PASS -----
+		
         const visibleMeshes = loadedModels
             .filter(m => m.mesh && m.mesh.visible)
             .map(m => m.mesh);
@@ -1785,11 +2052,23 @@
         const vb = new THREE.Vector3().fromBufferAttribute(pos, b);
         const vc = new THREE.Vector3().fromBufferAttribute(pos, c);
 
-        const newTri = {
-            index: Math.floor(hit.faceIndex),
-            verts: [va, vb, vc],
-            modelName: hit.object.name
-        };
+        const triIndex = Math.floor(hit.faceIndex);
+
+		// Retrieve metadata stored on the mesh
+		let meta = null;
+		if (hit.object.userData.triangles && hit.object.userData.triangles[triIndex]) {
+			meta = hit.object.userData.triangles[triIndex];
+		}
+
+		const newTri = {
+			index: triIndex,
+			verts: [va, vb, vc],
+			modelName: hit.object.name,
+
+			// include metadata if available:
+			normals: meta ? meta.normals : null,
+			dist: meta ? meta.d : null
+		};
 
         // Check if triangle is already selected (match by index + modelName)
         const existingIndex = selectedTriangles.findIndex(
@@ -1812,6 +2091,19 @@
         selectedTriangles.push(newTri);
         addSelectionMarker(newTri);
         updateSelectionUI();
+			
+		const sample_tri = [{
+			vtxs: [
+				va,
+				vb,
+				vc
+			],
+			normals: meta ? meta.normals : null,
+			d: meta ? meta.d : null
+		}];
+		
+		if ((game == "OOT" || game == "MM" || game == "OOT3D" || game == "MM3D") && samplePointsEnabled && meta)
+			drawSampledTriangles(scene, sample_tri, sampledStandableFootprint, Number(samplePointsResolution.value))
     }
     
     ////////////////////////////////////////
@@ -2125,7 +2417,7 @@
     function buildTest(){
       const verts = [[-200,-200,-200],[200,-200,-200],[200,200,-200],[-200,200,-200],[-200,-200,200],[200,-200,200],[200,200,200],[-200,200,200]];
       const tris = [[0,1,2],[0,2,3],[4,7,6],[4,6,5],[0,4,5],[0,5,1],[1,5,6],[1,6,2],[2,6,7],[2,7,3],[3,7,4],[3,4,0]];
-      buildGeometry(verts, tris, `Main Model`, true);
+      buildGeometry(verts, tris, null, `Main Model`, true);
     }
     buildTest();
 
@@ -2224,6 +2516,21 @@
     // ------------------------
     // Game-accurate Sampling
     // ------------------------
+	
+	let samplePointsEnabled = false
+	
+    function updateSamplePointsUIVisibility() {
+        if (["OOT","MM","OOT3D","MM3D"].includes(game)) {
+            samplePointsContainer.style.display = "flex";
+        } else {
+            samplePointsContainer.style.display = "none";
+        }
+    }
+
+    samplePointsCheckbox.addEventListener("change", () => {
+        samplePointsEnabled = samplePointsCheckbox.checked;
+    });
+	
     function sampledStandableFootprint(tri, resolution=0.25) {
         const v0 = tri.vtxs[0], v1 = tri.vtxs[1], v2 = tri.vtxs[2];
         const nx = tri.normals[0] * COLPOLY_NORMAL_FRAC;
@@ -2342,9 +2649,26 @@
     
     // ------------------------
     // Optional: draw in Three.js
-    // Example: sampled (red)
+    // ------------------------
     
     function drawSampledTriangles(scene, allTriangleData, sampleFunc, sampleStep = 0.1) {
+		// --- NEW: AUTO-DELETE OLD POINTS MODEL ---
+		const existing = loadedModels.find(m => m.name === "Points");
+		if (existing) {
+			// Find the UI container for this model and click its delete button.
+			const section = document.querySelector('.controls');
+			const children = Array.from(section.children);
+
+			for (const child of children) {
+				if (child.dataset && child.dataset.modelName === "Points") {
+					const delBtn = child.querySelector('.delete-btn');
+					if (delBtn) delBtn.click();
+					break;
+				}
+			}
+		}
+		// --- END AUTO-DELETE ---
+		
         // First, count total number of points
         let totalPoints = 0;
         allTriangleData.forEach(tri => {
@@ -2381,11 +2705,10 @@
         loadedModels.push({ name: "Points", mesh: pts, edges: null });
 
         // Register in UI
-        addModelCheckbox("Points", pts, null, false, true, "#ff0000");
+        addModelCheckbox("Points", pts, null, false, true, "#ff0000", true);
         
         return pts;
     }
-
   </script>
 </body>
 </html>
