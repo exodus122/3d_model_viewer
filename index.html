@@ -886,7 +886,7 @@
 		}
 	  ];*/
 	  
-	  /*allTriangleData = [ // test data oot3d kokiri
+	  /*allTriangleData = [ // test data oot3d kokiri left
 		{
 			vtxs: [
 				new THREE.Vector3(-1272, 60, -834),
@@ -895,6 +895,18 @@
 			],
 			normals: [1380, -35, 32737],
 			d: 886.93
+		}
+	  ];*/
+	  
+	  /*allTriangleData = [ // test data oot3d kokiri right
+		{
+			vtxs: [
+				new THREE.Vector3(-1113, 60, -841),
+				new THREE.Vector3(-1115, 1, -841),
+				new THREE.Vector3(-928, 1, -833)
+			],
+			normals: [-1339, 17, 32739],
+			d: 794.779
 		}
 	  ];*/
 
@@ -2679,6 +2691,35 @@
 		return group;
 	}
 	
+	function clipTriangleByMinY(verts, minY) {
+		// verts = [{x,y,z}, ... 3 items]
+
+		const out = [];
+
+		for (let i = 0; i < 3; i++) {
+			const a = verts[i];
+			const b = verts[(i + 1) % 3];
+
+			const aAbove = a.y >= minY;
+			const bAbove = b.y >= minY;
+
+			// Case 1: A is above → keep A
+			if (aAbove) out.push(a);
+
+			// Case 2: Edge AB crosses the minY plane → add intersection
+			if (aAbove !== bAbove) {
+				const t = (minY - a.y) / (b.y - a.y);  // param along AB
+				out.push({
+					x: a.x + (b.x - a.x) * t,
+					y: minY,
+					z: a.z + (b.z - a.z) * t,
+				});
+			}
+		}
+
+		return out;
+	}
+	
 	function renderStandableSurfaceWithEdgesV2(allTriangleData) {
 		const f32 = Math.fround;
 		const COLPOLY_NORMAL_FRAC = f32(1.0 / 32767.0);
@@ -2729,21 +2770,38 @@
 				});
 			}
 
+			const rawVerts = [];
+
 			for (let i = 0; i < 3; i++) {
 				const vx = expandedVertices[i].x;
 				const vz = expandedVertices[i].z;
-				let vy = liftVertex(vx, vz);
-
-				// Clamp to original lowest vertex
-				// this clamp is not working how it should at all, so commented out. 
-				// it is just moving the vertices higher, instead of cutting off the triangle at the right point
-				//vy = Math.max(vy, minY);
-
-				positions.push(vx, vy, vz);
+				const vy = liftVertex(vx, vz);
+				rawVerts.push({ x: vx, y: vy, z: vz });
 			}
 
-			indices.push(vertexOffset, vertexOffset + 1, vertexOffset + 2);
-			vertexOffset += 3;
+			// Clip polygon against y = minY
+			const clipped = clipTriangleByMinY(rawVerts, minY);
+
+			// If clipped polygon has < 3 vertices, it is gone
+			if (clipped.length < 3) return;
+
+			// Triangulate the clipped polygon (fan)
+			for (let i = 1; i < clipped.length - 1; i++) {
+				const v0 = clipped[0];
+				const v1 = clipped[i];
+				const v2 = clipped[i + 1];
+
+				positions.push(v0.x, v0.y, v0.z);
+				positions.push(v1.x, v1.y, v1.z);
+				positions.push(v2.x, v2.y, v2.z);
+
+				indices.push(
+					vertexOffset,
+					vertexOffset + 1,
+					vertexOffset + 2
+				);
+				vertexOffset += 3;
+			}
 		});
 
 		// Create main mesh
