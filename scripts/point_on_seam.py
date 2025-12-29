@@ -144,15 +144,15 @@ tri_verts, nx, ny, nz, d = unpack_tri_flat(tri_data)
 result = find_standable_point(
     tri_verts=tri_verts,
     nx=nx, ny=ny, nz=nz, d=d,
-    x_min=-1140, x_max=-1100,
+    x_min=-1300, x_max=-1200,
     z_min=-860, z_max=-820,
     step=0.1,
-    y_target=80,
+    y_target=100,
     y_range=20.0
 )
 
 if result:
     x, y, z = result
-    print(f"x={x:.7f}, y={y:.7f}, z={z:.7f}")
+    print(f"xyz = {x:.7f}, {y:.7f}, {z:.7f}")
 else:
     print("no point in band")

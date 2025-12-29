@@ -913,7 +913,7 @@
 	  //}
 	  
 	  const standableSurfaceMesh = renderStandableSurfaceWithEdgesV2(allTriangleData);
-	  //const standableSurfaceMesh = renderStandableSurfaceWithEdgesV2(allTriangleData);
+	  //const standableSurfaceMesh = renderStandableSurfaceWithEdges(allTriangleData);
 	  scene.add(standableSurfaceMesh);
 	  
 	  loadedModels.push({ name: "Standable surface", mesh: standableSurfaceMesh, edges: null });
@@ -2735,7 +2735,9 @@
 				let vy = liftVertex(vx, vz);
 
 				// Clamp to original lowest vertex
-				vy = Math.max(vy, minY);
+				// this clamp is not working how it should at all, so commented out. 
+				// it is just moving the vertices higher, instead of cutting off the triangle at the right point
+				//vy = Math.max(vy, minY);
 
 				positions.push(vx, vy, vz);
 			}
