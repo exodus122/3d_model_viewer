@@ -793,8 +793,14 @@
         if(offset+poly_length>dv.byteLength) break;
         
         offset+=2;
-        const a = dv.getUint16(offset,endianness) & 0x1FFF; offset+=2;
-        const b = dv.getUint16(offset,endianness) & 0x1FFF; offset+=2;
+        let temp_a = dv.getUint16(offset,endianness); offset+=2;
+		const xpFlags = (temp_a & 0xE000) >>> 13;
+		const a = temp_a & 0x1FFF;
+		
+        let temp_b = dv.getUint16(offset,endianness); offset+=2;
+		const flags = (temp_b & 0xE000) >>> 13;
+        const b = temp_b & 0x1FFF;
+		
         const c = dv.getUint16(offset,endianness) & 0x1FFF; offset+=2;
         if (game == "OOT3D") {
             offset+=2;
@@ -816,6 +822,10 @@
         }
         
         //offset += poly_length-0x8;
+		
+		if (xpFlags & 2)
+			continue;
+		
         tris.push([a+1,b+1,c+1]);
         
         // --- Build triangle object directly for allTriangleData ---
@@ -828,7 +838,9 @@
         allTriangleData.push({
             vtxs,
             normals: [normX, normY, normZ],
-            d: dist
+            d: dist,
+			xpFlags: xpFlags,
+			flags: flags
         });
       }
       //console.log(tris)
@@ -1997,6 +2009,14 @@
 				line += `   DIST: ${t.dist}`;
 			}
 
+			if (t.xpFlags !== null && t.xpFlags !== undefined) {
+				line += `   XPFLAGS: ${t.xpFlags}`;
+			}
+
+			if (t.flags !== null && t.flags !== undefined && t.flags == 1) {
+				line += `   CONVEYOR`;
+			}
+
 			lines.push(line);
         }
 		
@@ -2292,7 +2312,9 @@
 
 			// include metadata if available:
 			normals: meta ? meta.normals : null,
-			dist: meta ? meta.d : null
+			dist: meta ? meta.d : null,
+			xpFlags: meta ? meta.xpFlags : null,
+			flags: meta ? meta.flags : null
 		};
 
         // Check if triangle is already selected (match by index + modelName)
@@ -2324,7 +2346,9 @@
 				vc
 			],
 			normals: meta ? meta.normals : null,
-			d: meta ? meta.d : null
+			d: meta ? meta.d : null,
+			xpFlags: meta ? meta.xpFlags : null,
+			flags: meta ? meta.flags : null
 		}];
 		
 		if ((game == "OOT" || game == "MM" || game == "OOT3D" || game == "MM3D") && samplePointsEnabled && meta) {
