@@ -122,7 +122,7 @@
     
     ////////////////////////////////////////
     // Known Issues:
-    // - sectors are not accounted for, which can make some green lines, points, or standable surfaces not actually standable
+    // - sectors are not accounted for, which can make some seams, points, or standable surfaces not actually standable
     // - poly exclusion flags (xpflags) were not accounted for when generating the green line seams, 
     // so some are fake in lost woods and kokiri
     ////////////////////////////////////////
@@ -991,7 +991,7 @@
     }
 
     ////////////////////////////////////////
-    // System: Geometry creation / model UI helpers
+    // System: Geometry creation
     ////////////////////////////////////////
     
     function buildGeometry(verts, tris, allTriangleData, name = "Main Model", clearFirst = true) {
@@ -1436,137 +1436,10 @@
 
         return out;
     }
-    
-    function renderStandableSurfaceWithEdges_old(allTriangleData) {
-        const f32 = Math.fround;
-
-        const positions = [];
-        const indices = [];
-        let vertexOffset = 0;
-
-        allTriangleData.forEach(tri => {
-            const vtxs = tri.vtxs;
-            const normals = tri.normals;
-            const D = f32(tri.d);
-			
-			if (vtxs[0].x == -2598 && vtxs[0].y == -63 && vtxs[0].z == -45 && 
-			vtxs[1].x == -2433 && vtxs[1].y == -63 && vtxs[1].z == -405 && 
-			vtxs[2].x == -2658 && vtxs[2].y == -63 && vtxs[2].z == -180)
-				console.log("hi")
-				
-			if (normals[0] == 0 && normals[1] == 32766 && normals[2] == 0) {
-				console.log(vtxs[0].x + ", " + vtxs[0].y + ", " + vtxs[0].z
-				 + ", " + vtxs[1].x + ", " + vtxs[1].y + ", " + vtxs[1].z
-				  + ", " + vtxs[2].x + ", " + vtxs[2].y + ", " + vtxs[2].z)
-				return;
-			}
-
-            const Nx = f32(normals[0] * COLPOLY_NORMAL_FRAC);
-            const Ny = f32(normals[1] * COLPOLY_NORMAL_FRAC);
-            const Nz = f32(normals[2] * COLPOLY_NORMAL_FRAC);
-
-            if (Ny < f32(0.0) || isZero(Ny)) return;
-
-            // Find original lowest Y vertex
-            let minY = Math.min(vtxs[0].y, vtxs[1].y, vtxs[2].y);
-
-            function liftVertex(x, z) {
-                if (Math.abs(Ny) < 1e-12) return 0.0; // should this be here?
-                return f32(-(Nx * x + Nz * z + D) / Ny);
-            }
-
-            // Determine if we need to offset triangle
-            let expandedVertices = vtxs.map(v => ({ x: f32(v.x), z: f32(v.z) }));
-
-            if (Math.abs(Ny) > 0.5) {
-                // Expand triangle by 1 unit on all sides with rounded corners
-                // Simple approach: move each vertex away from centroid
-                const centroid = {
-                    x: (expandedVertices[0].x + expandedVertices[1].x + expandedVertices[2].x) / 3,
-                    z: (expandedVertices[0].z + expandedVertices[1].z + expandedVertices[2].z) / 3
-                };
-
-                expandedVertices = expandedVertices.map(v => {
-                    const dx = v.x - centroid.x;
-                    const dz = v.z - centroid.z;
-                    const len = Math.sqrt(dx*dx + dz*dz);
-                    const factor = len > 0 ? (len + 1) / len : 1;
-                    return {
-                        x: centroid.x + dx * factor,
-                        z: centroid.z + dz * factor
-                    };
-                });
-            }
-
-            const rawVerts = [];
-
-            for (let i = 0; i < 3; i++) {
-                const vx = expandedVertices[i].x;
-                const vz = expandedVertices[i].z;
-                const vy = liftVertex(vx, vz);
-                rawVerts.push({ x: vx, y: vy, z: vz });
-            }
-
-            // Clip polygon against y = minY
-            const clipped = clipTriangleByMinY(rawVerts, minY);
-
-            // If clipped polygon has < 3 vertices, it is gone
-            if (clipped.length < 3) return;
-
-            // Triangulate the clipped polygon (fan)
-            for (let i = 1; i < clipped.length - 1; i++) {
-                const v0 = clipped[0];
-                const v1 = clipped[i];
-                const v2 = clipped[i + 1];
-
-                positions.push(v0.x, v0.y, v0.z);
-                positions.push(v1.x, v1.y, v1.z);
-                positions.push(v2.x, v2.y, v2.z);
-
-                indices.push(
-                    vertexOffset,
-                    vertexOffset + 1,
-                    vertexOffset + 2
-                );
-                vertexOffset += 3;
-            }
-        });
-
-        // Create main mesh
-        const geometry = new THREE.BufferGeometry();
-        geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-        geometry.setIndex(indices);
-        geometry.computeVertexNormals();
-
-        const mesh = new THREE.Mesh(
-            geometry,
-            new THREE.MeshStandardMaterial({
-                //color: 0x00ff99,
-                color: 0xff0000,
-                side: THREE.DoubleSide,
-                flatShading: true,
-                polygonOffset: true,
-                polygonOffsetFactor: 4,
-                polygonOffsetUnits: 4
-            })
-        );
-
-        // Edges
-        const edgesGeom = new THREE.EdgesGeometry(geometry);
-        const edgesMat = new THREE.LineBasicMaterial({ color: 0x000000 });
-        const edges = new THREE.LineSegments(edgesGeom, edgesMat);
-
-        // Group
-        const group = new THREE.Group();
-        group.add(mesh);
-        group.add(edges);
-
-        return group;
-    }
 	
+	// Helper: compute vertices below minY (clipped slice)
 	function getClippedBelowTriangle(rawVerts, minY) {
 		const belowVerts = [];
-		const aboveVerts = [];
 
 		for (let i = 0; i < 3; i++) {
 			const curr = rawVerts[i];
@@ -1576,9 +1449,8 @@
 			const nextBelow = next.y < minY;
 
 			if (currBelow) belowVerts.push(curr);
-			else aboveVerts.push(curr);
 
-			// Edge crosses the minY plane
+			// Edge crosses minY plane
 			if (currBelow !== nextBelow) {
 				const t = (minY - curr.y) / (next.y - curr.y);
 				const intersect = {
@@ -1587,7 +1459,6 @@
 					z: f32(curr.z + t * (next.z - curr.z))
 				};
 				belowVerts.push(intersect);
-				aboveVerts.push(intersect);
 			}
 		}
 
@@ -1604,34 +1475,6 @@
 		const positionsSpecial = [];
 		const indicesSpecial = [];
 		let vertexOffsetSpecial = 0;
-
-		// Helper: compute vertices below minY (clipped slice)
-		function getClippedBelowTriangle(rawVerts, minY) {
-			const belowVerts = [];
-
-			for (let i = 0; i < 3; i++) {
-				const curr = rawVerts[i];
-				const next = rawVerts[(i + 1) % 3];
-
-				const currBelow = curr.y < minY;
-				const nextBelow = next.y < minY;
-
-				if (currBelow) belowVerts.push(curr);
-
-				// Edge crosses minY plane
-				if (currBelow !== nextBelow) {
-					const t = (minY - curr.y) / (next.y - curr.y);
-					const intersect = {
-						x: f32(curr.x + t * (next.x - curr.x)),
-						y: f32(minY),
-						z: f32(curr.z + t * (next.z - curr.z))
-					};
-					belowVerts.push(intersect);
-				}
-			}
-
-			return belowVerts;
-		}
 
 		allTriangleData.forEach(tri => {
 			const vtxs = tri.vtxs;
@@ -1775,7 +1618,11 @@
 
 		return group;
 	}
-
+	
+	////////////////////////////////////////
+    // System: Model checkboxes
+    ////////////////////////////////////////
+	
     function removeAllModelCheckboxes() {
         const section = document.querySelector('.controls');
         // Remove all containers that hold the model checkbox + color picker
@@ -1938,7 +1785,6 @@
         selectionListEl.value = lines.join("\n");
     }
     
-
     // Clear selection
     function clearSelection() {
         // Triangles
@@ -2309,12 +2155,7 @@
 		flatGroundColor = parseInt(flatGroundColorPicker.value.replace("#",""), 16);
 		recolorFlatGroundMarkers();
 	});
-
-
-	////////////////////////////////////////
-	// Marker functions
-	////////////////////////////////////////
-
+	
 	function clearFlatGroundMarkers() {
 		for (const m of flatGroundMarkers) {
 			scene.remove(m);
@@ -2388,11 +2229,6 @@
 		// store edges so they can be cleaned later
 		flatGroundMarkers.push(edges);
 	}
-
-
-	////////////////////////////////////////
-	// Scan only Main Model using metadata normals
-	////////////////////////////////////////
 
 	function scanAndBuildFlatGroundMarkers() {
 		clearFlatGroundMarkers();
@@ -2481,6 +2317,7 @@
         setStatus('Pointer unlocked.');
       }
     });
+	
     document.addEventListener('pointerlockerror', (ev)=>{
       console.warn('pointerlockerror', ev);
       pointerLockBlocked = true;
@@ -2507,8 +2344,18 @@
       }
     });
     
+    function onWindowResize(){
+      const w = renderer.domElement.clientWidth || window.innerWidth - 320;
+      const h = renderer.domElement.clientHeight || window.innerHeight;
+      if(h===0 || w===0) return;
+      camera.aspect = w/h;
+      camera.updateProjectionMatrix();
+      renderer.setSize(w,h,false);
+    }
+    window.addEventListener('resize', onWindowResize);
+	
     ////////////////////////////////////////
-    // System: Orbit controls
+    // System: Fly/Orbit controls
     ////////////////////////////////////////
     
     function enableOrbitControls(){
@@ -2528,6 +2375,7 @@
       
       setStatus('Orbit controls active (drag to rotate, scroll to zoom).');
     }
+	
     function disableOrbitControls(){
       if(!orbitControls) return;
       orbitControls.dispose();
@@ -2539,10 +2387,6 @@
       
       setStatus('Orbit controls disabled.');
     }
-
-    ////////////////////////////////////////
-    // System: Movement input (WASD)
-    ////////////////////////////////////////
     
     // Movement keyboard (only affects pointer-lock / fly mode)
     document.addEventListener('keydown',(e)=>{
@@ -2561,21 +2405,7 @@
       if(e.code==='Space') move.up=false;
       if(e.code==='KeyC') move.down=false;
     });
-    
-    ////////////////////////////////////////
-    // System: Resize / Camera / Renderer sizing
-    ////////////////////////////////////////
-    
-    function onWindowResize(){
-      const w = renderer.domElement.clientWidth || window.innerWidth - 320;
-      const h = renderer.domElement.clientHeight || window.innerHeight;
-      if(h===0 || w===0) return;
-      camera.aspect = w/h;
-      camera.updateProjectionMatrix();
-      renderer.setSize(w,h,false);
-    }
-    window.addEventListener('resize', onWindowResize);
-
+	
     ////////////////////////////////////////
     // System: Rendering loop
     ////////////////////////////////////////
@@ -2856,10 +2686,6 @@
         
         return result;
     }
-    
-    // ------------------------
-    // Optional: draw in Three.js
-    // ------------------------
     
     function drawSampledTriangles(scene, allTriangleData, sampleFunc, sampleStep = 0.1) {
         // First, count total number of points
