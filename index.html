@@ -121,6 +121,13 @@
   <script type="module">
     
     ////////////////////////////////////////
+    // Known Issues:
+    // - sectors are not accounted for, which can make some green lines, points, or standable surfaces not actually standable
+    // - poly exclusion flags (xpflags) were not accounted for when generating the green line seams, 
+    // so some are fake in lost woods and kokiri
+    ////////////////////////////////////////
+	
+    ////////////////////////////////////////
     // Imports
     ////////////////////////////////////////
     
@@ -186,7 +193,17 @@
     // System: Shared State
     ////////////////////////////////////////
     
-    let game = 'BK';
+	// Map each game to its data array
+	const GAME_MAPS = {
+		BK: BK_Maps,
+		BT: BT_Maps,
+		OOT: OOT_Maps,
+		MM: MM_Maps,
+		OOT3D: OOT3D_Maps,
+		MM3D: MM3D_Maps,
+	};
+	
+    let game = gameSel.value;
     let controlMode = 'pointer'; // State regarding which control mode is active: 'pointer' | 'orbit' | 'auto'
     let pointerLockBlocked = false; // whether requestPointerLock is blocked (sandboxed iframe)
     let loadedModels = []; // { name, mesh, edges }
@@ -197,6 +214,8 @@
     const pointerControls = new PointerLockControls(camera, renderer.domElement);
     let orbitControls = null; // lazy-created when needed
     let speed = 1500; // movement units per second
+    let EPS = 0.008; // used for zelda collision
+    const COLPOLY_NORMAL_FRAC = 1.0 / 32767.0; // used for zelda collision
     
     // Material used as base for clones per mesh
     const material = new THREE.MeshStandardMaterial({color:0x3aa6ff,side:THREE.FrontSide,transparent:true,opacity:1.0,flatShading:true});
@@ -211,7 +230,7 @@
     const move = {forward:false,back:false,left:false,right:false,up:false,down:false};
     
     ////////////////////////////////////////
-    // System: Grid & Helpers
+    // System: UI wiring (material/grid/wireframe/pointer status/etc)
     ////////////////////////////////////////
     
     const grid = new THREE.GridHelper(8000, 80, '#1c2a3a', '#0f1720');
@@ -239,11 +258,7 @@
             }
         });
     }
-    
-    ////////////////////////////////////////
-    // System: UI wiring (material/grid/wireframe/etc)
-    ////////////////////////////////////////
-    
+	
     translucentCheckbox.addEventListener('change', setMaterialProps);
     opacitySlider.addEventListener('input', setMaterialProps);
     backfaceCheckbox.addEventListener('change', setMaterialProps);
@@ -290,62 +305,21 @@
       game = e.target.value;
       mapDropdown.options.length = 0;
       
-      if(game == "BK") {
-          BK_Maps.forEach(map => {
-            const option = document.createElement("option");
-            option.value = map.name; // This will be the value when selected
-            option.textContent = map.name; // This is what’s shown to the user
-            mapDropdown.appendChild(option);
-          });
-      }
-      else if(game == "BT") {
-          BT_Maps.forEach(map => {
-            const option = document.createElement("option");
-            option.value = map.name; // This will be the value when selected
-            option.textContent = map.name; // This is what’s shown to the user
-            mapDropdown.appendChild(option);
-          });
-      }
-      else if(game == "OOT") {
-          OOT_Maps.forEach(map => {
-            const option = document.createElement("option");
-            option.value = map.name; // This will be the value when selected
-            option.textContent = map.name; // This is what’s shown to the user
-            mapDropdown.appendChild(option);
-          });
-          
+	  let maps = GAME_MAPS[game]
+	  
+      if(game == "OOT" || game == "MM") {
           EPS = 0.008;
       }
-      else if(game == "MM") {
-          MM_Maps.forEach(map => {
-            const option = document.createElement("option");
-            option.value = map.name; // This will be the value when selected
-            option.textContent = map.name; // This is what’s shown to the user
-            mapDropdown.appendChild(option);
-          });
-          
-          EPS = 0.008;
-      }
-      else if(game == "OOT3D") {
-          OOT3D_Maps.forEach(map => {
-            const option = document.createElement("option");
-            option.value = map.name; // This will be the value when selected
-            option.textContent = map.name; // This is what’s shown to the user
-            mapDropdown.appendChild(option);
-          });
-          
+      else if(game == "OOT3D" || game == "MM3D") {
           EPS = 0.00008;
       }
-      else if(game == "MM3D") {
-          MM3D_Maps.forEach(map => {
-            const option = document.createElement("option");
-            option.value = map.name; // This will be the value when selected
-            option.textContent = map.name; // This is what’s shown to the user
-            mapDropdown.appendChild(option);
-          });
-          
-          EPS = 0.00008;
-      }
+	  
+	  maps.forEach(map => {
+		const option = document.createElement("option");
+		option.value = map.name; // This will be the value when selected
+		option.textContent = map.name; // This is what’s shown to the user
+		mapDropdown.appendChild(option);
+	  });
       
       if (game == "BK" || game == "BT")
         display_fwc_label.style.display = "none";
@@ -357,74 +331,15 @@
     ////////////////////////////////////////
     // System: Load Map button
     ////////////////////////////////////////
-    
-    function getModelAPointer(game, mapName) {
-        if (game == "BK"){
-            const found = BK_Maps.find(map => map.name === mapName);
-            return found ? found.modelAPointer : null;
-        }
-        else if (game == "BT"){
-            const found = BT_Maps.find(map => map.name === mapName);
-            return found ? found.modelAPointer : null;
-        }
-        else
-            return null
-    }
-    
-    function getModelBPointer(game, mapName) {
-        if (game == "BK"){
-            const found = BK_Maps.find(map => map.name === mapName);
-            return found ? found.modelBPointer : null;
-        }
-        else if (game == "BT"){
-            const found = BT_Maps.find(map => map.name === mapName);
-            return found ? found.modelBPointer : null;
-        }
-        else
-            return null
-    }
-    
-    function getFileName(game, mapName) {
-        if (game == "OOT"){
-            const found = OOT_Maps.find(map => map.name === mapName);
-            return found ? found.file : null;
-        }
-        else if (game == "MM"){
-            const found = MM_Maps.find(map => map.name === mapName);
-            return found ? found.file : null;
-        }
-        else if (game == "OOT3D"){
-            const found = OOT3D_Maps.find(map => map.name === mapName);
-            return found ? found.file : null;
-        }
-        else if (game == "MM3D"){
-            const found = MM3D_Maps.find(map => map.name === mapName);
-            return found ? found.file : null;
-        }
-        else
-            return null
-    }
-    
-    function getSeamsFileName(game, mapName) {
-        if (game == "OOT"){
-            const found = OOT_Maps.find(map => map.name === mapName);
-            return found ? found.seams : null;
-        }
-        else if (game == "MM"){
-            const found = MM_Maps.find(map => map.name === mapName);
-            return found ? found.seams : null;
-        }
-        else if (game == "OOT3D"){
-            const found = OOT3D_Maps.find(map => map.name === mapName);
-            return found ? found.seams : null;
-        }
-        else if (game == "MM3D"){
-            const found = MM3D_Maps.find(map => map.name === mapName);
-            return found ? found.seams : null;
-        }
-        else
-            return null
-    }
+
+	// Get map property
+	function getMapProperty(game, mapName, prop) {
+		const maps = GAME_MAPS[game];
+		if (!maps) return null;
+
+		const found = maps.find(map => map.name === mapName);
+		return found ? found[prop] ?? null : null;
+	}
     
     // Load selected map
     loadMap.addEventListener('click', async (e) => {
@@ -433,8 +348,8 @@
         if (game == "BK" || game == "BT"){
             
             const mapName = document.getElementById("mapDropdown").value;
-            let mapFilename = getModelAPointer(game, mapName);
-            let mapFilename2 = getModelBPointer(game, mapName);
+            let mapFilename = getMapProperty(game, mapName, "modelAPointer");
+            let mapFilename2 = getMapProperty(game, mapName, "modelBPointer");
 
             try {
                 const res1 = await fetch('./' + game + '/' + mapFilename);
@@ -457,7 +372,7 @@
         }
         else if (game == "OOT" || game == "MM" || game == "OOT3D" || game == "MM3D"){
             const mapName = document.getElementById("mapDropdown").value;
-            let mapFilename = getFileName(game, mapName);
+            let mapFilename = getMapProperty(game, mapName, "file");
 
             try {
                 const res1 = await fetch('./' + game + '/' + mapFilename);
@@ -466,7 +381,7 @@
                 parseZeldaModelBinary(buffer1, true);
                 
                 if (game == "OOT" || game == "MM" || game == "OOT3D" || game == "MM3D") {
-                    let mapFilename2 = getSeamsFileName(game, mapName);
+                    let mapFilename2 = getMapProperty(game, mapName, "seams");
                     if (mapFilename2 === undefined) {
                     
                     }
@@ -552,7 +467,7 @@
           for(let i=0;i<tris.length;i++) tris[i]=tris[i].map(x=>x-1);
         }
       }
-      buildGeometry(verts, tris, null, `Main Model`, true);
+      buildGeometry(verts, tris, null, "Main Model", true);
     }
 
     // Binary format: [uint16 vertexCount][uint16 triCount] then vertexCount*(int16 x,y,z) then triCount*(uint16 a,b,c)
@@ -586,7 +501,7 @@
       if(minIdx>=1 && maxIdx<=verts.length) {
         for(let i=0;i<tris.length;i++) tris[i]=tris[i].map(x=>x-1);
       }
-      buildGeometry(verts, tris, null, `Main Model`, true);
+      buildGeometry(verts, tris, null, "Main Model", true);
     }
     
     function parseBKModelBinary(buffer, fresh){
@@ -647,10 +562,12 @@
       if(minIdx>=1 && maxIdx<=verts.length) {
         for(let i=0;i<tris.length;i++) tris[i]=tris[i].map(x=>x-1);
       }
-      if(fresh)
-        buildGeometry(verts, tris, null, `Main Model`, fresh);
-      else
-        buildGeometry(verts, tris, null, `Model ${loadedModels.length+1}`, fresh);
+	  
+	  let modelName = "Main Model";
+      if(!fresh)
+	    modelName = `Model ${loadedModels.length+1}`;
+	  
+      buildGeometry(verts, tris, null, modelName, fresh);
     }
     
     function parseZeldaModelTextTriangles(text, fresh) {
@@ -700,14 +617,15 @@
                 //console.warn("Invalid triangle index", i, tris[i]);
             }
         }
-
-        if (fresh)
-            if (display_fwc.checked)
-                buildGeometry_fwc(verts, tris, null, "Main Model", fresh);
-            else
-                buildGeometry(verts, tris, null, "Main Model", fresh);
+		
+		let modelName = "Main Model";
+        if(!fresh)
+		  modelName = `Model ${loadedModels.length+1}`;
+		
+        if (display_fwc.checked)
+            buildGeometry_fwc(verts, tris, null, modelName, fresh);
         else
-            buildGeometry(verts, tris, null, `Model ${loadedModels.length + 1}`, fresh);
+            buildGeometry(verts, tris, null, modelName, fresh);
     }
     
     function parseZeldaModelBinary(buffer, fresh){
@@ -859,14 +777,15 @@
           console.warn("Invalid triangle index", i, a,b,c, "verts:", verts.length);
         }
       }
-      
-      if(fresh)
-        if (display_fwc.checked)
-            buildGeometry_fwc(verts, tris, `Main Model`, fresh);
-        else
-			buildGeometry(verts, tris, allTriangleData, "Main Model", fresh);
+	  
+	  let modelName = "Main Model";
+      if(!fresh)
+		modelName = `Model ${loadedModels.length+1}`;
+	  
+      if (display_fwc.checked)
+        buildGeometry_fwc(verts, tris, modelName, fresh);
       else
-		buildGeometry(verts, tris, allTriangleData, `Model ${loadedModels.length+1}`, fresh);
+	    buildGeometry(verts, tris, allTriangleData, modelName, fresh);
       
       
       /*allTriangleData = [ // test data oot ice cavern wall
@@ -1074,22 +993,6 @@
     ////////////////////////////////////////
     // System: Geometry creation / model UI helpers
     ////////////////////////////////////////
-    function triangleNormalY(a, b, c) {
-        const ax = b[0] - a[0];
-        const ay = b[1] - a[1];
-        const az = b[2] - a[2];
-
-        const bx = c[0] - a[0];
-        const by = c[1] - a[1];
-        const bz = c[2] - a[2];
-
-        const nx = ay * bz - az * by;
-        const ny = az * bx - ax * bz;
-        const nz = ax * by - ay * bx;
-
-        const len = Math.sqrt(nx*nx + ny*ny + nz*nz) || 1;
-        return ny / len;
-    }
     
     function buildGeometry(verts, tris, allTriangleData, name = "Main Model", clearFirst = true) {
         
@@ -1536,7 +1439,6 @@
     
     function renderStandableSurfaceWithEdges_old(allTriangleData) {
         const f32 = Math.fround;
-        const COLPOLY_NORMAL_FRAC = f32(1.0 / 32767.0);
 
         const positions = [];
         const indices = [];
@@ -1694,7 +1596,6 @@
 	
 	function renderStandableSurfaceWithEdges(allTriangleData) {
 		const f32 = Math.fround;
-		const COLPOLY_NORMAL_FRAC = f32(1.0 / 32767.0);
 
 		const positionsNormal = [];
 		const indicesNormal = [];
@@ -2729,7 +2630,7 @@
     function buildTest(){
       const verts = [[-200,-200,-200],[200,-200,-200],[200,200,-200],[-200,200,-200],[-200,-200,200],[200,-200,200],[200,200,200],[-200,200,200]];
       const tris = [[0,1,2],[0,2,3],[4,7,6],[4,6,5],[0,4,5],[0,5,1],[1,5,6],[1,6,2],[2,6,7],[2,7,3],[3,7,4],[3,4,0]];
-      buildGeometry(verts, tris, null, `Main Model`, true);
+      buildGeometry(verts, tris, null, "Main Model", true);
     }
     buildTest();
 
@@ -2758,10 +2659,7 @@
     ////////////////////////////////////////
     // System: Polygon Standable Surface Debugger
     ////////////////////////////////////////
-
-    // Constants
-    const COLPOLY_NORMAL_FRAC = 1.0 / 32767.0;
-    let EPS = 0.008;
+	
     // ------------------------
     // Helper Functions
     // ------------------------
@@ -2816,6 +2714,65 @@
                 Math.fround(maxX + r) >= cx &&
                 Math.fround(minY - r) <= cy &&
                 Math.fround(maxY + r) >= cy);
+    }
+    
+    // z,x order matches OoT exactly
+    function triChkPointParaYImpl(v0, v1, v2, z, x, detMax, chkDist, ny) {
+    
+        //if (x > 842.25 && x < 842.35 && z > -2139.45 && z < -2139.35)
+        //    console.log("test");
+    
+        if (isZero(ny)) {
+            return false;
+        }
+    
+        // ---- Cir-Square vs Tri-Square ----
+        if (!cirSquareVsTriSquare(
+            v0.z, v0.x,
+            v1.z, v1.x,
+            v2.z, v2.x,
+            z, x,
+            chkDist
+        )) {
+            return false;
+        }
+
+        const chkDistSq = chkDist * chkDist;
+
+        // ---- Vertex distance check ----
+        if (((v0.z - z) ** 2 + (v0.x - x) ** 2) < chkDistSq ||
+            ((v1.z - z) ** 2 + (v1.x - x) ** 2) < chkDistSq ||
+            ((v2.z - z) ** 2 + (v2.x - x) ** 2) < chkDistSq) {
+
+            return true;
+        }
+
+        // ---- Determinant checks ----
+        const detv0v1 = ((v0.z - z) * (v1.x - x)) - ((v0.x - x) * (v1.z - z));
+        const detv1v2 = ((v1.z - z) * (v2.x - x)) - ((v1.x - x) * (v2.z - z));
+        const detv2v0 = ((v2.z - z) * (v0.x - x)) - ((v2.x - x) * (v0.z - z));
+
+        // Same logic as the real game: inside if all ≤ detMax OR all ≥ -detMax
+        if (detMax >= detv0v1 && detMax >= detv1v2 && detMax >= detv2v0) return true;
+        if (-detMax <= detv0v1 && -detMax <= detv1v2 && -detMax <= detv2v0) return true;
+
+        // ---- Edge distance expansion for steep triangles ----
+        if (Math.abs(ny) > 0.5) {
+
+            // PointDistSqToLine2D matches Math3D_PointDistSqToLine2D
+            let L;
+
+            L = pointDistSqToLine2D(z, x, v0.z, v0.x, v1.z, v1.x);
+            if (L.hit && L.d2 < chkDistSq) return true;
+
+            L = pointDistSqToLine2D(z, x, v1.z, v1.x, v2.z, v2.x);
+            if (L.hit && L.d2 < chkDistSq) return true;
+
+            L = pointDistSqToLine2D(z, x, v2.z, v2.x, v0.z, v0.x);
+            if (L.hit && L.d2 < chkDistSq) return true;
+        }
+
+        return false;
     }
 
     // Compute Y from plane
@@ -2898,65 +2855,6 @@
         console.log(jsonToCsv(result));*/
         
         return result;
-    }
-    
-    // z,x order matches OoT exactly
-    function triChkPointParaYImpl(v0, v1, v2, z, x, detMax, chkDist, ny) {
-    
-        //if (x > 842.25 && x < 842.35 && z > -2139.45 && z < -2139.35)
-        //    console.log("test");
-    
-        if (isZero(ny)) {
-            return false;
-        }
-    
-        // ---- Cir-Square vs Tri-Square ----
-        if (!cirSquareVsTriSquare(
-            v0.z, v0.x,
-            v1.z, v1.x,
-            v2.z, v2.x,
-            z, x,
-            chkDist
-        )) {
-            return false;
-        }
-
-        const chkDistSq = chkDist * chkDist;
-
-        // ---- Vertex distance check ----
-        if (((v0.z - z) ** 2 + (v0.x - x) ** 2) < chkDistSq ||
-            ((v1.z - z) ** 2 + (v1.x - x) ** 2) < chkDistSq ||
-            ((v2.z - z) ** 2 + (v2.x - x) ** 2) < chkDistSq) {
-
-            return true;
-        }
-
-        // ---- Determinant checks ----
-        const detv0v1 = ((v0.z - z) * (v1.x - x)) - ((v0.x - x) * (v1.z - z));
-        const detv1v2 = ((v1.z - z) * (v2.x - x)) - ((v1.x - x) * (v2.z - z));
-        const detv2v0 = ((v2.z - z) * (v0.x - x)) - ((v2.x - x) * (v0.z - z));
-
-        // Same logic as the real game: inside if all ≤ detMax OR all ≥ -detMax
-        if (detMax >= detv0v1 && detMax >= detv1v2 && detMax >= detv2v0) return true;
-        if (-detMax <= detv0v1 && -detMax <= detv1v2 && -detMax <= detv2v0) return true;
-
-        // ---- Edge distance expansion for steep triangles ----
-        if (Math.abs(ny) > 0.5) {
-
-            // PointDistSqToLine2D matches Math3D_PointDistSqToLine2D
-            let L;
-
-            L = pointDistSqToLine2D(z, x, v0.z, v0.x, v1.z, v1.x);
-            if (L.hit && L.d2 < chkDistSq) return true;
-
-            L = pointDistSqToLine2D(z, x, v1.z, v1.x, v2.z, v2.x);
-            if (L.hit && L.d2 < chkDistSq) return true;
-
-            L = pointDistSqToLine2D(z, x, v2.z, v2.x, v0.z, v0.x);
-            if (L.hit && L.d2 < chkDistSq) return true;
-        }
-
-        return false;
     }
     
     // ------------------------
