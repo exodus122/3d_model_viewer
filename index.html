@@ -1241,11 +1241,11 @@
 
             let group;
             if (ny > 0.5) {
-                group = 0;          // floor / gentle
+                group = 0;          // floor
             } else if (ny < -0.8) {
                 group = 2;          // ceiling
             } else {
-                group = 1;          // wall / steep
+                group = 1;          // wall
             }
 
             if (currentGroup === null) {
@@ -1987,7 +1987,7 @@
 		let sampled_triangles = [];
         for (const t of selectedTriangles) {
             const pts = t.verts.map(v => `${formatNumber(v.x)} ${formatNumber(v.y)} ${formatNumber(v.z)}`);
-            let line = `TRI ${t.index}  ${pts.join(' ')}`;
+            let line = `TRI ${t.index}:  ${pts.join(' ')}`;
 
 			if (t.normals) {
 				line += `   NORMAL: ${t.normals[0]}, ${t.normals[1]}, ${t.normals[2]}`;
@@ -2003,7 +2003,7 @@
 		for (const e of selectedEdges) {
 			const a = e.a, b = e.b;
 			lines.push(
-				`EDGE ${e.index}  ` +
+				`EDGE ${e.index}:  ` +
 				`${a.x.toFixed(7)}, ${a.y.toFixed(7)}, ${a.z.toFixed(7)},  ` +
 				`${b.x.toFixed(7)}, ${b.y.toFixed(7)}, ${b.z.toFixed(7)}`
 			);
@@ -2011,7 +2011,7 @@
 
         for (const p of selectedPoints) {
             const v = p.pos;
-            lines.push(`PT  ${formatNumber(v.x)}, ${formatNumber(v.y)}, ${formatNumber(v.z)}`);
+            lines.push(`PT:  ${formatNumber(v.x)}, ${formatNumber(v.y)}, ${formatNumber(v.z)}`);
         }
 
         selectionListEl.value = lines.join("\n");
@@ -2327,8 +2327,27 @@
 			d: meta ? meta.d : null
 		}];
 		
-		if ((game == "OOT" || game == "MM" || game == "OOT3D" || game == "MM3D") && samplePointsEnabled && meta)
-			drawSampledTriangles(scene, sample_tri, sampledStandableFootprint, Number(samplePointsResolution.value))
+		if ((game == "OOT" || game == "MM" || game == "OOT3D" || game == "MM3D") && samplePointsEnabled && meta) {
+			// --- NEW: AUTO-DELETE OLD POINTS MODEL ---
+			const existing = loadedModels.find(m => m.name === "Points");
+			if (existing) {
+				// Find the UI container for this model and click its delete button.
+				const section = document.querySelector('.controls');
+				const children = Array.from(section.children);
+
+				for (const child of children) {
+					if (child.dataset && child.dataset.modelName === "Points") {
+						const delBtn = child.querySelector('.delete-btn');
+						if (delBtn) delBtn.click();
+						break;
+					}
+				}
+			}
+			// --- END AUTO-DELETE ---
+			
+			if(sample_tri[0].normals[1] > f32(0.0) && !isZero(sample_tri[0].normals[1]))
+				drawSampledTriangles(scene, sample_tri, sampledStandableFootprint, Number(samplePointsResolution.value))
+		}
     }
     
     ////////////////////////////////////////
@@ -2921,23 +2940,6 @@
     // ------------------------
     
     function drawSampledTriangles(scene, allTriangleData, sampleFunc, sampleStep = 0.1) {
-		// --- NEW: AUTO-DELETE OLD POINTS MODEL ---
-		const existing = loadedModels.find(m => m.name === "Points");
-		if (existing) {
-			// Find the UI container for this model and click its delete button.
-			const section = document.querySelector('.controls');
-			const children = Array.from(section.children);
-
-			for (const child of children) {
-				if (child.dataset && child.dataset.modelName === "Points") {
-					const delBtn = child.querySelector('.delete-btn');
-					if (delBtn) delBtn.click();
-					break;
-				}
-			}
-		}
-		// --- END AUTO-DELETE ---
-		
         // First, count total number of points
         let totalPoints = 0;
         allTriangleData.forEach(tri => {
