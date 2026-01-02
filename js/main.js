@@ -1706,12 +1706,12 @@ renderer.domElement.addEventListener('click', (ev)=>{
         try{
             // Attempt to lock; this may throw in sandboxed frames.
             pointerControls.lock();
-            setStatus('requesting pointer lock...');
+            setStatus('requesting mouse lock...');
         }catch(err){
             // SecurityError when iframe sandbox blocks pointer lock
-            console.warn('Pointer lock request failed:', err);
+            console.warn('Mouse lock request failed:', err);
             pointerLockBlocked = true;
-            //setStatus('Pointer lock blocked (sandbox or permission). Falling back to orbit controls.', 'warn');
+            //setStatus('Mouse lock blocked (sandbox or permission). Falling back to orbit controls.', 'warn');
             //enableOrbitControls();
         }
     }
@@ -1720,16 +1720,16 @@ renderer.domElement.addEventListener('click', (ev)=>{
 // Listen for pointerlockchange/pointerlockerror to update status
 document.addEventListener('pointerlockchange', ()=>{
     if(document.pointerLockElement === renderer.domElement){
-        setStatus('Pointer locked. WASD to fly. Click again to select triangles. Press Esc to unlock.');
+        setStatus('Mouse locked. WASD to fly. Click again to select triangles. Press Esc to unlock.');
     } else {
-        setStatus('Pointer unlocked.');
+        setStatus('Mouse unlocked.');
     }
 });
 
 document.addEventListener('pointerlockerror', (ev)=>{
     console.warn('pointerlockerror', ev);
     pointerLockBlocked = true;
-    //setStatus('Pointer lock error — falling back to orbit controls.', 'error');
+    //setStatus('Mouse lock error — falling back to orbit controls.', 'error');
     //enableOrbitControls();
 });
 
@@ -1741,13 +1741,13 @@ controlModeSel.addEventListener('change',(e)=>{
     }else if(controlMode === 'pointer'){
         // try to exit orbit and enable pointer behavior
         disableOrbitControls();
-        setStatus('Pointer mode selected. Click the canvas to request pointer lock.');
+        setStatus('Fly mode selected. Click the canvas to request mouse lock.');
     }else{ // auto
         if(pointerLockBlocked){
             enableOrbitControls();
         } else {
             disableOrbitControls();
-            setStatus('Auto mode: click canvas to request pointer lock.');
+            setStatus('Auto mode: click canvas to request mouse lock.');
         }
     }
 });
@@ -1886,10 +1886,10 @@ window.__3dv = { parseModelText, parseModelBinary };
         // Some browsers throw immediately when calling requestPointerLock in a sandbox; we don't call it here — just detect availability.
         const supported = 'requestPointerLock' in Element.prototype;
         if(!supported){ pointerLockBlocked = true; setStatus('Pointer lock not supported in this environment; orbit controls enabled.', 'warn'); enableOrbitControls(); return; }
-        setStatus('Ready. Click canvas to request pointer lock (Auto).');
+        setStatus('Ready. Click canvas to request mouse lock (Auto).');
     }catch(e){
         pointerLockBlocked = true;
-        setStatus('Pointer lock appears unavailable; orbit controls enabled.', 'warn');
+        setStatus('Mouse lock appears unavailable; orbit controls enabled.', 'warn');
         enableOrbitControls();
     }
 })();
