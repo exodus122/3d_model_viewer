@@ -1,5 +1,9 @@
 import * as THREE from 'three';
 
+////////////////////////////////////////
+// System: Flat Ground and Special Normal Preview (Main Model only)
+////////////////////////////////////////
+
 function createGroundClipMarker(verts) {
 
     // ---- Mesh ----
@@ -51,10 +55,6 @@ function createGroundClipMarker(verts) {
 
     return [mesh, edges];
 }
-
-////////////////////////////////////////
-// System: Flat Ground Preview (Main Model only)
-////////////////////////////////////////
 
 export function scanAndBuildFlatGroundMarkers() {
 
@@ -168,11 +168,6 @@ export function scanAndBuildFlatGroundMarkers() {
 
     return master;
 }
-
-////////////////////////////////////////
-// System: Special Normal Preview
-// (uses Main Model + mesh.userData.triangles)
-////////////////////////////////////////
 
 export function scanAndBuildSpecialNormalMarkers() {
     const TARGET_NORMAL = { x: 0, y: 32766, z: 0 };

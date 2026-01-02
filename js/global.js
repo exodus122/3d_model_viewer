@@ -2,19 +2,6 @@
 // System: Global Variables
 ////////////////////////////////////////
 
-// Movement state (applies only in pointer-lock / fly mode)
-const move = {forward:false,back:false,left:false,right:false,up:false,down:false};
-
-// Map each game to its data array
-const GAME_MAPS = {
-    BK: BK_Maps,
-    BT: BT_Maps,
-    OOT: OOT_Maps,
-    MM: MM_Maps,
-    OOT3D: OOT3D_Maps,
-    MM3D: MM3D_Maps,
-};
-
 let game = "BK";
 let controlMode = 'pointer'; // State regarding which control mode is active: 'pointer' | 'orbit' | 'auto'
 let loadedModels = []; // { name, mesh, edges }
@@ -22,9 +9,9 @@ let loadedModelsNotSelectable = []; // { name, mesh, edges }
 let mesh = null;
 let edges = null;
 let selectedTriangles = []; // Store multiple selections
+let speed = 1500; // movement units per second
 
 // Zelda-specific variables
-let speed = 1500; // movement units per second
 const COLPOLY_NORMAL_FRAC = 1.0 / 32767.0; // used for zelda collision
 let EPS = 0.008; // used for zelda collision
 let samplePointsEnabled = false;
