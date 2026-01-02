@@ -402,8 +402,8 @@ const OOT_Maps = [
     { name: "Ganon's Castle Exterior", file: "ganon_tou_scene", seams: "ganon_tou_scene_seams.txt" },
     { name: "Ganon's Tower", file: "ganon_scene", seams: "ganon_scene_seams.txt" },
     { name: "Ganon's Tower (Collapsing)", file: "ganon_sonogo_scene", seams: "ganon_sonogo_scene_seams.txt" },
-    { name: "Ganon's Tower Collapse & Battle Arena", file: "ganon_demo_scene", seams: "ganon_demo_scene_seams.txt" },
     { name: "Ganon's Tower Exterior (Collapsing)", file: "ganon_final_scene", seams: "ganon_final_scene_seams.txt" },
+    { name: "Ganon Battle Arena", file: "ganon_demo_scene", seams: "ganon_demo_scene_seams.txt" },
     { name: "Ganondorf's Lair", file: "ganon_boss_scene", seams: "ganon_boss_scene_seams.txt" },
     { name: "Gerudo Training Ground", file: "men_scene", seams: "men_scene_seams.txt" },
     { name: "Gohma's Lair", file: "ydan_boss_scene", seams: "ydan_boss_scene_seams.txt" },
@@ -454,7 +454,7 @@ const OOT_Maps = [
     { name: "Temple of Time Exterior (Ruins)", file: "shrine_r_scene" },
     { name: "Thieves' Hideout", file: "gerudoway_scene", seams: "gerudoway_scene_seams.txt" },
     { name: "Treasure Chest Shop", file: "takaraya_scene", seams: "takaraya_scene_seams.txt" },
-    { name: "Twinrova's Lair & Iron Knuckle's Lair", file: "jyasinboss_scene", seams: "jyasinboss_scene_seams.txt" },
+    { name: "Twinrova's Lair", file: "jyasinboss_scene", seams: "jyasinboss_scene_seams.txt" },
     { name: "Volvagia's Lair", file: "FIRE_bs_scene", seams: "FIRE_bs_scene_seams.txt" },
     { name: "Water Temple", file: "MIZUsin_scene", seams: "MIZUsin_scene_seams.txt" },
     { name: "Zora Shop", file: "zoora_scene", seams: "zoora_scene_seams.txt" }
@@ -612,8 +612,8 @@ const OOT3D_Maps = [
     { name: "Ganon's Castle Exterior", file: "ganon_tou_info.zsi", seams: "ganon_tou_info_seams.txt" },
     { name: "Ganon's Tower", file: "ganon_info.zsi", seams: "ganon_info_seams.txt" },
     { name: "Ganon's Tower (Collapsing)", file: "ganon_sonogo_info.zsi", seams: "ganon_sonogo_info_seams.txt" },
-    { name: "Ganon's Tower Collapse & Battle Arena", file: "ganon_demo_info.zsi" },
-    { name: "Ganondorf's Death Scene (Tower Escape Exterior)", file: "ganon_final_info.zsi", seams: "ganon_final_info_seams.txt" },
+    { name: "Ganon's Tower Exterior (Collapsing)", file: "ganon_final_info.zsi", seams: "ganon_final_info_seams.txt" },
+    { name: "Ganon Battle Arena", file: "ganon_demo_info.zsi" },
     { name: "Ganondorf's Lair", file: "ganon_boss_info.zsi", seams: "ganon_boss_info_seams.txt" },
     { name: "Gerudo Training Ground", file: "men_info.zsi", seams: "men_info_seams.txt" },
     { name: "Gohma's Lair", file: "ydan_boss_info.zsi", seams: "ydan_boss_info_seams.txt" },
@@ -663,7 +663,7 @@ const OOT3D_Maps = [
     { name: "Temple of Time Exterior (Ruins)", file: "shrine_r_info.zsi" },
     { name: "Thieves' Hideout", file: "gerudoway_info.zsi", seams: "gerudoway_info_seams.txt" },
     { name: "Treasure Chest Shop", file: "takaraya_info.zsi", seams: "takaraya_info_seams.txt" },
-    { name: "Twinrova's Lair & Iron Knuckle Mini-Boss Room", file: "jyasinzou_boss_info.zsi", seams: "jyasinzou_boss_info_seams.txt" },
+    { name: "Twinrova's Lair", file: "jyasinzou_boss_info.zsi", seams: "jyasinzou_boss_info_seams.txt" },
     { name: "Twins' House", file: "k_home3_info.zsi", seams: "k_home3_info_seams.txt" },
     { name: "Volvagia's Lair", file: "fire_bs_info.zsi", seams: "fire_bs_info_seams.txt" },
     { name: "Water Temple", file: "mizusin_info.zsi", seams: "mizusin_info_seams.txt" },
@@ -770,7 +770,7 @@ const MM3D_Maps = [
     { name: "Swordsman's School", file: "z2_doujou_info.zsi", seams: "z2_doujou_info_seams.txt" },
     { name: "Termina Field", file: "z2_00keikoku_info.zsi", seams: "z2_00keikoku_info_seams.txt" },
     { name: "Termina Field (Credits Cutscene)", file: "z2_01keikoku_info.zsi" },
-    { name: "Termina Field (Credits Cutscene)", file: "z2_02keikoku_info.zsi" },
+    { name: "Termina Field (Credits Cutscene 2)", file: "z2_02keikoku_info.zsi" },
     { name: "Test Map 01", file: "test01_info.zsi", seams: "test01_info_seams.txt" },
     { name: "Test Map 02", file: "test02_info.zsi" },
     { name: "The Moon", file: "z2_sougen_info.zsi", seams: "z2_sougen_info_seams.txt" },
@@ -791,9 +791,9 @@ const MM3D_Maps = [
     { name: "Zora Cape", file: "z2_31misaki_info.zsi", seams: "z2_31misaki_info_seams.txt" },
     { name: "Zora Hall", file: "z2_33zoracity_info.zsi", seams: "z2_33zoracity_info_seams.txt" },
     { name: "Zora Hall Rooms", file: "z2_bandroom_info.zsi", seams: "z2_bandroom_info_seams.txt" },
+    { name: "Zora Shop", file: "z2_zolashop_info.zsi" },
     { name: "32kamejimamae", file: "z2_32kamejimamae_info.zsi" },
-    { name: "meganeana", file: "z2_meganeana_info.zsi" },
-    { name: "zolashop", file: "z2_zolashop_info.zsi" }
+    { name: "meganeana", file: "z2_meganeana_info.zsi" }
 ];
 
 // Table of accepted flat-ground Y values

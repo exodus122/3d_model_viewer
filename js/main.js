@@ -497,6 +497,9 @@ function parseZeldaModelBinary(buffer, fresh, mapName){
         current_addr = 0x10;
         address_offset = 0x10;
         poly_length = 0x14;
+        
+        if (mapName == "Termina Field (Credits Cutscene 2)")
+            current_addr = 0x60;
     }
     
     // Initialize colHeader
@@ -517,47 +520,43 @@ function parseZeldaModelBinary(buffer, fresh, mapName){
     
     while (cmd1 != 0x14) {
         if (cmd1 == 0x19 && (game == "OOT" || game == "OOT3D")) { // misc_settings
-                colHeader.camType = dv.getUint8(current_addr+0x1);
+            colHeader.camType = dv.getUint8(current_addr+0x1);
         }
         if (cmd1 == 0x03) { // collision_header
+            //console.log("current_addr: "+current_addr+", "+cmd1+", "+cmd2);
+            if (game == "OOT" || game == "MM" || game == "OOT3D") {
+                colHeader.minBounds.x = dv.getInt16(cmd2+address_offset+0x00, endianness);
+                colHeader.minBounds.y = dv.getInt16(cmd2+address_offset+0x02, endianness);
+                colHeader.minBounds.z = dv.getInt16(cmd2+address_offset+0x04, endianness);
+                colHeader.maxBounds.x = dv.getInt16(cmd2+address_offset+0x06, endianness);
+                colHeader.maxBounds.y = dv.getInt16(cmd2+address_offset+0x08, endianness);
+                colHeader.maxBounds.z = dv.getInt16(cmd2+address_offset+0x0A, endianness);
+                colHeader.numVtxs = dv.getUint16(cmd2+address_offset+0x0C, endianness);
                 
-                //console.log("current_addr: "+current_addr+", "+cmd1+", "+cmd2);
-                
-                
-                if (game == "OOT" || game == "MM" || game == "OOT3D") {
-                    colHeader.minBounds.x = dv.getInt16(cmd2+address_offset+0x00, endianness);
-                    colHeader.minBounds.y = dv.getInt16(cmd2+address_offset+0x02, endianness);
-                    colHeader.minBounds.z = dv.getInt16(cmd2+address_offset+0x04, endianness);
-                    colHeader.maxBounds.x = dv.getInt16(cmd2+address_offset+0x06, endianness);
-                    colHeader.maxBounds.y = dv.getInt16(cmd2+address_offset+0x08, endianness);
-                    colHeader.maxBounds.z = dv.getInt16(cmd2+address_offset+0x0A, endianness);
-                    colHeader.numVtxs = dv.getUint16(cmd2+address_offset+0x0C, endianness);
-                    
-                    if (game == "OOT" || game == "MM") {
-                        colHeader.vtxListStart = dv.getUint32(cmd2+address_offset+0x10, endianness);
-                        colHeader.numPolygons = dv.getUint16(cmd2+address_offset+0x14, endianness);
-                        colHeader.polygonListStart = dv.getUint32(cmd2+address_offset+0x18, endianness);
-                    }
-                    else if (game == "OOT3D") {
-                        colHeader.numPolygons = dv.getUint16(cmd2+address_offset+0x0E, endianness);
-                        colHeader.vtxListStart = dv.getUint32(cmd2+address_offset+0x18, endianness);
-                        colHeader.polygonListStart = dv.getUint32(cmd2+address_offset+0x1C, endianness);
-                    }
+                if (game == "OOT" || game == "MM") {
+                    colHeader.vtxListStart = dv.getUint32(cmd2+address_offset+0x10, endianness);
+                    colHeader.numPolygons = dv.getUint16(cmd2+address_offset+0x14, endianness);
+                    colHeader.polygonListStart = dv.getUint32(cmd2+address_offset+0x18, endianness);
                 }
-                else if (game == "MM3D") {
-                    colHeader.minBounds.x = dv.getInt16(cmd2+address_offset+0x02, endianness);
-                    colHeader.minBounds.y = dv.getInt16(cmd2+address_offset+0x04, endianness);
-                    colHeader.minBounds.z = dv.getInt16(cmd2+address_offset+0x06, endianness);
-                    colHeader.maxBounds.x = dv.getInt16(cmd2+address_offset+0x08, endianness);
-                    colHeader.maxBounds.y = dv.getInt16(cmd2+address_offset+0x0A, endianness);
-                    colHeader.maxBounds.z = dv.getInt16(cmd2+address_offset+0x0C, endianness);
-                    colHeader.numVtxs = dv.getUint16(cmd2+address_offset+0x0E, endianness);
-                    colHeader.numPolygons = dv.getUint16(cmd2+address_offset+0x10, endianness);
+                else if (game == "OOT3D") {
+                    colHeader.numPolygons = dv.getUint16(cmd2+address_offset+0x0E, endianness);
                     colHeader.vtxListStart = dv.getUint32(cmd2+address_offset+0x18, endianness);
                     colHeader.polygonListStart = dv.getUint32(cmd2+address_offset+0x1C, endianness);
                 }
-                
-                break;
+            }
+            else if (game == "MM3D") {
+                colHeader.minBounds.x = dv.getInt16(cmd2+address_offset+0x02, endianness);
+                colHeader.minBounds.y = dv.getInt16(cmd2+address_offset+0x04, endianness);
+                colHeader.minBounds.z = dv.getInt16(cmd2+address_offset+0x06, endianness);
+                colHeader.maxBounds.x = dv.getInt16(cmd2+address_offset+0x08, endianness);
+                colHeader.maxBounds.y = dv.getInt16(cmd2+address_offset+0x0A, endianness);
+                colHeader.maxBounds.z = dv.getInt16(cmd2+address_offset+0x0C, endianness);
+                colHeader.numVtxs = dv.getUint16(cmd2+address_offset+0x0E, endianness);
+                colHeader.numPolygons = dv.getUint16(cmd2+address_offset+0x10, endianness);
+                colHeader.vtxListStart = dv.getUint32(cmd2+address_offset+0x18, endianness);
+                colHeader.polygonListStart = dv.getUint32(cmd2+address_offset+0x1C, endianness);
+            }
+            break;
         }
         
         current_addr = current_addr + 0x8;
@@ -1316,7 +1315,10 @@ function updateSelectionUI() {
     let sampled_triangles = [];
     for (const t of selectedTriangles) {
         const pts = t.verts.map(v => `${formatNumber(v.x)} ${formatNumber(v.y)} ${formatNumber(v.z)}`);
-        let line = `TRI ${t.id}:  ${pts.join(' ')}`;
+        let line = `TRI`;
+        if (t.id != null)
+            line += ` ${t.id}`;
+        line += `:  ${pts.join(' ')}`;
 
         if (t.normals) {
             line += `   NORMAL: ${t.normals[0]}, ${t.normals[1]}, ${t.normals[2]}`;
