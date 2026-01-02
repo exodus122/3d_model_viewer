@@ -313,31 +313,31 @@
     ////////////////////////////////////////
     
     gameSel.addEventListener('change',(e)=>{
-		game = e.target.value;
-		mapDropdown.options.length = 0;
-		
-		let maps = GAME_MAPS[game]
-		
-		if(game == "OOT" || game == "MM") {
-				EPS = 0.008;
-		}
-		else if(game == "OOT3D" || game == "MM3D") {
-				EPS = 0.00008;
-		}
-		
-		maps.forEach(map => {
-			const option = document.createElement("option");
-			option.value = map.name; // This will be the value when selected
-			option.textContent = map.name; // This is what’s shown to the user
-			mapDropdown.appendChild(option);
-		});
-		
-		if (game == "BK" || game == "BT")
-			display_fwc_label.style.display = "none";
-		else
-			display_fwc_label.style.display = "block";
-			
-	});
+        game = e.target.value;
+        mapDropdown.options.length = 0;
+        
+        let maps = GAME_MAPS[game]
+        
+        if(game == "OOT" || game == "MM") {
+                EPS = 0.008;
+        }
+        else if(game == "OOT3D" || game == "MM3D") {
+                EPS = 0.00008;
+        }
+        
+        maps.forEach(map => {
+            const option = document.createElement("option");
+            option.value = map.name; // This will be the value when selected
+            option.textContent = map.name; // This is what’s shown to the user
+            mapDropdown.appendChild(option);
+        });
+        
+        if (game == "BK" || game == "BT")
+            display_fwc_label.style.display = "none";
+        else
+            display_fwc_label.style.display = "block";
+            
+    });
     
     ////////////////////////////////////////
     // System: Load Map button
@@ -420,166 +420,166 @@
     // System: File input (user-supplied file)
     ////////////////////////////////////////
 
-	// File parsing
-	fileInput.addEventListener('change', async (ev)=>{
-		const f = ev.target.files[0];
-		if(!f) return;
-		const buf = await f.arrayBuffer();
-		parseModel(buf);
-	});
-	
-	////////////////////////////////////////
-	// System: Model Parsing (text vs binary dispatch)
-	////////////////////////////////////////
+    // File parsing
+    fileInput.addEventListener('change', async (ev)=>{
+        const f = ev.target.files[0];
+        if(!f) return;
+        const buf = await f.arrayBuffer();
+        parseModel(buf);
+    });
+    
+    ////////////////////////////////////////
+    // System: Model Parsing (text vs binary dispatch)
+    ////////////////////////////////////////
 
-	// Detect binary vs text simple heuristic
-	function parseModel(buffer){
-		if(typeof buffer === 'string') { parseInvisibleSeams1D(buffer); return; }
-		const uint8 = new Uint8Array(buffer);
-		let isText = true;
-		for(let i=0;i<Math.min(64,uint8.length);i++){
-			const c = uint8[i];
-			if(c===9||c===10||c===13) continue;
-			if(c<32 || c>126){ isText=false; break; }
-		}
-		if(isText && (game == "OOT" || game == "MM")) parseZeldaModelTextTriangles(new TextDecoder().decode(buffer), true);
-		else if(isText) parseInvisibleSeams1D(new TextDecoder().decode(buffer));
-		else {
-			if(game == "BK" || game == "BT")
-					parseBKModelBinary(buffer, true);
-			else if (game == "OOT" || game == "MM" || game == "OOT3D" || game == "MM3D")
-					parseZeldaModelBinary(buffer, true, "");
-			else
-					parseModelBinary(buffer);
-		}
-	}
+    // Detect binary vs text simple heuristic
+    function parseModel(buffer){
+        if(typeof buffer === 'string') { parseInvisibleSeams1D(buffer); return; }
+        const uint8 = new Uint8Array(buffer);
+        let isText = true;
+        for(let i=0;i<Math.min(64,uint8.length);i++){
+            const c = uint8[i];
+            if(c===9||c===10||c===13) continue;
+            if(c<32 || c>126){ isText=false; break; }
+        }
+        if(isText && (game == "OOT" || game == "MM")) parseZeldaModelTextTriangles(new TextDecoder().decode(buffer), true);
+        else if(isText) parseInvisibleSeams1D(new TextDecoder().decode(buffer));
+        else {
+            if(game == "BK" || game == "BT")
+                    parseBKModelBinary(buffer, true);
+            else if (game == "OOT" || game == "MM" || game == "OOT3D" || game == "MM3D")
+                    parseZeldaModelBinary(buffer, true, "");
+            else
+                    parseModelBinary(buffer);
+        }
+    }
 
-	// Text format: lines with "v x y z" and "f i j k" (1-based or 0-based)
-	function parseModelText(text){
-		const lines = text.split(/\r?\n/).map(s=>s.trim()).filter(s=>s&&s[0]!="#");
-		const verts = [];
-		const tris = [];
-		for(const l of lines){
-			const parts = l.split(/\s+/);
-			if(parts[0].toLowerCase()==='v' && parts.length>=4){
-				verts.push( [parseInt(parts[1],10),parseInt(parts[2],10),parseInt(parts[3],10)] );
-			} else if((parts[0].toLowerCase()==='f'||parts[0].toLowerCase()==='t') && parts.length>=4){
-				const a = parseInt(parts[1],10);
-				const b = parseInt(parts[2],10);
-				const c = parseInt(parts[3],10);
-				tris.push([a,b,c]);
-			}
-		}
-		if(verts.length>0 && tris.length>0){
-			const allIdx = [].concat(...tris);
-			const maxIdx = Math.max(...allIdx);
-			const minIdx = Math.min(...allIdx);
-			if(minIdx>=1 && maxIdx<=verts.length) {
-				for(let i=0;i<tris.length;i++) tris[i]=tris[i].map(x=>x-1);
-			}
-		}
-		buildGeometry(verts, tris, null, "Main Model", true);
-	}
+    // Text format: lines with "v x y z" and "f i j k" (1-based or 0-based)
+    function parseModelText(text){
+        const lines = text.split(/\r?\n/).map(s=>s.trim()).filter(s=>s&&s[0]!="#");
+        const verts = [];
+        const tris = [];
+        for(const l of lines){
+            const parts = l.split(/\s+/);
+            if(parts[0].toLowerCase()==='v' && parts.length>=4){
+                verts.push( [parseInt(parts[1],10),parseInt(parts[2],10),parseInt(parts[3],10)] );
+            } else if((parts[0].toLowerCase()==='f'||parts[0].toLowerCase()==='t') && parts.length>=4){
+                const a = parseInt(parts[1],10);
+                const b = parseInt(parts[2],10);
+                const c = parseInt(parts[3],10);
+                tris.push([a,b,c]);
+            }
+        }
+        if(verts.length>0 && tris.length>0){
+            const allIdx = [].concat(...tris);
+            const maxIdx = Math.max(...allIdx);
+            const minIdx = Math.min(...allIdx);
+            if(minIdx>=1 && maxIdx<=verts.length) {
+                for(let i=0;i<tris.length;i++) tris[i]=tris[i].map(x=>x-1);
+            }
+        }
+        buildGeometry(verts, tris, null, "Main Model", true);
+    }
 
-	// Binary format: [uint16 vertexCount][uint16 triCount] then vertexCount*(int16 x,y,z) then triCount*(uint16 a,b,c)
-	function parseModelBinary(buffer){
-		const dv = new DataView(buffer);
-		if(dv.byteLength<4){ alert('binary too small'); return; }
-		let offset = 0;
-		const vertexCount = dv.getUint16(offset,true); offset+=2;
-		const triCount = dv.getUint16(offset,true); offset+=2;
-		const verts = [];
-		for(let i=0;i<vertexCount;i++){
-			if(offset+6>dv.byteLength) break;
-			const x = dv.getInt16(offset,true); offset+=2;
-			const y = dv.getInt16(offset,true); offset+=2;
-			const z = dv.getInt16(offset,true); offset+=2;
-			verts.push([x,y,z]);
-		}
-		//console.log(verts)
-		const tris = [];
-		for(let i=0;i<triCount;i++){
-			if(offset+6>dv.byteLength) break;
-			const a = dv.getUint16(offset,true); offset+=2;
-			const b = dv.getUint16(offset,true); offset+=2;
-			const c = dv.getUint16(offset,true); offset+=2;
-			tris.push([a,b,c]);
-		}
-		//console.log(tris)
-		const allIdx = [].concat(...tris);
-		const maxIdx = Math.max(...allIdx);
-		const minIdx = Math.min(...allIdx);
-		if(minIdx>=1 && maxIdx<=verts.length) {
-			for(let i=0;i<tris.length;i++) tris[i]=tris[i].map(x=>x-1);
-		}
-		buildGeometry(verts, tris, null, "Main Model", true);
-	}
-	
-	function parseBKModelBinary(buffer, fresh){
-		const dv = new DataView(buffer);
-		if (dv.byteLength < 4) {
-			alert('binary too small');
-			return;
-		}
+    // Binary format: [uint16 vertexCount][uint16 triCount] then vertexCount*(int16 x,y,z) then triCount*(uint16 a,b,c)
+    function parseModelBinary(buffer){
+        const dv = new DataView(buffer);
+        if(dv.byteLength<4){ alert('binary too small'); return; }
+        let offset = 0;
+        const vertexCount = dv.getUint16(offset,true); offset+=2;
+        const triCount = dv.getUint16(offset,true); offset+=2;
+        const verts = [];
+        for(let i=0;i<vertexCount;i++){
+            if(offset+6>dv.byteLength) break;
+            const x = dv.getInt16(offset,true); offset+=2;
+            const y = dv.getInt16(offset,true); offset+=2;
+            const z = dv.getInt16(offset,true); offset+=2;
+            verts.push([x,y,z]);
+        }
+        //console.log(verts)
+        const tris = [];
+        for(let i=0;i<triCount;i++){
+            if(offset+6>dv.byteLength) break;
+            const a = dv.getUint16(offset,true); offset+=2;
+            const b = dv.getUint16(offset,true); offset+=2;
+            const c = dv.getUint16(offset,true); offset+=2;
+            tris.push([a,b,c]);
+        }
+        //console.log(tris)
+        const allIdx = [].concat(...tris);
+        const maxIdx = Math.max(...allIdx);
+        const minIdx = Math.min(...allIdx);
+        if(minIdx>=1 && maxIdx<=verts.length) {
+            for(let i=0;i<tris.length;i++) tris[i]=tris[i].map(x=>x-1);
+        }
+        buildGeometry(verts, tris, null, "Main Model", true);
+    }
+    
+    function parseBKModelBinary(buffer, fresh){
+        const dv = new DataView(buffer);
+        if (dv.byteLength < 4) {
+            alert('binary too small');
+            return;
+        }
 
-		let vtx_list_offset = dv.getUint32(0x10, false);
-		//console.log("vtx_list_offset is " + vtx_list_offset.toString(16));
+        let vtx_list_offset = dv.getUint32(0x10, false);
+        //console.log("vtx_list_offset is " + vtx_list_offset.toString(16));
 
-		// original vertexCount is ignored now
-		// const vertexCount = dv.getInt16(vtx_list_offset + 0x14, false);
-		// console.log("vertexCount is " + vertexCount.toString(16));
+        // original vertexCount is ignored now
+        // const vertexCount = dv.getInt16(vtx_list_offset + 0x14, false);
+        // console.log("vertexCount is " + vertexCount.toString(16));
 
-		let offset = vtx_list_offset + 0x18;
+        let offset = vtx_list_offset + 0x18;
 
-		const verts = [];
-		while (offset + 0x10 <= dv.byteLength) {
-			const x = dv.getInt16(offset, false); offset += 2;
-			const y = dv.getInt16(offset, false); offset += 2;
-			const z = dv.getInt16(offset, false); offset += 2;
+        const verts = [];
+        while (offset + 0x10 <= dv.byteLength) {
+            const x = dv.getInt16(offset, false); offset += 2;
+            const y = dv.getInt16(offset, false); offset += 2;
+            const z = dv.getInt16(offset, false); offset += 2;
 
-			// skip the remaining 10 bytes of this vertex record
-			offset += 10;
+            // skip the remaining 10 bytes of this vertex record
+            offset += 10;
 
-			verts.push([x, y, z]);
-		}
+            verts.push([x, y, z]);
+        }
 
-		//console.log(verts);
-		
-		let collision_list_offset = dv.getUint32(0x1C,false);
-		//console.log("collision_list_offset is "+collision_list_offset.toString(16))
-		const geoCount = dv.getInt16(collision_list_offset+0x10,false);
-		//console.log("geoCount is "+geoCount.toString(16))
-		const triCount = dv.getInt16(collision_list_offset+0x14,false);
-		//console.log("triCount is "+triCount.toString(16))
-		
-		
-		offset = collision_list_offset + 0x18 + geoCount * 4;
-		//console.log("startTriList is "+offset.toString(16))
-		const tris = [];
-		for(let i=0;i<triCount;i++){
-			if(offset+0xC>dv.byteLength) break;
-			const a = dv.getInt16(offset,false)+1; offset+=2;
-			const b = dv.getInt16(offset,false)+1; offset+=2;
-			const c = dv.getInt16(offset,false)+1; offset+=2;
-			offset+=6;
-			tris.push([a,b,c]);
-		}
-		
-		//console.log(tris);
-		
-		const allIdx = [].concat(...tris);
-		const maxIdx = Math.max(...allIdx);
-		const minIdx = Math.min(...allIdx);
-		if(minIdx>=1 && maxIdx<=verts.length) {
-			for(let i=0;i<tris.length;i++) tris[i]=tris[i].map(x=>x-1);
-		}
-		
-		let modelName = "Main Model";
-		if(!fresh)
-			modelName = `Model ${loadedModels.length+1}`;
-		
-		buildGeometry(verts, tris, null, modelName, fresh);
-	}
+        //console.log(verts);
+        
+        let collision_list_offset = dv.getUint32(0x1C,false);
+        //console.log("collision_list_offset is "+collision_list_offset.toString(16))
+        const geoCount = dv.getInt16(collision_list_offset+0x10,false);
+        //console.log("geoCount is "+geoCount.toString(16))
+        const triCount = dv.getInt16(collision_list_offset+0x14,false);
+        //console.log("triCount is "+triCount.toString(16))
+        
+        
+        offset = collision_list_offset + 0x18 + geoCount * 4;
+        //console.log("startTriList is "+offset.toString(16))
+        const tris = [];
+        for(let i=0;i<triCount;i++){
+            if(offset+0xC>dv.byteLength) break;
+            const a = dv.getInt16(offset,false)+1; offset+=2;
+            const b = dv.getInt16(offset,false)+1; offset+=2;
+            const c = dv.getInt16(offset,false)+1; offset+=2;
+            offset+=6;
+            tris.push([a,b,c]);
+        }
+        
+        //console.log(tris);
+        
+        const allIdx = [].concat(...tris);
+        const maxIdx = Math.max(...allIdx);
+        const minIdx = Math.min(...allIdx);
+        if(minIdx>=1 && maxIdx<=verts.length) {
+            for(let i=0;i<tris.length;i++) tris[i]=tris[i].map(x=>x-1);
+        }
+        
+        let modelName = "Main Model";
+        if(!fresh)
+            modelName = `Model ${loadedModels.length+1}`;
+        
+        buildGeometry(verts, tris, null, modelName, fresh);
+    }
     
     function parseZeldaModelTextTriangles(text, fresh) {
         const lines = text
@@ -2478,214 +2478,214 @@
     }
     
     ////////////////////////////////////////
-	// System: Canvas / Pointer interactions
-	////////////////////////////////////////
-	
-	renderer.domElement.addEventListener('click', (ev)=>{
-		// If user explicitly selected Orbit mode, always treat click as selection (no pointer lock)
-		if(controlMode === 'orbit'){
-			performSelection(ev);
-			return;
-		}
+    // System: Canvas / Pointer interactions
+    ////////////////////////////////////////
+    
+    renderer.domElement.addEventListener('click', (ev)=>{
+        // If user explicitly selected Orbit mode, always treat click as selection (no pointer lock)
+        if(controlMode === 'orbit'){
+            performSelection(ev);
+            return;
+        }
 
-		// If pointer already locked on our canvas, treat click as selection
-		if(document.pointerLockElement === renderer.domElement){
-			performSelection(ev);
-			return;
-		}
+        // If pointer already locked on our canvas, treat click as selection
+        if(document.pointerLockElement === renderer.domElement){
+            performSelection(ev);
+            return;
+        }
 
-		// If user chose Pointer mode or Auto, try to acquire pointer lock on canvas
-		if(controlMode === 'pointer' /*|| controlMode === 'auto'*/){
-			try{
-				// Attempt to lock; this may throw in sandboxed frames.
-				pointerControls.lock();
-				setStatus('requesting pointer lock...');
-			}catch(err){
-				// SecurityError when iframe sandbox blocks pointer lock
-				console.warn('Pointer lock request failed:', err);
-				pointerLockBlocked = true;
-				//setStatus('Pointer lock blocked (sandbox or permission). Falling back to orbit controls.', 'warn');
-				//enableOrbitControls();
-			}
-		}
-	});
+        // If user chose Pointer mode or Auto, try to acquire pointer lock on canvas
+        if(controlMode === 'pointer' /*|| controlMode === 'auto'*/){
+            try{
+                // Attempt to lock; this may throw in sandboxed frames.
+                pointerControls.lock();
+                setStatus('requesting pointer lock...');
+            }catch(err){
+                // SecurityError when iframe sandbox blocks pointer lock
+                console.warn('Pointer lock request failed:', err);
+                pointerLockBlocked = true;
+                //setStatus('Pointer lock blocked (sandbox or permission). Falling back to orbit controls.', 'warn');
+                //enableOrbitControls();
+            }
+        }
+    });
 
-	// Listen for pointerlockchange/pointerlockerror to update status
-	document.addEventListener('pointerlockchange', ()=>{
-		if(document.pointerLockElement === renderer.domElement){
-			setStatus('Pointer locked. WASD to fly. Click again to select triangles. Press Esc to unlock.');
-		} else {
-			setStatus('Pointer unlocked.');
-		}
-	});
-	
-	document.addEventListener('pointerlockerror', (ev)=>{
-		console.warn('pointerlockerror', ev);
-		pointerLockBlocked = true;
-		//setStatus('Pointer lock error — falling back to orbit controls.', 'error');
-		//enableOrbitControls();
-	});
+    // Listen for pointerlockchange/pointerlockerror to update status
+    document.addEventListener('pointerlockchange', ()=>{
+        if(document.pointerLockElement === renderer.domElement){
+            setStatus('Pointer locked. WASD to fly. Click again to select triangles. Press Esc to unlock.');
+        } else {
+            setStatus('Pointer unlocked.');
+        }
+    });
+    
+    document.addEventListener('pointerlockerror', (ev)=>{
+        console.warn('pointerlockerror', ev);
+        pointerLockBlocked = true;
+        //setStatus('Pointer lock error — falling back to orbit controls.', 'error');
+        //enableOrbitControls();
+    });
 
-	// Control mode selector
-	controlModeSel.addEventListener('change',(e)=>{
-		controlMode = e.target.value;
-		if(controlMode === 'orbit'){
-			enableOrbitControls();
-		}else if(controlMode === 'pointer'){
-			// try to exit orbit and enable pointer behavior
-			disableOrbitControls();
-			setStatus('Pointer mode selected. Click the canvas to request pointer lock.');
-		}else{ // auto
-			if(pointerLockBlocked){
-				enableOrbitControls();
-			} else {
-				disableOrbitControls();
-				setStatus('Auto mode: click canvas to request pointer lock.');
-			}
-		}
-	});
-	
-	function onWindowResize(){
-		const w = renderer.domElement.clientWidth || window.innerWidth - 320;
-		const h = renderer.domElement.clientHeight || window.innerHeight;
-		if(h===0 || w===0) return;
-		camera.aspect = w/h;
-		camera.updateProjectionMatrix();
-		renderer.setSize(w,h,false);
-	}
-	window.addEventListener('resize', onWindowResize);
-	
-	////////////////////////////////////////
-	// System: Fly/Orbit controls
-	////////////////////////////////////////
-	
-	function enableOrbitControls(){
-		if(orbitControls) return;
-		try{
-			if(document.pointerLockElement === renderer.domElement) document.exitPointerLock?.();
-		}catch(e){ console.warn('exitPointerLock failed', e); }
-		orbitControls = new OrbitControls(camera, renderer.domElement);
-		orbitControls.enableDamping = true;
-		orbitControls.dampingFactor = 0.08;
-		orbitControls.screenSpacePanning = false;
-		orbitControls.enablePan = true;
-		
-		// Hide crosshair in orbit mode
-		if (crosshair) crosshair.style.display = 'none';
-		if (hint) hint.style.display = 'none';
-		
-		setStatus('Orbit controls active (drag to rotate, scroll to zoom).');
-	}
-	
-	function disableOrbitControls(){
-		if(!orbitControls) return;
-		orbitControls.dispose();
-		orbitControls = null;
-		
-		// Show crosshair in fly mode
-		if (crosshair) crosshair.style.display = 'block';
-		if (hint) hint.style.display = 'block';
-		
-		setStatus('Orbit controls disabled.');
-	}
-	
-	// Movement keyboard (only affects pointer-lock / fly mode)
-	document.addEventListener('keydown',(e)=>{
-		if(e.code==='KeyW') move.forward=true;
-		if(e.code==='KeyS') move.back=true;
-		if(e.code==='KeyA') move.left=true;
-		if(e.code==='KeyD') move.right=true;
-		if(e.code==='Space') move.up=true;
-		if(e.code==='KeyC') move.down=true;
-	});
-	document.addEventListener('keyup',(e)=>{
-		if(e.code==='KeyW') move.forward=false;
-		if(e.code==='KeyS') move.back=false;
-		if(e.code==='KeyA') move.left=false;
-		if(e.code==='KeyD') move.right=false;
-		if(e.code==='Space') move.up=false;
-		if(e.code==='KeyC') move.down=false;
-	});
-	
-	////////////////////////////////////////
-	// System: Rendering loop
-	////////////////////////////////////////
-	
-	let last = performance.now();
-	
-	function animate(){
-		requestAnimationFrame(animate);
-		const now = performance.now();
-		const dt = Math.min(0.05,(now-last)/1000);
-		last = now;
-		renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.0));
+    // Control mode selector
+    controlModeSel.addEventListener('change',(e)=>{
+        controlMode = e.target.value;
+        if(controlMode === 'orbit'){
+            enableOrbitControls();
+        }else if(controlMode === 'pointer'){
+            // try to exit orbit and enable pointer behavior
+            disableOrbitControls();
+            setStatus('Pointer mode selected. Click the canvas to request pointer lock.');
+        }else{ // auto
+            if(pointerLockBlocked){
+                enableOrbitControls();
+            } else {
+                disableOrbitControls();
+                setStatus('Auto mode: click canvas to request pointer lock.');
+            }
+        }
+    });
+    
+    function onWindowResize(){
+        const w = renderer.domElement.clientWidth || window.innerWidth - 320;
+        const h = renderer.domElement.clientHeight || window.innerHeight;
+        if(h===0 || w===0) return;
+        camera.aspect = w/h;
+        camera.updateProjectionMatrix();
+        renderer.setSize(w,h,false);
+    }
+    window.addEventListener('resize', onWindowResize);
+    
+    ////////////////////////////////////////
+    // System: Fly/Orbit controls
+    ////////////////////////////////////////
+    
+    function enableOrbitControls(){
+        if(orbitControls) return;
+        try{
+            if(document.pointerLockElement === renderer.domElement) document.exitPointerLock?.();
+        }catch(e){ console.warn('exitPointerLock failed', e); }
+        orbitControls = new OrbitControls(camera, renderer.domElement);
+        orbitControls.enableDamping = true;
+        orbitControls.dampingFactor = 0.08;
+        orbitControls.screenSpacePanning = false;
+        orbitControls.enablePan = true;
+        
+        // Hide crosshair in orbit mode
+        if (crosshair) crosshair.style.display = 'none';
+        if (hint) hint.style.display = 'none';
+        
+        setStatus('Orbit controls active (drag to rotate, scroll to zoom).');
+    }
+    
+    function disableOrbitControls(){
+        if(!orbitControls) return;
+        orbitControls.dispose();
+        orbitControls = null;
+        
+        // Show crosshair in fly mode
+        if (crosshair) crosshair.style.display = 'block';
+        if (hint) hint.style.display = 'block';
+        
+        setStatus('Orbit controls disabled.');
+    }
+    
+    // Movement keyboard (only affects pointer-lock / fly mode)
+    document.addEventListener('keydown',(e)=>{
+        if(e.code==='KeyW') move.forward=true;
+        if(e.code==='KeyS') move.back=true;
+        if(e.code==='KeyA') move.left=true;
+        if(e.code==='KeyD') move.right=true;
+        if(e.code==='Space') move.up=true;
+        if(e.code==='KeyC') move.down=true;
+    });
+    document.addEventListener('keyup',(e)=>{
+        if(e.code==='KeyW') move.forward=false;
+        if(e.code==='KeyS') move.back=false;
+        if(e.code==='KeyA') move.left=false;
+        if(e.code==='KeyD') move.right=false;
+        if(e.code==='Space') move.up=false;
+        if(e.code==='KeyC') move.down=false;
+    });
+    
+    ////////////////////////////////////////
+    // System: Rendering loop
+    ////////////////////////////////////////
+    
+    let last = performance.now();
+    
+    function animate(){
+        requestAnimationFrame(animate);
+        const now = performance.now();
+        const dt = Math.min(0.05,(now-last)/1000);
+        last = now;
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.0));
 
-		if(controlMode !== 'orbit' && document.pointerLockElement === renderer.domElement){
-			// Apply WASD movement in pointer-lock mode
-			const dir = new THREE.Vector3();
-			if(move.forward) dir.z -= 1;
-			if(move.back) dir.z += 1;
-			if(move.left) dir.x -= 1;
-			if(move.right) dir.x += 1;
-			if(move.up) dir.y += 1;
-			if(move.down) dir.y -= 1;
-			if(dir.lengthSq()>0){
-				dir.normalize();
-				const worldDir = dir.applyQuaternion(camera.quaternion).multiplyScalar(speed*dt);
-				pointerControls.getObject().position.add(worldDir);
-				camera.position.copy(pointerControls.getObject().position);
-			}
-		}
+        if(controlMode !== 'orbit' && document.pointerLockElement === renderer.domElement){
+            // Apply WASD movement in pointer-lock mode
+            const dir = new THREE.Vector3();
+            if(move.forward) dir.z -= 1;
+            if(move.back) dir.z += 1;
+            if(move.left) dir.x -= 1;
+            if(move.right) dir.x += 1;
+            if(move.up) dir.y += 1;
+            if(move.down) dir.y -= 1;
+            if(dir.lengthSq()>0){
+                dir.normalize();
+                const worldDir = dir.applyQuaternion(camera.quaternion).multiplyScalar(speed*dt);
+                pointerControls.getObject().position.add(worldDir);
+                camera.position.copy(pointerControls.getObject().position);
+            }
+        }
 
-		// Update UI
-		camPosEl.textContent = `${camera.position.x.toFixed(2)}, ${camera.position.y.toFixed(2)}, ${camera.position.z.toFixed(2)}`;
-		const euler = new THREE.Euler().setFromQuaternion(camera.quaternion);
-		camRotEl.textContent = `${THREE.MathUtils.radToDeg(euler.x).toFixed(1)}, ${THREE.MathUtils.radToDeg(euler.y).toFixed(1)}, ${THREE.MathUtils.radToDeg(euler.z).toFixed(1)}`;
+        // Update UI
+        camPosEl.textContent = `${camera.position.x.toFixed(2)}, ${camera.position.y.toFixed(2)}, ${camera.position.z.toFixed(2)}`;
+        const euler = new THREE.Euler().setFromQuaternion(camera.quaternion);
+        camRotEl.textContent = `${THREE.MathUtils.radToDeg(euler.x).toFixed(1)}, ${THREE.MathUtils.radToDeg(euler.y).toFixed(1)}, ${THREE.MathUtils.radToDeg(euler.z).toFixed(1)}`;
 
-		// Update orbit controls if active
-		if(orbitControls) orbitControls.update();
+        // Update orbit controls if active
+        if(orbitControls) orbitControls.update();
 
-		// update edges transformation if any
-		if(edges && mesh){ edges.position.copy(mesh.position); edges.rotation.copy(mesh.rotation); }
+        // update edges transformation if any
+        if(edges && mesh){ edges.position.copy(mesh.position); edges.rotation.copy(mesh.rotation); }
 
-		renderer.render(scene,camera);
-	}
-	onWindowResize();
-	animate();
-	
-	////////////////////////////////////////
-	// System: Test model & dev helpers
-	////////////////////////////////////////
-	
-	// initial scene: build a small test cube if user hasn't loaded
-	function buildTest(){
-		const verts = [[-200,-200,-200],[200,-200,-200],[200,200,-200],[-200,200,-200],[-200,-200,200],[200,-200,200],[200,200,200],[-200,200,200]];
-		const tris = [[0,1,2],[0,2,3],[4,7,6],[4,6,5],[0,4,5],[0,5,1],[1,5,6],[1,6,2],[2,6,7],[2,7,3],[3,7,4],[3,4,0]];
-		buildGeometry(verts, tris, null, "Main Model", true);
-	}
-	buildTest();
+        renderer.render(scene,camera);
+    }
+    onWindowResize();
+    animate();
+    
+    ////////////////////////////////////////
+    // System: Test model & dev helpers
+    ////////////////////////////////////////
+    
+    // initial scene: build a small test cube if user hasn't loaded
+    function buildTest(){
+        const verts = [[-200,-200,-200],[200,-200,-200],[200,200,-200],[-200,200,-200],[-200,-200,200],[200,-200,200],[200,200,200],[-200,200,200]];
+        const tris = [[0,1,2],[0,2,3],[4,7,6],[4,6,5],[0,4,5],[0,5,1],[1,5,6],[1,6,2],[2,6,7],[2,7,3],[3,7,4],[3,4,0]];
+        buildGeometry(verts, tris, null, "Main Model", true);
+    }
+    buildTest();
 
-	// expose a tiny helpful function on window for quick testing
-	window.__3dv = { parseModelText, parseModelBinary };
-	
-	////////////////////////////////////////
-	// System: Initialization checks
-	////////////////////////////////////////
-	
-	// Initial status: determine starting mode
-	(function initStatus(){
-		// If the environment is clearly sandboxed (iframe), we cannot reliably request pointer lock.
-		try{
-			// Some browsers throw immediately when calling requestPointerLock in a sandbox; we don't call it here — just detect availability.
-			const supported = 'requestPointerLock' in Element.prototype;
-			if(!supported){ pointerLockBlocked = true; setStatus('Pointer lock not supported in this environment; orbit controls enabled.', 'warn'); enableOrbitControls(); return; }
-			setStatus('Ready. Click canvas to request pointer lock (Auto).');
-		}catch(e){
-			pointerLockBlocked = true;
-			setStatus('Pointer lock appears unavailable; orbit controls enabled.', 'warn');
-			enableOrbitControls();
-		}
-	})();
+    // expose a tiny helpful function on window for quick testing
+    window.__3dv = { parseModelText, parseModelBinary };
+    
+    ////////////////////////////////////////
+    // System: Initialization checks
+    ////////////////////////////////////////
+    
+    // Initial status: determine starting mode
+    (function initStatus(){
+        // If the environment is clearly sandboxed (iframe), we cannot reliably request pointer lock.
+        try{
+            // Some browsers throw immediately when calling requestPointerLock in a sandbox; we don't call it here — just detect availability.
+            const supported = 'requestPointerLock' in Element.prototype;
+            if(!supported){ pointerLockBlocked = true; setStatus('Pointer lock not supported in this environment; orbit controls enabled.', 'warn'); enableOrbitControls(); return; }
+            setStatus('Ready. Click canvas to request pointer lock (Auto).');
+        }catch(e){
+            pointerLockBlocked = true;
+            setStatus('Pointer lock appears unavailable; orbit controls enabled.', 'warn');
+            enableOrbitControls();
+        }
+    })();
     
     ////////////////////////////////////////
     // System: Polygon Standable Surface Debugger
