@@ -5,6 +5,7 @@ import { drawSampledTriangles } from './sample_points.js';
 // System: Selection (raycast, markers, UI)
 ////////////////////////////////////////
 
+let selectedTriangles = [];
 let selectedPoints = [];
 let selectedEdges = [];
 

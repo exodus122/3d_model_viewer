@@ -41,6 +41,11 @@ const display_fwc_label = document.getElementById('display_fwc_label');
 ////////////////////////////////////////
 // System: Scene, Renderer, Camera, Lights
 ////////////////////////////////////////
+let speed = 1500; // movement units per second
+let controlMode = 'pointer'; // State regarding which control mode is active: 'pointer' | 'orbit' | 'auto'
+let mesh = null;
+let edges = null;
+
 const canvas = document.getElementById('gl');
 
 const renderer = new THREE.WebGLRenderer({canvas, antialias:true});
@@ -136,10 +141,10 @@ gameSel.addEventListener('change',(e)=>{
     let maps = GAME_MAPS[game]
     
     if(game == "OOT" || game == "MM") {
-            EPS = 0.008;
+        EPS = 0.008;
     }
     else if(game == "OOT3D" || game == "MM3D") {
-            EPS = 0.00008;
+        EPS = 0.00008;
     }
     
     maps.forEach(map => {

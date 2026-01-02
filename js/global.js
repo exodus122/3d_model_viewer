@@ -3,13 +3,8 @@
 ////////////////////////////////////////
 
 let game = "BK";
-let controlMode = 'pointer'; // State regarding which control mode is active: 'pointer' | 'orbit' | 'auto'
 let loadedModels = []; // { name, mesh, edges }
 let loadedModelsNotSelectable = []; // { name, mesh, edges }
-let mesh = null;
-let edges = null;
-let selectedTriangles = []; // Store multiple selections
-let speed = 1500; // movement units per second
 
 // Zelda-specific variables
 const COLPOLY_NORMAL_FRAC = 1.0 / 32767.0; // used for zelda collision
