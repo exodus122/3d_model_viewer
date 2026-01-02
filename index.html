@@ -126,7 +126,7 @@
     // - subdivisions are not accounted for, which can make some seams, points, or standable surfaces not actually standable
     // - poly exclusion flags (xpflags) were not accounted for when generating the green line seams, 
     // so some are fake in lost woods and kokiri
-	// - Some OoT3D Death mountain crater polys are showing as red standable surfances instead of blue
+    // - Some OoT3D Death mountain crater polys are showing as red standable surfances instead of blue
     ////////////////////////////////////////
     
     ////////////////////////////////////////
@@ -162,21 +162,20 @@
     const display_fwc = document.getElementById('display_fwc');
     const display_fwc_label = document.getElementById('display_fwc_label');
     
-    
     const samplePointsContainer = document.getElementById("samplePointsContainer"); 
     const samplePointsCheckbox  = document.getElementById("samplePointsCheckbox");
     const samplePointsResolution  = document.getElementById("samplePointsResolution");
     
     const multiSelectCheckbox = document.getElementById('multiSelect');
     const selectionListEl = document.getElementById('selectionListEl');
-	
-	let specialNormalEnabled = false;
-	let specialNormalColor = 0x00ffff;   // default
-	let specialNormalMarkers = [];
+    
+    let specialNormalEnabled = false;
+    let specialNormalColor = 0x00ffff;   // default
+    let specialNormalMarkers = [];
 
-	const specialNormalContainer    = document.getElementById("specialNormalContainer");
-	const specialNormalCheckbox     = document.getElementById("specialNormalCheckbox");
-	const specialNormalColorPicker  = document.getElementById("specialNormalColorPicker");
+    const specialNormalContainer    = document.getElementById("specialNormalContainer");
+    const specialNormalCheckbox     = document.getElementById("specialNormalCheckbox");
+    const specialNormalColorPicker  = document.getElementById("specialNormalColorPicker");
     
     ////////////////////////////////////////
     // System: Scene, Renderer, Camera, Lights
@@ -224,8 +223,8 @@
     const pointerControls = new PointerLockControls(camera, renderer.domElement);
     let orbitControls = null; // lazy-created when needed
     let speed = 1500; // movement units per second
-	
-	// Constants for zelda collision
+    
+    // Constants for zelda collision
     let EPS = 0.008; // used for zelda collision
     const COLPOLY_NORMAL_FRAC = 1.0 / 32767.0; // used for zelda collision
     
@@ -252,10 +251,10 @@
     scene.add(grid);
     
     function setStatus(msg, level='info'){
-      statusEl.textContent = `Status: ${msg}`;
-      if(level==='warn') statusEl.style.background = '#40230b';
-      else if(level==='error') statusEl.style.background = '#4b0b0b';
-      else statusEl.style.background = '#221a11';
+        statusEl.textContent = `Status: ${msg}`;
+        if(level==='warn') statusEl.style.background = '#40230b';
+        else if(level==='error') statusEl.style.background = '#4b0b0b';
+        else statusEl.style.background = '#221a11';
     }
 
     function setMaterialProps() {
@@ -314,31 +313,31 @@
     ////////////////////////////////////////
     
     gameSel.addEventListener('change',(e)=>{
-      game = e.target.value;
-      mapDropdown.options.length = 0;
-      
-      let maps = GAME_MAPS[game]
-      
-      if(game == "OOT" || game == "MM") {
-          EPS = 0.008;
-      }
-      else if(game == "OOT3D" || game == "MM3D") {
-          EPS = 0.00008;
-      }
-      
-      maps.forEach(map => {
-        const option = document.createElement("option");
-        option.value = map.name; // This will be the value when selected
-        option.textContent = map.name; // This is what’s shown to the user
-        mapDropdown.appendChild(option);
-      });
-      
-      if (game == "BK" || game == "BT")
-        display_fwc_label.style.display = "none";
-      else
-        display_fwc_label.style.display = "block";
-        
-    });
+		game = e.target.value;
+		mapDropdown.options.length = 0;
+		
+		let maps = GAME_MAPS[game]
+		
+		if(game == "OOT" || game == "MM") {
+				EPS = 0.008;
+		}
+		else if(game == "OOT3D" || game == "MM3D") {
+				EPS = 0.00008;
+		}
+		
+		maps.forEach(map => {
+			const option = document.createElement("option");
+			option.value = map.name; // This will be the value when selected
+			option.textContent = map.name; // This is what’s shown to the user
+			mapDropdown.appendChild(option);
+		});
+		
+		if (game == "BK" || game == "BT")
+			display_fwc_label.style.display = "none";
+		else
+			display_fwc_label.style.display = "block";
+			
+	});
     
     ////////////////////////////////////////
     // System: Load Map button
@@ -421,166 +420,166 @@
     // System: File input (user-supplied file)
     ////////////////////////////////////////
 
-    // File parsing
-    fileInput.addEventListener('change', async (ev)=>{
-      const f = ev.target.files[0];
-      if(!f) return;
-      const buf = await f.arrayBuffer();
-      parseModel(buf);
-    });
-    
-    ////////////////////////////////////////
-    // System: Model Parsing (text vs binary dispatch)
-    ////////////////////////////////////////
+	// File parsing
+	fileInput.addEventListener('change', async (ev)=>{
+		const f = ev.target.files[0];
+		if(!f) return;
+		const buf = await f.arrayBuffer();
+		parseModel(buf);
+	});
+	
+	////////////////////////////////////////
+	// System: Model Parsing (text vs binary dispatch)
+	////////////////////////////////////////
 
-    // Detect binary vs text simple heuristic
-    function parseModel(buffer){
-      if(typeof buffer === 'string') { parseInvisibleSeams1D(buffer); return; }
-      const uint8 = new Uint8Array(buffer);
-      let isText = true;
-      for(let i=0;i<Math.min(64,uint8.length);i++){
-        const c = uint8[i];
-        if(c===9||c===10||c===13) continue;
-        if(c<32 || c>126){ isText=false; break; }
-      }
-      if(isText && (game == "OOT" || game == "MM")) parseZeldaModelTextTriangles(new TextDecoder().decode(buffer), true);
-      else if(isText) parseInvisibleSeams1D(new TextDecoder().decode(buffer));
-      else {
-        if(game == "BK" || game == "BT")
-            parseBKModelBinary(buffer, true);
-        else if (game == "OOT" || game == "MM" || game == "OOT3D" || game == "MM3D")
-            parseZeldaModelBinary(buffer, true, "");
-        else
-            parseModelBinary(buffer);
-      }
-    }
+	// Detect binary vs text simple heuristic
+	function parseModel(buffer){
+		if(typeof buffer === 'string') { parseInvisibleSeams1D(buffer); return; }
+		const uint8 = new Uint8Array(buffer);
+		let isText = true;
+		for(let i=0;i<Math.min(64,uint8.length);i++){
+			const c = uint8[i];
+			if(c===9||c===10||c===13) continue;
+			if(c<32 || c>126){ isText=false; break; }
+		}
+		if(isText && (game == "OOT" || game == "MM")) parseZeldaModelTextTriangles(new TextDecoder().decode(buffer), true);
+		else if(isText) parseInvisibleSeams1D(new TextDecoder().decode(buffer));
+		else {
+			if(game == "BK" || game == "BT")
+					parseBKModelBinary(buffer, true);
+			else if (game == "OOT" || game == "MM" || game == "OOT3D" || game == "MM3D")
+					parseZeldaModelBinary(buffer, true, "");
+			else
+					parseModelBinary(buffer);
+		}
+	}
 
-    // Text format: lines with "v x y z" and "f i j k" (1-based or 0-based)
-    function parseModelText(text){
-      const lines = text.split(/\r?\n/).map(s=>s.trim()).filter(s=>s&&s[0]!="#");
-      const verts = [];
-      const tris = [];
-      for(const l of lines){
-        const parts = l.split(/\s+/);
-        if(parts[0].toLowerCase()==='v' && parts.length>=4){
-          verts.push( [parseInt(parts[1],10),parseInt(parts[2],10),parseInt(parts[3],10)] );
-        } else if((parts[0].toLowerCase()==='f'||parts[0].toLowerCase()==='t') && parts.length>=4){
-          const a = parseInt(parts[1],10);
-          const b = parseInt(parts[2],10);
-          const c = parseInt(parts[3],10);
-          tris.push([a,b,c]);
-        }
-      }
-      if(verts.length>0 && tris.length>0){
-        const allIdx = [].concat(...tris);
-        const maxIdx = Math.max(...allIdx);
-        const minIdx = Math.min(...allIdx);
-        if(minIdx>=1 && maxIdx<=verts.length) {
-          for(let i=0;i<tris.length;i++) tris[i]=tris[i].map(x=>x-1);
-        }
-      }
-      buildGeometry(verts, tris, null, "Main Model", true);
-    }
+	// Text format: lines with "v x y z" and "f i j k" (1-based or 0-based)
+	function parseModelText(text){
+		const lines = text.split(/\r?\n/).map(s=>s.trim()).filter(s=>s&&s[0]!="#");
+		const verts = [];
+		const tris = [];
+		for(const l of lines){
+			const parts = l.split(/\s+/);
+			if(parts[0].toLowerCase()==='v' && parts.length>=4){
+				verts.push( [parseInt(parts[1],10),parseInt(parts[2],10),parseInt(parts[3],10)] );
+			} else if((parts[0].toLowerCase()==='f'||parts[0].toLowerCase()==='t') && parts.length>=4){
+				const a = parseInt(parts[1],10);
+				const b = parseInt(parts[2],10);
+				const c = parseInt(parts[3],10);
+				tris.push([a,b,c]);
+			}
+		}
+		if(verts.length>0 && tris.length>0){
+			const allIdx = [].concat(...tris);
+			const maxIdx = Math.max(...allIdx);
+			const minIdx = Math.min(...allIdx);
+			if(minIdx>=1 && maxIdx<=verts.length) {
+				for(let i=0;i<tris.length;i++) tris[i]=tris[i].map(x=>x-1);
+			}
+		}
+		buildGeometry(verts, tris, null, "Main Model", true);
+	}
 
-    // Binary format: [uint16 vertexCount][uint16 triCount] then vertexCount*(int16 x,y,z) then triCount*(uint16 a,b,c)
-    function parseModelBinary(buffer){
-      const dv = new DataView(buffer);
-      if(dv.byteLength<4){ alert('binary too small'); return; }
-      let offset = 0;
-      const vertexCount = dv.getUint16(offset,true); offset+=2;
-      const triCount = dv.getUint16(offset,true); offset+=2;
-      const verts = [];
-      for(let i=0;i<vertexCount;i++){
-        if(offset+6>dv.byteLength) break;
-        const x = dv.getInt16(offset,true); offset+=2;
-        const y = dv.getInt16(offset,true); offset+=2;
-        const z = dv.getInt16(offset,true); offset+=2;
-        verts.push([x,y,z]);
-      }
-      //console.log(verts)
-      const tris = [];
-      for(let i=0;i<triCount;i++){
-        if(offset+6>dv.byteLength) break;
-        const a = dv.getUint16(offset,true); offset+=2;
-        const b = dv.getUint16(offset,true); offset+=2;
-        const c = dv.getUint16(offset,true); offset+=2;
-        tris.push([a,b,c]);
-      }
-      //console.log(tris)
-      const allIdx = [].concat(...tris);
-      const maxIdx = Math.max(...allIdx);
-      const minIdx = Math.min(...allIdx);
-      if(minIdx>=1 && maxIdx<=verts.length) {
-        for(let i=0;i<tris.length;i++) tris[i]=tris[i].map(x=>x-1);
-      }
-      buildGeometry(verts, tris, null, "Main Model", true);
-    }
-    
-    function parseBKModelBinary(buffer, fresh){
-      const dv = new DataView(buffer);
-      if (dv.byteLength < 4) {
-        alert('binary too small');
-        return;
-      }
+	// Binary format: [uint16 vertexCount][uint16 triCount] then vertexCount*(int16 x,y,z) then triCount*(uint16 a,b,c)
+	function parseModelBinary(buffer){
+		const dv = new DataView(buffer);
+		if(dv.byteLength<4){ alert('binary too small'); return; }
+		let offset = 0;
+		const vertexCount = dv.getUint16(offset,true); offset+=2;
+		const triCount = dv.getUint16(offset,true); offset+=2;
+		const verts = [];
+		for(let i=0;i<vertexCount;i++){
+			if(offset+6>dv.byteLength) break;
+			const x = dv.getInt16(offset,true); offset+=2;
+			const y = dv.getInt16(offset,true); offset+=2;
+			const z = dv.getInt16(offset,true); offset+=2;
+			verts.push([x,y,z]);
+		}
+		//console.log(verts)
+		const tris = [];
+		for(let i=0;i<triCount;i++){
+			if(offset+6>dv.byteLength) break;
+			const a = dv.getUint16(offset,true); offset+=2;
+			const b = dv.getUint16(offset,true); offset+=2;
+			const c = dv.getUint16(offset,true); offset+=2;
+			tris.push([a,b,c]);
+		}
+		//console.log(tris)
+		const allIdx = [].concat(...tris);
+		const maxIdx = Math.max(...allIdx);
+		const minIdx = Math.min(...allIdx);
+		if(minIdx>=1 && maxIdx<=verts.length) {
+			for(let i=0;i<tris.length;i++) tris[i]=tris[i].map(x=>x-1);
+		}
+		buildGeometry(verts, tris, null, "Main Model", true);
+	}
+	
+	function parseBKModelBinary(buffer, fresh){
+		const dv = new DataView(buffer);
+		if (dv.byteLength < 4) {
+			alert('binary too small');
+			return;
+		}
 
-      let vtx_list_offset = dv.getUint32(0x10, false);
-      //console.log("vtx_list_offset is " + vtx_list_offset.toString(16));
+		let vtx_list_offset = dv.getUint32(0x10, false);
+		//console.log("vtx_list_offset is " + vtx_list_offset.toString(16));
 
-      // original vertexCount is ignored now
-      // const vertexCount = dv.getInt16(vtx_list_offset + 0x14, false);
-      // console.log("vertexCount is " + vertexCount.toString(16));
+		// original vertexCount is ignored now
+		// const vertexCount = dv.getInt16(vtx_list_offset + 0x14, false);
+		// console.log("vertexCount is " + vertexCount.toString(16));
 
-      let offset = vtx_list_offset + 0x18;
+		let offset = vtx_list_offset + 0x18;
 
-      const verts = [];
-      while (offset + 0x10 <= dv.byteLength) {
-        const x = dv.getInt16(offset, false); offset += 2;
-        const y = dv.getInt16(offset, false); offset += 2;
-        const z = dv.getInt16(offset, false); offset += 2;
+		const verts = [];
+		while (offset + 0x10 <= dv.byteLength) {
+			const x = dv.getInt16(offset, false); offset += 2;
+			const y = dv.getInt16(offset, false); offset += 2;
+			const z = dv.getInt16(offset, false); offset += 2;
 
-        // skip the remaining 10 bytes of this vertex record
-        offset += 10;
+			// skip the remaining 10 bytes of this vertex record
+			offset += 10;
 
-        verts.push([x, y, z]);
-      }
+			verts.push([x, y, z]);
+		}
 
-      //console.log(verts);
-      
-      let collision_list_offset = dv.getUint32(0x1C,false);
-      //console.log("collision_list_offset is "+collision_list_offset.toString(16))
-      const geoCount = dv.getInt16(collision_list_offset+0x10,false);
-      //console.log("geoCount is "+geoCount.toString(16))
-      const triCount = dv.getInt16(collision_list_offset+0x14,false);
-      //console.log("triCount is "+triCount.toString(16))
-      
-      
-      offset = collision_list_offset + 0x18 + geoCount * 4;
-      //console.log("startTriList is "+offset.toString(16))
-      const tris = [];
-      for(let i=0;i<triCount;i++){
-        if(offset+0xC>dv.byteLength) break;
-        const a = dv.getInt16(offset,false)+1; offset+=2;
-        const b = dv.getInt16(offset,false)+1; offset+=2;
-        const c = dv.getInt16(offset,false)+1; offset+=2;
-        offset+=6;
-        tris.push([a,b,c]);
-      }
-      
-      //console.log(tris);
-      
-      const allIdx = [].concat(...tris);
-      const maxIdx = Math.max(...allIdx);
-      const minIdx = Math.min(...allIdx);
-      if(minIdx>=1 && maxIdx<=verts.length) {
-        for(let i=0;i<tris.length;i++) tris[i]=tris[i].map(x=>x-1);
-      }
-      
-      let modelName = "Main Model";
-      if(!fresh)
-        modelName = `Model ${loadedModels.length+1}`;
-      
-      buildGeometry(verts, tris, null, modelName, fresh);
-    }
+		//console.log(verts);
+		
+		let collision_list_offset = dv.getUint32(0x1C,false);
+		//console.log("collision_list_offset is "+collision_list_offset.toString(16))
+		const geoCount = dv.getInt16(collision_list_offset+0x10,false);
+		//console.log("geoCount is "+geoCount.toString(16))
+		const triCount = dv.getInt16(collision_list_offset+0x14,false);
+		//console.log("triCount is "+triCount.toString(16))
+		
+		
+		offset = collision_list_offset + 0x18 + geoCount * 4;
+		//console.log("startTriList is "+offset.toString(16))
+		const tris = [];
+		for(let i=0;i<triCount;i++){
+			if(offset+0xC>dv.byteLength) break;
+			const a = dv.getInt16(offset,false)+1; offset+=2;
+			const b = dv.getInt16(offset,false)+1; offset+=2;
+			const c = dv.getInt16(offset,false)+1; offset+=2;
+			offset+=6;
+			tris.push([a,b,c]);
+		}
+		
+		//console.log(tris);
+		
+		const allIdx = [].concat(...tris);
+		const maxIdx = Math.max(...allIdx);
+		const minIdx = Math.min(...allIdx);
+		if(minIdx>=1 && maxIdx<=verts.length) {
+			for(let i=0;i<tris.length;i++) tris[i]=tris[i].map(x=>x-1);
+		}
+		
+		let modelName = "Main Model";
+		if(!fresh)
+			modelName = `Model ${loadedModels.length+1}`;
+		
+		buildGeometry(verts, tris, null, modelName, fresh);
+	}
     
     function parseZeldaModelTextTriangles(text, fresh) {
         const lines = text
@@ -641,268 +640,243 @@
     }
     
     function parseZeldaModelBinary(buffer, fresh, mapName){
-	
-      const dv = new DataView(buffer);
-      if (dv.byteLength < 4) {
-        alert('binary too small');
-        return;
-      }
-      
-      let endianness = false;
-      let current_addr = 0x0;
-      let address_offset = 0x0;
-      let poly_length = 0x10;
-      if (game == "OOT3D" || game == "MM3D") {
-        endianness = true;
-        current_addr = 0x10;
-        address_offset = 0x10;
-        poly_length = 0x14;
-      }
-	  
-	  // Initialize colHeader
-	  let colHeader = {
-		numVtxs: 0, 
-		vtxListStart: 0, 
-		numPolygons: 0, 
-		polygonListStart: 0,
-		minBounds: {
-            x: null,
-            y: null,
-            z: null
-        },
-		maxBounds: {
-            x: null,
-            y: null,
-            z: null
-        },
-		camType: null
-	  };
-	  
-      let allTriangleData = [];
-      
-      let cmd1 = dv.getUint8(current_addr);
-      let cmd2 = dv.getUint32(current_addr+0x4, endianness);
-      
-      while (cmd1 != 0x14) {
-        if (cmd1 == 0x19 && (game == "OOT" || game == "OOT3D")) { // misc_settings
-			colHeader.camType = dv.getUint8(current_addr+0x1);
-			//console.log("camType: "+camType);
-		}
-        if (cmd1 == 0x03) { // collision_header
-            if (game == "OOT" || game == "MM")
-                cmd2 = dv.getUint32(current_addr+0x4, endianness) - 0x02000000;
+    
+        const dv = new DataView(buffer);
+        if (dv.byteLength < 4) {
+            alert('binary too small');
+            return;
+        }
+        
+        let endianness = false;
+        let current_addr = 0x0;
+        let address_offset = -0x02000000;
+        let poly_length = 0x10;
+        if (game == "OOT3D" || game == "MM3D") {
+            endianness = true;
+            current_addr = 0x10;
+            address_offset = 0x10;
+            poly_length = 0x14;
+        }
+        
+        // Initialize colHeader
+        let colHeader = {
+            numVtxs: 0, 
+            vtxListStart: 0, 
+            numPolygons: 0, 
+            polygonListStart: 0,
+            minBounds: { x: null, y: null, z: null },
+            maxBounds: { x: null, y: null, z: null },
+            camType: null
+        };
+        
+        let allTriangleData = [];
+        
+        let cmd1 = dv.getUint8(current_addr);
+        let cmd2 = dv.getUint32(current_addr+0x4, endianness);
+        
+        while (cmd1 != 0x14) {
+            if (cmd1 == 0x19 && (game == "OOT" || game == "OOT3D")) { // misc_settings
+                    colHeader.camType = dv.getUint8(current_addr+0x1);
+            }
+            if (cmd1 == 0x03) { // collision_header
+                    
+                    //console.log("current_addr: "+current_addr+", "+cmd1+", "+cmd2);
+                    
+                    colHeader.minBounds.x = dv.getInt16(cmd2+address_offset+0x00, endianness);
+                    colHeader.minBounds.y = dv.getInt16(cmd2+address_offset+0x02, endianness);
+                    colHeader.minBounds.z = dv.getInt16(cmd2+address_offset+0x04, endianness);
+                    colHeader.maxBounds.x = dv.getInt16(cmd2+address_offset+0x06, endianness);
+                    colHeader.maxBounds.y = dv.getInt16(cmd2+address_offset+0x08, endianness);
+                    colHeader.maxBounds.z = dv.getInt16(cmd2+address_offset+0x0A, endianness);
+                    
+                    if (game == "OOT" || game == "MM") {
+                            colHeader.numVtxs = dv.getUint16(cmd2+address_offset+0x0C, endianness);
+                            colHeader.vtxListStart = dv.getUint32(cmd2+address_offset+0x10, endianness);
+                            colHeader.numPolygons = dv.getUint16(cmd2+address_offset+0x14, endianness);
+                            colHeader.polygonListStart = dv.getUint32(cmd2+address_offset+0x18, endianness);
+                    }
+                    else if (game == "OOT3D") {
+                            colHeader.numVtxs = dv.getUint16(cmd2+address_offset+0x0C, endianness);
+                            colHeader.numPolygons = dv.getUint16(cmd2+address_offset+0x0E, endianness);
+                            colHeader.vtxListStart = dv.getUint32(cmd2+address_offset+0x18, endianness);
+                            colHeader.polygonListStart = dv.getUint32(cmd2+address_offset+0x1C, endianness);
+                    }
+                    else if (game == "MM3D") {
+                            colHeader.numVtxs = dv.getUint16(cmd2+address_offset+0x0E, endianness);
+                            colHeader.numPolygons = dv.getUint16(cmd2+address_offset+0x10, endianness);
+                            colHeader.vtxListStart = dv.getUint32(cmd2+address_offset+0x18, endianness);
+                            colHeader.polygonListStart = dv.getUint32(cmd2+address_offset+0x1C, endianness);
+                    }
+                    break;
+            }
             
-            //console.log("current_addr: "+current_addr+", "+cmd1+", "+cmd2);
-			
+            current_addr = current_addr + 0x8;
+            cmd1 = dv.getUint8(current_addr);
+            cmd2 = dv.getUint32(current_addr+0x4, endianness);
+        }
+        
+        
+        let colCtx = initColCtx(mapName, colHeader);
+        
+        console.log("numVtxs: "+colHeader.numVtxs);
+        console.log("numPolygons: "+colHeader.numPolygons);
+        //console.log("vtxListStart: "+colHeader.vtxListStart);
+        //console.log("polygonListStart: "+colHeader.polygonListStart);
+        
+        const verts = [];
+        let offset = colHeader.vtxListStart + address_offset;
+        for(let i = 0; i < colHeader.numVtxs; i++){
+            const x = dv.getInt16(offset + i*6 + 0x0, endianness);
+            const y = dv.getInt16(offset + i*6 + 0x2, endianness);
+            const z = dv.getInt16(offset + i*6 + 0x4, endianness); 
+
+            verts.push([x, y, z]);
+        }
+        //console.log(verts);
+        
+        const tris = [];
+        offset = colHeader.polygonListStart + address_offset;
+        for(let i = 0; i < colHeader.numPolygons; i++){
+            if(offset+poly_length > dv.byteLength) break;
+            
+            let temp_a = dv.getUint16(offset + poly_length*i + 0x2,endianness);
+            const xpFlags = (temp_a & 0xE000) >>> 13;
+            const a = temp_a & 0x1FFF;
+            
+            let temp_b = dv.getUint16(offset + poly_length*i + 0x4,endianness);
+            const flags = (temp_b & 0xE000) >>> 13;
+            const b = temp_b & 0x1FFF;
+            
+            const c = dv.getUint16(offset + poly_length*i + 0x6,endianness) & 0x1FFF;
+            
+            let normX = null, normY = null, normZ = null;
+            if (game == "OOT3D") {
+                    normX = dv.getInt16(offset + poly_length*i + 0xA,endianness);
+                    normY = dv.getInt16(offset + poly_length*i + 0xC,endianness);
+                    normZ = dv.getInt16(offset + poly_length*i + 0xE,endianness);
+            }
+            else {
+                    normX = dv.getInt16(offset + poly_length*i + 0x8,endianness);
+                    normY = dv.getInt16(offset + poly_length*i + 0xA,endianness);
+                    normZ = dv.getInt16(offset + poly_length*i + 0xC,endianness);
+            }
+            
+            //console.log("normal: " + normX + ", " + normY + ", " + normZ)
+            let dist = null;
             if (game == "OOT" || game == "MM") {
-				colHeader.minBounds.x = dv.getInt16(cmd2+0x00, endianness);
-				colHeader.minBounds.y = dv.getInt16(cmd2+0x02, endianness);
-				colHeader.minBounds.z = dv.getInt16(cmd2+0x04, endianness);
-				colHeader.maxBounds.x = dv.getInt16(cmd2+0x06, endianness);
-				colHeader.maxBounds.y = dv.getInt16(cmd2+0x08, endianness);
-				colHeader.maxBounds.z = dv.getInt16(cmd2+0x0A, endianness);
-                colHeader.numVtxs = dv.getUint16(cmd2+0x0C, endianness);
-                colHeader.vtxListStart = dv.getUint32(cmd2+0x10, endianness);
-                colHeader.numPolygons = dv.getUint16(cmd2+0x14, endianness);
-                colHeader.polygonListStart = dv.getUint32(cmd2+0x18, endianness);
+                    dist = dv.getInt16(offset + poly_length*i + 0xE,endianness);
             }
-            else if (game == "OOT3D") {
-				colHeader.minBounds.x = dv.getInt16(cmd2+address_offset+0x00, endianness);
-				colHeader.minBounds.y = dv.getInt16(cmd2+address_offset+0x02, endianness);
-				colHeader.minBounds.z = dv.getInt16(cmd2+address_offset+0x04, endianness);
-				colHeader.maxBounds.x = dv.getInt16(cmd2+address_offset+0x06, endianness);
-				colHeader.maxBounds.y = dv.getInt16(cmd2+address_offset+0x08, endianness);
-				colHeader.maxBounds.z = dv.getInt16(cmd2+address_offset+0x0A, endianness);
-                colHeader.numVtxs = dv.getUint16(cmd2+address_offset+0x0C, endianness);
-                colHeader.numPolygons = dv.getUint16(cmd2+address_offset+0x0E, endianness);
-                colHeader.vtxListStart = dv.getUint32(cmd2+address_offset+0x18, endianness);
-                colHeader.polygonListStart = dv.getUint32(cmd2+address_offset+0x1C, endianness);
+            else {
+                    dist = dv.getFloat32(offset + poly_length*i + 0x10, endianness);
             }
-            else if (game == "MM3D") {
-				colHeader.minBounds.x = dv.getInt16(cmd2+address_offset+0x00, endianness);
-				colHeader.minBounds.y = dv.getInt16(cmd2+address_offset+0x02, endianness);
-				colHeader.minBounds.z = dv.getInt16(cmd2+address_offset+0x04, endianness);
-				colHeader.maxBounds.x = dv.getInt16(cmd2+address_offset+0x06, endianness);
-				colHeader.maxBounds.y = dv.getInt16(cmd2+address_offset+0x08, endianness);
-				colHeader.maxBounds.z = dv.getInt16(cmd2+address_offset+0x0A, endianness);
-                colHeader.numVtxs = dv.getUint16(cmd2+address_offset+0x0E, endianness);
-                colHeader.numPolygons = dv.getUint16(cmd2+address_offset+0x10, endianness);
-                colHeader.vtxListStart = dv.getUint32(cmd2+address_offset+0x18, endianness);
-                colHeader.polygonListStart = dv.getUint32(cmd2+address_offset+0x1C, endianness);
+            
+            if (xpFlags & 2) // skip polys that don't have collision
+                    continue;
+            
+            tris.push([a+1,b+1,c+1]);
+            
+            // --- Build triangle object directly for allTriangleData ---
+            const vtxs = [
+                    new THREE.Vector3(verts[a][0], verts[a][1], verts[a][2]),
+                    new THREE.Vector3(verts[b][0], verts[b][1], verts[b][2]),
+                    new THREE.Vector3(verts[c][0], verts[c][1], verts[c][2])
+            ];
+
+            allTriangleData.push({
+                    id: i,
+                    vtxs: vtxs,
+                    normals: [normX, normY, normZ],
+                    d: dist,
+                    xpFlags: xpFlags,
+                    flags: flags
+            });
+        }
+        //console.log(tris)
+        
+        initializeSubdivisions(colCtx, allTriangleData);
+        
+        const allIdx = [].concat(...tris);
+        const maxIdx = Math.max(...allIdx);
+        const minIdx = Math.min(...allIdx);
+        if(minIdx >= 1 && maxIdx <= verts.length) {
+            for(let i = 0; i < tris.length; i++) tris[i]=tris[i].map(x=>x-1);
+        }
+        
+        for (let i = 0; i < tris.length; i++) {
+            const [a,b,c] = tris[i];
+            if (a < 0 || b < 0 || c < 0 ||
+                a >= verts.length || b >= verts.length || c >= verts.length) {
+                console.warn("Invalid triangle index", i, a,b,c, "verts:", verts.length);
             }
-            break;
         }
         
-        current_addr = current_addr + 0x8;
-        cmd1 = dv.getUint8(current_addr);
-        cmd2 = dv.getUint32(current_addr+0x4, endianness);
-      }
-	  
-	  
-	  let colCtx = initColCtx(mapName, colHeader)
-      
-      console.log("numVtxs: "+colHeader.numVtxs);
-      console.log("numPolygons: "+colHeader.numPolygons);
-      //console.log("vtxListStart: "+colHeader.vtxListStart);
-      //console.log("polygonListStart: "+colHeader.polygonListStart);
-      
-      const verts = [];
-      let offset = colHeader.vtxListStart + address_offset;
-      if (game == "OOT" || game == "MM")
-        offset = colHeader.vtxListStart + address_offset - 0x02000000;
-      for(let i=0;i<colHeader.numVtxs;i++){
-        const x = dv.getInt16(offset, endianness); offset += 2;
-        const y = dv.getInt16(offset, endianness); offset += 2;
-        const z = dv.getInt16(offset, endianness); offset += 2;
+        let modelName = "Main Model";
+        if(!fresh)
+            modelName = `Model ${loadedModels.length+1}`;
+        
+        if (display_fwc.checked)
+            buildGeometry_fwc(verts, tris, modelName, fresh);
+        else
+            buildGeometry(verts, tris, allTriangleData, modelName, fresh);
+        
+        
+        /*allTriangleData = [ // test data oot ice cavern wall
+            {
+                    vtxs: [
+                            new THREE.Vector3(878,162,-2187),
+                            new THREE.Vector3(829,119,-2123),
+                            new THREE.Vector3(830,140,-2123)
+                    ],
+                    normals: [-26400,1257,-19368],
+                    d: -592
+            }
+        ];*/
+        
+        /*allTriangleData = [ // test data oot ice cavern floor
+            { 
+                    vtxs: [
+                            new THREE.Vector3(857,140,-2088),
+                            new THREE.Vector3(878,162,-2187),
+                            new THREE.Vector3(830,140,-2123)
+                    ],
+                    normals: [-7119,31509,5492],
+                    d: 402
+            }
+        ];*/
+        
+        /*allTriangleData = [ // test data oot3d kokiri left
+            {
+                    vtxs: [
+                            new THREE.Vector3(-1272, 60, -834),
+                            new THREE.Vector3(-1276, 0, -834),
+                            new THREE.Vector3(-1115, 1, -841)
+                    ],
+                    normals: [1380, -35, 32737],
+                    d: 886.93
+            }
+        ];*/
+        
+        /*allTriangleData = [ // test data oot3d kokiri right
+            {
+                    vtxs: [
+                            new THREE.Vector3(-1113, 60, -841),
+                            new THREE.Vector3(-1115, 1, -841),
+                            new THREE.Vector3(-928, 1, -833)
+                    ],
+                    normals: [-1339, 17, 32739],
+                    d: 794.779
+            }
+        ];*/
+        
+        //drawSampledTriangles(scene, allTriangleData, sampledStandableFootprint, 0.1); // WORKS WELL for a few, but laggy with multiple triangles
+        
+        const standableSurfaceMesh = renderStandableSurfaceWithEdges(allTriangleData);
+        scene.add(standableSurfaceMesh);
+        
+        loadedModels.push({ name: "Standable surface", mesh: standableSurfaceMesh, edges: null });
 
-        verts.push([x, y, z]);
-      }
-      //console.log(verts);
-      
-      const tris = [];
-      offset = colHeader.polygonListStart + address_offset;
-      if (game == "OOT" || game == "MM")
-        offset = colHeader.polygonListStart + address_offset - 0x02000000;
-      for(let i=0;i<colHeader.numPolygons;i++){
-        if(offset+poly_length>dv.byteLength) break;
-        
-        offset+=2;
-        let temp_a = dv.getUint16(offset,endianness); offset+=2;
-        const xpFlags = (temp_a & 0xE000) >>> 13;
-        const a = temp_a & 0x1FFF;
-        
-        let temp_b = dv.getUint16(offset,endianness); offset+=2;
-        const flags = (temp_b & 0xE000) >>> 13;
-        const b = temp_b & 0x1FFF;
-        
-        const c = dv.getUint16(offset,endianness) & 0x1FFF; offset+=2;
-        if (game == "OOT3D") {
-            offset+=2;
-        }
-        const normX = dv.getInt16(offset,endianness); offset+=2;
-        const normY = dv.getInt16(offset,endianness); offset+=2;
-        const normZ = dv.getInt16(offset,endianness); offset+=2;
-        //console.log("normal: " + normX + ", " + normY + ", " + normZ)
-        let dist = null;
-        
-        if (game == "OOT" || game == "MM") {
-            dist = dv.getInt16(offset,endianness); offset+=2;
-        }
-        else {
-            if (game == "MM3D")
-                offset+=2;
-                
-            dist = dv.getFloat32(offset, endianness); offset+=4;
-        }
-        
-        //offset += poly_length-0x8;
-        
-        //if (xpFlags & 2) // FIX THIS LATER!!!
-        //    continue;
-        
-        tris.push([a+1,b+1,c+1]);
-        
-        // --- Build triangle object directly for allTriangleData ---
-        const vtxs = [
-            new THREE.Vector3(verts[a][0], verts[a][1], verts[a][2]),
-            new THREE.Vector3(verts[b][0], verts[b][1], verts[b][2]),
-            new THREE.Vector3(verts[c][0], verts[c][1], verts[c][2])
-        ];
-
-        allTriangleData.push({
-            vtxs,
-            normals: [normX, normY, normZ],
-            d: dist,
-            xpFlags: xpFlags,
-            flags: flags
-        });
-      }
-      //console.log(tris)
-	  
-	  initializeStaticLookup(colCtx, allTriangleData);
-      
-      const allIdx = [].concat(...tris);
-      const maxIdx = Math.max(...allIdx);
-      const minIdx = Math.min(...allIdx);
-      if(minIdx>=1 && maxIdx<=verts.length) {
-        for(let i=0;i<tris.length;i++) tris[i]=tris[i].map(x=>x-1);
-      }
-      
-      for (let i = 0; i < tris.length; i++) {
-        const [a,b,c] = tris[i];
-        if (a < 0 || b < 0 || c < 0 ||
-          a >= verts.length || b >= verts.length || c >= verts.length) {
-          console.warn("Invalid triangle index", i, a,b,c, "verts:", verts.length);
-        }
-      }
-      
-      let modelName = "Main Model";
-      if(!fresh)
-        modelName = `Model ${loadedModels.length+1}`;
-      
-      if (display_fwc.checked)
-        buildGeometry_fwc(verts, tris, modelName, fresh);
-      else
-        buildGeometry(verts, tris, allTriangleData, modelName, fresh);
-      
-      
-      /*allTriangleData = [ // test data oot ice cavern wall
-        {
-            vtxs: [
-                new THREE.Vector3(878,162,-2187),
-                new THREE.Vector3(829,119,-2123),
-                new THREE.Vector3(830,140,-2123)
-            ],
-            normals: [-26400,1257,-19368],
-            d: -592
-        }
-      ];*/
-      
-      /*allTriangleData = [ // test data oot ice cavern floor
-        { 
-            vtxs: [
-                new THREE.Vector3(857,140,-2088),
-                new THREE.Vector3(878,162,-2187),
-                new THREE.Vector3(830,140,-2123)
-            ],
-            normals: [-7119,31509,5492],
-            d: 402
-        }
-      ];*/
-      
-      /*allTriangleData = [ // test data oot3d kokiri left
-        {
-            vtxs: [
-                new THREE.Vector3(-1272, 60, -834),
-                new THREE.Vector3(-1276, 0, -834),
-                new THREE.Vector3(-1115, 1, -841)
-            ],
-            normals: [1380, -35, 32737],
-            d: 886.93
-        }
-      ];*/
-      
-      /*allTriangleData = [ // test data oot3d kokiri right
-        {
-            vtxs: [
-                new THREE.Vector3(-1113, 60, -841),
-                new THREE.Vector3(-1115, 1, -841),
-                new THREE.Vector3(-928, 1, -833)
-            ],
-            normals: [-1339, 17, 32739],
-            d: 794.779
-        }
-      ];*/
-      
-      //drawSampledTriangles(scene, allTriangleData, sampledStandableFootprint, 0.1); // WORKS WELL for a few, but laggy with multiple triangles
-      
-      const standableSurfaceMesh = renderStandableSurfaceWithEdges(allTriangleData);
-      scene.add(standableSurfaceMesh);
-      
-      loadedModels.push({ name: "Standable surface", mesh: standableSurfaceMesh, edges: null });
-
-      // Register in UI
-      addModelCheckbox("Standable surface", standableSurfaceMesh, null, false, true, "#ff0000");
+        // Register in UI
+        addModelCheckbox("Standable surface", standableSurfaceMesh, null, false, true, "#ff0000");
     }
     
     function parseInvisibleSeams1D(text) {
@@ -1047,7 +1021,7 @@
         loadedModels.push({ name: "Invis Seams", mesh, edges: edgesObj });
         addModelCheckbox("Invis Seams", mesh, edgesObj, false, true);
     }
-
+    
     ////////////////////////////////////////
     // System: Geometry creation
     ////////////////////////////////////////
@@ -1136,10 +1110,10 @@
         
         // After loading model
         scanAndBuildFlatGroundMarkers();
-		scanAndBuildSpecialNormalMarkers();
+        scanAndBuildSpecialNormalMarkers();
         updateFlatGroundUIVisibility();
         updateSamplePointsUIVisibility();
-		updateSpecialNormalUIVisibility();
+        updateSpecialNormalUIVisibility();
     }
     
     function buildGeometry_fwc(verts, tris, name = "Main Model", clearFirst = true) {
@@ -1293,10 +1267,10 @@
         addModelCheckbox(name, meshObj, edgesObj, clearFirst, true);
 
         scanAndBuildFlatGroundMarkers();
-		scanAndBuildSpecialNormalMarkers();
+        scanAndBuildSpecialNormalMarkers();
         updateFlatGroundUIVisibility();
         updateSamplePointsUIVisibility();
-		updateSpecialNormalUIVisibility();
+        updateSpecialNormalUIVisibility();
     }
     
     function buildGeometryFromTriangles(allTriangleData, name = "Main Model", clearFirst = true) {
@@ -1412,10 +1386,10 @@
         addModelCheckbox(name, meshObj, edgesObj, clearFirst, true);
 
         scanAndBuildFlatGroundMarkers();
-		scanAndBuildSpecialNormalMarkers();
+        scanAndBuildSpecialNormalMarkers();
         updateFlatGroundUIVisibility();
         updateSamplePointsUIVisibility();
-		updateSpecialNormalUIVisibility();
+        updateSpecialNormalUIVisibility();
     }
     
     function buildGeometryEdges(verts, edges, name = "Edge Model", clearFirst = true) {
@@ -1528,8 +1502,8 @@
 
         return belowVerts;
     }
-	
-	function renderStandableSurfaceWithEdges_old(allTriangleData) {
+    
+    function renderStandableSurfaceWithEdges_old(allTriangleData) {
         const f32 = Math.fround;
         const COLPOLY_NORMAL_FRAC = f32(1.0 / 32767.0);
 
@@ -1538,22 +1512,22 @@
         let vertexOffset = 0;
 
         allTriangleData.forEach(tri => {
-			
+            
             const vtxs = tri.vtxs;
             const normals = tri.normals;
             const D = f32(tri.d);
-			
-			if (vtxs[0].x == 485 && vtxs[0].y == 1233 && vtxs[0].z == 1764 && 
-			vtxs[1].x == -69 && vtxs[1].y == 1233 && vtxs[1].z == 1487 && 
-			vtxs[2].x == -291 && vtxs[2].y == 1233 && vtxs[2].z == 1875)
-				console.log("hi")
-				
-			if (normals[0] == 0 && normals[1] == 32766 && normals[2] == 0) {
-				console.log(vtxs[0].x + ", " + vtxs[0].y + ", " + vtxs[0].z
-				 + ", " + vtxs[1].x + ", " + vtxs[1].y + ", " + vtxs[1].z
-				  + ", " + vtxs[2].x + ", " + vtxs[2].y + ", " + vtxs[2].z)
-				return;
-			}
+            
+            if (vtxs[0].x == 485 && vtxs[0].y == 1233 && vtxs[0].z == 1764 && 
+            vtxs[1].x == -69 && vtxs[1].y == 1233 && vtxs[1].z == 1487 && 
+            vtxs[2].x == -291 && vtxs[2].y == 1233 && vtxs[2].z == 1875)
+                console.log("hi")
+                
+            if (normals[0] == 0 && normals[1] == 32766 && normals[2] == 0) {
+                console.log(vtxs[0].x + ", " + vtxs[0].y + ", " + vtxs[0].z
+                 + ", " + vtxs[1].x + ", " + vtxs[1].y + ", " + vtxs[1].z
+                  + ", " + vtxs[2].x + ", " + vtxs[2].y + ", " + vtxs[2].z)
+                return;
+            }
 
             const Nx = f32(normals[0] * COLPOLY_NORMAL_FRAC);
             const Ny = f32(normals[1] * COLPOLY_NORMAL_FRAC);
@@ -1683,55 +1657,55 @@
             const originalMinY = Math.min(vtxs[0].y, vtxs[1].y, vtxs[2].y);
 
             function liftVertex(x, z) {
-				// f32 comparison threshold
-				if (Math.abs(Ny) < f32(1e-12)) return f32(0.0);
+                // f32 comparison threshold
+                if (Math.abs(Ny) < f32(1e-12)) return f32(0.0);
 
-				// dot = Nx*x + Nz*z + D   (all f32)
-				const dot = f32(
-					f32(f32(Nx * x) + f32(Nz * z)) + D
-				);
+                // dot = Nx*x + Nz*z + D   (all f32)
+                const dot = f32(
+                    f32(f32(Nx * x) + f32(Nz * z)) + D
+                );
 
-				// -(dot) / Ny    (all f32)
-				return f32(f32(-dot) / Ny);
-			}
-			
-			if (vtxs[0].x == 485 && vtxs[0].y == 1233 && vtxs[0].z == 1764 && 
-			vtxs[1].x == -69 && vtxs[1].y == 1233 && vtxs[1].z == 1487 && 
-			vtxs[2].x == -291 && vtxs[2].y == 1233 && vtxs[2].z == 1875)
-				console.log("hi")
+                // -(dot) / Ny    (all f32)
+                return f32(f32(-dot) / Ny);
+            }
+            
+            if (vtxs[0].x == 485 && vtxs[0].y == 1233 && vtxs[0].z == 1764 && 
+            vtxs[1].x == -69 && vtxs[1].y == 1233 && vtxs[1].z == 1487 && 
+            vtxs[2].x == -291 && vtxs[2].y == 1233 && vtxs[2].z == 1875)
+                console.log("hi")
 
             // Expand triangle
             let expandedVertices = vtxs.map(v => ({ x: f32(v.x), z: f32(v.z) }));
             if (Math.abs(Ny) > f32(0.5)) {
 
-				// Compute centroid in f32
-				const centroidX = f32(
-					f32(expandedVertices[0].x + expandedVertices[1].x + expandedVertices[2].x) / f32(3.0)
-				);
-				const centroidZ = f32(
-					f32(expandedVertices[0].z + expandedVertices[1].z + expandedVertices[2].z) / f32(3.0)
-				);
+                // Compute centroid in f32
+                const centroidX = f32(
+                    f32(expandedVertices[0].x + expandedVertices[1].x + expandedVertices[2].x) / f32(3.0)
+                );
+                const centroidZ = f32(
+                    f32(expandedVertices[0].z + expandedVertices[1].z + expandedVertices[2].z) / f32(3.0)
+                );
 
-				expandedVertices = expandedVertices.map(v => {
+                expandedVertices = expandedVertices.map(v => {
 
-					const dx = f32(v.x - centroidX);
-					const dz = f32(v.z - centroidZ);
+                    const dx = f32(v.x - centroidX);
+                    const dz = f32(v.z - centroidZ);
 
-					// len = sqrt(dx*dx + dz*dz) in f32
-					const len = f32(Math.sqrt(f32(f32(dx * dx) + f32(dz * dz))));
+                    // len = sqrt(dx*dx + dz*dz) in f32
+                    const len = f32(Math.sqrt(f32(f32(dx * dx) + f32(dz * dz))));
 
-					// factor = (len + 1) / len   (all f32)
-					let factor = f32(1.0);
-					if (len > f32(0.0)) {
-						factor = f32(f32(len + f32(1.0)) / len);
-					}
+                    // factor = (len + 1) / len   (all f32)
+                    let factor = f32(1.0);
+                    if (len > f32(0.0)) {
+                        factor = f32(f32(len + f32(1.0)) / len);
+                    }
 
-					return {
-						x: f32(centroidX + f32(dx * factor)),
-						z: f32(centroidZ + f32(dz * factor))
-					};
-				});
-			}
+                    return {
+                        x: f32(centroidX + f32(dx * factor)),
+                        z: f32(centroidZ + f32(dz * factor))
+                    };
+                });
+            }
 
             // Compute rawVerts
             const rawVerts = [];
@@ -1974,7 +1948,7 @@
         let sampled_triangles = [];
         for (const t of selectedTriangles) {
             const pts = t.verts.map(v => `${formatNumber(v.x)} ${formatNumber(v.y)} ${formatNumber(v.z)}`);
-            let line = `TRI ${t.index}:  ${pts.join(' ')}`;
+            let line = `TRI ${t.id}:  ${pts.join(' ')}`;
 
             if (t.normals) {
                 line += `   NORMAL: ${t.normals[0]}, ${t.normals[1]}, ${t.normals[2]}`;
@@ -2280,6 +2254,7 @@
         }
 
         const newTri = {
+            id: meta ? meta.id : null,
             index: triIndex,
             verts: [va, vb, vc],
             modelName: hit.object.name,
@@ -2503,214 +2478,214 @@
     }
     
     ////////////////////////////////////////
-    // System: Canvas / Pointer interactions
-    ////////////////////////////////////////
-    
-    renderer.domElement.addEventListener('click', (ev)=>{
-      // If user explicitly selected Orbit mode, always treat click as selection (no pointer lock)
-      if(controlMode === 'orbit'){
-        performSelection(ev);
-        return;
-      }
+	// System: Canvas / Pointer interactions
+	////////////////////////////////////////
+	
+	renderer.domElement.addEventListener('click', (ev)=>{
+		// If user explicitly selected Orbit mode, always treat click as selection (no pointer lock)
+		if(controlMode === 'orbit'){
+			performSelection(ev);
+			return;
+		}
 
-      // If pointer already locked on our canvas, treat click as selection
-      if(document.pointerLockElement === renderer.domElement){
-        performSelection(ev);
-        return;
-      }
+		// If pointer already locked on our canvas, treat click as selection
+		if(document.pointerLockElement === renderer.domElement){
+			performSelection(ev);
+			return;
+		}
 
-      // If user chose Pointer mode or Auto, try to acquire pointer lock on canvas
-      if(controlMode === 'pointer' /*|| controlMode === 'auto'*/){
-        try{
-          // Attempt to lock; this may throw in sandboxed frames.
-          pointerControls.lock();
-          setStatus('requesting pointer lock...');
-        }catch(err){
-          // SecurityError when iframe sandbox blocks pointer lock
-          console.warn('Pointer lock request failed:', err);
-          pointerLockBlocked = true;
-          //setStatus('Pointer lock blocked (sandbox or permission). Falling back to orbit controls.', 'warn');
-          //enableOrbitControls();
-        }
-      }
-    });
+		// If user chose Pointer mode or Auto, try to acquire pointer lock on canvas
+		if(controlMode === 'pointer' /*|| controlMode === 'auto'*/){
+			try{
+				// Attempt to lock; this may throw in sandboxed frames.
+				pointerControls.lock();
+				setStatus('requesting pointer lock...');
+			}catch(err){
+				// SecurityError when iframe sandbox blocks pointer lock
+				console.warn('Pointer lock request failed:', err);
+				pointerLockBlocked = true;
+				//setStatus('Pointer lock blocked (sandbox or permission). Falling back to orbit controls.', 'warn');
+				//enableOrbitControls();
+			}
+		}
+	});
 
-    // Listen for pointerlockchange/pointerlockerror to update status
-    document.addEventListener('pointerlockchange', ()=>{
-      if(document.pointerLockElement === renderer.domElement){
-        setStatus('Pointer locked. WASD to fly. Click again to select triangles. Press Esc to unlock.');
-      } else {
-        setStatus('Pointer unlocked.');
-      }
-    });
-    
-    document.addEventListener('pointerlockerror', (ev)=>{
-      console.warn('pointerlockerror', ev);
-      pointerLockBlocked = true;
-      //setStatus('Pointer lock error — falling back to orbit controls.', 'error');
-      //enableOrbitControls();
-    });
+	// Listen for pointerlockchange/pointerlockerror to update status
+	document.addEventListener('pointerlockchange', ()=>{
+		if(document.pointerLockElement === renderer.domElement){
+			setStatus('Pointer locked. WASD to fly. Click again to select triangles. Press Esc to unlock.');
+		} else {
+			setStatus('Pointer unlocked.');
+		}
+	});
+	
+	document.addEventListener('pointerlockerror', (ev)=>{
+		console.warn('pointerlockerror', ev);
+		pointerLockBlocked = true;
+		//setStatus('Pointer lock error — falling back to orbit controls.', 'error');
+		//enableOrbitControls();
+	});
 
-    // Control mode selector
-    controlModeSel.addEventListener('change',(e)=>{
-      controlMode = e.target.value;
-      if(controlMode === 'orbit'){
-        enableOrbitControls();
-      }else if(controlMode === 'pointer'){
-        // try to exit orbit and enable pointer behavior
-        disableOrbitControls();
-        setStatus('Pointer mode selected. Click the canvas to request pointer lock.');
-      }else{ // auto
-        if(pointerLockBlocked){
-          enableOrbitControls();
-        } else {
-          disableOrbitControls();
-          setStatus('Auto mode: click canvas to request pointer lock.');
-        }
-      }
-    });
-    
-    function onWindowResize(){
-      const w = renderer.domElement.clientWidth || window.innerWidth - 320;
-      const h = renderer.domElement.clientHeight || window.innerHeight;
-      if(h===0 || w===0) return;
-      camera.aspect = w/h;
-      camera.updateProjectionMatrix();
-      renderer.setSize(w,h,false);
-    }
-    window.addEventListener('resize', onWindowResize);
-    
-    ////////////////////////////////////////
-    // System: Fly/Orbit controls
-    ////////////////////////////////////////
-    
-    function enableOrbitControls(){
-      if(orbitControls) return;
-      try{
-        if(document.pointerLockElement === renderer.domElement) document.exitPointerLock?.();
-      }catch(e){ console.warn('exitPointerLock failed', e); }
-      orbitControls = new OrbitControls(camera, renderer.domElement);
-      orbitControls.enableDamping = true;
-      orbitControls.dampingFactor = 0.08;
-      orbitControls.screenSpacePanning = false;
-      orbitControls.enablePan = true;
-      
-      // Hide crosshair in orbit mode
-      if (crosshair) crosshair.style.display = 'none';
-      if (hint) hint.style.display = 'none';
-      
-      setStatus('Orbit controls active (drag to rotate, scroll to zoom).');
-    }
-    
-    function disableOrbitControls(){
-      if(!orbitControls) return;
-      orbitControls.dispose();
-      orbitControls = null;
-      
-      // Show crosshair in fly mode
-      if (crosshair) crosshair.style.display = 'block';
-      if (hint) hint.style.display = 'block';
-      
-      setStatus('Orbit controls disabled.');
-    }
-    
-    // Movement keyboard (only affects pointer-lock / fly mode)
-    document.addEventListener('keydown',(e)=>{
-      if(e.code==='KeyW') move.forward=true;
-      if(e.code==='KeyS') move.back=true;
-      if(e.code==='KeyA') move.left=true;
-      if(e.code==='KeyD') move.right=true;
-      if(e.code==='Space') move.up=true;
-      if(e.code==='KeyC') move.down=true;
-    });
-    document.addEventListener('keyup',(e)=>{
-      if(e.code==='KeyW') move.forward=false;
-      if(e.code==='KeyS') move.back=false;
-      if(e.code==='KeyA') move.left=false;
-      if(e.code==='KeyD') move.right=false;
-      if(e.code==='Space') move.up=false;
-      if(e.code==='KeyC') move.down=false;
-    });
-    
-    ////////////////////////////////////////
-    // System: Rendering loop
-    ////////////////////////////////////////
-    
-    let last = performance.now();
-    
-    function animate(){
-      requestAnimationFrame(animate);
-      const now = performance.now();
-      const dt = Math.min(0.05,(now-last)/1000);
-      last = now;
-      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.0));
+	// Control mode selector
+	controlModeSel.addEventListener('change',(e)=>{
+		controlMode = e.target.value;
+		if(controlMode === 'orbit'){
+			enableOrbitControls();
+		}else if(controlMode === 'pointer'){
+			// try to exit orbit and enable pointer behavior
+			disableOrbitControls();
+			setStatus('Pointer mode selected. Click the canvas to request pointer lock.');
+		}else{ // auto
+			if(pointerLockBlocked){
+				enableOrbitControls();
+			} else {
+				disableOrbitControls();
+				setStatus('Auto mode: click canvas to request pointer lock.');
+			}
+		}
+	});
+	
+	function onWindowResize(){
+		const w = renderer.domElement.clientWidth || window.innerWidth - 320;
+		const h = renderer.domElement.clientHeight || window.innerHeight;
+		if(h===0 || w===0) return;
+		camera.aspect = w/h;
+		camera.updateProjectionMatrix();
+		renderer.setSize(w,h,false);
+	}
+	window.addEventListener('resize', onWindowResize);
+	
+	////////////////////////////////////////
+	// System: Fly/Orbit controls
+	////////////////////////////////////////
+	
+	function enableOrbitControls(){
+		if(orbitControls) return;
+		try{
+			if(document.pointerLockElement === renderer.domElement) document.exitPointerLock?.();
+		}catch(e){ console.warn('exitPointerLock failed', e); }
+		orbitControls = new OrbitControls(camera, renderer.domElement);
+		orbitControls.enableDamping = true;
+		orbitControls.dampingFactor = 0.08;
+		orbitControls.screenSpacePanning = false;
+		orbitControls.enablePan = true;
+		
+		// Hide crosshair in orbit mode
+		if (crosshair) crosshair.style.display = 'none';
+		if (hint) hint.style.display = 'none';
+		
+		setStatus('Orbit controls active (drag to rotate, scroll to zoom).');
+	}
+	
+	function disableOrbitControls(){
+		if(!orbitControls) return;
+		orbitControls.dispose();
+		orbitControls = null;
+		
+		// Show crosshair in fly mode
+		if (crosshair) crosshair.style.display = 'block';
+		if (hint) hint.style.display = 'block';
+		
+		setStatus('Orbit controls disabled.');
+	}
+	
+	// Movement keyboard (only affects pointer-lock / fly mode)
+	document.addEventListener('keydown',(e)=>{
+		if(e.code==='KeyW') move.forward=true;
+		if(e.code==='KeyS') move.back=true;
+		if(e.code==='KeyA') move.left=true;
+		if(e.code==='KeyD') move.right=true;
+		if(e.code==='Space') move.up=true;
+		if(e.code==='KeyC') move.down=true;
+	});
+	document.addEventListener('keyup',(e)=>{
+		if(e.code==='KeyW') move.forward=false;
+		if(e.code==='KeyS') move.back=false;
+		if(e.code==='KeyA') move.left=false;
+		if(e.code==='KeyD') move.right=false;
+		if(e.code==='Space') move.up=false;
+		if(e.code==='KeyC') move.down=false;
+	});
+	
+	////////////////////////////////////////
+	// System: Rendering loop
+	////////////////////////////////////////
+	
+	let last = performance.now();
+	
+	function animate(){
+		requestAnimationFrame(animate);
+		const now = performance.now();
+		const dt = Math.min(0.05,(now-last)/1000);
+		last = now;
+		renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.0));
 
-      if(controlMode !== 'orbit' && document.pointerLockElement === renderer.domElement){
-        // Apply WASD movement in pointer-lock mode
-        const dir = new THREE.Vector3();
-        if(move.forward) dir.z -= 1;
-        if(move.back) dir.z += 1;
-        if(move.left) dir.x -= 1;
-        if(move.right) dir.x += 1;
-        if(move.up) dir.y += 1;
-        if(move.down) dir.y -= 1;
-        if(dir.lengthSq()>0){
-          dir.normalize();
-          const worldDir = dir.applyQuaternion(camera.quaternion).multiplyScalar(speed*dt);
-          pointerControls.getObject().position.add(worldDir);
-          camera.position.copy(pointerControls.getObject().position);
-        }
-      }
+		if(controlMode !== 'orbit' && document.pointerLockElement === renderer.domElement){
+			// Apply WASD movement in pointer-lock mode
+			const dir = new THREE.Vector3();
+			if(move.forward) dir.z -= 1;
+			if(move.back) dir.z += 1;
+			if(move.left) dir.x -= 1;
+			if(move.right) dir.x += 1;
+			if(move.up) dir.y += 1;
+			if(move.down) dir.y -= 1;
+			if(dir.lengthSq()>0){
+				dir.normalize();
+				const worldDir = dir.applyQuaternion(camera.quaternion).multiplyScalar(speed*dt);
+				pointerControls.getObject().position.add(worldDir);
+				camera.position.copy(pointerControls.getObject().position);
+			}
+		}
 
-      // Update UI
-      camPosEl.textContent = `${camera.position.x.toFixed(2)}, ${camera.position.y.toFixed(2)}, ${camera.position.z.toFixed(2)}`;
-      const euler = new THREE.Euler().setFromQuaternion(camera.quaternion);
-      camRotEl.textContent = `${THREE.MathUtils.radToDeg(euler.x).toFixed(1)}, ${THREE.MathUtils.radToDeg(euler.y).toFixed(1)}, ${THREE.MathUtils.radToDeg(euler.z).toFixed(1)}`;
+		// Update UI
+		camPosEl.textContent = `${camera.position.x.toFixed(2)}, ${camera.position.y.toFixed(2)}, ${camera.position.z.toFixed(2)}`;
+		const euler = new THREE.Euler().setFromQuaternion(camera.quaternion);
+		camRotEl.textContent = `${THREE.MathUtils.radToDeg(euler.x).toFixed(1)}, ${THREE.MathUtils.radToDeg(euler.y).toFixed(1)}, ${THREE.MathUtils.radToDeg(euler.z).toFixed(1)}`;
 
-      // Update orbit controls if active
-      if(orbitControls) orbitControls.update();
+		// Update orbit controls if active
+		if(orbitControls) orbitControls.update();
 
-      // update edges transformation if any
-      if(edges && mesh){ edges.position.copy(mesh.position); edges.rotation.copy(mesh.rotation); }
+		// update edges transformation if any
+		if(edges && mesh){ edges.position.copy(mesh.position); edges.rotation.copy(mesh.rotation); }
 
-      renderer.render(scene,camera);
-    }
-    onWindowResize();
-    animate();
-    
-    ////////////////////////////////////////
-    // System: Test model & dev helpers
-    ////////////////////////////////////////
-    
-    // initial scene: build a small test cube if user hasn't loaded
-    function buildTest(){
-      const verts = [[-200,-200,-200],[200,-200,-200],[200,200,-200],[-200,200,-200],[-200,-200,200],[200,-200,200],[200,200,200],[-200,200,200]];
-      const tris = [[0,1,2],[0,2,3],[4,7,6],[4,6,5],[0,4,5],[0,5,1],[1,5,6],[1,6,2],[2,6,7],[2,7,3],[3,7,4],[3,4,0]];
-      buildGeometry(verts, tris, null, "Main Model", true);
-    }
-    buildTest();
+		renderer.render(scene,camera);
+	}
+	onWindowResize();
+	animate();
+	
+	////////////////////////////////////////
+	// System: Test model & dev helpers
+	////////////////////////////////////////
+	
+	// initial scene: build a small test cube if user hasn't loaded
+	function buildTest(){
+		const verts = [[-200,-200,-200],[200,-200,-200],[200,200,-200],[-200,200,-200],[-200,-200,200],[200,-200,200],[200,200,200],[-200,200,200]];
+		const tris = [[0,1,2],[0,2,3],[4,7,6],[4,6,5],[0,4,5],[0,5,1],[1,5,6],[1,6,2],[2,6,7],[2,7,3],[3,7,4],[3,4,0]];
+		buildGeometry(verts, tris, null, "Main Model", true);
+	}
+	buildTest();
 
-    // expose a tiny helpful function on window for quick testing
-    window.__3dv = { parseModelText, parseModelBinary };
-    
-    ////////////////////////////////////////
-    // System: Initialization checks
-    ////////////////////////////////////////
-    
-    // Initial status: determine starting mode
-    (function initStatus(){
-      // If the environment is clearly sandboxed (iframe), we cannot reliably request pointer lock.
-      try{
-        // Some browsers throw immediately when calling requestPointerLock in a sandbox; we don't call it here — just detect availability.
-        const supported = 'requestPointerLock' in Element.prototype;
-        if(!supported){ pointerLockBlocked = true; setStatus('Pointer lock not supported in this environment; orbit controls enabled.', 'warn'); enableOrbitControls(); return; }
-        setStatus('Ready. Click canvas to request pointer lock (Auto).');
-      }catch(e){
-        pointerLockBlocked = true;
-        setStatus('Pointer lock appears unavailable; orbit controls enabled.', 'warn');
-        enableOrbitControls();
-      }
-    })();
+	// expose a tiny helpful function on window for quick testing
+	window.__3dv = { parseModelText, parseModelBinary };
+	
+	////////////////////////////////////////
+	// System: Initialization checks
+	////////////////////////////////////////
+	
+	// Initial status: determine starting mode
+	(function initStatus(){
+		// If the environment is clearly sandboxed (iframe), we cannot reliably request pointer lock.
+		try{
+			// Some browsers throw immediately when calling requestPointerLock in a sandbox; we don't call it here — just detect availability.
+			const supported = 'requestPointerLock' in Element.prototype;
+			if(!supported){ pointerLockBlocked = true; setStatus('Pointer lock not supported in this environment; orbit controls enabled.', 'warn'); enableOrbitControls(); return; }
+			setStatus('Ready. Click canvas to request pointer lock (Auto).');
+		}catch(e){
+			pointerLockBlocked = true;
+			setStatus('Pointer lock appears unavailable; orbit controls enabled.', 'warn');
+			enableOrbitControls();
+		}
+	})();
     
     ////////////////////////////////////////
     // System: Polygon Standable Surface Debugger
@@ -2954,686 +2929,686 @@
         
         return pts;
     }
-	
-	////////////////////////////////////////
-	// System: Special Normal Preview
-	// (uses Main Model + mesh.userData.triangles)
-	////////////////////////////////////////
+    
+    ////////////////////////////////////////
+    // System: Special Normal Preview
+    // (uses Main Model + mesh.userData.triangles)
+    ////////////////////////////////////////
 
-	// Exact target normal in 16-bit OoT format
-	const TARGET_NORMAL = { x: 0, y: 32766, z: 0 };
+    // Exact target normal in 16-bit OoT format
+    const TARGET_NORMAL = { x: 0, y: 32766, z: 0 };
 
-	////////////////////////////////////////
-	// UI visibility
-	////////////////////////////////////////
+    ////////////////////////////////////////
+    // UI visibility
+    ////////////////////////////////////////
 
-	function updateSpecialNormalUIVisibility() {
-		if (["OOT","MM","OOT3D","MM3D"].includes(game)) {
-			specialNormalContainer.style.display = "flex";
-		} else {
-			specialNormalContainer.style.display = "none";
-			clearSpecialNormalMarkers();
-		}
-	}
+    function updateSpecialNormalUIVisibility() {
+        if (["OOT","MM","OOT3D","MM3D"].includes(game)) {
+            specialNormalContainer.style.display = "flex";
+        } else {
+            specialNormalContainer.style.display = "none";
+            clearSpecialNormalMarkers();
+        }
+    }
 
-	specialNormalCheckbox.addEventListener("change", () => {
-		specialNormalEnabled = specialNormalCheckbox.checked;
-		if (specialNormalEnabled) {
-			scanAndBuildSpecialNormalMarkers();
-		} else {
-			clearSpecialNormalMarkers();
-		}
-	});
+    specialNormalCheckbox.addEventListener("change", () => {
+        specialNormalEnabled = specialNormalCheckbox.checked;
+        if (specialNormalEnabled) {
+            scanAndBuildSpecialNormalMarkers();
+        } else {
+            clearSpecialNormalMarkers();
+        }
+    });
 
-	specialNormalColorPicker.addEventListener("input", () => {
-		specialNormalColor = parseInt(specialNormalColorPicker.value.replace("#",""), 16);
-		recolorSpecialNormalMarkers();
-	});
-
-
-	////////////////////////////////////////
-	// Marker create/clear/recolor
-	////////////////////////////////////////
-
-	function clearSpecialNormalMarkers() {
-		for (const m of specialNormalMarkers) {
-			scene.remove(m);
-			if (m.geometry) m.geometry.dispose();
-			if (m.material) m.material.dispose();
-		}
-		specialNormalMarkers.length = 0;
-	}
-
-	function recolorSpecialNormalMarkers() {
-		for (const m of specialNormalMarkers) {
-			m.material.color.setHex(specialNormalColor);
-		}
-	}
-
-	function createSpecialNormalMarker(verts) {
-		const geom = new THREE.BufferGeometry();
-		const arr = new Float32Array([
-			verts[0].x, verts[0].y, verts[0].z,
-			verts[1].x, verts[1].y, verts[1].z,
-			verts[2].x, verts[2].y, verts[2].z
-		]);
-		geom.setAttribute("position", new THREE.BufferAttribute(arr, 3));
-		geom.setIndex([0, 1, 2]);
-
-		const mat = new THREE.MeshBasicMaterial({
-			color: specialNormalColor,
-			side: THREE.DoubleSide,
-			transparent: true,
-			opacity: 0.9,
-			polygonOffset: true,
-			polygonOffsetFactor: -1,
-			polygonOffsetUnits: -1
-		});
-
-		const mesh = new THREE.Mesh(geom, mat);
-		scene.add(mesh);
-		specialNormalMarkers.push(mesh);
-	}
+    specialNormalColorPicker.addEventListener("input", () => {
+        specialNormalColor = parseInt(specialNormalColorPicker.value.replace("#",""), 16);
+        recolorSpecialNormalMarkers();
+    });
 
 
-	////////////////////////////////////////
-	// Scan Main Model for normals == target
-	////////////////////////////////////////
+    ////////////////////////////////////////
+    // Marker create/clear/recolor
+    ////////////////////////////////////////
 
-	function scanAndBuildSpecialNormalMarkers() {
-		clearSpecialNormalMarkers();
-		if (!specialNormalEnabled) return;
+    function clearSpecialNormalMarkers() {
+        for (const m of specialNormalMarkers) {
+            scene.remove(m);
+            if (m.geometry) m.geometry.dispose();
+            if (m.material) m.material.dispose();
+        }
+        specialNormalMarkers.length = 0;
+    }
 
-		// Find the "Main Model"
-		const mainModel = loadedModels.find(m => m.name === "Main Model");
-		if (!mainModel || !mainModel.mesh) return;
+    function recolorSpecialNormalMarkers() {
+        for (const m of specialNormalMarkers) {
+            m.material.color.setHex(specialNormalColor);
+        }
+    }
 
-		const mesh = mainModel.mesh;
-		const triData = mesh.userData.triangles;
-		if (!triData || triData.length === 0) return;
+    function createSpecialNormalMarker(verts) {
+        const geom = new THREE.BufferGeometry();
+        const arr = new Float32Array([
+            verts[0].x, verts[0].y, verts[0].z,
+            verts[1].x, verts[1].y, verts[1].z,
+            verts[2].x, verts[2].y, verts[2].z
+        ]);
+        geom.setAttribute("position", new THREE.BufferAttribute(arr, 3));
+        geom.setIndex([0, 1, 2]);
 
-		const geom = mesh.geometry;
-		const pos = geom.attributes.position;
-		const index = geom.index;
+        const mat = new THREE.MeshBasicMaterial({
+            color: specialNormalColor,
+            side: THREE.DoubleSide,
+            transparent: true,
+            opacity: 0.9,
+            polygonOffset: true,
+            polygonOffsetFactor: -1,
+            polygonOffsetUnits: -1
+        });
 
-		// Loop through triangle metadata (not Three.js triangles)
-		for (let i = 0; i < triData.length; i++) {
-			const tri = triData[i];
-			const nx = tri.normals[0];
-			const ny = tri.normals[1];
-			const nz = tri.normals[2];
+        const mesh = new THREE.Mesh(geom, mat);
+        scene.add(mesh);
+        specialNormalMarkers.push(mesh);
+    }
 
-			// Match EXACT normal
-			if (nx !== TARGET_NORMAL.x) continue;
-			if (ny !== TARGET_NORMAL.y) continue;
-			if (nz !== TARGET_NORMAL.z) continue;
 
-			// The i-th triangle corresponds 1:1 with tris[] in buildGeometry
-			const ia = index.getX(i*3);
-			const ib = index.getX(i*3 + 1);
-			const ic = index.getX(i*3 + 2);
+    ////////////////////////////////////////
+    // Scan Main Model for normals == target
+    ////////////////////////////////////////
 
-			const va = new THREE.Vector3().fromBufferAttribute(pos, ia);
-			const vb = new THREE.Vector3().fromBufferAttribute(pos, ib);
-			const vc = new THREE.Vector3().fromBufferAttribute(pos, ic);
+    function scanAndBuildSpecialNormalMarkers() {
+        clearSpecialNormalMarkers();
+        if (!specialNormalEnabled) return;
 
-			createSpecialNormalMarker([va, vb, vc]);
-		}
-	}
-	
-	////////////////////////////////////////
+        // Find the "Main Model"
+        const mainModel = loadedModels.find(m => m.name === "Main Model");
+        if (!mainModel || !mainModel.mesh) return;
+
+        const mesh = mainModel.mesh;
+        const triData = mesh.userData.triangles;
+        if (!triData || triData.length === 0) return;
+
+        const geom = mesh.geometry;
+        const pos = geom.attributes.position;
+        const index = geom.index;
+
+        // Loop through triangle metadata (not Three.js triangles)
+        for (let i = 0; i < triData.length; i++) {
+            const tri = triData[i];
+            const nx = tri.normals[0];
+            const ny = tri.normals[1];
+            const nz = tri.normals[2];
+
+            // Match EXACT normal
+            if (nx !== TARGET_NORMAL.x) continue;
+            if (ny !== TARGET_NORMAL.y) continue;
+            if (nz !== TARGET_NORMAL.z) continue;
+
+            // The i-th triangle corresponds 1:1 with tris[] in buildGeometry
+            const ia = index.getX(i*3);
+            const ib = index.getX(i*3 + 1);
+            const ic = index.getX(i*3 + 2);
+
+            const va = new THREE.Vector3().fromBufferAttribute(pos, ia);
+            const vb = new THREE.Vector3().fromBufferAttribute(pos, ib);
+            const vc = new THREE.Vector3().fromBufferAttribute(pos, ic);
+
+            createSpecialNormalMarker([va, vb, vc]);
+        }
+    }
+    
+    ////////////////////////////////////////
     // System: Subdivisions
     ////////////////////////////////////////
-	
-	const BGCHECK_Y_MIN = f32(-32000.0);
-	const BGCHECK_Y_MAX = f32(32000.0);
-	const BGCHECK_XYZ_ABSMAX = f32(32760.0);
-	const BGCHECK_SUBDIV_OVERLAP = f32(50.0);
-	const BGCHECK_SUBDIV_MIN = f32(150.0);
-	
-	const OOT_sceneSubdivisionList = {
-		"Shadow Temple": [23, 7, 14],
-		"Forest Temple": [38, 1, 38]
-	};
-	const MM_sceneSubdivisionList = {
-		"Termina Field": [36, 1, 36],
-		"Great Bay Coast": [40, 1, 40],
-		"Zora Cape": [40, 1, 40]
-	};
-	
-	function clampMin(v, min) {
-		return v < min ? min : v;
-	}
-	
-	function setSubdivisionDimension(min, subdivAmount, max) {
-		min = f32(min);
-		max = f32(max);
-
-		// length = max - min
-		let length = f32(f32(max) - f32(min));
-
-		// (s32)(length / subdivAmount)
-		let temp = (f32(length / subdivAmount) | 0);
-
-		// subdivLength = (s32)(length / subdivAmount) + 1
-		let subdivLength = f32(temp + 1);
-
-		// CLAMP_MIN
-		subdivLength = f32(clampMin(subdivLength, BGCHECK_SUBDIV_MIN));
-
-		let subdivLengthInv = f32(f32(1.0) / subdivLength);
-
-		// newMax = subdivLength * subdivAmount + min
-		let newMax = f32(f32(subdivLength * subdivAmount) + min);
-
-		return {
-			max: newMax,
-			subdivLength: subdivLength,
-			subdivLengthInv: subdivLengthInv
-		};
-	}
-	
-	function initColCtx(sceneName, colHeader) {
-		let colCtx = {}; 
-		colCtx.colHeader = colHeader;
-		
-		let spotScenes = [
-			"Spot 00 - Hyrule Field",
-			"Spot 01 - Kakariko Village",
-			"Spot 02 - Graveyard",
-			"Spot 03 - Zora's River",
-			"Spot 04 - Kokiri Forest",
-			"Spot 05 - Sacred Forest Meadow",
-			"Spot 06 - Lake Hylia",
-			"Spot 07 - Zora's Domain",
-			"Spot 08 - Zora's Fountain",
-			"Spot 09 - Gerudo Valley",
-			"Spot 10 - Lost Woods",
-			"Spot 11 - Desert Colossus",
-			"Spot 12 - Gerudo's Fortress",
-			"Spot 13 - Haunted Wasteland",
-			"Spot 15 - Hyrule Castle",
-			"Spot 16 - Death Mountain Trail",
-			"Spot 17 - Death Mountain Crater",
-			"Spot 18 - Goron City",
-			"Spot 20 - Lon Lon Ranch"
-		];
-
-		//
-		// Determine subdivision amount
-		//
-		if ((game == "OOT" || game == "OOT3D") && 
-			(colHeader.camType === 0x10 || // "SHOP"
-			colHeader.camType === 0x20 || // "TOGGLE"
-			colHeader.camType === 0x30 || // "FIXED"
-			colHeader.camType === 0x40)) { // "MARKET"
-			
-			// OoT uses a special subdivision count for certain areas of the game, such as shops
-			colCtx.subdivAmount = { x: 2, y: 2, z: 2 };
-		} else {
-			if ((game == "OOT" || game == "OOT3D") && OOT_sceneSubdivisionList.hasOwnProperty(sceneName)) {
-				const arr = OOT_sceneSubdivisionList[sceneName];
-				colCtx.subdivAmount = {
-					x: arr[0],
-					y: arr[1],
-					z: arr[2]
-				};
-			}
-			else if ((game == "MM" || game == "MM3D") && MM_sceneSubdivisionList.hasOwnProperty(sceneName)) {
-				const arr = MM_sceneSubdivisionList[sceneName];
-				colCtx.subdivAmount = {
-					x: arr[0],
-					y: arr[1],
-					z: arr[2]
-				};
-			}
-			else if (game == "OOT3D" && spotScenes.includes(sceneName)){
-				colCtx.subdivAmount = { x: 32, y: 8, z: 32 };
-			}
-			else {
-				colCtx.subdivAmount = { x: 16, y: 4, z: 16 };
-			}
-		}
-
-		//
-		// Copy bounds (as f32)
-		//
-		colCtx.minBounds = {
-			x: f32(colHeader.minBounds.x),
-			y: f32(colHeader.minBounds.y),
-			z: f32(colHeader.minBounds.z)
-		};
-
-		colCtx.maxBounds = {
-			x: f32(colHeader.maxBounds.x),
-			y: f32(colHeader.maxBounds.y),
-			z: f32(colHeader.maxBounds.z)
-		};
-
-		//
-		// Prepare output containers
-		//
-		colCtx.subdivLength = { x: 0, y: 0, z: 0 };
-		colCtx.subdivLengthInv = { x: 0, y: 0, z: 0 };
-
-		//
-		// X dimension
-		//
-		let r = setSubdivisionDimension(
-			colCtx.minBounds.x,
-			colCtx.subdivAmount.x,
-			colCtx.maxBounds.x
-		);
-		colCtx.maxBounds.x = r.max;
-		colCtx.subdivLength.x = r.subdivLength;
-		colCtx.subdivLengthInv.x = r.subdivLengthInv;
-
-		//
-		// Y dimension
-		//
-		r = setSubdivisionDimension(
-			colCtx.minBounds.y,
-			colCtx.subdivAmount.y,
-			colCtx.maxBounds.y
-		);
-		colCtx.maxBounds.y = r.max;
-		colCtx.subdivLength.y = r.subdivLength;
-		colCtx.subdivLengthInv.y = r.subdivLengthInv;
-
-		//
-		// Z dimension
-		//
-		r = setSubdivisionDimension(
-			colCtx.minBounds.z,
-			colCtx.subdivAmount.z,
-			colCtx.maxBounds.z
-		);
-		colCtx.maxBounds.z = r.max;
-		colCtx.subdivLength.z = r.subdivLength;
-		colCtx.subdivLengthInv.z = r.subdivLengthInv;
-		colCtx.subdivisions = [];
-		
-		
-		let total_subdivisions = colCtx.subdivAmount.x * colCtx.subdivAmount.y * colCtx.subdivAmount.z;
-		
-		for (let zi=0; zi<colCtx.subdivAmount.z; zi++) {
-			for (let yi=0; yi<colCtx.subdivAmount.y; yi++) {
-				for (let xi=0; xi<colCtx.subdivAmount.x; xi++) {
-					colCtx.subdivisions.push({
-						bounds: [
-							[colCtx.minBounds.x + colCtx.subdivLength.x * xi, colCtx.minBounds.x + colCtx.subdivLength.x * (xi + 1)], 
-							[colCtx.minBounds.y + colCtx.subdivLength.y * yi, colCtx.minBounds.y + colCtx.subdivLength.y * (yi + 1)],
-							[colCtx.minBounds.z + colCtx.subdivLength.z * zi, colCtx.minBounds.z + colCtx.subdivLength.z * (zi + 1)]
-						],
-						floors: [],
-						walls: [],
-						ceilings: []
-					});
-				}
-			}
-		}
-		
-		return colCtx;
-	}
-	
-	function getSubdivisionMaxBounds(colCtx, pos, out) {
-		const dx = f32(f32(pos.x) - f32(colCtx.minBounds.x));
-		const dy = f32(f32(pos.y) - f32(colCtx.minBounds.y));
-		const dz = f32(f32(pos.z) - f32(colCtx.minBounds.z));
-
-		let sx = (f32(dx * colCtx.subdivLengthInv.x)) | 0;
-		let sy = (f32(dy * colCtx.subdivLengthInv.y)) | 0;
-		let sz = (f32(dz * colCtx.subdivLengthInv.z)) | 0;
-
-		const subX = colCtx.subdivLength.x | 0;
-		const subY = colCtx.subdivLength.y | 0;
-		const subZ = colCtx.subdivLength.z | 0;
-
-		if ((subX - BGCHECK_SUBDIV_OVERLAP) < ((dx | 0) % subX) &&
-			sx < (colCtx.subdivAmount.x - 1)) {
-			sx += 1;
-		}
-
-		if ((subY - BGCHECK_SUBDIV_OVERLAP) < ((dy | 0) % subY) &&
-			sy < (colCtx.subdivAmount.y - 1)) {
-			sy += 1;
-		}
-
-		if ((subZ - BGCHECK_SUBDIV_OVERLAP) < ((dz | 0) % subZ) &&
-			sz < (colCtx.subdivAmount.z - 1)) {
-			sz += 1;
-		}
-
-		out.x = sx;
-		out.y = sy;
-		out.z = sz;
-	}
-	
-	function getSubdivisionMinBounds(colCtx, pos, out) {
-		const f32 = Math.fround;
-
-		// Compute deltas
-		const dx = f32(pos.x - colCtx.minBounds.x);
-		const dy = f32(pos.y - colCtx.minBounds.y);
-		const dz = f32(pos.z - colCtx.minBounds.z);
-
-		// Multiply by inverse subdivision length (still f32)
-		let sx = f32(dx * colCtx.subdivLengthInv.x);
-		let sy = f32(dy * colCtx.subdivLengthInv.y);
-		let sz = f32(dz * colCtx.subdivLengthInv.z);
-
-		// Convert to s32 exactly like N64
-		sx = sx | 0;
-		sy = sy | 0;
-		sz = sz | 0;
-
-		const overlap = BGCHECK_SUBDIV_OVERLAP;
-
-		// C-code equivalent:
-		// if (((s32)dx % (s32)colCtx->subdivLength.x < OVERLAP) && (sx > 0))
-
-		const dx_i = (dx | 0);
-		const dy_i = (dy | 0);
-		const dz_i = (dz | 0);
-
-		const subX_i = (colCtx.subdivLength.x | 0);
-		const subY_i = (colCtx.subdivLength.y | 0);
-		const subZ_i = (colCtx.subdivLength.z | 0);
-
-		if (((dx_i % subX_i) < overlap) && sx > 0) {
-			sx -= 1;
-		}
-		if (((dy_i % subY_i) < overlap) && sy > 0) {
-			sy -= 1;
-		}
-		if (((dz_i % subZ_i) < overlap) && sz > 0) {
-			sz -= 1;
-		}
-
-		// Output result — matches pointers in C version
-		out.sx = sx;
-		out.sy = sy;
-		out.sz = sz;
-	}
-	
-	function getPolySubdivisionBounds(colCtx, poly, outMin, outMax) {
-		// Get first vertex
-		let v = poly.vtxs[0];
-
-		let minV = { x: f32(v.x), y: f32(v.y), z: f32(v.z) };
-		let maxV = { x: minV.x, y: minV.y, z: minV.z };
-
-		// Remaining 2 vertices
-		for (let i = 1; i < 3; i++) {
-			v = poly.vtxs[i];
-
-			const x = f32(v.x);
-			const y = f32(v.y);
-			const z = f32(v.z);
-
-			if (minV.x > x) minV.x = x; else if (maxV.x < x) maxV.x = x;
-			if (minV.y > y) minV.y = y; else if (maxV.y < y) maxV.y = y;
-			if (minV.z > z) minV.z = z; else if (maxV.z < z) maxV.z = z;
-		}
-
-		// Get subdiv min/max
-		getSubdivisionMinBounds(colCtx, minV, outMin);
-		getSubdivisionMaxBounds(colCtx, maxV, outMax);
-	}
-	
-	function initializeStaticLookup(colCtx, allTriangleData) {
-		const colHeader = colCtx.colHeader;
-		const polyMax = colHeader.numPolygons;
-
-		// Clear lookup table
-		const total = colCtx.subdivAmount.x * colCtx.subdivAmount.y * colCtx.subdivAmount.z;
-
-		const subdivAmountXY = colCtx.subdivAmount.x * colCtx.subdivAmount.y;
-
-		const subdivLengthX = f32(colCtx.subdivLength.x + f32(2 * BGCHECK_SUBDIV_OVERLAP));
-		const subdivLengthY = f32(colCtx.subdivLength.y + f32(2 * BGCHECK_SUBDIV_OVERLAP));
-		const subdivLengthZ = f32(colCtx.subdivLength.z + f32(2 * BGCHECK_SUBDIV_OVERLAP));
-
-		const min = colCtx.minBounds;
-
-		// Temporary reusable ints
-		let minIdx = { x: 0, y: 0, z: 0 };
-		let maxIdx = { x: 0, y: 0, z: 0 };
-
-		for (let polyIdx = 0; polyIdx < allTriangleData.length; polyIdx++) {
-			let poly = allTriangleData[polyIdx];
-			
-			getPolySubdivisionBounds(
-				colCtx, poly,
-				minIdx, maxIdx
-			);
-
-			// Starting Z slice
-			let baseZ = minIdx.z * subdivAmountXY;
-
-			let curMinZ = f32(f32(colCtx.subdivLength.z * minIdx.z) + min.z - BGCHECK_SUBDIV_OVERLAP);
-			let curMaxZ = f32(curMinZ + subdivLengthZ);
-
-			for (let sz = minIdx.z; sz <= maxIdx.z; sz++) {
-				
-				let baseY = minIdx.y * colCtx.subdivAmount.x;
-
-				let curMinY = f32(f32(colCtx.subdivLength.y * minIdx.y) + min.y - BGCHECK_SUBDIV_OVERLAP);
-				let curMaxY = f32(curMinY + subdivLengthY);
-
-				for (let sy = minIdx.y; sy <= maxIdx.y; sy++) {
-
-					let index = baseZ + baseY + minIdx.x;
-
-					let curMinX = f32(f32(colCtx.subdivLength.x * minIdx.x) + min.x - BGCHECK_SUBDIV_OVERLAP);
-					let curMaxX = f32(curMinX + subdivLengthX);
-
-					for (let sx = minIdx.x; sx <= maxIdx.x; sx++) {
-						
-						const box = {
-							xmin:curMinX, xmax:curMaxX,
-							ymin:curMinY, ymax:curMaxY,
-							zmin:curMinZ, zmax:curMaxZ,
-						};
-						
-						const tri = [
-							{x:poly.vtxs[0].x, y:poly.vtxs[0].y, z:poly.vtxs[0].z},
-							{x:poly.vtxs[1].x, y:poly.vtxs[1].y, z:poly.vtxs[1].z},
-							{x:poly.vtxs[2].x, y:poly.vtxs[2].y, z:poly.vtxs[2].z},
-						];
-						
-						if (triIntersectsAABB_F32(tri, box)) {
-							// console.log("added poly "+polyIdx+" to subdiv "+index)
-							
-							if (f32(poly.normals[1] * COLPOLY_NORMAL_FRAC) > 0.5) {
-								colCtx.subdivisions[index].floors.push(polyIdx);          // floor
-							} else if (f32(poly.normals[1] * COLPOLY_NORMAL_FRAC) < -0.8) {
-								colCtx.subdivisions[index].ceilings.push(polyIdx);          // ceiling
-							} else {
-								colCtx.subdivisions[index].walls.push(polyIdx);          // wall
-							}
-						}
-
-						curMinX = f32(curMinX + colCtx.subdivLength.x);
-						curMaxX = f32(curMaxX + colCtx.subdivLength.x);
-						index++;
-					}
-
-					curMinY = f32(curMinY + colCtx.subdivLength.y);
-					curMaxY = f32(curMaxY + colCtx.subdivLength.y);
-					baseY += colCtx.subdivAmount.x;
-				}
-
-				curMinZ = f32(curMinZ + colCtx.subdivLength.z);
-				curMaxZ = f32(curMaxZ + colCtx.subdivLength.z);
-				baseZ += subdivAmountXY;
-			}
-		}
-
-		return;
-	}
-	
-	function triIntersectsAABB_F32(tri, box) {
-		const f32 = Math.fround;
-
-		// Extract verts
-		const v0 = tri[0];
-		const v1 = tri[1];
-		const v2 = tri[2];
-
-		// Compute triangle bounds
-		const tminX = Math.min(v0.x, v1.x, v2.x);
-		const tmaxX = Math.max(v0.x, v1.x, v2.x);
-		const tminY = Math.min(v0.y, v1.y, v2.y);
-		const tmaxY = Math.max(v0.y, v1.y, v2.y);
-		const tminZ = Math.min(v0.z, v1.z, v2.z);
-		const tmaxZ = Math.max(v0.z, v1.z, v2.z);
-
-		// 1. AABB–triangle AABB quick reject
-		if (tmaxX < box.xmin || tminX > box.xmax) return false;
-		if (tmaxY < box.ymin || tminY > box.ymax) return false;
-		if (tmaxZ < box.zmin || tminZ > box.zmax) return false;
-
-		// Center & half sizes of the AABB
-		const c = {
-			x: f32((box.xmin + box.xmax) * 0.5),
-			y: f32((box.ymin + box.ymax) * 0.5),
-			z: f32((box.zmin + box.zmax) * 0.5),
-		};
-
-		const h = {
-			x: f32((box.xmax - box.xmin) * 0.5),
-			y: f32((box.ymax - box.ymin) * 0.5),
-			z: f32((box.zmax - box.zmin) * 0.5),
-		};
-
-		// Move triangle to AABB space (center at origin)
-		const tv0 = {
-			x: f32(v0.x - c.x),
-			y: f32(v0.y - c.y),
-			z: f32(v0.z - c.z),
-		};
-		const tv1 = {
-			x: f32(v1.x - c.x),
-			y: f32(v1.y - c.y),
-			z: f32(v1.z - c.z),
-		};
-		const tv2 = {
-			x: f32(v2.x - c.x),
-			y: f32(v2.y - c.y),
-			z: f32(v2.z - c.z),
-		};
-
-		// Triangle edges
-		const e0 = {
-			x: f32(tv1.x - tv0.x),
-			y: f32(tv1.y - tv0.y),
-			z: f32(tv1.z - tv0.z),
-		};
-		const e1 = {
-			x: f32(tv2.x - tv1.x),
-			y: f32(tv2.y - tv1.y),
-			z: f32(tv2.z - tv1.z),
-		};
-		const e2 = {
-			x: f32(tv0.x - tv2.x),
-			y: f32(tv0.y - tv2.y),
-			z: f32(tv0.z - tv2.z),
-		};
-
-		//
-		// 2. Separating Axis Tests:
-		//    AABB axes: X, Y, Z
-		//
-		if (Math.max(tv0.x, tv1.x, tv2.x) < -h.x || Math.min(tv0.x, tv1.x, tv2.x) > h.x) return false;
-		if (Math.max(tv0.y, tv1.y, tv2.y) < -h.y || Math.min(tv0.y, tv1.y, tv2.y) > h.y) return false;
-		if (Math.max(tv0.z, tv1.z, tv2.z) < -h.z || Math.min(tv0.z, tv1.z, tv2.z) > h.z) return false;
-
-		//
-		// 3. Triangle normal test (triangle plane vs AABB)
-		//
-		const normal = {
-			x: f32(e0.y * e1.z - e0.z * e1.y),
-			y: f32(e0.z * e1.x - e0.x * e1.z),
-			z: f32(e0.x * e1.y - e0.y * e1.x),
-		};
-
-		// Project AABB half extents onto triangle normal
-		const r = f32(
-			h.x * Math.abs(normal.x) +
-			h.y * Math.abs(normal.y) +
-			h.z * Math.abs(normal.z)
-		);
-
-		const d = f32(normal.x * tv0.x + normal.y * tv0.y + normal.z * tv0.z);
-
-		if (d > r || d < -r) return false;
-
-		//
-		// 4. 9 edge cross-product tests (triangle edges × box axes)
-		//
-		function axisTest(e, tv0, tv1, tv2, h) {
-			// X-axis cross
-			{
-				const p0 = f32(e.z * tv0.y - e.y * tv0.z);
-				const p1 = f32(e.z * tv1.y - e.y * tv1.z);
-				const p2 = f32(e.z * tv2.y - e.y * tv2.z);
-				const min = Math.min(p0, p1, p2);
-				const max = Math.max(p0, p1, p2);
-				const rad = f32(Math.abs(e.y) * h.z + Math.abs(e.z) * h.y);
-				if (min > rad || max < -rad) return false;
-			}
-
-			// Y-axis cross
-			{
-				const p0 = f32(e.x * tv0.z - e.z * tv0.x);
-				const p1 = f32(e.x * tv1.z - e.z * tv1.x);
-				const p2 = f32(e.x * tv2.z - e.z * tv2.x);
-				const min = Math.min(p0, p1, p2);
-				const max = Math.max(p0, p1, p2);
-				const rad = f32(Math.abs(e.x) * h.z + Math.abs(e.z) * h.x);
-				if (min > rad || max < -rad) return false;
-			}
-
-			// Z-axis cross
-			{
-				const p0 = f32(e.y * tv0.x - e.x * tv0.y);
-				const p1 = f32(e.y * tv1.x - e.x * tv1.y);
-				const p2 = f32(e.y * tv2.x - e.x * tv2.y);
-				const min = Math.min(p0, p1, p2);
-				const max = Math.max(p0, p1, p2);
-				const rad = f32(Math.abs(e.x) * h.y + Math.abs(e.y) * h.x);
-				if (min > rad || max < -rad) return false;
-			}
-
-			return true;
-		}
-
-		if (!axisTest(e0, tv0, tv1, tv2, h)) return false;
-		if (!axisTest(e1, tv0, tv1, tv2, h)) return false;
-		if (!axisTest(e2, tv0, tv1, tv2, h)) return false;
-
-		// No separating axis found → intersection
-		return true;
-	}
-	
-	/*
-	// Usage
-	const tri = [
-		{x:0, y:0, z:0},
-		{x:2, y:0, z:0},
-		{x:1, y:2, z:0},
-	];
-
-	const box = {
-		xmin:0.5, xmax:1.5,
-		ymin:-1, ymax:1,
-		zmin:-1, zmax:1,
-	};
-
-	console.log(triIntersectsAABB_F32(tri, box));  // true
-	*/
-	
+    
+    const BGCHECK_Y_MIN = f32(-32000.0);
+    const BGCHECK_Y_MAX = f32(32000.0);
+    const BGCHECK_XYZ_ABSMAX = f32(32760.0);
+    const BGCHECK_SUBDIV_OVERLAP = f32(50.0);
+    const BGCHECK_SUBDIV_MIN = f32(150.0);
+    
+    const OOT_sceneSubdivisionList = {
+        "Shadow Temple": [23, 7, 14],
+        "Forest Temple": [38, 1, 38]
+    };
+    const MM_sceneSubdivisionList = {
+        "Termina Field": [36, 1, 36],
+        "Great Bay Coast": [40, 1, 40],
+        "Zora Cape": [40, 1, 40]
+    };
+    
+    function clampMin(v, min) {
+        return v < min ? min : v;
+    }
+    
+    function setSubdivisionDimension(min, subdivAmount, max) {
+        min = f32(min);
+        max = f32(max);
+
+        // length = max - min
+        let length = f32(f32(max) - f32(min));
+
+        // (s32)(length / subdivAmount)
+        let temp = (f32(length / subdivAmount) | 0);
+
+        // subdivLength = (s32)(length / subdivAmount) + 1
+        let subdivLength = f32(temp + 1);
+
+        // CLAMP_MIN
+        subdivLength = f32(clampMin(subdivLength, BGCHECK_SUBDIV_MIN));
+
+        let subdivLengthInv = f32(f32(1.0) / subdivLength);
+
+        // newMax = subdivLength * subdivAmount + min
+        let newMax = f32(f32(subdivLength * subdivAmount) + min);
+
+        return {
+            max: newMax,
+            subdivLength: subdivLength,
+            subdivLengthInv: subdivLengthInv
+        };
+    }
+    
+    function initColCtx(sceneName, colHeader) {
+        let colCtx = {}; 
+        colCtx.colHeader = colHeader;
+        
+        let spotScenes = [
+            "Spot 00 - Hyrule Field",
+            "Spot 01 - Kakariko Village",
+            "Spot 02 - Graveyard",
+            "Spot 03 - Zora's River",
+            "Spot 04 - Kokiri Forest",
+            "Spot 05 - Sacred Forest Meadow",
+            "Spot 06 - Lake Hylia",
+            "Spot 07 - Zora's Domain",
+            "Spot 08 - Zora's Fountain",
+            "Spot 09 - Gerudo Valley",
+            "Spot 10 - Lost Woods",
+            "Spot 11 - Desert Colossus",
+            "Spot 12 - Gerudo's Fortress",
+            "Spot 13 - Haunted Wasteland",
+            "Spot 15 - Hyrule Castle",
+            "Spot 16 - Death Mountain Trail",
+            "Spot 17 - Death Mountain Crater",
+            "Spot 18 - Goron City",
+            "Spot 20 - Lon Lon Ranch"
+        ];
+
+        //
+        // Determine subdivision amount
+        //
+        if ((game == "OOT" || game == "OOT3D") && 
+            (colHeader.camType === 0x10 || // "SHOP"
+            colHeader.camType === 0x20 || // "TOGGLE"
+            colHeader.camType === 0x30 || // "FIXED"
+            colHeader.camType === 0x40)) { // "MARKET"
+            
+            // OoT uses a special subdivision count for certain areas of the game, such as shops
+            colCtx.subdivAmount = { x: 2, y: 2, z: 2 };
+        } else {
+            if ((game == "OOT" || game == "OOT3D") && OOT_sceneSubdivisionList.hasOwnProperty(sceneName)) {
+                const arr = OOT_sceneSubdivisionList[sceneName];
+                colCtx.subdivAmount = {
+                    x: arr[0],
+                    y: arr[1],
+                    z: arr[2]
+                };
+            }
+            else if ((game == "MM" || game == "MM3D") && MM_sceneSubdivisionList.hasOwnProperty(sceneName)) {
+                const arr = MM_sceneSubdivisionList[sceneName];
+                colCtx.subdivAmount = {
+                    x: arr[0],
+                    y: arr[1],
+                    z: arr[2]
+                };
+            }
+            else if (game == "OOT3D" && spotScenes.includes(sceneName)){
+                colCtx.subdivAmount = { x: 32, y: 8, z: 32 };
+            }
+            else {
+                colCtx.subdivAmount = { x: 16, y: 4, z: 16 };
+            }
+        }
+
+        //
+        // Copy bounds (as f32)
+        //
+        colCtx.minBounds = {
+            x: f32(colHeader.minBounds.x),
+            y: f32(colHeader.minBounds.y),
+            z: f32(colHeader.minBounds.z)
+        };
+
+        colCtx.maxBounds = {
+            x: f32(colHeader.maxBounds.x),
+            y: f32(colHeader.maxBounds.y),
+            z: f32(colHeader.maxBounds.z)
+        };
+
+        //
+        // Prepare output containers
+        //
+        colCtx.subdivLength = { x: 0, y: 0, z: 0 };
+        colCtx.subdivLengthInv = { x: 0, y: 0, z: 0 };
+
+        //
+        // X dimension
+        //
+        let r = setSubdivisionDimension(
+            colCtx.minBounds.x,
+            colCtx.subdivAmount.x,
+            colCtx.maxBounds.x
+        );
+        colCtx.maxBounds.x = r.max;
+        colCtx.subdivLength.x = r.subdivLength;
+        colCtx.subdivLengthInv.x = r.subdivLengthInv;
+
+        //
+        // Y dimension
+        //
+        r = setSubdivisionDimension(
+            colCtx.minBounds.y,
+            colCtx.subdivAmount.y,
+            colCtx.maxBounds.y
+        );
+        colCtx.maxBounds.y = r.max;
+        colCtx.subdivLength.y = r.subdivLength;
+        colCtx.subdivLengthInv.y = r.subdivLengthInv;
+
+        //
+        // Z dimension
+        //
+        r = setSubdivisionDimension(
+            colCtx.minBounds.z,
+            colCtx.subdivAmount.z,
+            colCtx.maxBounds.z
+        );
+        colCtx.maxBounds.z = r.max;
+        colCtx.subdivLength.z = r.subdivLength;
+        colCtx.subdivLengthInv.z = r.subdivLengthInv;
+        colCtx.subdivisions = [];
+        
+        
+        let total_subdivisions = colCtx.subdivAmount.x * colCtx.subdivAmount.y * colCtx.subdivAmount.z;
+        
+        for (let zi=0; zi<colCtx.subdivAmount.z; zi++) {
+            for (let yi=0; yi<colCtx.subdivAmount.y; yi++) {
+                for (let xi=0; xi<colCtx.subdivAmount.x; xi++) {
+                    colCtx.subdivisions.push({
+                        bounds: [
+                            [colCtx.minBounds.x + colCtx.subdivLength.x * xi, colCtx.minBounds.x + colCtx.subdivLength.x * (xi + 1)], 
+                            [colCtx.minBounds.y + colCtx.subdivLength.y * yi, colCtx.minBounds.y + colCtx.subdivLength.y * (yi + 1)],
+                            [colCtx.minBounds.z + colCtx.subdivLength.z * zi, colCtx.minBounds.z + colCtx.subdivLength.z * (zi + 1)]
+                        ],
+                        floors: [],
+                        walls: [],
+                        ceilings: []
+                    });
+                }
+            }
+        }
+        
+        return colCtx;
+    }
+    
+    function getSubdivisionMaxBounds(colCtx, pos, out) {
+        const dx = f32(f32(pos.x) - f32(colCtx.minBounds.x));
+        const dy = f32(f32(pos.y) - f32(colCtx.minBounds.y));
+        const dz = f32(f32(pos.z) - f32(colCtx.minBounds.z));
+
+        let sx = (f32(dx * colCtx.subdivLengthInv.x)) | 0;
+        let sy = (f32(dy * colCtx.subdivLengthInv.y)) | 0;
+        let sz = (f32(dz * colCtx.subdivLengthInv.z)) | 0;
+
+        const subX = colCtx.subdivLength.x | 0;
+        const subY = colCtx.subdivLength.y | 0;
+        const subZ = colCtx.subdivLength.z | 0;
+
+        if ((subX - BGCHECK_SUBDIV_OVERLAP) < ((dx | 0) % subX) &&
+            sx < (colCtx.subdivAmount.x - 1)) {
+            sx += 1;
+        }
+
+        if ((subY - BGCHECK_SUBDIV_OVERLAP) < ((dy | 0) % subY) &&
+            sy < (colCtx.subdivAmount.y - 1)) {
+            sy += 1;
+        }
+
+        if ((subZ - BGCHECK_SUBDIV_OVERLAP) < ((dz | 0) % subZ) &&
+            sz < (colCtx.subdivAmount.z - 1)) {
+            sz += 1;
+        }
+
+        out.x = sx;
+        out.y = sy;
+        out.z = sz;
+    }
+    
+    function getSubdivisionMinBounds(colCtx, pos, out) {
+        const f32 = Math.fround;
+
+        // Compute deltas
+        const dx = f32(pos.x - colCtx.minBounds.x);
+        const dy = f32(pos.y - colCtx.minBounds.y);
+        const dz = f32(pos.z - colCtx.minBounds.z);
+
+        // Multiply by inverse subdivision length (still f32)
+        let sx = f32(dx * colCtx.subdivLengthInv.x);
+        let sy = f32(dy * colCtx.subdivLengthInv.y);
+        let sz = f32(dz * colCtx.subdivLengthInv.z);
+
+        // Convert to s32 exactly like N64
+        sx = sx | 0;
+        sy = sy | 0;
+        sz = sz | 0;
+
+        const overlap = BGCHECK_SUBDIV_OVERLAP;
+
+        // C-code equivalent:
+        // if (((s32)dx % (s32)colCtx->subdivLength.x < OVERLAP) && (sx > 0))
+
+        const dx_i = (dx | 0);
+        const dy_i = (dy | 0);
+        const dz_i = (dz | 0);
+
+        const subX_i = (colCtx.subdivLength.x | 0);
+        const subY_i = (colCtx.subdivLength.y | 0);
+        const subZ_i = (colCtx.subdivLength.z | 0);
+
+        if (((dx_i % subX_i) < overlap) && sx > 0) {
+            sx -= 1;
+        }
+        if (((dy_i % subY_i) < overlap) && sy > 0) {
+            sy -= 1;
+        }
+        if (((dz_i % subZ_i) < overlap) && sz > 0) {
+            sz -= 1;
+        }
+
+        // Output result — matches pointers in C version
+        out.sx = sx;
+        out.sy = sy;
+        out.sz = sz;
+    }
+    
+    function getPolySubdivisionBounds(colCtx, poly, outMin, outMax) {
+        // Get first vertex
+        let v = poly.vtxs[0];
+
+        let minV = { x: f32(v.x), y: f32(v.y), z: f32(v.z) };
+        let maxV = { x: minV.x, y: minV.y, z: minV.z };
+
+        // Remaining 2 vertices
+        for (let i = 1; i < 3; i++) {
+            v = poly.vtxs[i];
+
+            const x = f32(v.x);
+            const y = f32(v.y);
+            const z = f32(v.z);
+
+            if (minV.x > x) minV.x = x; else if (maxV.x < x) maxV.x = x;
+            if (minV.y > y) minV.y = y; else if (maxV.y < y) maxV.y = y;
+            if (minV.z > z) minV.z = z; else if (maxV.z < z) maxV.z = z;
+        }
+
+        // Get subdiv min/max
+        getSubdivisionMinBounds(colCtx, minV, outMin);
+        getSubdivisionMaxBounds(colCtx, maxV, outMax);
+    }
+    
+    function initializeSubdivisions(colCtx, allTriangleData) {
+        const colHeader = colCtx.colHeader;
+        const polyMax = colHeader.numPolygons;
+
+        // Clear lookup table
+        const total = colCtx.subdivAmount.x * colCtx.subdivAmount.y * colCtx.subdivAmount.z;
+
+        const subdivAmountXY = colCtx.subdivAmount.x * colCtx.subdivAmount.y;
+
+        const subdivLengthX = f32(colCtx.subdivLength.x + f32(2 * BGCHECK_SUBDIV_OVERLAP));
+        const subdivLengthY = f32(colCtx.subdivLength.y + f32(2 * BGCHECK_SUBDIV_OVERLAP));
+        const subdivLengthZ = f32(colCtx.subdivLength.z + f32(2 * BGCHECK_SUBDIV_OVERLAP));
+
+        const min = colCtx.minBounds;
+
+        // Temporary reusable ints
+        let minIdx = { x: 0, y: 0, z: 0 };
+        let maxIdx = { x: 0, y: 0, z: 0 };
+
+        for (let polyIdx = 0; polyIdx < allTriangleData.length; polyIdx++) {
+            let poly = allTriangleData[polyIdx];
+            
+            getPolySubdivisionBounds(
+                colCtx, poly,
+                minIdx, maxIdx
+            );
+
+            // Starting Z slice
+            let baseZ = minIdx.z * subdivAmountXY;
+
+            let curMinZ = f32(f32(colCtx.subdivLength.z * minIdx.z) + min.z - BGCHECK_SUBDIV_OVERLAP);
+            let curMaxZ = f32(curMinZ + subdivLengthZ);
+
+            for (let sz = minIdx.z; sz <= maxIdx.z; sz++) {
+                
+                let baseY = minIdx.y * colCtx.subdivAmount.x;
+
+                let curMinY = f32(f32(colCtx.subdivLength.y * minIdx.y) + min.y - BGCHECK_SUBDIV_OVERLAP);
+                let curMaxY = f32(curMinY + subdivLengthY);
+
+                for (let sy = minIdx.y; sy <= maxIdx.y; sy++) {
+
+                    let index = baseZ + baseY + minIdx.x;
+
+                    let curMinX = f32(f32(colCtx.subdivLength.x * minIdx.x) + min.x - BGCHECK_SUBDIV_OVERLAP);
+                    let curMaxX = f32(curMinX + subdivLengthX);
+
+                    for (let sx = minIdx.x; sx <= maxIdx.x; sx++) {
+                        
+                        const box = {
+                            xmin:curMinX, xmax:curMaxX,
+                            ymin:curMinY, ymax:curMaxY,
+                            zmin:curMinZ, zmax:curMaxZ,
+                        };
+                        
+                        const tri = [
+                            {x:poly.vtxs[0].x, y:poly.vtxs[0].y, z:poly.vtxs[0].z},
+                            {x:poly.vtxs[1].x, y:poly.vtxs[1].y, z:poly.vtxs[1].z},
+                            {x:poly.vtxs[2].x, y:poly.vtxs[2].y, z:poly.vtxs[2].z},
+                        ];
+                        
+                        if (triIntersectsAABB_F32(tri, box)) {
+                            // console.log("added poly "+polyIdx+" to subdiv "+index)
+                            
+                            if (f32(poly.normals[1] * COLPOLY_NORMAL_FRAC) > 0.5) {
+                                colCtx.subdivisions[index].floors.push(polyIdx);          // floor
+                            } else if (f32(poly.normals[1] * COLPOLY_NORMAL_FRAC) < -0.8) {
+                                colCtx.subdivisions[index].ceilings.push(polyIdx);          // ceiling
+                            } else {
+                                colCtx.subdivisions[index].walls.push(polyIdx);          // wall
+                            }
+                        }
+
+                        curMinX = f32(curMinX + colCtx.subdivLength.x);
+                        curMaxX = f32(curMaxX + colCtx.subdivLength.x);
+                        index++;
+                    }
+
+                    curMinY = f32(curMinY + colCtx.subdivLength.y);
+                    curMaxY = f32(curMaxY + colCtx.subdivLength.y);
+                    baseY += colCtx.subdivAmount.x;
+                }
+
+                curMinZ = f32(curMinZ + colCtx.subdivLength.z);
+                curMaxZ = f32(curMaxZ + colCtx.subdivLength.z);
+                baseZ += subdivAmountXY;
+            }
+        }
+
+        return;
+    }
+    
+    function triIntersectsAABB_F32(tri, box) {
+        const f32 = Math.fround;
+
+        // Extract verts
+        const v0 = tri[0];
+        const v1 = tri[1];
+        const v2 = tri[2];
+
+        // Compute triangle bounds
+        const tminX = Math.min(v0.x, v1.x, v2.x);
+        const tmaxX = Math.max(v0.x, v1.x, v2.x);
+        const tminY = Math.min(v0.y, v1.y, v2.y);
+        const tmaxY = Math.max(v0.y, v1.y, v2.y);
+        const tminZ = Math.min(v0.z, v1.z, v2.z);
+        const tmaxZ = Math.max(v0.z, v1.z, v2.z);
+
+        // 1. AABB–triangle AABB quick reject
+        if (tmaxX < box.xmin || tminX > box.xmax) return false;
+        if (tmaxY < box.ymin || tminY > box.ymax) return false;
+        if (tmaxZ < box.zmin || tminZ > box.zmax) return false;
+
+        // Center & half sizes of the AABB
+        const c = {
+            x: f32((box.xmin + box.xmax) * 0.5),
+            y: f32((box.ymin + box.ymax) * 0.5),
+            z: f32((box.zmin + box.zmax) * 0.5),
+        };
+
+        const h = {
+            x: f32((box.xmax - box.xmin) * 0.5),
+            y: f32((box.ymax - box.ymin) * 0.5),
+            z: f32((box.zmax - box.zmin) * 0.5),
+        };
+
+        // Move triangle to AABB space (center at origin)
+        const tv0 = {
+            x: f32(v0.x - c.x),
+            y: f32(v0.y - c.y),
+            z: f32(v0.z - c.z),
+        };
+        const tv1 = {
+            x: f32(v1.x - c.x),
+            y: f32(v1.y - c.y),
+            z: f32(v1.z - c.z),
+        };
+        const tv2 = {
+            x: f32(v2.x - c.x),
+            y: f32(v2.y - c.y),
+            z: f32(v2.z - c.z),
+        };
+
+        // Triangle edges
+        const e0 = {
+            x: f32(tv1.x - tv0.x),
+            y: f32(tv1.y - tv0.y),
+            z: f32(tv1.z - tv0.z),
+        };
+        const e1 = {
+            x: f32(tv2.x - tv1.x),
+            y: f32(tv2.y - tv1.y),
+            z: f32(tv2.z - tv1.z),
+        };
+        const e2 = {
+            x: f32(tv0.x - tv2.x),
+            y: f32(tv0.y - tv2.y),
+            z: f32(tv0.z - tv2.z),
+        };
+
+        //
+        // 2. Separating Axis Tests:
+        //    AABB axes: X, Y, Z
+        //
+        if (Math.max(tv0.x, tv1.x, tv2.x) < -h.x || Math.min(tv0.x, tv1.x, tv2.x) > h.x) return false;
+        if (Math.max(tv0.y, tv1.y, tv2.y) < -h.y || Math.min(tv0.y, tv1.y, tv2.y) > h.y) return false;
+        if (Math.max(tv0.z, tv1.z, tv2.z) < -h.z || Math.min(tv0.z, tv1.z, tv2.z) > h.z) return false;
+
+        //
+        // 3. Triangle normal test (triangle plane vs AABB)
+        //
+        const normal = {
+            x: f32(e0.y * e1.z - e0.z * e1.y),
+            y: f32(e0.z * e1.x - e0.x * e1.z),
+            z: f32(e0.x * e1.y - e0.y * e1.x),
+        };
+
+        // Project AABB half extents onto triangle normal
+        const r = f32(
+            h.x * Math.abs(normal.x) +
+            h.y * Math.abs(normal.y) +
+            h.z * Math.abs(normal.z)
+        );
+
+        const d = f32(normal.x * tv0.x + normal.y * tv0.y + normal.z * tv0.z);
+
+        if (d > r || d < -r) return false;
+
+        //
+        // 4. 9 edge cross-product tests (triangle edges × box axes)
+        //
+        function axisTest(e, tv0, tv1, tv2, h) {
+            // X-axis cross
+            {
+                const p0 = f32(e.z * tv0.y - e.y * tv0.z);
+                const p1 = f32(e.z * tv1.y - e.y * tv1.z);
+                const p2 = f32(e.z * tv2.y - e.y * tv2.z);
+                const min = Math.min(p0, p1, p2);
+                const max = Math.max(p0, p1, p2);
+                const rad = f32(Math.abs(e.y) * h.z + Math.abs(e.z) * h.y);
+                if (min > rad || max < -rad) return false;
+            }
+
+            // Y-axis cross
+            {
+                const p0 = f32(e.x * tv0.z - e.z * tv0.x);
+                const p1 = f32(e.x * tv1.z - e.z * tv1.x);
+                const p2 = f32(e.x * tv2.z - e.z * tv2.x);
+                const min = Math.min(p0, p1, p2);
+                const max = Math.max(p0, p1, p2);
+                const rad = f32(Math.abs(e.x) * h.z + Math.abs(e.z) * h.x);
+                if (min > rad || max < -rad) return false;
+            }
+
+            // Z-axis cross
+            {
+                const p0 = f32(e.y * tv0.x - e.x * tv0.y);
+                const p1 = f32(e.y * tv1.x - e.x * tv1.y);
+                const p2 = f32(e.y * tv2.x - e.x * tv2.y);
+                const min = Math.min(p0, p1, p2);
+                const max = Math.max(p0, p1, p2);
+                const rad = f32(Math.abs(e.x) * h.y + Math.abs(e.y) * h.x);
+                if (min > rad || max < -rad) return false;
+            }
+
+            return true;
+        }
+
+        if (!axisTest(e0, tv0, tv1, tv2, h)) return false;
+        if (!axisTest(e1, tv0, tv1, tv2, h)) return false;
+        if (!axisTest(e2, tv0, tv1, tv2, h)) return false;
+
+        // No separating axis found → intersection
+        return true;
+    }
+    
+    /*
+    // Usage
+    const tri = [
+        {x:0, y:0, z:0},
+        {x:2, y:0, z:0},
+        {x:1, y:2, z:0},
+    ];
+
+    const box = {
+        xmin:0.5, xmax:1.5,
+        ymin:-1, ymax:1,
+        zmin:-1, zmax:1,
+    };
+
+    console.log(triIntersectsAABB_F32(tri, box));  // true
+    */
+    
   </script>
 </body>
 </html>
