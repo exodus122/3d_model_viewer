@@ -2,6 +2,7 @@
 // System: Subdivisions
 ////////////////////////////////////////
 
+const f32 = Math.fround;
 const COLPOLY_NORMAL_FRAC = 1.0 / 32767.0;
 const BGCHECK_Y_MIN = f32(-32000.0);
 const BGCHECK_Y_MAX = f32(32000.0);
@@ -19,7 +20,6 @@ const MM_sceneSubdivisionList = {
     "Zora Cape": [40, 1, 40]
 };
 
-const f32 = Math.fround;
 
 function clampMin(v, min) {
     return v < min ? min : v;
