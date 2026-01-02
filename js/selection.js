@@ -117,8 +117,8 @@ function addSelectionMarker(tri, scene) {
         transparent: true,
         opacity: 1.0,
         polygonOffset: true,
-        polygonOffsetFactor: -1,
-        polygonOffsetUnits: -1
+        polygonOffsetFactor: -2,
+        polygonOffsetUnits: -2
     });
 
     const selMesh = new THREE.Mesh(selGeom, selMat);
