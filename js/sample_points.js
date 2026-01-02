@@ -1,13 +1,13 @@
-////////////////////////////////////////
-// System: Sample Standable Polygon Surface
-////////////////////////////////////////
-
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
 import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
 import { LineGeometry } from 'three/addons/lines/LineGeometry.js';
 import { LineSegments2 } from 'three/addons/lines/LineSegments2.js';
+
+////////////////////////////////////////
+// System: Sample Standable Polygon Surface
+////////////////////////////////////////
 
 const samplePointsContainer = document.getElementById("samplePointsContainer"); 
 const samplePointsCheckbox  = document.getElementById("samplePointsCheckbox");

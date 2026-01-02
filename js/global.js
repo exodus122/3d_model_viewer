@@ -2,14 +2,6 @@
 // System: Global Variables
 ////////////////////////////////////////
 
-let specialNormalEnabled = false;
-let specialNormalColor = 0x00ffff;   // default
-let specialNormalMarkers = [];
-
-let flatGroundEnabled = false;
-let flatGroundColor = 0x00FFFF; 
-let flatGroundMarkers = [];
-
 // Movement state (applies only in pointer-lock / fly mode)
 const move = {forward:false,back:false,left:false,right:false,up:false,down:false};
 

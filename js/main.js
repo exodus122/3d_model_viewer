@@ -19,6 +19,9 @@ import { LineSegments2 } from 'three/addons/lines/LineSegments2.js';
 import { updateSamplePointsUIVisibility, drawSampledTriangles } from './sample_points.js';
 import { initColCtx, initializeSubdivisions } from './subdivisions.js';
 import { renderStandableSurfaceWithEdges, renderStandableSurfaceWithEdges_old } from './standable_surfaces.js';
+import { scanAndBuildFlatGroundMarkers, scanAndBuildSpecialNormalMarkers } from './ground_clips.js';
+import { performSelection, clearSelection } from './selection.js';
+
 
 ////////////////////////////////////////
 // System: DOM / Static UI Elements
@@ -38,19 +41,9 @@ const camRotEl = document.getElementById('cam-rot');
 const statusEl = document.getElementById('status');
 const controlModeSel = document.getElementById('control-mode');
 const gameSel = document.getElementById('selected-game');
-const multiSelectCheckbox = document.getElementById('multiSelect');
-const selectionListEl = document.getElementById('selectionListEl');
 
 const display_fwc = document.getElementById('display_fwc');
 const display_fwc_label = document.getElementById('display_fwc_label');
-
-const specialNormalContainer    = document.getElementById("specialNormalContainer");
-const specialNormalCheckbox     = document.getElementById("specialNormalCheckbox");
-const specialNormalColorPicker  = document.getElementById("specialNormalColorPicker");
-
-const flatGroundContainer   = document.getElementById("flatGroundContainer");
-const flatGroundCheckbox    = document.getElementById("flatGroundCheckbox");
-const flatGroundColorPicker = document.getElementById("flatGroundColorPicker");
 
 ////////////////////////////////////////
 // System: Scene, Renderer, Camera, Lights
@@ -78,10 +71,6 @@ scene.add(dir);
 const material = new THREE.MeshStandardMaterial({color:0x3aa6ff,side:THREE.FrontSide,transparent:true,opacity:1.0,flatShading:true});
 const material2 = new THREE.MeshStandardMaterial({color:0xf56342,side:THREE.FrontSide,transparent:true,opacity:1.0,flatShading:true});
 const material3 = new THREE.MeshStandardMaterial({color:0xe1eb34,side:THREE.FrontSide,transparent:true,opacity:1.0,flatShading:true});
-
-// Raycaster for selection
-const raycaster = new THREE.Raycaster();
-const mouse = new THREE.Vector2();
 
 ////////////////////////////////////////
 // System: UI wiring (material/grid/wireframe/pointer status/etc)
@@ -129,14 +118,6 @@ wireframeCheckbox.addEventListener('change', () => {
 
 gridCheckbox.addEventListener('change', () => {
     grid.visible = gridCheckbox.checked;
-});
-
-
-// Listen for changes to multi-select checkbox
-multiSelectCheckbox.addEventListener('change', () => {
-    if (!multiSelectCheckbox.checked) {
-        clearSelection(); // clears all yellow triangles & selection info
-    }
 });
 
 
@@ -720,12 +701,25 @@ function parseZeldaModelBinary(buffer, fresh, mapName){
     //drawSampledTriangles(scene, allTriangleData, 0.1); // WORKS WELL for a few, but laggy with multiple triangles
     
     const standableSurfaceMesh = renderStandableSurfaceWithEdges(allTriangleData);
-    scene.add(standableSurfaceMesh);
+    if (standableSurfaceMesh) {
+        scene.add(standableSurfaceMesh);
+        loadedModels.push({ name: "Standable Surface", mesh: standableSurfaceMesh, edges: null });
+        addModelCheckbox("Standable Surface", standableSurfaceMesh, null, false, true, "#ff0000");
+    }
     
-    loadedModels.push({ name: "Standable surface", mesh: standableSurfaceMesh, edges: null });
-
-    // Register in UI
-    addModelCheckbox("Standable surface", standableSurfaceMesh, null, false, true, "#ff0000");
+    const flatGroup = scanAndBuildFlatGroundMarkers();
+    if (flatGroup) {
+        scene.add(flatGroup);
+        loadedModels.push({ name: "Flat Ground Clips", mesh: flatGroup, edges: null });
+        addModelCheckbox("Flat Ground Clips", flatGroup, null, false, false, "#00FFFF");
+    }
+    
+    const specialNormalGroup = scanAndBuildSpecialNormalMarkers();
+    if (specialNormalGroup) {
+        scene.add(specialNormalGroup);
+        loadedModels.push({ name: "Special Normal", mesh: specialNormalGroup, edges: null });
+        addModelCheckbox("Special Normal", specialNormalGroup, null, false, false, "#00FFFF");
+    }
 }
 
 function parseInvisibleSeams1D(text) {
@@ -787,7 +781,7 @@ function buildGeometry(verts, tris, allTriangleData, name = "Main Model", clearF
         removeAllModelCheckboxes();
         
         // Clear selection
-        clearSelection();
+        clearSelection(scene);
     }
 
     // Create vertex positions
@@ -845,11 +839,6 @@ function buildGeometry(verts, tris, allTriangleData, name = "Main Model", clearF
     //console.log(loadedModels);
     addModelCheckbox(name, meshObj, edgesObj, clearFirst, true);
     
-    // After loading model
-    scanAndBuildFlatGroundMarkers();
-    scanAndBuildSpecialNormalMarkers();
-    updateFlatGroundUIVisibility();
-    updateSpecialNormalUIVisibility();
     updateSamplePointsUIVisibility(game);
 }
 
@@ -875,7 +864,7 @@ function buildGeometry_fwc(verts, tris, name = "Main Model", clearFirst = true) 
         loadedModels2 = [];
 
         removeAllModelCheckboxes();
-        clearSelection();
+        clearSelection(scene);
     }
 
     // Build vertex buffer
@@ -1002,11 +991,7 @@ function buildGeometry_fwc(verts, tris, name = "Main Model", clearFirst = true) 
     // Register model
     loadedModels.push({ name, mesh: meshObj, edges: edgesObj });
     addModelCheckbox(name, meshObj, edgesObj, clearFirst, true);
-
-    scanAndBuildFlatGroundMarkers();
-    scanAndBuildSpecialNormalMarkers();
-    updateFlatGroundUIVisibility();
-    updateSpecialNormalUIVisibility();
+    
     updateSamplePointsUIVisibility(game);
 }
 
@@ -1034,7 +1019,7 @@ function buildGeometryFromTriangles(allTriangleData, name = "Main Model", clearF
         loadedModels2 = [];
 
         removeAllModelCheckboxes();
-        clearSelection();
+        clearSelection(scene);
     }
 
     // ---------------------
@@ -1122,10 +1107,6 @@ function buildGeometryFromTriangles(allTriangleData, name = "Main Model", clearF
     loadedModels.push({ name, mesh: meshObj, edges: edgesObj });
     addModelCheckbox(name, meshObj, edgesObj, clearFirst, true);
 
-    scanAndBuildFlatGroundMarkers();
-    scanAndBuildSpecialNormalMarkers();
-    updateFlatGroundUIVisibility();
-    updateSpecialNormalUIVisibility();
     updateSamplePointsUIVisibility(game);
 }
 
@@ -1144,7 +1125,7 @@ function buildGeometryEdges(verts, edges, name = "Edge Model", clearFirst = true
         });
         loadedModels = [];
         removeAllModelCheckboxes();
-        clearSelection();
+        clearSelection(scene);
     }
 
     // Flatten edge positions (original logic)
@@ -1225,7 +1206,7 @@ function addModelCheckbox(name, meshObj, edgesObj, clearFirst, checked, color = 
             meshObj.visible = chk.checked;
         if (edgesObj != null)
             edgesObj.visible = chk.checked && wireframeCheckbox.checked;
-        clearSelection();
+        clearSelection(scene);
     });
     label.appendChild(chk);
     const labelText = document.createTextNode(` Show ${name}`);
@@ -1262,7 +1243,7 @@ function addModelCheckbox(name, meshObj, edgesObj, clearFirst, checked, color = 
         // Remove UI
         container.remove();
 
-        clearSelection();
+        clearSelection(scene);
         updateSelectionUI();
     });
 
@@ -1298,403 +1279,6 @@ function addModelCheckbox(name, meshObj, edgesObj, clearFirst, checked, color = 
 }
 
 ////////////////////////////////////////
-// System: Selection (raycast, markers, UI)
-////////////////////////////////////////
-
-let selectedPoints = [];
-let selectedEdges = [];
-
-// Update selection UI
-function updateSelectionUI() {
-    function formatNumber(v) {
-        return (v % 1 === 0) ? v.toString() : v.toFixed(7);
-    }
-
-    const lines = [];
-    
-    let sampled_triangles = [];
-    for (const t of selectedTriangles) {
-        const pts = t.verts.map(v => `${formatNumber(v.x)} ${formatNumber(v.y)} ${formatNumber(v.z)}`);
-        let line = `TRI`;
-        if (t.id != null)
-            line += ` ${t.id}`;
-        line += `:  ${pts.join(' ')}`;
-
-        if (t.normals) {
-            line += `   NORMAL: ${t.normals[0]}, ${t.normals[1]}, ${t.normals[2]}`;
-        }
-
-        if (t.dist !== null && t.dist !== undefined) {
-            line += `   DIST: ${t.dist}`;
-        }
-
-        if (t.xpFlags !== null && t.xpFlags !== undefined) {
-            line += `   XPFLAGS: ${t.xpFlags}`;
-        }
-
-        if (t.flags !== null && t.flags !== undefined && t.flags == 1) {
-            line += `   CONVEYOR`;
-        }
-
-        lines.push(line);
-    }
-    
-    for (const e of selectedEdges) {
-        const a = e.a, b = e.b;
-        lines.push(
-            `EDGE ${e.index}:  ` +
-            `${a.x.toFixed(7)}, ${a.y.toFixed(7)}, ${a.z.toFixed(7)},  ` +
-            `${b.x.toFixed(7)}, ${b.y.toFixed(7)}, ${b.z.toFixed(7)}`
-        );
-    }
-
-    for (const p of selectedPoints) {
-        const v = p.pos;
-        lines.push(`PT:  ${formatNumber(v.x)}, ${formatNumber(v.y)}, ${formatNumber(v.z)}`);
-    }
-
-    selectionListEl.value = lines.join("\n");
-}
-
-// Clear selection
-function clearSelection() {
-    // Triangles
-    selectedTriangles.forEach(sel => {
-        const markerName = `selectionMarker_${sel.modelName}_${sel.index}`;
-        const marker = scene.getObjectByName(markerName);
-        if (marker) {
-            scene.remove(marker);
-            if (marker.geometry) marker.geometry.dispose();
-            if (marker.material) marker.material.dispose();
-        }
-    });
-    selectedTriangles.length = 0;
-
-    // Points
-    selectedPoints.forEach(p => removePointMarker(p));
-    selectedPoints.length = 0;
-    
-    // Edges
-    selectedEdges.forEach(e => removeEdgeMarker(e));
-    selectedEdges.length = 0;
-
-    selectionListEl.value = '';
-    updateSelectionUI();
-}
-
-function addSelectionMarker(tri) {
-    const selGeom = new THREE.BufferGeometry();
-    const arr = new Float32Array([
-        tri.verts[0].x, tri.verts[0].y, tri.verts[0].z,
-        tri.verts[1].x, tri.verts[1].y, tri.verts[1].z,
-        tri.verts[2].x, tri.verts[2].y, tri.verts[2].z
-    ]);
-    selGeom.setAttribute('position', new THREE.BufferAttribute(arr, 3));
-    selGeom.setIndex([0, 1, 2]);
-
-    const selMat = new THREE.MeshBasicMaterial({
-        color: 0xffff66,
-        side: THREE.DoubleSide,
-        transparent: true,
-        opacity: 1.0,
-        polygonOffset: true,
-        polygonOffsetFactor: -1,
-        polygonOffsetUnits: -1
-    });
-
-    const selMesh = new THREE.Mesh(selGeom, selMat);
-    selMesh.name = `selectionMarker_${tri.modelName}_${tri.index}`;
-    scene.add(selMesh);
-}
-
-function removeSelectionMarker(tri) {
-    const markerName = `selectionMarker_${tri.modelName}_${tri.index}`;
-    const marker = scene.getObjectByName(markerName);
-    if (marker) scene.remove(marker);
-}
-
-function addPointMarker(pointObj) {
-    const geo = new THREE.SphereGeometry(0.08, 12, 12);
-    const mat = new THREE.MeshBasicMaterial({
-        color: 0x44ff44,
-        transparent: true,
-        opacity: 1.0
-    });
-    const mesh = new THREE.Mesh(geo, mat);
-    mesh.position.copy(pointObj.pos);
-    mesh.name = `pointMarker_${pointObj.modelName}_${pointObj.index}_${pointObj.vertex}`;
-    scene.add(mesh);
-}
-
-function removePointMarker(pointObj) {
-    const name = `pointMarker_${pointObj.modelName}_${pointObj.index}_${pointObj.vertex}`;
-    const m = scene.getObjectByName(name);
-    if (m) {
-        scene.remove(m);
-        m.geometry.dispose();
-        m.material.dispose();
-    }
-}
-
-function addEdgeMarker(edge) {
-    const geom = new THREE.BufferGeometry();
-    geom.setAttribute('position', new THREE.Float32BufferAttribute([
-        edge.a.x, edge.a.y, edge.a.z,
-        edge.b.x, edge.b.y, edge.b.z
-    ], 3));
-
-    const mat = new THREE.LineBasicMaterial({
-        color: 0xffff00,
-        linewidth: 3
-    });
-
-    const line = new THREE.LineSegments(geom, mat);
-    line.name = `edgeMarker_${edge.modelName}_${edge.index}`;
-    scene.add(line);
-}
-
-function removeEdgeMarker(edge) {
-    const name = `edgeMarker_${edge.modelName}_${edge.index}`;
-    const m = scene.getObjectByName(name);
-    if (m) {
-        scene.remove(m);
-        m.geometry.dispose();
-        m.material.dispose();
-    }
-}
-
-// Handle triangle/point selection
-function performSelection(ev) {
-    if (!loadedModels.length) return;
-
-    if (document.pointerLockElement === renderer.domElement) {
-        mouse.x = 0;
-        mouse.y = 0;
-    } else {
-        const rect = renderer.domElement.getBoundingClientRect();
-        const x = ev.clientX - rect.left;
-        const y = ev.clientY - rect.top;
-        mouse.x = (x / rect.width) * 2 - 1;
-        mouse.y = -(y / rect.height) * 2 + 1;
-    }
-
-    raycaster.setFromCamera(mouse, camera);
-    
-    // ----- POINT SELECTION PASS -----
-    // Collect every visible vertex of every model
-    const pointHits = [];
-
-    for (const m of loadedModels) {
-        if (!m.mesh || !m.mesh.visible) continue;
-
-        if (m.mesh.geometry === undefined)
-            continue;
-        const geom = m.mesh.geometry;
-        const pos = geom.attributes.position;
-
-        for (let i = 0; i < pos.count; i++) {
-            const v = new THREE.Vector3().fromBufferAttribute(pos, i);
-            const worldV = m.mesh.localToWorld(v);
-
-            const dist = raycaster.ray.distanceToPoint(worldV);
-            if (dist < 0.1) {   // clickable radius
-                pointHits.push({
-                    modelName: m.mesh.name,
-                    index: i,
-                    pos: worldV
-                });
-            }
-        }
-    }
-
-    if (pointHits.length > 0) {
-        const p = pointHits[0]; // nearest
-
-        // If exists, unselect
-        const idx = selectedPoints.findIndex(
-            q => q.modelName === p.modelName && q.index === p.index
-        );
-
-        if (idx !== -1) {
-            removePointMarker(selectedPoints[idx]);
-            selectedPoints.splice(idx, 1);
-        } else {
-            if (!multiSelectCheckbox.checked)
-                clearSelection();
-            selectedPoints.push(p);
-            addPointMarker(p);
-        }
-
-        updateSelectionUI();
-        return; // prevents triangle selection
-    }
-    // ----- END POINT PASS -----
-    
-    // ----- EDGE SELECTION PASS -----
-    const edgeHits = [];
-    const edgeThreshold = 0.08;
-
-    for (const m of loadedModels) {
-        if (!m.edges || !m.edges.visible) continue;
-
-        const pos = m.edges.geometry.attributes.position;
-
-        for (let i = 0; i < pos.count; i += 2) {
-            const a = new THREE.Vector3().fromBufferAttribute(pos, i);
-            const b = new THREE.Vector3().fromBufferAttribute(pos, i + 1);
-
-            m.edges.localToWorld(a);
-            m.edges.localToWorld(b);
-
-            const dist = raycaster.ray.distanceSqToSegment(
-                a, b, null, null
-            );
-
-            if (dist < edgeThreshold * edgeThreshold) {
-                edgeHits.push({
-                    modelName: m.edges.name || m.name,
-                    index: i / 2,
-                    a, b
-                });
-            }
-        }
-    }
-
-    if (edgeHits.length > 0) {
-        const e = edgeHits[0];
-
-        const idx = selectedEdges.findIndex(
-            x => x.modelName === e.modelName && x.index === e.index
-        );
-
-        if (idx !== -1) {
-            removeEdgeMarker(selectedEdges[idx]);
-            selectedEdges.splice(idx, 1);
-        } else {
-            if (!multiSelectCheckbox.checked)
-                clearSelection();
-            selectedEdges.push(e);
-            addEdgeMarker(e);
-        }
-
-        updateSelectionUI();
-        return;
-    }
-    // ----- END EDGE PASS -----
-    
-    const visibleMeshes = loadedModels
-        .filter(m => m.mesh && m.mesh.visible)
-        .map(m => m.mesh);
-
-    const inter = raycaster.intersectObjects(visibleMeshes, true);
-    if (inter.length === 0) {
-        clearSelection();
-        updateSelectionUI();
-        return;
-    }
-
-    let hit = null;
-    for (const i of inter) {
-        if (i.face && i.object.visible) {
-            hit = i;
-            break;
-        }
-    }
-
-    if (!hit) {
-        clearSelection();
-        updateSelectionUI();
-        return;
-    }
-
-    const face = hit.face;
-    const geom = hit.object.geometry;
-    const pos = geom.attributes.position;
-    const a = face.a, b = face.b, c = face.c;
-    const va = new THREE.Vector3().fromBufferAttribute(pos, a);
-    const vb = new THREE.Vector3().fromBufferAttribute(pos, b);
-    const vc = new THREE.Vector3().fromBufferAttribute(pos, c);
-
-    const triIndex = Math.floor(hit.faceIndex);
-
-    // Retrieve metadata stored on the mesh
-    let meta = null;
-    if (hit.object.userData.triangles && hit.object.userData.triangles[triIndex]) {
-        meta = hit.object.userData.triangles[triIndex];
-    }
-
-    const newTri = {
-        id: meta ? meta.id : null,
-        index: triIndex,
-        verts: [va, vb, vc],
-        modelName: hit.object.name,
-
-        // include metadata if available:
-        normals: meta ? meta.normals : null,
-        dist: meta ? meta.d : null,
-        xpFlags: meta ? meta.xpFlags : null,
-        flags: meta ? meta.flags : null
-    };
-
-    // Check if triangle is already selected (match by index + modelName)
-    const existingIndex = selectedTriangles.findIndex(
-        t => t.index === newTri.index && t.modelName === newTri.modelName
-    );
-
-    if (existingIndex !== -1) {
-        // It's already selected → remove it
-        selectedTriangles.splice(existingIndex, 1);
-        updateSelectionUI();
-        removeSelectionMarker(newTri);
-        return;
-    }
-
-    // If single-select mode is active, clear previous selections
-    if (!multiSelectCheckbox.checked) {
-        clearSelection();
-    }
-
-    selectedTriangles.push(newTri);
-    addSelectionMarker(newTri);
-    updateSelectionUI();
-        
-    const sample_tri = [{
-        vtxs: [
-            va,
-            vb,
-            vc
-        ],
-        normals: meta ? meta.normals : null,
-        d: meta ? meta.d : null,
-        xpFlags: meta ? meta.xpFlags : null,
-        flags: meta ? meta.flags : null
-    }];
-    
-    if ((game == "OOT" || game == "MM" || game == "OOT3D" || game == "MM3D") && samplePointsEnabled && meta) {
-        // --- AUTO-DELETE OLD POINTS MODEL ---
-        const existing = loadedModels.find(m => m.name === "Points");
-        if (existing) {
-            // Find the UI container for this model and click its delete button.
-            const section = document.querySelector('.controls');
-            const children = Array.from(section.children);
-
-            for (const child of children) {
-                if (child.dataset && child.dataset.modelName === "Points") {
-                    const delBtn = child.querySelector('.delete-btn');
-                    if (delBtn) delBtn.click();
-                    break;
-                }
-            }
-        }
-        
-        if(sample_tri[0].normals[1] > f32(0.0) && !isZero(sample_tri[0].normals[1])) {
-            let pts = drawSampledTriangles(scene, sample_tri, Number(samplePointsResolution.value))
-            addModelCheckbox("Points", pts, null, false, true, "#ff0000", true);
-        }
-    }
-}
-
-////////////////////////////////////////
 // System: Canvas / Pointer interactions
 ////////////////////////////////////////
 const pointerControls = new PointerLockControls(camera, renderer.domElement);
@@ -1702,13 +1286,17 @@ const pointerControls = new PointerLockControls(camera, renderer.domElement);
 renderer.domElement.addEventListener('click', (ev)=>{
     // If user explicitly selected Orbit mode, always treat click as selection (no pointer lock)
     if(controlMode === 'orbit'){
-        performSelection(ev);
+        let pts = performSelection(ev, renderer, camera, scene);
+        if (pts)
+            addModelCheckbox("Points", pts, null, false, true, "#ff0000", true);
         return;
     }
 
     // If pointer already locked on our canvas, treat click as selection
     if(document.pointerLockElement === renderer.domElement){
-        performSelection(ev);
+        let pts = performSelection(ev, renderer, camera, scene);
+        if (pts)
+            addModelCheckbox("Points", pts, null, false, true, "#ff0000", true);
         return;
     }
 
@@ -1904,276 +1492,3 @@ window.__3dv = { parseModelText, parseModelBinary };
         enableOrbitControls();
     }
 })();
-
-////////////////////////////////////////
-// System: Flat Ground Preview (Main Model only)
-////////////////////////////////////////
-
-export function updateFlatGroundUIVisibility() {
-    if (["OOT","MM","OOT3D","MM3D"].includes(game)) {
-        flatGroundContainer.style.display = "flex";
-    } else {
-        flatGroundContainer.style.display = "none";
-        clearFlatGroundMarkers();
-    }
-}
-
-flatGroundCheckbox.addEventListener("change", () => {
-    flatGroundEnabled = flatGroundCheckbox.checked;
-    if (flatGroundEnabled) {
-        scanAndBuildFlatGroundMarkers();
-    } else {
-        clearFlatGroundMarkers();
-    }
-});
-
-flatGroundColorPicker.addEventListener("input", () => {
-    flatGroundColor = parseInt(flatGroundColorPicker.value.replace("#",""), 16);
-    recolorFlatGroundMarkers();
-});
-
-function clearFlatGroundMarkers() {
-    for (const m of flatGroundMarkers) {
-        scene.remove(m);
-        if (m.geometry) m.geometry.dispose();
-        if (m.material) m.material.dispose();
-    }
-    flatGroundMarkers.length = 0;
-}
-
-function recolorFlatGroundMarkers() {
-    for (const m of flatGroundMarkers) {
-        m.material.color.setHex(flatGroundColor);
-    }
-}
-
-function createFlatGroundMarker(verts) {
-    const geom = new THREE.BufferGeometry();
-    const arr = new Float32Array([
-        verts[0].x, verts[0].y, verts[0].z,
-        verts[1].x, verts[1].y, verts[1].z,
-        verts[2].x, verts[2].y, verts[2].z
-    ]);
-    geom.setAttribute("position", new THREE.BufferAttribute(arr, 3));
-    geom.setIndex([0, 1, 2]);
-
-    const mat = new THREE.MeshBasicMaterial({
-        color: flatGroundColor,
-        side: THREE.DoubleSide,
-        transparent: true,
-        opacity: 0.9,
-        polygonOffset: true,
-        polygonOffsetFactor: -1,
-        polygonOffsetUnits: -1
-    });
-
-    // --- mesh ---
-    const mesh = new THREE.Mesh(geom, mat);
-    mesh.renderOrder = 1;    // ensures edges draw on top
-    scene.add(mesh);
-    flatGroundMarkers.push(mesh);
-
-    // -------------------------------------
-    // Add always-visible edges (same as SNM)
-    // -------------------------------------
-    const edgeGeom = new THREE.BufferGeometry();
-    edgeGeom.setAttribute(
-        "position",
-        new THREE.Float32BufferAttribute([
-            // edge AB
-            verts[0].x, verts[0].y, verts[0].z,
-            verts[1].x, verts[1].y, verts[1].z,
-            // edge BC
-            verts[1].x, verts[1].y, verts[1].z,
-            verts[2].x, verts[2].y, verts[2].z,
-            // edge CA
-            verts[2].x, verts[2].y, verts[2].z,
-            verts[0].x, verts[0].y, verts[0].z
-        ], 3)
-    );
-
-    const edgeMat = new THREE.LineBasicMaterial({
-        color: 0x000000,  // black edges (clear visibility)
-        transparent: false,
-        linewidth: 1.5
-    });
-
-    const edges = new THREE.LineSegments(edgeGeom, edgeMat);
-    edges.renderOrder = 999; // draw edges last
-    scene.add(edges);
-
-    // store edges so they can be cleaned later
-    flatGroundMarkers.push(edges);
-}
-
-export function scanAndBuildFlatGroundMarkers() {
-    clearFlatGroundMarkers();
-    if (!flatGroundEnabled) return;
-
-    // Find Main Model
-    const mainModel = loadedModels.find(m => m.name === "Main Model");
-    if (!mainModel || !mainModel.mesh) return;
-
-    const mesh = mainModel.mesh;
-    const triData = mesh.userData.triangles;
-    if (!triData || triData.length === 0) return;
-
-    const geom = mesh.geometry;
-    const pos = geom.attributes.position;
-    const index = geom.index;
-
-    // Each triData[i] corresponds to triangle i in the index buffer
-    for (let i = 0; i < triData.length; i++) {
-
-        // Pull real vertex indices from geometry
-        const ia = index.getX(i*3);
-        const ib = index.getX(i*3 + 1);
-        const ic = index.getX(i*3 + 2);
-
-        const va = new THREE.Vector3().fromBufferAttribute(pos, ia);
-        const vb = new THREE.Vector3().fromBufferAttribute(pos, ib);
-        const vc = new THREE.Vector3().fromBufferAttribute(pos, ic);
-
-        // Test: are all Y equal?
-        if (va.y !== vb.y || vb.y !== vc.y) continue;
-
-        const y = Math.round(va.y);
-        if (!flat_ground_clip_y_table.has(y)) continue;
-
-        // Need to confirm upward-facing
-        const edge1 = new THREE.Vector3().subVectors(vb, va);
-        const edge2 = new THREE.Vector3().subVectors(vc, va);
-        const normal = new THREE.Vector3().crossVectors(edge1, edge2).normalize();
-
-        if (normal.y <= 0) continue;
-
-        // This triangle is valid
-        createFlatGroundMarker([va, vb, vc]);
-    }
-}
-
-////////////////////////////////////////
-// System: Special Normal Preview
-// (uses Main Model + mesh.userData.triangles)
-////////////////////////////////////////
-
-// Exact target normal in 16-bit OoT format
-const TARGET_NORMAL = { x: 0, y: 32766, z: 0 };
-
-////////////////////////////////////////
-// UI visibility
-////////////////////////////////////////
-
-export function updateSpecialNormalUIVisibility() {
-    if (["OOT","MM","OOT3D","MM3D"].includes(game)) {
-        specialNormalContainer.style.display = "flex";
-    } else {
-        specialNormalContainer.style.display = "none";
-        clearSpecialNormalMarkers();
-    }
-}
-
-specialNormalCheckbox.addEventListener("change", () => {
-    specialNormalEnabled = specialNormalCheckbox.checked;
-    if (specialNormalEnabled) {
-        scanAndBuildSpecialNormalMarkers();
-    } else {
-        clearSpecialNormalMarkers();
-    }
-});
-
-specialNormalColorPicker.addEventListener("input", () => {
-    specialNormalColor = parseInt(specialNormalColorPicker.value.replace("#",""), 16);
-    recolorSpecialNormalMarkers();
-});
-
-
-////////////////////////////////////////
-// Marker create/clear/recolor
-////////////////////////////////////////
-
-function clearSpecialNormalMarkers() {
-    for (const m of specialNormalMarkers) {
-        scene.remove(m);
-        if (m.geometry) m.geometry.dispose();
-        if (m.material) m.material.dispose();
-    }
-    specialNormalMarkers.length = 0;
-}
-
-function recolorSpecialNormalMarkers() {
-    for (const m of specialNormalMarkers) {
-        m.material.color.setHex(specialNormalColor);
-    }
-}
-
-function createSpecialNormalMarker(verts) {
-    const geom = new THREE.BufferGeometry();
-    const arr = new Float32Array([
-        verts[0].x, verts[0].y, verts[0].z,
-        verts[1].x, verts[1].y, verts[1].z,
-        verts[2].x, verts[2].y, verts[2].z
-    ]);
-    geom.setAttribute("position", new THREE.BufferAttribute(arr, 3));
-    geom.setIndex([0, 1, 2]);
-
-    const mat = new THREE.MeshBasicMaterial({
-        color: specialNormalColor,
-        side: THREE.DoubleSide,
-        transparent: true,
-        opacity: 0.9,
-        polygonOffset: true,
-        polygonOffsetFactor: -1,
-        polygonOffsetUnits: -1
-    });
-
-    const mesh = new THREE.Mesh(geom, mat);
-    scene.add(mesh);
-    specialNormalMarkers.push(mesh);
-}
-
-
-////////////////////////////////////////
-// Scan Main Model for normals == target
-////////////////////////////////////////
-
-export function scanAndBuildSpecialNormalMarkers() {
-    clearSpecialNormalMarkers();
-    if (!specialNormalEnabled) return;
-
-    // Find the "Main Model"
-    const mainModel = loadedModels.find(m => m.name === "Main Model");
-    if (!mainModel || !mainModel.mesh) return;
-
-    const mesh = mainModel.mesh;
-    const triData = mesh.userData.triangles;
-    if (!triData || triData.length === 0) return;
-
-    const geom = mesh.geometry;
-    const pos = geom.attributes.position;
-    const index = geom.index;
-
-    // Loop through triangle metadata (not Three.js triangles)
-    for (let i = 0; i < triData.length; i++) {
-        const tri = triData[i];
-        const nx = tri.normals[0];
-        const ny = tri.normals[1];
-        const nz = tri.normals[2];
-
-        // Match EXACT normal
-        if (nx !== TARGET_NORMAL.x) continue;
-        if (ny !== TARGET_NORMAL.y) continue;
-        if (nz !== TARGET_NORMAL.z) continue;
-
-        // The i-th triangle corresponds 1:1 with tris[] in buildGeometry
-        const ia = index.getX(i*3);
-        const ib = index.getX(i*3 + 1);
-        const ic = index.getX(i*3 + 2);
-
-        const va = new THREE.Vector3().fromBufferAttribute(pos, ia);
-        const vb = new THREE.Vector3().fromBufferAttribute(pos, ib);
-        const vc = new THREE.Vector3().fromBufferAttribute(pos, ic);
-
-        createSpecialNormalMarker([va, vb, vc]);
-    }
-}
