@@ -523,31 +523,40 @@ function parseZeldaModelBinary(buffer, fresh, mapName){
                 
                 //console.log("current_addr: "+current_addr+", "+cmd1+", "+cmd2);
                 
-                colHeader.minBounds.x = dv.getInt16(cmd2+address_offset+0x00, endianness);
-                colHeader.minBounds.y = dv.getInt16(cmd2+address_offset+0x02, endianness);
-                colHeader.minBounds.z = dv.getInt16(cmd2+address_offset+0x04, endianness);
-                colHeader.maxBounds.x = dv.getInt16(cmd2+address_offset+0x06, endianness);
-                colHeader.maxBounds.y = dv.getInt16(cmd2+address_offset+0x08, endianness);
-                colHeader.maxBounds.z = dv.getInt16(cmd2+address_offset+0x0A, endianness);
                 
-                if (game == "OOT" || game == "MM") {
-                        colHeader.numVtxs = dv.getUint16(cmd2+address_offset+0x0C, endianness);
+                if (game == "OOT" || game == "MM" || game == "OOT3D") {
+                    colHeader.minBounds.x = dv.getInt16(cmd2+address_offset+0x00, endianness);
+                    colHeader.minBounds.y = dv.getInt16(cmd2+address_offset+0x02, endianness);
+                    colHeader.minBounds.z = dv.getInt16(cmd2+address_offset+0x04, endianness);
+                    colHeader.maxBounds.x = dv.getInt16(cmd2+address_offset+0x06, endianness);
+                    colHeader.maxBounds.y = dv.getInt16(cmd2+address_offset+0x08, endianness);
+                    colHeader.maxBounds.z = dv.getInt16(cmd2+address_offset+0x0A, endianness);
+                    colHeader.numVtxs = dv.getUint16(cmd2+address_offset+0x0C, endianness);
+                    
+                    if (game == "OOT" || game == "MM") {
                         colHeader.vtxListStart = dv.getUint32(cmd2+address_offset+0x10, endianness);
                         colHeader.numPolygons = dv.getUint16(cmd2+address_offset+0x14, endianness);
                         colHeader.polygonListStart = dv.getUint32(cmd2+address_offset+0x18, endianness);
-                }
-                else if (game == "OOT3D") {
-                        colHeader.numVtxs = dv.getUint16(cmd2+address_offset+0x0C, endianness);
+                    }
+                    else if (game == "OOT3D") {
                         colHeader.numPolygons = dv.getUint16(cmd2+address_offset+0x0E, endianness);
                         colHeader.vtxListStart = dv.getUint32(cmd2+address_offset+0x18, endianness);
                         colHeader.polygonListStart = dv.getUint32(cmd2+address_offset+0x1C, endianness);
+                    }
                 }
                 else if (game == "MM3D") {
-                        colHeader.numVtxs = dv.getUint16(cmd2+address_offset+0x0E, endianness);
-                        colHeader.numPolygons = dv.getUint16(cmd2+address_offset+0x10, endianness);
-                        colHeader.vtxListStart = dv.getUint32(cmd2+address_offset+0x18, endianness);
-                        colHeader.polygonListStart = dv.getUint32(cmd2+address_offset+0x1C, endianness);
+                    colHeader.minBounds.x = dv.getInt16(cmd2+address_offset+0x02, endianness);
+                    colHeader.minBounds.y = dv.getInt16(cmd2+address_offset+0x04, endianness);
+                    colHeader.minBounds.z = dv.getInt16(cmd2+address_offset+0x06, endianness);
+                    colHeader.maxBounds.x = dv.getInt16(cmd2+address_offset+0x08, endianness);
+                    colHeader.maxBounds.y = dv.getInt16(cmd2+address_offset+0x0A, endianness);
+                    colHeader.maxBounds.z = dv.getInt16(cmd2+address_offset+0x0C, endianness);
+                    colHeader.numVtxs = dv.getUint16(cmd2+address_offset+0x0E, endianness);
+                    colHeader.numPolygons = dv.getUint16(cmd2+address_offset+0x10, endianness);
+                    colHeader.vtxListStart = dv.getUint32(cmd2+address_offset+0x18, endianness);
+                    colHeader.polygonListStart = dv.getUint32(cmd2+address_offset+0x1C, endianness);
                 }
+                
                 break;
         }
         
