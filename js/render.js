@@ -124,7 +124,7 @@ const wireframeCheckbox = document.getElementById('wireframe');
 
 wireframeCheckbox.addEventListener('change', () => {
     loadedModels.forEach(m => {
-        if (m.edges) {
+        if (m.edges && m.mesh) {
             m.edges.visible = m.mesh.visible && wireframeCheckbox.checked;
         }
     });
@@ -135,7 +135,7 @@ const material = new THREE.MeshStandardMaterial({color:0x3aa6ff,side:THREE.Front
 const material2 = new THREE.MeshStandardMaterial({color:0xf56342,side:THREE.FrontSide,transparent:true,opacity:1.0,flatShading:true});
 const material3 = new THREE.MeshStandardMaterial({color:0xe1eb34,side:THREE.FrontSide,transparent:true,opacity:1.0,flatShading:true});
 
-export function buildGeometry(scene, verts, tris, allTriangleData, name = "Main Model", clearFirst = true) {
+export function buildGeometry(scene, verts, tris, allTriangleData, colCtx, name = "Main Model", clearFirst = true) {
     
     if ((!verts || !tris || verts.length === 0 || tris.length === 0) && clearFirst) { 
         alert('No valid vertices or triangles found'); 
@@ -189,6 +189,7 @@ export function buildGeometry(scene, verts, tris, allTriangleData, name = "Main 
     meshObj.material.polygonOffsetFactor = 1;
     meshObj.material.polygonOffsetUnits = 1;
     meshObj.userData.triangles = allTriangleData;  // Store metadata
+    meshObj.userData.colCtx = colCtx;  // Store metadata
     if(!clearFirst)
         meshObj.material.color.set(0x3aff78);
     scene.add(meshObj);
@@ -374,7 +375,7 @@ export function buildGeometry_fwc(scene, verts, tris, name = "Main Model", clear
     updateSamplePointsUIVisibility(game);
 }
 
-export function buildGeometryFromTriangles(scene, allTriangleData, name = "Main Model", clearFirst = true) {
+export function buildGeometryFromTriangles(scene, allTriangleData, colCtx, name = "Main Model", clearFirst = true) {
 
     if ((!allTriangleData || allTriangleData.length === 0) && clearFirst) {
         alert("No triangle data found");
@@ -441,7 +442,8 @@ export function buildGeometryFromTriangles(scene, allTriangleData, name = "Main 
         meshObj.material.color.set(0x3aff78);
 
     // Store original triangle metadata here
-    meshObj.userData.allTriangleData = allTriangleData;
+    meshObj.userData.triangles = allTriangleData;
+    meshObj.userData.colCtx = colCtx;
 
     scene.add(meshObj);
 
@@ -551,5 +553,5 @@ export function buildGeometryEdges(scene, verts, edges, name = "Edge Model", cle
 export function buildTest(scene){
     const verts = [[-200,-200,-200],[200,-200,-200],[200,200,-200],[-200,200,-200],[-200,-200,200],[200,-200,200],[200,200,200],[-200,200,200]];
     const tris = [[0,1,2],[0,2,3],[4,7,6],[4,6,5],[0,4,5],[0,5,1],[1,5,6],[1,6,2],[2,6,7],[2,7,3],[3,7,4],[3,4,0]];
-    buildGeometry(scene, verts, tris, null, "Main Model", true);
+    buildGeometry(scene, verts, tris, null, null, "Main Model", true);
 }

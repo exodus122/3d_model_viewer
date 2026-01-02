@@ -144,6 +144,8 @@ samplePointsCheckbox.addEventListener("change", () => {
 });
 
 function sampledStandableFootprint(tri, resolution=0.25) {
+    const COLPOLY_NORMAL_FRAC = 1.0 / 32767.0;
+    
     const v0 = tri.vtxs[0], v1 = tri.vtxs[1], v2 = tri.vtxs[2];
     const nx = tri.normals[0] * COLPOLY_NORMAL_FRAC;
     const ny = tri.normals[1] * COLPOLY_NORMAL_FRAC;

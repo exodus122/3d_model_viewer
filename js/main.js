@@ -86,15 +86,32 @@ function setStatus(msg, level='info'){
 }
 
 function setMaterialProps() {
-    loadedModels.forEach(m => {
-        if (m.mesh && m.mesh.material) {
-            m.mesh.material.transparent = translucentCheckbox.checked;
-            m.mesh.material.opacity = parseFloat(opacitySlider.value);
-            m.mesh.material.side = backfaceCheckbox.checked
-                ? THREE.DoubleSide
-                : THREE.FrontSide;
-            m.mesh.material.needsUpdate = true;
-        }
+    const transparent = translucentCheckbox.checked;
+    const opacity = parseFloat(opacitySlider.value);
+    const side = backfaceCheckbox.checked ? THREE.DoubleSide : THREE.FrontSide;
+
+    loadedModels.forEach(entry => {
+
+        const root = entry.mesh;   // the real Three.js object
+
+        if (!root || !root.isObject3D) return;
+
+        root.traverse(obj => {
+
+            if (obj.isMesh && obj.material) {
+
+                const materials = Array.isArray(obj.material)
+                    ? obj.material
+                    : [obj.material];
+
+                materials.forEach(mat => {
+                    mat.transparent = transparent;
+                    mat.opacity    = opacity;
+                    mat.side       = side;
+                    mat.needsUpdate = true;
+                });
+            }
+        });
     });
 }
 

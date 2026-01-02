@@ -3,6 +3,7 @@ import * as THREE from 'three';
 ////////////////////////////////////////
 // System: Standable Surfaces
 ////////////////////////////////////////
+const COLPOLY_NORMAL_FRAC = f32(1.0 / 32767.0);
 
 function clipTriangleByMinY(verts, minY) {
     // verts = [{x,y,z}, ... 3 items]
@@ -61,136 +62,7 @@ function getClippedBelowTriangle(rawVerts, minY) {
     return belowVerts;
 }
 
-export function renderStandableSurfaceWithEdges_old(allTriangleData) {
-    const f32 = Math.fround;
-    const COLPOLY_NORMAL_FRAC = f32(1.0 / 32767.0);
-
-    const positions = [];
-    const indices = [];
-    let vertexOffset = 0;
-
-    allTriangleData.forEach(tri => {
-        
-        const vtxs = tri.vtxs;
-        const normals = tri.normals;
-        const D = f32(tri.d);
-        
-        if (vtxs[0].x == 485 && vtxs[0].y == 1233 && vtxs[0].z == 1764 && 
-        vtxs[1].x == -69 && vtxs[1].y == 1233 && vtxs[1].z == 1487 && 
-        vtxs[2].x == -291 && vtxs[2].y == 1233 && vtxs[2].z == 1875)
-            console.log("test")
-            
-        if (normals[0] == 0 && normals[1] == 32766 && normals[2] == 0) {
-            console.log(vtxs[0].x + ", " + vtxs[0].y + ", " + vtxs[0].z
-             + ", " + vtxs[1].x + ", " + vtxs[1].y + ", " + vtxs[1].z
-              + ", " + vtxs[2].x + ", " + vtxs[2].y + ", " + vtxs[2].z)
-            return;
-        }
-
-        const Nx = f32(normals[0] * COLPOLY_NORMAL_FRAC);
-        const Ny = f32(normals[1] * COLPOLY_NORMAL_FRAC);
-        const Nz = f32(normals[2] * COLPOLY_NORMAL_FRAC);
-
-        if (Ny < f32(0.0) || isZero(Ny)) return;
-
-        // Find original lowest Y vertex
-        let minY = Math.min(vtxs[0].y, vtxs[1].y, vtxs[2].y);
-
-        function liftVertex(x, z) {
-            if (Math.abs(Ny) < 1e-12) return 0.0; // should this be here?
-            return f32(-(Nx * x + Nz * z + D) / Ny);
-        }
-
-        // Determine if we need to offset triangle
-        let expandedVertices = vtxs.map(v => ({ x: f32(v.x), z: f32(v.z) }));
-
-        if (Math.abs(Ny) > 0.5) {
-            // Expand triangle by 1 unit on all sides with rounded corners
-            // Simple approach: move each vertex away from centroid
-            const centroid = {
-                x: (expandedVertices[0].x + expandedVertices[1].x + expandedVertices[2].x) / 3,
-                z: (expandedVertices[0].z + expandedVertices[1].z + expandedVertices[2].z) / 3
-            };
-
-            expandedVertices = expandedVertices.map(v => {
-                const dx = v.x - centroid.x;
-                const dz = v.z - centroid.z;
-                const len = Math.sqrt(dx*dx + dz*dz);
-                const factor = len > 0 ? (len + 1) / len : 1;
-                return {
-                    x: centroid.x + dx * factor,
-                    z: centroid.z + dz * factor
-                };
-            });
-        }
-
-        const rawVerts = [];
-
-        for (let i = 0; i < 3; i++) {
-            const vx = expandedVertices[i].x;
-            const vz = expandedVertices[i].z;
-            const vy = liftVertex(vx, vz);
-            rawVerts.push({ x: vx, y: vy, z: vz });
-        }
-
-        // Clip polygon against y = minY
-        const clipped = clipTriangleByMinY(rawVerts, minY);
-
-        // If clipped polygon has < 3 vertices, it is gone
-        if (clipped.length < 3) return;
-
-        // Triangulate the clipped polygon (fan)
-        for (let i = 1; i < clipped.length - 1; i++) {
-            const v0 = clipped[0];
-            const v1 = clipped[i];
-            const v2 = clipped[i + 1];
-
-            positions.push(v0.x, v0.y, v0.z);
-            positions.push(v1.x, v1.y, v1.z);
-            positions.push(v2.x, v2.y, v2.z);
-
-            indices.push(
-                vertexOffset,
-                vertexOffset + 1,
-                vertexOffset + 2
-            );
-            vertexOffset += 3;
-        }
-    });
-
-    // Create main mesh
-    const geometry = new THREE.BufferGeometry();
-    geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-    geometry.setIndex(indices);
-    geometry.computeVertexNormals();
-
-    const mesh = new THREE.Mesh(
-        geometry,
-        new THREE.MeshStandardMaterial({
-            //color: 0x00ff99,
-            color: 0xff0000,
-            side: THREE.DoubleSide,
-            flatShading: true,
-            polygonOffset: true,
-            polygonOffsetFactor: 4,
-            polygonOffsetUnits: 4
-        })
-    );
-
-    // Edges
-    const edgesGeom = new THREE.EdgesGeometry(geometry);
-    const edgesMat = new THREE.LineBasicMaterial({ color: 0x000000 });
-    const edges = new THREE.LineSegments(edgesGeom, edgesMat);
-
-    // Group
-    const group = new THREE.Group();
-    group.add(mesh);
-    group.add(edges);
-
-    return group;
-}
-
-export function renderStandableSurfaceWithEdges(allTriangleData) {
+export function renderStandableSurfaceXZ(allTriangleData) {
     const f32 = Math.fround;
 
     const positionsNormal = [];
@@ -370,6 +242,399 @@ export function renderStandableSurfaceWithEdges(allTriangleData) {
         group.add(meshS);
         group.add(edgesS);
     }
+
+    return group;
+}
+
+export function renderCollisionWallsXY(allTriangleData) {
+    const f32 = Math.fround;
+
+    const positions = [];
+    const indices = [];
+    let vertexOffset = 0;
+
+    allTriangleData.forEach(tri => {
+
+        const vtxs = tri.vtxs;
+        const normals = tri.normals;
+        const D = f32(tri.d);
+
+        const Nx = f32(normals[0] * COLPOLY_NORMAL_FRAC);
+        const Ny = f32(normals[1] * COLPOLY_NORMAL_FRAC);
+        const Nz = f32(normals[2] * COLPOLY_NORMAL_FRAC);
+
+        // Need a valid Z solve
+        if (Math.abs(Nz) < f32(1e-12)) 
+            return;
+
+        //
+        // LIFT FUNCTION (solve Z)
+        //
+        function liftVertex(x, y) {
+            const dot = f32(
+                f32(f32(Nx * x) + f32(Ny * y)) + D
+            );
+            return f32(f32(-dot) / Nz);
+        }
+
+        //
+        // STEP 1: Expand triangle in XY plane
+        //
+        let expanded = vtxs.map(v => ({ 
+            x: f32(v.x), 
+            y: f32(v.y) 
+        }));
+
+        if (Math.abs(Nz) > f32(0.5)) {
+
+            // centroid
+            const cx = f32(
+                f32(expanded[0].x + expanded[1].x + expanded[2].x) / f32(3.0)
+            );
+            const cy = f32(
+                f32(expanded[0].y + expanded[1].y + expanded[2].y) / f32(3.0)
+            );
+
+            expanded = expanded.map(v => {
+                const dx = f32(v.x - cx);
+                const dy = f32(v.y - cy);
+
+                const len = f32(Math.sqrt(f32(f32(dx*dx) + f32(dy*dy))));
+
+                let factor = f32(1.0);
+                if (len > f32(0.0)) {
+                    factor = f32(f32(len + f32(1.0)) / len);
+                }
+
+                return {
+                    x: f32(cx + f32(dx * factor)),
+                    y: f32(cy + f32(dy * factor))
+                };
+            });
+        }
+
+        //
+        // STEP 2: Build the lifted 3D vertices (x,y from expanded, z solved)
+        //
+        const verts3 = [];
+        for (let i = 0; i < 3; i++) {
+            const vx = expanded[i].x;
+            const vy = expanded[i].y;
+            const vz = liftVertex(vx, vy);
+            verts3.push({ x: vx, y: vy, z: vz });
+        }
+
+        //
+        // STEP 3: Triangulate directly (no clipping)
+        //
+        positions.push(
+            verts3[0].x, verts3[0].y, verts3[0].z,
+            verts3[1].x, verts3[1].y, verts3[1].z,
+            verts3[2].x, verts3[2].y, verts3[2].z
+        );
+
+        indices.push(
+            vertexOffset,
+            vertexOffset + 1,
+            vertexOffset + 2
+        );
+
+        vertexOffset += 3;
+    });
+
+    //
+    // BUILD GROUP OUTPUT (same as your original)
+    //
+    const group = new THREE.Group();
+
+    if (positions.length > 0) {
+
+        const geometry = new THREE.BufferGeometry();
+        geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+        geometry.setIndex(indices);
+        geometry.computeVertexNormals();
+
+        const mesh = new THREE.Mesh(
+            geometry,
+            new THREE.MeshStandardMaterial({
+                color: 0xff0000,
+                side: THREE.DoubleSide,
+                flatShading: true,
+                polygonOffset: true,
+                polygonOffsetFactor: 4,
+                polygonOffsetUnits: 4
+            })
+        );
+
+        const edges = new THREE.LineSegments(
+            new THREE.EdgesGeometry(geometry),
+            new THREE.LineBasicMaterial({ color: 0x000000 })
+        );
+
+        group.add(mesh);
+        group.add(edges);
+    }
+
+    return group;
+}
+
+export function renderCollisionWallsYZ(allTriangleData) {
+    const f32 = Math.fround;
+
+    const positions = [];
+    const indices = [];
+    let vertexOffset = 0;
+
+    allTriangleData.forEach(tri => {
+
+        const vtxs = tri.vtxs;
+        const normals = tri.normals;
+        const D = f32(tri.d);
+
+        const Nx = f32(normals[0] * COLPOLY_NORMAL_FRAC);
+        const Ny = f32(normals[1] * COLPOLY_NORMAL_FRAC);
+        const Nz = f32(normals[2] * COLPOLY_NORMAL_FRAC);
+
+        // Need N.x for solving X
+        if (Math.abs(Nx) < f32(1e-12))
+            return;
+
+        //
+        // LIFT (solve X from Y,Z)
+        //
+        function liftVertex(y, z) {
+            const dot = f32(
+                f32(f32(Ny * y) + f32(Nz * z)) + D
+            );
+            return f32(f32(-dot) / Nx);
+        }
+
+        //
+        // Step 1: expand triangle in YZ
+        //
+        let expanded = vtxs.map(v => ({
+            y: f32(v.y),
+            z: f32(v.z)
+        }));
+
+        // Expand if triangle is "flat" relative to X axis
+        if (Math.abs(Nx) > f32(0.5)) {
+
+            // Centroid
+            const cy = f32(
+                f32(expanded[0].y + expanded[1].y + expanded[2].y) / f32(3.0)
+            );
+            const cz = f32(
+                f32(expanded[0].z + expanded[1].z + expanded[2].z) / f32(3.0)
+            );
+
+            expanded = expanded.map(v => {
+                const dy = f32(v.y - cy);
+                const dz = f32(v.z - cz);
+
+                const len = f32(Math.sqrt(f32(f32(dy*dy) + f32(dz*dz))));
+
+                let factor = f32(1.0);
+                if (len > f32(0.0)) {
+                    factor = f32(f32(len + f32(1.0)) / len);
+                }
+
+                return {
+                    y: f32(cy + f32(dy * factor)),
+                    z: f32(cz + f32(dz * factor))
+                };
+            });
+        }
+
+        //
+        // Step 2: lift to 3D (compute X)
+        //
+        const verts3 = [];
+        for (let i = 0; i < 3; i++) {
+            const vy = expanded[i].y;
+            const vz = expanded[i].z;
+            const vx = liftVertex(vy, vz);
+            verts3.push({ x: vx, y: vy, z: vz });
+        }
+
+        //
+        // Step 3: direct triangulation (no clipping)
+        //
+        positions.push(
+            verts3[0].x, verts3[0].y, verts3[0].z,
+            verts3[1].x, verts3[1].y, verts3[1].z,
+            verts3[2].x, verts3[2].y, verts3[2].z
+        );
+
+        indices.push(
+            vertexOffset,
+            vertexOffset + 1,
+            vertexOffset + 2
+        );
+
+        vertexOffset += 3;
+    });
+
+    //
+    // BUILD GROUP (same style as the others)
+    //
+    const group = new THREE.Group();
+
+    if (positions.length > 0) {
+
+        const geometry = new THREE.BufferGeometry();
+        geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+        geometry.setIndex(indices);
+        geometry.computeVertexNormals();
+
+        const mesh = new THREE.Mesh(
+            geometry,
+            new THREE.MeshStandardMaterial({
+                color: 0xff0000,
+                side: THREE.DoubleSide,
+                flatShading: true,
+                polygonOffset: true,
+                polygonOffsetFactor: 4,
+                polygonOffsetUnits: 4
+            })
+        );
+
+        const edges = new THREE.LineSegments(
+            new THREE.EdgesGeometry(geometry),
+            new THREE.LineBasicMaterial({ color: 0x000000 })
+        );
+
+        group.add(mesh);
+        group.add(edges);
+    }
+
+    return group;
+}
+
+export function renderStandableSurfaceXZ_old(allTriangleData) {
+    const f32 = Math.fround;
+
+    const positions = [];
+    const indices = [];
+    let vertexOffset = 0;
+
+    allTriangleData.forEach(tri => {
+        
+        const vtxs = tri.vtxs;
+        const normals = tri.normals;
+        const D = f32(tri.d);
+        
+        if (vtxs[0].x == 485 && vtxs[0].y == 1233 && vtxs[0].z == 1764 && 
+        vtxs[1].x == -69 && vtxs[1].y == 1233 && vtxs[1].z == 1487 && 
+        vtxs[2].x == -291 && vtxs[2].y == 1233 && vtxs[2].z == 1875)
+            console.log("test")
+            
+        if (normals[0] == 0 && normals[1] == 32766 && normals[2] == 0) {
+            console.log(vtxs[0].x + ", " + vtxs[0].y + ", " + vtxs[0].z
+             + ", " + vtxs[1].x + ", " + vtxs[1].y + ", " + vtxs[1].z
+              + ", " + vtxs[2].x + ", " + vtxs[2].y + ", " + vtxs[2].z)
+            return;
+        }
+
+        const Nx = f32(normals[0] * COLPOLY_NORMAL_FRAC);
+        const Ny = f32(normals[1] * COLPOLY_NORMAL_FRAC);
+        const Nz = f32(normals[2] * COLPOLY_NORMAL_FRAC);
+
+        if (Ny < f32(0.0) || isZero(Ny)) return;
+
+        // Find original lowest Y vertex
+        let minY = Math.min(vtxs[0].y, vtxs[1].y, vtxs[2].y);
+
+        function liftVertex(x, z) {
+            if (Math.abs(Ny) < 1e-12) return 0.0; // should this be here?
+            return f32(-(Nx * x + Nz * z + D) / Ny);
+        }
+
+        // Determine if we need to offset triangle
+        let expandedVertices = vtxs.map(v => ({ x: f32(v.x), z: f32(v.z) }));
+
+        if (Math.abs(Ny) > 0.5) {
+            // Expand triangle by 1 unit on all sides with rounded corners
+            // Simple approach: move each vertex away from centroid
+            const centroid = {
+                x: (expandedVertices[0].x + expandedVertices[1].x + expandedVertices[2].x) / 3,
+                z: (expandedVertices[0].z + expandedVertices[1].z + expandedVertices[2].z) / 3
+            };
+
+            expandedVertices = expandedVertices.map(v => {
+                const dx = v.x - centroid.x;
+                const dz = v.z - centroid.z;
+                const len = Math.sqrt(dx*dx + dz*dz);
+                const factor = len > 0 ? (len + 1) / len : 1;
+                return {
+                    x: centroid.x + dx * factor,
+                    z: centroid.z + dz * factor
+                };
+            });
+        }
+
+        const rawVerts = [];
+
+        for (let i = 0; i < 3; i++) {
+            const vx = expandedVertices[i].x;
+            const vz = expandedVertices[i].z;
+            const vy = liftVertex(vx, vz);
+            rawVerts.push({ x: vx, y: vy, z: vz });
+        }
+
+        // Clip polygon against y = minY
+        const clipped = clipTriangleByMinY(rawVerts, minY);
+
+        // If clipped polygon has < 3 vertices, it is gone
+        if (clipped.length < 3) return;
+
+        // Triangulate the clipped polygon (fan)
+        for (let i = 1; i < clipped.length - 1; i++) {
+            const v0 = clipped[0];
+            const v1 = clipped[i];
+            const v2 = clipped[i + 1];
+
+            positions.push(v0.x, v0.y, v0.z);
+            positions.push(v1.x, v1.y, v1.z);
+            positions.push(v2.x, v2.y, v2.z);
+
+            indices.push(
+                vertexOffset,
+                vertexOffset + 1,
+                vertexOffset + 2
+            );
+            vertexOffset += 3;
+        }
+    });
+
+    // Create main mesh
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    geometry.setIndex(indices);
+    geometry.computeVertexNormals();
+
+    const mesh = new THREE.Mesh(
+        geometry,
+        new THREE.MeshStandardMaterial({
+            //color: 0x00ff99,
+            color: 0xff0000,
+            side: THREE.DoubleSide,
+            flatShading: true,
+            polygonOffset: true,
+            polygonOffsetFactor: 4,
+            polygonOffsetUnits: 4
+        })
+    );
+
+    // Edges
+    const edgesGeom = new THREE.EdgesGeometry(geometry);
+    const edgesMat = new THREE.LineBasicMaterial({ color: 0x000000 });
+    const edges = new THREE.LineSegments(edgesGeom, edgesMat);
+
+    // Group
+    const group = new THREE.Group();
+    group.add(mesh);
+    group.add(edges);
 
     return group;
 }

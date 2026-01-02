@@ -1,8 +1,10 @@
 import * as THREE from 'three';
 import { addModelCheckbox, buildGeometry, buildGeometry_fwc, buildGeometryFromTriangles, buildGeometryEdges } from './render.js';
 import { initColCtx, initializeSubdivisions } from './subdivisions.js';
-import { renderStandableSurfaceWithEdges, renderStandableSurfaceWithEdges_old } from './standable_surfaces.js';
+import { renderStandableSurfaceXZ, renderCollisionWallsXY, renderCollisionWallsYZ, renderStandableSurfaceXZ_old } from './standable_surfaces.js';
 import { scanAndBuildFlatGroundMarkers, scanAndBuildSpecialNormalMarkers } from './ground_clips.js';
+
+const wireframeCheckbox = document.getElementById('wireframe');
 
 ////////////////////////////////////////
 // System: Model Parsing (text vs binary dispatch)
@@ -54,7 +56,7 @@ export function parseModelText(scene, text){
             for(let i=0;i<tris.length;i++) tris[i]=tris[i].map(x=>x-1);
         }
     }
-    buildGeometry(scene, verts, tris, null, "Main Model", true);
+    buildGeometry(scene, verts, tris, null, null, "Main Model", true);
 }
 
 // Binary format: [uint16 vertexCount][uint16 triCount] then vertexCount*(int16 x,y,z) then triCount*(uint16 a,b,c)
@@ -88,7 +90,7 @@ export function parseModelBinary(scene, buffer){
     if(minIdx>=1 && maxIdx<=verts.length) {
         for(let i=0;i<tris.length;i++) tris[i]=tris[i].map(x=>x-1);
     }
-    buildGeometry(scene, verts, tris, null, "Main Model", true);
+    buildGeometry(scene, verts, tris, null, null, "Main Model", true);
 }
 
 export function parseBKModelBinary(scene, buffer, fresh){
@@ -154,7 +156,7 @@ export function parseBKModelBinary(scene, buffer, fresh){
     if(!fresh)
         modelName = `Model ${loadedModels.length+1}`;
     
-    buildGeometry(scene, verts, tris, null, modelName, fresh);
+    buildGeometry(scene, verts, tris, null, null, modelName, fresh);
 }
 
 function parseZeldaModelTextTriangles(scene, text, fresh) {
@@ -209,9 +211,9 @@ function parseZeldaModelTextTriangles(scene, text, fresh) {
       modelName = `Model ${loadedModels.length+1}`;
     
     if (display_fwc.checked)
-        buildGeometry_fwc(scene, verts, tris, null, modelName, fresh);
+        buildGeometry_fwc(scene, verts, tris, modelName, fresh);
     else
-        buildGeometry(scene, verts, tris, null, modelName, fresh);
+        buildGeometry(scene, verts, tris, null, null, modelName, fresh);
 }
 
 export function parseZeldaModelBinary(scene, buffer, fresh, mapName){
@@ -400,7 +402,7 @@ export function parseZeldaModelBinary(scene, buffer, fresh, mapName){
     if (display_fwc.checked)
         buildGeometry_fwc(scene, verts, tris, modelName, fresh);
     else
-        buildGeometry(scene, verts, tris, allTriangleData, modelName, fresh);
+        buildGeometry(scene, verts, tris, allTriangleData, colCtx, modelName, fresh);
     
     
     /*allTriangleData = [ // test data oot ice cavern wall
@@ -453,11 +455,30 @@ export function parseZeldaModelBinary(scene, buffer, fresh, mapName){
     
     //drawSampledTriangles(scene, allTriangleData, 0.1); // works well for a few, but laggy with multiple triangles
     
-    const standableSurfaceMesh = renderStandableSurfaceWithEdges(allTriangleData);
+    const standableSurfaceMesh = renderStandableSurfaceXZ(allTriangleData);
     if (standableSurfaceMesh) {
         scene.add(standableSurfaceMesh);
-        loadedModels.push({ name: "Standable Surface", mesh: standableSurfaceMesh, edges: null });
+        standableSurfaceMesh.children[1].visible = wireframeCheckbox.checked;
+        standableSurfaceMesh.children[3].visible = wireframeCheckbox.checked;
+        loadedModels.push({ name: "Standable Surface", mesh: standableSurfaceMesh, edges: standableSurfaceMesh.children[1] });
+        loadedModels.push({ name: "Standable Surface", mesh: standableSurfaceMesh, edges: standableSurfaceMesh.children[3] });
         addModelCheckbox(scene, "Standable Surface", standableSurfaceMesh, null, false, true, "#ff0000");
+    }
+    
+    const wallSurfaceMeshXY = renderCollisionWallsXY(allTriangleData);
+    if (wallSurfaceMeshXY) {
+        wallSurfaceMeshXY.children[1].visible = wireframeCheckbox.checked;
+        scene.add(wallSurfaceMeshXY);
+        loadedModels.push({ name: "Wall Collision (XY)", mesh: wallSurfaceMeshXY, edges: wallSurfaceMeshXY.children[1] });
+        addModelCheckbox(scene, "Wall Collision (XY)", wallSurfaceMeshXY, null, false, false, "#ff0000");
+    }
+    
+    const wallSurfaceMeshYZ = renderCollisionWallsYZ(allTriangleData);
+    if (wallSurfaceMeshYZ) {
+        scene.add(wallSurfaceMeshYZ);
+        wallSurfaceMeshYZ.children[1].visible = wireframeCheckbox.checked;
+        loadedModels.push({ name: "Wall Collision (YZ)", mesh: wallSurfaceMeshYZ, edges: wallSurfaceMeshYZ.children[1] });
+        addModelCheckbox(scene, "Wall Collision (YZ)", wallSurfaceMeshYZ, null, false, false, "#ff0000");
     }
     
     const flatGroup = scanAndBuildFlatGroundMarkers();
