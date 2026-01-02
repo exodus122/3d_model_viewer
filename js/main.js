@@ -16,9 +16,9 @@ import { PointerLockControls } from 'three/addons/controls/PointerLockControls.j
 import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
 import { LineGeometry } from 'three/addons/lines/LineGeometry.js';
 import { LineSegments2 } from 'three/addons/lines/LineSegments2.js';
-import { updateSamplePointsUIVisibility, drawSampledTriangles } from './js/sample_points.js';
-import { initColCtx, initializeSubdivisions } from './js/subdivisions.js';
-import { renderStandableSurfaceWithEdges, renderStandableSurfaceWithEdges_old } from './js/standable_surfaces.js';
+import { updateSamplePointsUIVisibility, drawSampledTriangles } from './sample_points.js';
+import { initColCtx, initializeSubdivisions } from './subdivisions.js';
+import { renderStandableSurfaceWithEdges, renderStandableSurfaceWithEdges_old } from './standable_surfaces.js';
 
 ////////////////////////////////////////
 // System: DOM / Static UI Elements
