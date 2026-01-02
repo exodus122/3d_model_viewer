@@ -2,8 +2,6 @@
 // System: Subdivisions
 ////////////////////////////////////////
 
-const f32 = Math.fround;
-const COLPOLY_NORMAL_FRAC = 1.0 / 32767.0;
 const BGCHECK_Y_MIN = f32(-32000.0);
 const BGCHECK_Y_MAX = f32(32000.0);
 const BGCHECK_XYZ_ABSMAX = f32(32760.0);
@@ -19,7 +17,6 @@ const MM_sceneSubdivisionList = {
     "Great Bay Coast": [40, 1, 40],
     "Zora Cape": [40, 1, 40]
 };
-
 
 function clampMin(v, min) {
     return v < min ? min : v;
@@ -53,7 +50,7 @@ function setSubdivisionDimension(min, subdivAmount, max) {
     };
 }
 
-function initColCtx(game, sceneName, colHeader) {
+export function initColCtx(game, sceneName, colHeader) {
     let colCtx = {}; 
     colCtx.colHeader = colHeader;
     
@@ -194,203 +191,6 @@ function initColCtx(game, sceneName, colHeader) {
     }
     
     return colCtx;
-}
-
-function getSubdivisionMaxBounds(colCtx, pos, out) {
-    const dx = f32(f32(pos.x) - f32(colCtx.minBounds.x));
-    const dy = f32(f32(pos.y) - f32(colCtx.minBounds.y));
-    const dz = f32(f32(pos.z) - f32(colCtx.minBounds.z));
-
-    let sx = (f32(dx * colCtx.subdivLengthInv.x)) | 0;
-    let sy = (f32(dy * colCtx.subdivLengthInv.y)) | 0;
-    let sz = (f32(dz * colCtx.subdivLengthInv.z)) | 0;
-
-    const subX = colCtx.subdivLength.x | 0;
-    const subY = colCtx.subdivLength.y | 0;
-    const subZ = colCtx.subdivLength.z | 0;
-
-    if ((subX - BGCHECK_SUBDIV_OVERLAP) < ((dx | 0) % subX) &&
-        sx < (colCtx.subdivAmount.x - 1)) {
-        sx += 1;
-    }
-
-    if ((subY - BGCHECK_SUBDIV_OVERLAP) < ((dy | 0) % subY) &&
-        sy < (colCtx.subdivAmount.y - 1)) {
-        sy += 1;
-    }
-
-    if ((subZ - BGCHECK_SUBDIV_OVERLAP) < ((dz | 0) % subZ) &&
-        sz < (colCtx.subdivAmount.z - 1)) {
-        sz += 1;
-    }
-
-    out.x = sx;
-    out.y = sy;
-    out.z = sz;
-}
-
-function getSubdivisionMinBounds(colCtx, pos, out) {
-    const f32 = Math.fround;
-
-    // Compute deltas
-    const dx = f32(pos.x - colCtx.minBounds.x);
-    const dy = f32(pos.y - colCtx.minBounds.y);
-    const dz = f32(pos.z - colCtx.minBounds.z);
-
-    // Multiply by inverse subdivision length (still f32)
-    let sx = f32(dx * colCtx.subdivLengthInv.x);
-    let sy = f32(dy * colCtx.subdivLengthInv.y);
-    let sz = f32(dz * colCtx.subdivLengthInv.z);
-
-    // Convert to s32 exactly like N64
-    sx = sx | 0;
-    sy = sy | 0;
-    sz = sz | 0;
-
-    const overlap = BGCHECK_SUBDIV_OVERLAP;
-
-    // C-code equivalent:
-    // if (((s32)dx % (s32)colCtx->subdivLength.x < OVERLAP) && (sx > 0))
-
-    const dx_i = (dx | 0);
-    const dy_i = (dy | 0);
-    const dz_i = (dz | 0);
-
-    const subX_i = (colCtx.subdivLength.x | 0);
-    const subY_i = (colCtx.subdivLength.y | 0);
-    const subZ_i = (colCtx.subdivLength.z | 0);
-
-    if (((dx_i % subX_i) < overlap) && sx > 0) {
-        sx -= 1;
-    }
-    if (((dy_i % subY_i) < overlap) && sy > 0) {
-        sy -= 1;
-    }
-    if (((dz_i % subZ_i) < overlap) && sz > 0) {
-        sz -= 1;
-    }
-
-    // Output result — matches pointers in C version
-    out.sx = sx;
-    out.sy = sy;
-    out.sz = sz;
-}
-
-function getPolySubdivisionBounds(colCtx, poly, outMin, outMax) {
-    // Get first vertex
-    let v = poly.vtxs[0];
-
-    let minV = { x: f32(v.x), y: f32(v.y), z: f32(v.z) };
-    let maxV = { x: minV.x, y: minV.y, z: minV.z };
-
-    // Remaining 2 vertices
-    for (let i = 1; i < 3; i++) {
-        v = poly.vtxs[i];
-
-        const x = f32(v.x);
-        const y = f32(v.y);
-        const z = f32(v.z);
-
-        if (minV.x > x) minV.x = x; else if (maxV.x < x) maxV.x = x;
-        if (minV.y > y) minV.y = y; else if (maxV.y < y) maxV.y = y;
-        if (minV.z > z) minV.z = z; else if (maxV.z < z) maxV.z = z;
-    }
-
-    // Get subdiv min/max
-    getSubdivisionMinBounds(colCtx, minV, outMin);
-    getSubdivisionMaxBounds(colCtx, maxV, outMax);
-}
-
-function initializeSubdivisions(game, colCtx, allTriangleData) {
-    const colHeader = colCtx.colHeader;
-    const polyMax = colHeader.numPolygons;
-
-    // Clear lookup table
-    const total = colCtx.subdivAmount.x * colCtx.subdivAmount.y * colCtx.subdivAmount.z;
-
-    const subdivAmountXY = colCtx.subdivAmount.x * colCtx.subdivAmount.y;
-
-    const subdivLengthX = f32(colCtx.subdivLength.x + f32(2 * BGCHECK_SUBDIV_OVERLAP));
-    const subdivLengthY = f32(colCtx.subdivLength.y + f32(2 * BGCHECK_SUBDIV_OVERLAP));
-    const subdivLengthZ = f32(colCtx.subdivLength.z + f32(2 * BGCHECK_SUBDIV_OVERLAP));
-
-    const min = colCtx.minBounds;
-
-    // Temporary reusable ints
-    let minIdx = { x: 0, y: 0, z: 0 };
-    let maxIdx = { x: 0, y: 0, z: 0 };
-
-    for (let polyIdx = 0; polyIdx < allTriangleData.length; polyIdx++) {
-        let poly = allTriangleData[polyIdx];
-        
-        getPolySubdivisionBounds(
-            colCtx, poly,
-            minIdx, maxIdx
-        );
-
-        // Starting Z slice
-        let baseZ = minIdx.z * subdivAmountXY;
-
-        let curMinZ = f32(f32(colCtx.subdivLength.z * minIdx.z) + min.z - BGCHECK_SUBDIV_OVERLAP);
-        let curMaxZ = f32(curMinZ + subdivLengthZ);
-
-        for (let sz = minIdx.z; sz <= maxIdx.z; sz++) {
-            
-            let baseY = minIdx.y * colCtx.subdivAmount.x;
-
-            let curMinY = f32(f32(colCtx.subdivLength.y * minIdx.y) + min.y - BGCHECK_SUBDIV_OVERLAP);
-            let curMaxY = f32(curMinY + subdivLengthY);
-
-            for (let sy = minIdx.y; sy <= maxIdx.y; sy++) {
-
-                let index = baseZ + baseY + minIdx.x;
-
-                let curMinX = f32(f32(colCtx.subdivLength.x * minIdx.x) + min.x - BGCHECK_SUBDIV_OVERLAP);
-                let curMaxX = f32(curMinX + subdivLengthX);
-
-                for (let sx = minIdx.x; sx <= maxIdx.x; sx++) {
-                    
-                    const box = {
-                        xmin:curMinX, xmax:curMaxX,
-                        ymin:curMinY, ymax:curMaxY,
-                        zmin:curMinZ, zmax:curMaxZ,
-                    };
-                    
-                    const tri = [
-                        {x:poly.vtxs[0].x, y:poly.vtxs[0].y, z:poly.vtxs[0].z},
-                        {x:poly.vtxs[1].x, y:poly.vtxs[1].y, z:poly.vtxs[1].z},
-                        {x:poly.vtxs[2].x, y:poly.vtxs[2].y, z:poly.vtxs[2].z},
-                    ];
-                    
-                    if (triIntersectsCube(tri, box)) {
-                        // console.log("added poly "+polyIdx+" to subdiv "+index)
-                        
-                        if (f32(poly.normals[1] * COLPOLY_NORMAL_FRAC) > 0.5) {
-                            colCtx.subdivisions[index].floors.push(polyIdx);          // floor
-                        } else if (f32(poly.normals[1] * COLPOLY_NORMAL_FRAC) < -0.8) {
-                            colCtx.subdivisions[index].ceilings.push(polyIdx);          // ceiling
-                        } else {
-                            colCtx.subdivisions[index].walls.push(polyIdx);          // wall
-                        }
-                    }
-
-                    curMinX = f32(curMinX + colCtx.subdivLength.x);
-                    curMaxX = f32(curMaxX + colCtx.subdivLength.x);
-                    index++;
-                }
-
-                curMinY = f32(curMinY + colCtx.subdivLength.y);
-                curMaxY = f32(curMaxY + colCtx.subdivLength.y);
-                baseY += colCtx.subdivAmount.x;
-            }
-
-            curMinZ = f32(curMinZ + colCtx.subdivLength.z);
-            curMaxZ = f32(curMaxZ + colCtx.subdivLength.z);
-            baseZ += subdivAmountXY;
-        }
-    }
-
-    return;
 }
 
 function triIntersectsCube(tri, box) {
@@ -535,6 +335,203 @@ function triIntersectsCube(tri, box) {
 
     // No separating axis found → intersection
     return true;
+}
+
+function getSubdivisionMaxBounds(colCtx, pos, out) {
+    const dx = f32(f32(pos.x) - f32(colCtx.minBounds.x));
+    const dy = f32(f32(pos.y) - f32(colCtx.minBounds.y));
+    const dz = f32(f32(pos.z) - f32(colCtx.minBounds.z));
+
+    let sx = (f32(dx * colCtx.subdivLengthInv.x)) | 0;
+    let sy = (f32(dy * colCtx.subdivLengthInv.y)) | 0;
+    let sz = (f32(dz * colCtx.subdivLengthInv.z)) | 0;
+
+    const subX = colCtx.subdivLength.x | 0;
+    const subY = colCtx.subdivLength.y | 0;
+    const subZ = colCtx.subdivLength.z | 0;
+
+    if ((subX - BGCHECK_SUBDIV_OVERLAP) < ((dx | 0) % subX) &&
+        sx < (colCtx.subdivAmount.x - 1)) {
+        sx += 1;
+    }
+
+    if ((subY - BGCHECK_SUBDIV_OVERLAP) < ((dy | 0) % subY) &&
+        sy < (colCtx.subdivAmount.y - 1)) {
+        sy += 1;
+    }
+
+    if ((subZ - BGCHECK_SUBDIV_OVERLAP) < ((dz | 0) % subZ) &&
+        sz < (colCtx.subdivAmount.z - 1)) {
+        sz += 1;
+    }
+
+    out.x = sx;
+    out.y = sy;
+    out.z = sz;
+}
+
+function getSubdivisionMinBounds(colCtx, pos, out) {
+    const f32 = Math.fround;
+
+    // Compute deltas
+    const dx = f32(pos.x - colCtx.minBounds.x);
+    const dy = f32(pos.y - colCtx.minBounds.y);
+    const dz = f32(pos.z - colCtx.minBounds.z);
+
+    // Multiply by inverse subdivision length (still f32)
+    let sx = f32(dx * colCtx.subdivLengthInv.x);
+    let sy = f32(dy * colCtx.subdivLengthInv.y);
+    let sz = f32(dz * colCtx.subdivLengthInv.z);
+
+    // Convert to s32 exactly like N64
+    sx = sx | 0;
+    sy = sy | 0;
+    sz = sz | 0;
+
+    const overlap = BGCHECK_SUBDIV_OVERLAP;
+
+    // C-code equivalent:
+    // if (((s32)dx % (s32)colCtx->subdivLength.x < OVERLAP) && (sx > 0))
+
+    const dx_i = (dx | 0);
+    const dy_i = (dy | 0);
+    const dz_i = (dz | 0);
+
+    const subX_i = (colCtx.subdivLength.x | 0);
+    const subY_i = (colCtx.subdivLength.y | 0);
+    const subZ_i = (colCtx.subdivLength.z | 0);
+
+    if (((dx_i % subX_i) < overlap) && sx > 0) {
+        sx -= 1;
+    }
+    if (((dy_i % subY_i) < overlap) && sy > 0) {
+        sy -= 1;
+    }
+    if (((dz_i % subZ_i) < overlap) && sz > 0) {
+        sz -= 1;
+    }
+
+    // Output result — matches pointers in C version
+    out.sx = sx;
+    out.sy = sy;
+    out.sz = sz;
+}
+
+function getPolySubdivisionBounds(colCtx, poly, outMin, outMax) {
+    // Get first vertex
+    let v = poly.vtxs[0];
+
+    let minV = { x: f32(v.x), y: f32(v.y), z: f32(v.z) };
+    let maxV = { x: minV.x, y: minV.y, z: minV.z };
+
+    // Remaining 2 vertices
+    for (let i = 1; i < 3; i++) {
+        v = poly.vtxs[i];
+
+        const x = f32(v.x);
+        const y = f32(v.y);
+        const z = f32(v.z);
+
+        if (minV.x > x) minV.x = x; else if (maxV.x < x) maxV.x = x;
+        if (minV.y > y) minV.y = y; else if (maxV.y < y) maxV.y = y;
+        if (minV.z > z) minV.z = z; else if (maxV.z < z) maxV.z = z;
+    }
+
+    // Get subdiv min/max
+    getSubdivisionMinBounds(colCtx, minV, outMin);
+    getSubdivisionMaxBounds(colCtx, maxV, outMax);
+}
+
+export function initializeSubdivisions(game, colCtx, allTriangleData) {
+    const colHeader = colCtx.colHeader;
+    const polyMax = colHeader.numPolygons;
+
+    // Clear lookup table
+    const total = colCtx.subdivAmount.x * colCtx.subdivAmount.y * colCtx.subdivAmount.z;
+
+    const subdivAmountXY = colCtx.subdivAmount.x * colCtx.subdivAmount.y;
+
+    const subdivLengthX = f32(colCtx.subdivLength.x + f32(2 * BGCHECK_SUBDIV_OVERLAP));
+    const subdivLengthY = f32(colCtx.subdivLength.y + f32(2 * BGCHECK_SUBDIV_OVERLAP));
+    const subdivLengthZ = f32(colCtx.subdivLength.z + f32(2 * BGCHECK_SUBDIV_OVERLAP));
+
+    const min = colCtx.minBounds;
+
+    // Temporary reusable ints
+    let minIdx = { x: 0, y: 0, z: 0 };
+    let maxIdx = { x: 0, y: 0, z: 0 };
+
+    for (let polyIdx = 0; polyIdx < allTriangleData.length; polyIdx++) {
+        let poly = allTriangleData[polyIdx];
+        
+        getPolySubdivisionBounds(
+            colCtx, poly,
+            minIdx, maxIdx
+        );
+
+        // Starting Z slice
+        let baseZ = minIdx.z * subdivAmountXY;
+
+        let curMinZ = f32(f32(colCtx.subdivLength.z * minIdx.z) + min.z - BGCHECK_SUBDIV_OVERLAP);
+        let curMaxZ = f32(curMinZ + subdivLengthZ);
+
+        for (let sz = minIdx.z; sz <= maxIdx.z; sz++) {
+            
+            let baseY = minIdx.y * colCtx.subdivAmount.x;
+
+            let curMinY = f32(f32(colCtx.subdivLength.y * minIdx.y) + min.y - BGCHECK_SUBDIV_OVERLAP);
+            let curMaxY = f32(curMinY + subdivLengthY);
+
+            for (let sy = minIdx.y; sy <= maxIdx.y; sy++) {
+
+                let index = baseZ + baseY + minIdx.x;
+
+                let curMinX = f32(f32(colCtx.subdivLength.x * minIdx.x) + min.x - BGCHECK_SUBDIV_OVERLAP);
+                let curMaxX = f32(curMinX + subdivLengthX);
+
+                for (let sx = minIdx.x; sx <= maxIdx.x; sx++) {
+                    
+                    const box = {
+                        xmin:curMinX, xmax:curMaxX,
+                        ymin:curMinY, ymax:curMaxY,
+                        zmin:curMinZ, zmax:curMaxZ,
+                    };
+                    
+                    const tri = [
+                        {x:poly.vtxs[0].x, y:poly.vtxs[0].y, z:poly.vtxs[0].z},
+                        {x:poly.vtxs[1].x, y:poly.vtxs[1].y, z:poly.vtxs[1].z},
+                        {x:poly.vtxs[2].x, y:poly.vtxs[2].y, z:poly.vtxs[2].z},
+                    ];
+                    
+                    if (triIntersectsCube(tri, box)) {
+                        // console.log("added poly "+polyIdx+" to subdiv "+index)
+                        
+                        if (f32(poly.normals[1] * COLPOLY_NORMAL_FRAC) > 0.5) {
+                            colCtx.subdivisions[index].floors.push(polyIdx);          // floor
+                        } else if (f32(poly.normals[1] * COLPOLY_NORMAL_FRAC) < -0.8) {
+                            colCtx.subdivisions[index].ceilings.push(polyIdx);          // ceiling
+                        } else {
+                            colCtx.subdivisions[index].walls.push(polyIdx);          // wall
+                        }
+                    }
+
+                    curMinX = f32(curMinX + colCtx.subdivLength.x);
+                    curMaxX = f32(curMaxX + colCtx.subdivLength.x);
+                    index++;
+                }
+
+                curMinY = f32(curMinY + colCtx.subdivLength.y);
+                curMaxY = f32(curMaxY + colCtx.subdivLength.y);
+                baseY += colCtx.subdivAmount.x;
+            }
+
+            curMinZ = f32(curMinZ + colCtx.subdivLength.z);
+            curMaxZ = f32(curMaxZ + colCtx.subdivLength.z);
+            baseZ += subdivAmountXY;
+        }
+    }
+
+    return;
 }
 
 /*
