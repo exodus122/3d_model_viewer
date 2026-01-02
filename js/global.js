@@ -17,13 +17,11 @@ const GAME_MAPS = {
 
 let game = "BK";
 let controlMode = 'pointer'; // State regarding which control mode is active: 'pointer' | 'orbit' | 'auto'
-let pointerLockBlocked = false; // whether requestPointerLock is blocked (sandboxed iframe)
 let loadedModels = []; // { name, mesh, edges }
-let loadedModels2 = []; // { name, mesh, edges }
+let loadedModelsNotSelectable = []; // { name, mesh, edges }
 let mesh = null;
 let edges = null;
 let selectedTriangles = []; // Store multiple selections
-let orbitControls = null; // lazy-created when needed
 
 // Zelda-specific variables
 let speed = 1500; // movement units per second

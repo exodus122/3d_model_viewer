@@ -13,15 +13,11 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
-import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
-import { LineGeometry } from 'three/addons/lines/LineGeometry.js';
-import { LineSegments2 } from 'three/addons/lines/LineSegments2.js';
 import { updateSamplePointsUIVisibility, drawSampledTriangles } from './sample_points.js';
 import { initColCtx, initializeSubdivisions } from './subdivisions.js';
 import { renderStandableSurfaceWithEdges, renderStandableSurfaceWithEdges_old } from './standable_surfaces.js';
 import { scanAndBuildFlatGroundMarkers, scanAndBuildSpecialNormalMarkers } from './ground_clips.js';
 import { performSelection, clearSelection } from './selection.js';
-
 
 ////////////////////////////////////////
 // System: DOM / Static UI Elements
@@ -771,11 +767,12 @@ function buildGeometry(verts, tris, allTriangleData, name = "Main Model", clearF
             scene.remove(m.edges);
         });
         loadedModels = [];
-        loadedModels2.forEach(m => {
+        
+        loadedModelsNotSelectable.forEach(m => {
             scene.remove(m.mesh);
             scene.remove(m.edges);
         });
-        loadedModels2 = [];
+        loadedModelsNotSelectable = [];
 
         // Remove all model checkboxes
         removeAllModelCheckboxes();
@@ -857,11 +854,11 @@ function buildGeometry_fwc(verts, tris, name = "Main Model", clearFirst = true) 
         });
         loadedModels = [];
 
-        loadedModels2.forEach(m => {
+        loadedModelsNotSelectable.forEach(m => {
             scene.remove(m.mesh);
             scene.remove(m.edges);
         });
-        loadedModels2 = [];
+        loadedModelsNotSelectable = [];
 
         removeAllModelCheckboxes();
         clearSelection(scene);
@@ -1012,11 +1009,11 @@ function buildGeometryFromTriangles(allTriangleData, name = "Main Model", clearF
         });
         loadedModels = [];
 
-        loadedModels2.forEach(m => {
+        loadedModelsNotSelectable.forEach(m => {
             scene.remove(m.mesh);
             scene.remove(m.edges);
         });
-        loadedModels2 = [];
+        loadedModelsNotSelectable = [];
 
         removeAllModelCheckboxes();
         clearSelection(scene);
@@ -1282,6 +1279,7 @@ function addModelCheckbox(name, meshObj, edgesObj, clearFirst, checked, color = 
 // System: Canvas / Pointer interactions
 ////////////////////////////////////////
 const pointerControls = new PointerLockControls(camera, renderer.domElement);
+let pointerLockBlocked = false; // whether requestPointerLock is blocked (sandboxed iframe)
 
 renderer.domElement.addEventListener('click', (ev)=>{
     // If user explicitly selected Orbit mode, always treat click as selection (no pointer lock)
@@ -1364,6 +1362,8 @@ window.addEventListener('resize', onWindowResize);
 ////////////////////////////////////////
 // System: Fly/Orbit controls
 ////////////////////////////////////////
+
+let orbitControls = null; // lazy-created when needed
 
 function enableOrbitControls(){
     if(orbitControls) return;
