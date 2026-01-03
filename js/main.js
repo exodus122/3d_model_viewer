@@ -15,7 +15,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
 import { performSelection, clearSelection } from './selection.js';
 import { parseModel, parseModelText, parseModelBinary, parseBKModelBinary, parseZeldaModelBinary, parseInvisibleSeams1D } from './parse_model.js';
-import { buildTest } from './render.js';
+import { addModelCheckbox, buildTest } from './render.js';
 
 ////////////////////////////////////////
 // System: DOM / Static UI Elements
