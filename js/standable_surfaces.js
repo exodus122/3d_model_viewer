@@ -264,7 +264,7 @@ export function renderCollisionWallsXY(allTriangleData) {
         const Nz = f32(normals[2] * COLPOLY_NORMAL_FRAC);
 
         // Need a valid Z solve
-        if (Math.abs(Nz) < f32(1e-12)) 
+        if ((Math.abs(Nz) < f32(1e-12)) || (Math.abs(Ny) > 0.5) || (Math.abs(Ny) < -0.8)) 
             return;
 
         //
@@ -396,7 +396,7 @@ export function renderCollisionWallsYZ(allTriangleData) {
         const Nz = f32(normals[2] * COLPOLY_NORMAL_FRAC);
 
         // Need N.x for solving X
-        if (Math.abs(Nx) < f32(1e-12))
+        if ((Math.abs(Nx) < f32(1e-12)) || (Math.abs(Ny) > 0.5) || (Math.abs(Ny) < -0.8))
             return;
 
         //
