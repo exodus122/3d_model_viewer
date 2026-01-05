@@ -107,7 +107,7 @@ export function addModelCheckbox(scene, name, meshObj, edgesObj, clearFirst, che
     section.appendChild(container);
 }
 
-function removeAllModelCheckboxes() {
+export function removeAllModelCheckboxes() {
     const section = document.querySelector('.controls');
     // Remove all containers that hold the model checkbox + color picker
     section.querySelectorAll('div').forEach(container => {
