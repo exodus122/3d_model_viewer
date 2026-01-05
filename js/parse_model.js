@@ -3,9 +3,10 @@ import { addModelCheckbox, buildGeometry, buildGeometry_fwc, buildGeometryFromTr
 import { buildGeometry2, buildGeometry3, buildGeometry4 } from './gap.js';
 import { initColCtx, initializeSubdivisions } from './subdivisions.js';
 import { renderStandableSurfaceXZ, renderCollisionWallsXY, renderCollisionWallsYZ, renderStandableSurfaceXZ_old } from './standable_surfaces.js';
-import { scanAndBuildFlatGroundMarkers, scanAndBuildSpecialNormalMarkers } from './ground_clips.js';
+import { scanAndBuildFlatGroundMarkers, scanAndBuildSpecialNormalMarkers, buildSurfaceTypeMarkers } from './ground_clips.js';
 
 const wireframeCheckbox = document.getElementById('wireframe');
+const surfaceTypeDropdown = document.getElementById("surfaceTypeDropdown");
 
 ////////////////////////////////////////
 // System: Model Parsing (text vs binary dispatch)
@@ -274,11 +275,15 @@ export function parseZeldaModelBinary(scene, buffer, fresh, mapName){
                     colHeader.vtxListStart = dv.getUint32(cmd2+address_offset+0x10, endianness);
                     colHeader.numPolygons = dv.getUint16(cmd2+address_offset+0x14, endianness);
                     colHeader.polygonListStart = dv.getUint32(cmd2+address_offset+0x18, endianness);
+                    colHeader.surfaceTypeListStart = dv.getUint32(cmd2+address_offset+0x1C, endianness);
+                    colHeader.numSurfaceTypes = 200; // there is no numSurfaceTypes in these games, so just get 200 I guess...
                 }
                 else if (game == "OOT3D") {
                     colHeader.numPolygons = dv.getUint16(cmd2+address_offset+0x0E, endianness);
+                    colHeader.numSurfaceTypes = dv.getUint16(cmd2+address_offset+0x10, endianness);
                     colHeader.vtxListStart = dv.getUint32(cmd2+address_offset+0x18, endianness);
                     colHeader.polygonListStart = dv.getUint32(cmd2+address_offset+0x1C, endianness);
+                    colHeader.surfaceTypeListStart = dv.getUint32(cmd2+address_offset+0x20, endianness);
                 }
             }
             else if (game == "MM3D") {
@@ -290,8 +295,10 @@ export function parseZeldaModelBinary(scene, buffer, fresh, mapName){
                 colHeader.maxBounds.z = dv.getInt16(cmd2+address_offset+0x0C, endianness);
                 colHeader.numVtxs = dv.getUint16(cmd2+address_offset+0x0E, endianness);
                 colHeader.numPolygons = dv.getUint16(cmd2+address_offset+0x10, endianness);
+                colHeader.numSurfaceTypes = dv.getUint16(cmd2+address_offset+0x12, endianness);
                 colHeader.vtxListStart = dv.getUint32(cmd2+address_offset+0x18, endianness);
                 colHeader.polygonListStart = dv.getUint32(cmd2+address_offset+0x1C, endianness);
+                colHeader.surfaceTypeListStart = dv.getUint32(cmd2+address_offset+0x20, endianness);
             }
             break;
         }
@@ -309,8 +316,38 @@ export function parseZeldaModelBinary(scene, buffer, fresh, mapName){
     //console.log("vtxListStart: "+colHeader.vtxListStart);
     //console.log("polygonListStart: "+colHeader.polygonListStart);
     
+    // Get SurfaceTypes
+    let offset = colHeader.surfaceTypeListStart + address_offset;
+    for(let i = 0; i < colHeader.numSurfaceTypes; i++){
+        const word1 = dv.getUint32(offset + i*8 + 0x0, endianness);
+        const word2 = dv.getUint32(offset + i*8 + 0x4, endianness);
+        
+        let surfaceObject = {
+            horseBlocked:      (word1 >>> 31) & 0x1,
+            isSoft:            (word1 >>> 30) & 0x1,
+            floorProperty:     (word1 >>> 26) & 0xF,
+            wallType:          (word1 >>> 21) & 0x1F,
+            unk18:             (word1 >>> 18) & 0x7,
+            floorType:         (word1 >>> 13) & 0x1F,
+            loadingZone:       (word1 >>> 8)  & 0x1F, // surfaceExitIndex
+            bgCamIndex:        (word1 >>> 0)  & 0xFF,
+            
+            wallDamage:        (word2 >>> 27) & 0x1,
+            conveyorDirection: (word2 >>> 21) & 0x3F,
+            conveyorSpeed:     (word2 >>> 18) & 0x7,
+            canHookshot:       (word2 >>> 17) & 0x1,
+            echo:              (word2 >>> 11) & 0x3F,
+            lightSetting:      (word2 >>> 6)  & 0x1F,
+            floorEffect:       (word2 >>> 4)  & 0x3,
+            material:          (word2 >>> 0)  & 0xF
+        };
+        
+        colCtx.surfaceTypes.push(surfaceObject);
+    }
+    
+    // Get Vertices
     const verts = [];
-    let offset = colHeader.vtxListStart + address_offset;
+    offset = colHeader.vtxListStart + address_offset;
     for(let i = 0; i < colHeader.numVtxs; i++){
         const x = dv.getInt16(offset + i*6 + 0x0, endianness);
         const y = dv.getInt16(offset + i*6 + 0x2, endianness);
@@ -320,10 +357,13 @@ export function parseZeldaModelBinary(scene, buffer, fresh, mapName){
     }
     //console.log(verts);
     
+    // Get Triangles
     const tris = [];
     offset = colHeader.polygonListStart + address_offset;
     for(let i = 0; i < colHeader.numPolygons; i++){
         if(offset+poly_length > dv.byteLength) break;
+        
+        let type = dv.getUint16(offset + poly_length*i + 0x0,endianness);
         
         let temp_a = dv.getUint16(offset + poly_length*i + 0x2,endianness);
         const xpFlags = (temp_a & 0xE000) >>> 13;
@@ -370,6 +410,7 @@ export function parseZeldaModelBinary(scene, buffer, fresh, mapName){
 
         allTriangleData.push({
                 id: i,
+                type: type,
                 vtxs: vtxs,
                 normals: [normX, normY, normZ],
                 d: dist,
@@ -495,6 +536,8 @@ export function parseZeldaModelBinary(scene, buffer, fresh, mapName){
         loadedModels.push({ name: "Special Normal", mesh: specialNormalGroup, edges: null });
         addModelCheckbox(scene, "Special Normal", specialNormalGroup, null, false, false, "#00FFFF");
     }
+    
+    buildSurfaceTypeMarkers(scene);
 }
 
 export function parseInvisibleSeams1D(scene, text) {

@@ -286,3 +286,222 @@ export function scanAndBuildSpecialNormalMarkers() {
 
     return master;
 }
+
+
+export function scanAndBuildSurfaceTypeMarkers(parameter) {
+
+    const mainModel = loadedModels.find(m => m.name === "Main Model");
+    if (!mainModel || !mainModel.mesh) return null;
+
+    const mesh = mainModel.mesh;
+    const triData = mesh.userData.triangles;
+    const colCtxData = mesh.userData.colCtx;
+    if (!triData || triData.length === 0) return null;
+
+    const geom = mesh.geometry;
+    const pos = geom.attributes.position;
+    const index = geom.index;
+
+    // -------------------------
+    // Collect merged geometry
+    // -------------------------
+    const mergedVerts = [];
+    const mergedEdges = [];
+
+    for (let i = 0; i < triData.length; i++) {
+
+        const ia = index.getX(i*3);
+        const ib = index.getX(i*3 + 1);
+        const ic = index.getX(i*3 + 2);
+
+        const va = new THREE.Vector3().fromBufferAttribute(pos, ia);
+        const vb = new THREE.Vector3().fromBufferAttribute(pos, ib);
+        const vc = new THREE.Vector3().fromBufferAttribute(pos, ic);
+
+        const tri = triData[i];
+        const type = tri.type;
+        
+        if (parameter == "horseBlocked" || parameter == "isSoft" || parameter == "wallDamage" || parameter == "canHookshot" || parameter == "loadingZone" || parameter == "echo" || parameter == "unk18") {
+            if (colCtxData.surfaceTypes[type][parameter] == 0)
+                continue;
+        }
+        else if(parameter == "conveyor") {
+            if (tri.flags != 1)
+                continue;
+        }
+        else {
+            console.log("scanAndBuildSurfaceTypeMarkers: unknown parameter: '"+parameter+"'")
+            return null;
+        }
+
+        // -----------------------
+        // Add triangle to merged mesh
+        // -----------------------
+        mergedVerts.push(
+            va.x, va.y, va.z,
+            vb.x, vb.y, vb.z,
+            vc.x, vc.y, vc.z
+        );
+
+        // -----------------------
+        // Add edges for merged edges
+        // -----------------------
+        mergedEdges.push(
+            va.x, va.y, va.z, vb.x, vb.y, vb.z,
+            vb.x, vb.y, vb.z, vc.x, vc.y, vc.z,
+            vc.x, vc.y, vc.z, va.x, va.y, va.z
+        );
+    }
+
+    // If no triangles matched
+    if (mergedVerts.length === 0) return null;
+
+    // -------------------------
+    // Build merged mesh
+    // -------------------------
+    const meshGeom = new THREE.BufferGeometry();
+    meshGeom.setAttribute(
+        "position",
+        new THREE.Float32BufferAttribute(mergedVerts, 3)
+    );
+    meshGeom.setIndex([...Array(mergedVerts.length / 3).keys()]);
+
+    const meshMat = new THREE.MeshBasicMaterial({
+        color: 0xb06ae6,
+        side: THREE.DoubleSide,
+        transparent: true,
+        opacity: 0.9,
+        polygonOffset: true,
+        polygonOffsetFactor: -1,
+        polygonOffsetUnits: -1
+    });
+
+    const mergedMesh = new THREE.Mesh(meshGeom, meshMat);
+    mergedMesh.renderOrder = 1;
+
+    // -------------------------
+    // Build merged edges
+    // -------------------------
+    const edgeGeom = new THREE.BufferGeometry();
+    edgeGeom.setAttribute(
+        "position",
+        new THREE.Float32BufferAttribute(mergedEdges, 3)
+    );
+
+    const edgeMat = new THREE.LineBasicMaterial({
+        color: 0x000000,
+        linewidth: 1.5
+    });
+
+    const mergedEdgesObj = new THREE.LineSegments(edgeGeom, edgeMat);
+    mergedEdgesObj.renderOrder = 999;
+
+    // -------------------------
+    // Build final group with exactly ONE mesh + ONE edges
+    // -------------------------
+    const master = new THREE.Group();
+    master.add(mergedMesh);
+    master.add(mergedEdgesObj);
+    master.visible = false;
+    
+    return master;
+}
+
+export function buildSurfaceTypeMarkers(scene) {
+    let parameters = [
+        "horseBlocked",
+        "isSoft",
+        //"floorProperty",
+        //"wallType",
+        //"unk18",
+        //"floorType",
+        "loadingZone", // surfaceExitIndex
+        //"bgCamIndex",
+        "wallDamage",
+        //"conveyorDirection",
+        //"conveyorSpeed",
+        "canHookshot",
+        //"echo",
+        //"lightSetting",
+        //"floorEffect",
+        //"material"
+    ];
+    
+    /*let parameters = [
+        "horseBlocked",
+        "isSoft"
+    ];*/
+
+    for (let p = 0; p < parameters.length; p++) {
+        const param = parameters[p];
+        const surfaceTypeGroup = scanAndBuildSurfaceTypeMarkers(param);
+        
+        if(surfaceTypeGroup) {
+            scene.add(surfaceTypeGroup);
+
+            loadedModels.push({
+                name: param,
+                mesh: surfaceTypeGroup,
+                edges: null
+            });
+        }
+    }
+    
+    const dropdownContent = document.getElementById("surfaceDropdownContent");
+
+    function buildSurfaceTypeCheckboxes() {
+        dropdownContent.innerHTML = ""; // clear previous
+        
+        parameters.forEach(param => {
+            const label = document.createElement("label");
+
+            label.innerHTML = `
+                <input type="checkbox" id="chk_${param}">
+                ${param}
+            `;
+
+            dropdownContent.appendChild(label);
+        });
+    }
+
+    buildSurfaceTypeCheckboxes();
+    
+    function setupSurfaceTypeVisibility() {
+        parameters.forEach(param => {
+            const checkbox = document.getElementById("chk_" + param);
+
+            checkbox.addEventListener("change", () => {
+                const entry = loadedModels.find(m => m.name === param);
+                if (entry) {
+                    entry.mesh.visible = checkbox.checked;
+                }
+            });
+        });
+    }
+
+    setupSurfaceTypeVisibility();
+    
+    /*let parameters = ["horseBlocked", "isSoft", "loadingZone"];
+    for (let p = 0; p < parameters.length; p++) {
+        const surfaceTypeGroup = scanAndBuildSurfaceTypeMarkers(parameters[p]);
+        scene.add(surfaceTypeGroup);
+        loadedModels.push({ name: parameters[p], mesh: surfaceTypeGroup, edges: null });
+    }*/
+    
+    /*let parameters = ["horseBlocked", "isSoft", "loadingZone"];
+    for(let p = 0; p < parameters.length; p++){
+        const surfaceTypeGroup = scanAndBuildSurfaceTypeMarkers(parameters[p]);
+        scene.add(surfaceTypeGroup);
+        loadedModels.push({ name: "SurfaceType", mesh: surfaceTypeGroup, edges: null });
+        //addModelCheckbox(scene, "SurfaceType", surfaceTypeGroup, null, false, false, "#b06ae6");
+    }*/
+    
+    /*const surfaceTypeGroup = scanAndBuildSurfaceTypeMarkers(surfaceTypeDropdown.value);
+    if (surfaceTypeGroup) {
+        scene.add(surfaceTypeGroup);
+        loadedModels.push({ name: "SurfaceType", mesh: surfaceTypeGroup, edges: null });
+        addModelCheckbox(scene, "SurfaceType", surfaceTypeGroup, null, false, false, "#b06ae6");
+    }*/
+    
+    //getSelectedSurfaceFields();
+}

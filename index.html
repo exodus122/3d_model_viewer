@@ -50,6 +50,10 @@
         <label><input id="wireframe" type="checkbox" checked> Draw triangle edges</label>
         <label><input id="backface" type="checkbox"> Double-sided triangles</label>
         <div style="display: flex; align-items: center; margin-bottom: 4px; gap: 8px;" id="samplePointsContainer"><label id="samplePointsLabel"><input type="checkbox" id="samplePointsCheckbox">Sample Standable Points</label><input type="range" id="samplePointsResolution" value="0.1" min="0.001" max="0.12" step="0.01"></div>
+        <div class="dropdown" id="surfaceDropdown">
+            <button class="dropdown-btn">Surface Flags ▼</button>
+            <div class="dropdown-content" id="surfaceDropdownContent"></div>
+        </div>
         <label style="display:none;"><input id="translucent" type="checkbox" checked> Translucent (opacity)</label>
         <label style="display:none;">Opacity <input id="opacity" type="range" min="0" max="1" step="0.01" value="1.0"></label>
         <label style="display:none;"><input id="grid" type="checkbox"> Draw grid</label>

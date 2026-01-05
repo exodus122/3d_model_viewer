@@ -138,6 +138,31 @@ BK_Maps.forEach(map => {
 });
 
 ////////////////////////////////////////
+// System: Surface Flag dropdown
+////////////////////////////////////////
+
+// Toggle dropdown (robust)
+const dropdown = document.querySelector('.dropdown');
+const dropdownBtn = document.querySelector('.dropdown-btn');
+const dropdownContent = document.getElementById("surfaceDropdownContent");
+
+// Open/close when clicking the button
+dropdownBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    dropdown.classList.toggle('show');
+});
+
+// Close if clicking outside
+document.addEventListener('click', () => {
+    dropdown.classList.remove('show');
+});
+
+// Prevent inside clicks from closing
+dropdownContent.addEventListener('click', (e) => {
+    e.stopPropagation();
+});
+
+////////////////////////////////////////
 // System: Game / Map selector
 ////////////////////////////////////////
 

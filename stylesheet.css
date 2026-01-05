@@ -215,3 +215,35 @@ a.download-link {
     margin-top: 6px;
     margin-bottom: 8px;
 }
+
+.dropdown {
+    position: relative;
+    display: inline-block;
+    font-family: sans-serif;
+}
+
+.dropdown-btn {
+    padding: 6px 12px;
+    cursor: pointer;
+}
+
+.dropdown-content {
+    display: none;
+    position: absolute;
+    background: #222;
+    color: #fff;
+    padding: 10px;
+    border: 1px solid #444;
+    min-width: 200px;
+    z-index: 1000;
+}
+
+.dropdown-content label {
+    display: block;
+    margin: 4px 0;
+    cursor: pointer;
+}
+
+.dropdown.show .dropdown-content {
+    display: block;
+}

@@ -169,7 +169,7 @@ export function initColCtx(game, sceneName, colHeader) {
     colCtx.subdivLength.z = r.subdivLength;
     colCtx.subdivLengthInv.z = r.subdivLengthInv;
     colCtx.subdivisions = [];
-    
+    colCtx.surfaceTypes = [];
     
     let total_subdivisions = colCtx.subdivAmount.x * colCtx.subdivAmount.y * colCtx.subdivAmount.z;
     
