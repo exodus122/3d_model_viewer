@@ -31,7 +31,9 @@ export function addModelCheckbox(scene, name, meshObj, edgesObj, clearFirst, che
     chk.addEventListener('change', () => {
         if (meshObj != null)
             meshObj.visible = chk.checked;
-        if (edgesObj != null)
+        if (edgesObj != null && meshObj == null)
+            edgesObj.visible = chk.checked;
+        else if (edgesObj != null)
             edgesObj.visible = chk.checked && wireframeCheckbox.checked;
         clearSelection(scene);
     });
