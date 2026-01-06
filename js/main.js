@@ -142,6 +142,7 @@ BK_Maps.forEach(map => {
 ////////////////////////////////////////
 
 // Toggle dropdown (robust)
+const dropdownElement = document.getElementById("surfaceDropdown");
 const dropdown = document.querySelector('.dropdown');
 const dropdownBtn = document.querySelector('.dropdown-btn');
 const dropdownContent = document.getElementById("surfaceDropdownContent");
@@ -196,10 +197,14 @@ gameSel.addEventListener('change',(e)=>{
         mapDropdown.appendChild(option);
     });
     
-    if (game == "BK" || game == "BT")
+    if (game == "BK" || game == "BT") {
         display_fwc_label.style.display = "none";
-    else
+        dropdownElement.style.display = "none";
+    }
+    else {
         display_fwc_label.style.display = "block";
+        dropdownElement.style.display = "block";
+    }
         
 });
 

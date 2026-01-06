@@ -409,18 +409,18 @@ export function scanAndBuildSurfaceTypeMarkers(parameter) {
 
 export function buildSurfaceTypeMarkers(scene) {
     let parameters = [
+        "loadingZone", // surfaceExitIndex
+        "canHookshot",
+        "wallDamage",
         "horseBlocked",
         "isSoft",
         //"floorProperty",
         //"wallType",
         //"unk18",
         //"floorType",
-        "loadingZone", // surfaceExitIndex
         //"bgCamIndex",
-        "wallDamage",
         //"conveyorDirection",
         //"conveyorSpeed",
-        "canHookshot",
         //"echo",
         //"lightSetting",
         //"floorEffect",
