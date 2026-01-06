@@ -3,7 +3,7 @@ import { addModelCheckbox, buildGeometry, buildGeometry_fwc, buildGeometryFromTr
 import { buildGeometry2, buildGeometry3, buildGeometry4 } from './gap.js';
 import { initColCtx, initializeSubdivisions } from './subdivisions.js';
 import { renderStandableSurfaceXZ, renderCollisionWallsXY, renderCollisionWallsYZ, renderStandableSurfaceXZ_old } from './standable_surfaces.js';
-import { scanAndBuildFlatGroundMarkers, scanAndBuildSpecialNormalMarkers, buildSurfaceTypeMarkers } from './ground_clips.js';
+import { scanAndBuildFlatGroundMarkers, scanAndBuildSpecialNormalMarkers, buildSurfaceTypeMarkers } from './poly_markers.js';
 
 const wireframeCheckbox = document.getElementById('wireframe');
 const surfaceTypeDropdown = document.getElementById("surfaceTypeDropdown");
@@ -500,10 +500,15 @@ export function parseZeldaModelBinary(scene, buffer, fresh, mapName){
     const standableSurfaceMesh = renderStandableSurfaceXZ(allTriangleData);
     if (standableSurfaceMesh) {
         scene.add(standableSurfaceMesh);
+        
         standableSurfaceMesh.children[1].visible = wireframeCheckbox.checked;
-        standableSurfaceMesh.children[3].visible = wireframeCheckbox.checked;
+        if(standableSurfaceMesh.children[3])
+            standableSurfaceMesh.children[3].visible = wireframeCheckbox.checked;
+        
         loadedModels.push({ name: "Standable Surface", mesh: standableSurfaceMesh, edges: standableSurfaceMesh.children[1] });
-        loadedModels.push({ name: "Standable Surface", mesh: standableSurfaceMesh, edges: standableSurfaceMesh.children[3] });
+        if(standableSurfaceMesh.children[3])
+            loadedModels.push({ name: "Standable Surface", mesh: standableSurfaceMesh, edges: standableSurfaceMesh.children[3] });
+        
         addModelCheckbox(scene, "Standable Surface", standableSurfaceMesh, null, false, true, "#ff0000");
     }
     

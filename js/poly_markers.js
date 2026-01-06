@@ -321,8 +321,38 @@ export function scanAndBuildSurfaceTypeMarkers(parameter) {
         const tri = triData[i];
         const type = tri.type;
         
-        if (parameter == "horseBlocked" || parameter == "isSoft" || parameter == "wallDamage" || parameter == "canHookshot" || parameter == "loadingZone" || parameter == "echo" || parameter == "unk18") {
+        if (parameter == "horseBlocked" || parameter == "isSoft" || parameter == "wallDamage" || parameter == "canHookshot" 
+            || parameter == "loadingZone" || parameter == "echo" || parameter == "unk18") {
+            
             if (colCtxData.surfaceTypes[type][parameter] == 0)
+                continue;
+        }
+        else if(parameter == "void (FLOOR_PROPERTY_5)") {
+            if (colCtxData.surfaceTypes[type].floorProperty != 5)
+                continue;
+        }
+        else if(parameter == "noJump2 (FLOOR_PROPERTY_6)") {
+            if (colCtxData.surfaceTypes[type].floorProperty != 6)
+                continue;
+        }
+        else if(parameter == "hoverNoISG (FLOOR_PROPERTY_7)") {
+            if (colCtxData.surfaceTypes[type].floorProperty != 7)
+                continue;
+        }
+        else if(parameter == "walkAbove (FLOOR_PROPERTY_8)") {
+            if (colCtxData.surfaceTypes[type].floorProperty != 8)
+                continue;
+        }
+        else if(parameter == "noJump1 (FLOOR_PROPERTY_9)") {
+            if (colCtxData.surfaceTypes[type].floorProperty != 9)
+                continue;
+        }
+        else if(parameter == "diveOff (FLOOR_PROPERTY_11)") {
+            if (colCtxData.surfaceTypes[type].floorProperty != 11)
+                continue;
+        }
+        else if(parameter == "void2 (FLOOR_PROPERTY_12)") {
+            if (colCtxData.surfaceTypes[type].floorProperty != 12)
                 continue;
         }
         else if(parameter == "conveyor") {
@@ -414,6 +444,15 @@ export function buildSurfaceTypeMarkers(scene) {
         "wallDamage",
         "horseBlocked",
         "isSoft",
+        "conveyor",
+        "void1 (FLOOR_PROPERTY_5)",
+        "noJump2 (FLOOR_PROPERTY_6)",
+        "hoverNoIsg (FLOOR_PROPERTY_7)",
+        "walkAbove (FLOOR_PROPERTY_8)",
+        "noJump1 (FLOOR_PROPERTY_9)",
+        "diveOff (FLOOR_PROPERTY_11)",
+        "void2 (FLOOR_PROPERTY_12)"
+        
         //"floorProperty",
         //"wallType",
         //"unk18",
