@@ -34,6 +34,7 @@ const camRotEl = document.getElementById('cam-rot');
 const statusEl = document.getElementById('status');
 const controlModeSel = document.getElementById('control-mode');
 const gameSel = document.getElementById('selected-game');
+const subdivisionSelectorContainer = document.getElementById("subdivisionSelectorContainer");
 
 const display_fwc = document.getElementById('display_fwc');
 const display_fwc_label = document.getElementById('display_fwc_label');
@@ -200,10 +201,12 @@ gameSel.addEventListener('change',(e)=>{
     if (game == "BK" || game == "BT") {
         display_fwc_label.style.display = "none";
         dropdownElement.style.display = "none";
+        subdivisionSelectorContainer.style.display = "none";
     }
     else {
         display_fwc_label.style.display = "block";
         dropdownElement.style.display = "block";
+        subdivisionSelectorContainer.style.display = "block";
     }
         
 });
@@ -265,6 +268,7 @@ loadMap.addEventListener('click', async (e) => {
                     let seams_path = "seams";
                     if (game == "OOT3D" || game == "MM3D" || game == "MM" || game == "OOT")
                         seams_path = "seams2";
+                    
                     const res2 = await fetch('./models/' + game + '/' + seams_path + '/' + mapFilename2);
                     //const res2 = await fetch('./models/' + game + '/' + seams_path + '/' + "test.txt");
                         

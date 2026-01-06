@@ -3,7 +3,7 @@ import { addModelCheckbox, buildGeometry, buildGeometry_fwc, buildGeometryFromTr
 import { buildGeometry2, buildGeometry3, buildGeometry4 } from './gap.js';
 import { initColCtx, initializeSubdivisions } from './subdivisions.js';
 import { renderStandableSurfaceXZ, renderCollisionWallsXY, renderCollisionWallsYZ, renderStandableSurfaceXZ_old } from './standable_surfaces.js';
-import { scanAndBuildFlatGroundMarkers, scanAndBuildSpecialNormalMarkers, buildSurfaceTypeMarkers } from './poly_markers.js';
+import { scanAndBuildFlatGroundMarkers, scanAndBuildSpecialNormalMarkers, buildSurfaceTypeMarkers, scanAndBuildSubdivision } from './poly_markers.js';
 
 const wireframeCheckbox = document.getElementById('wireframe');
 const surfaceTypeDropdown = document.getElementById("surfaceTypeDropdown");
@@ -319,30 +319,35 @@ export function parseZeldaModelBinary(scene, buffer, fresh, mapName){
     // Get SurfaceTypes
     let offset = colHeader.surfaceTypeListStart + address_offset;
     for(let i = 0; i < colHeader.numSurfaceTypes; i++){
-        const word1 = dv.getUint32(offset + i*8 + 0x0, endianness);
-        const word2 = dv.getUint32(offset + i*8 + 0x4, endianness);
-        
-        let surfaceObject = {
-            horseBlocked:      (word1 >>> 31) & 0x1,
-            isSoft:            (word1 >>> 30) & 0x1,
-            floorProperty:     (word1 >>> 26) & 0xF,
-            wallType:          (word1 >>> 21) & 0x1F,
-            unk18:             (word1 >>> 18) & 0x7,
-            floorType:         (word1 >>> 13) & 0x1F,
-            loadingZone:       (word1 >>> 8)  & 0x1F, // surfaceExitIndex
-            bgCamIndex:        (word1 >>> 0)  & 0xFF,
+        try {
+            const word1 = dv.getUint32(offset + i*8 + 0x0, endianness);
+            const word2 = dv.getUint32(offset + i*8 + 0x4, endianness);
             
-            wallDamage:        (word2 >>> 27) & 0x1,
-            conveyorDirection: (word2 >>> 21) & 0x3F,
-            conveyorSpeed:     (word2 >>> 18) & 0x7,
-            canHookshot:       (word2 >>> 17) & 0x1,
-            echo:              (word2 >>> 11) & 0x3F,
-            lightSetting:      (word2 >>> 6)  & 0x1F,
-            floorEffect:       (word2 >>> 4)  & 0x3,
-            material:          (word2 >>> 0)  & 0xF
-        };
-        
-        colCtx.surfaceTypes.push(surfaceObject);
+            let surfaceObject = {
+                horseBlocked:      (word1 >>> 31) & 0x1,
+                isSoft:            (word1 >>> 30) & 0x1,
+                floorProperty:     (word1 >>> 26) & 0xF,
+                wallType:          (word1 >>> 21) & 0x1F,
+                unk18:             (word1 >>> 18) & 0x7,
+                floorType:         (word1 >>> 13) & 0x1F,
+                loadingZone:       (word1 >>> 8)  & 0x1F, // surfaceExitIndex
+                bgCamIndex:        (word1 >>> 0)  & 0xFF,
+                
+                wallDamage:        (word2 >>> 27) & 0x1,
+                conveyorDirection: (word2 >>> 21) & 0x3F,
+                conveyorSpeed:     (word2 >>> 18) & 0x7,
+                canHookshot:       (word2 >>> 17) & 0x1,
+                echo:              (word2 >>> 11) & 0x3F,
+                lightSetting:      (word2 >>> 6)  & 0x1F,
+                floorEffect:       (word2 >>> 4)  & 0x3,
+                material:          (word2 >>> 0)  & 0xF
+            };
+            
+            colCtx.surfaceTypes.push(surfaceObject);
+        }
+        catch {
+            break;
+        }
     }
     
     // Get Vertices
@@ -377,45 +382,45 @@ export function parseZeldaModelBinary(scene, buffer, fresh, mapName){
         
         let normX = null, normY = null, normZ = null;
         if (game == "OOT3D") {
-                normX = dv.getInt16(offset + poly_length*i + 0xA,endianness);
-                normY = dv.getInt16(offset + poly_length*i + 0xC,endianness);
-                normZ = dv.getInt16(offset + poly_length*i + 0xE,endianness);
+            normX = dv.getInt16(offset + poly_length*i + 0xA,endianness);
+            normY = dv.getInt16(offset + poly_length*i + 0xC,endianness);
+            normZ = dv.getInt16(offset + poly_length*i + 0xE,endianness);
         }
         else {
-                normX = dv.getInt16(offset + poly_length*i + 0x8,endianness);
-                normY = dv.getInt16(offset + poly_length*i + 0xA,endianness);
-                normZ = dv.getInt16(offset + poly_length*i + 0xC,endianness);
+            normX = dv.getInt16(offset + poly_length*i + 0x8,endianness);
+            normY = dv.getInt16(offset + poly_length*i + 0xA,endianness);
+            normZ = dv.getInt16(offset + poly_length*i + 0xC,endianness);
         }
         
         //console.log("normal: " + normX + ", " + normY + ", " + normZ)
         let dist = null;
         if (game == "OOT" || game == "MM") {
-                dist = dv.getInt16(offset + poly_length*i + 0xE,endianness);
+            dist = dv.getInt16(offset + poly_length*i + 0xE,endianness);
         }
         else {
-                dist = dv.getFloat32(offset + poly_length*i + 0x10, endianness);
+            dist = dv.getFloat32(offset + poly_length*i + 0x10, endianness);
         }
         
-        if (xpFlags & 2) // skip polys that don't have collision
-                continue;
+        //if (xpFlags & 2) // skip polys that don't have collision
+        //    continue;
         
         tris.push([a+1,b+1,c+1]);
         
         // --- Build triangle object directly for allTriangleData ---
         const vtxs = [
-                new THREE.Vector3(verts[a][0], verts[a][1], verts[a][2]),
-                new THREE.Vector3(verts[b][0], verts[b][1], verts[b][2]),
-                new THREE.Vector3(verts[c][0], verts[c][1], verts[c][2])
+            new THREE.Vector3(verts[a][0], verts[a][1], verts[a][2]),
+            new THREE.Vector3(verts[b][0], verts[b][1], verts[b][2]),
+            new THREE.Vector3(verts[c][0], verts[c][1], verts[c][2])
         ];
 
         allTriangleData.push({
-                id: i,
-                type: type,
-                vtxs: vtxs,
-                normals: [normX, normY, normZ],
-                d: dist,
-                xpFlags: xpFlags,
-                flags: flags
+            id: i,
+            type: type,
+            vtxs: vtxs,
+            normals: [normX, normY, normZ],
+            d: dist,
+            xpFlags: xpFlags,
+            flags: flags
         });
     }
     //console.log(tris)
@@ -540,6 +545,17 @@ export function parseZeldaModelBinary(scene, buffer, fresh, mapName){
         scene.add(specialNormalGroup);
         loadedModels.push({ name: "Special Normal", mesh: specialNormalGroup, edges: null });
         addModelCheckbox(scene, "Special Normal", specialNormalGroup, null, false, false, "#00FFFF");
+    }
+    
+    const subdivisionSelector = document.getElementById("subdivisionSelector");
+    subdivisionSelector.max = colCtx.subdivisions.length;
+    if (subdivisionSelector.value > colCtx.subdivisions.length)
+        subdivisionSelector.value = 0;
+    const subdivisionGroup = scanAndBuildSubdivision();
+    if (subdivisionGroup) {
+        scene.add(subdivisionGroup);
+        loadedModels.push({ name: "Subdivision", mesh: subdivisionGroup, edges: null });
+        addModelCheckbox(scene, "Subdivision", subdivisionGroup, null, false, false, "#00FFFF");
     }
     
     buildSurfaceTypeMarkers(scene);

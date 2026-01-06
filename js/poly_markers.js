@@ -287,6 +287,127 @@ export function scanAndBuildSpecialNormalMarkers() {
     return master;
 }
 
+////////////////////////////////////////
+// System: Subdivision markers
+////////////////////////////////////////
+
+const subdivisionSelector = document.getElementById("subdivisionSelector");
+
+export function scanAndBuildSubdivision() {
+    const mainModel = loadedModels.find(m => m.name === "Main Model");
+    if (!mainModel || !mainModel.mesh) return null;
+
+    const mesh = mainModel.mesh;
+    const triData = mesh.userData.triangles;
+    const colCtxData = mesh.userData.colCtx;
+    if (!triData || triData.length === 0) return null;
+
+    const geom = mesh.geometry;
+    const pos = geom.attributes.position;
+    const index = geom.index;
+
+    // -------------------------
+    // Collect merged geometry
+    // -------------------------
+    const mergedVerts = [];
+    const mergedEdges = [];
+
+    for (let i = 0; i < triData.length; i++) {
+
+        const ia = index.getX(i*3);
+        const ib = index.getX(i*3 + 1);
+        const ic = index.getX(i*3 + 2);
+
+        const va = new THREE.Vector3().fromBufferAttribute(pos, ia);
+        const vb = new THREE.Vector3().fromBufferAttribute(pos, ib);
+        const vc = new THREE.Vector3().fromBufferAttribute(pos, ic);
+
+        const tri = triData[i];
+        const nx = tri.normals[0];
+        const ny = tri.normals[1];
+        const nz = tri.normals[2];
+        
+        let subdiv = Number(subdivisionSelector.value);
+        if(!colCtxData.subdivisions[subdiv].floors.includes(tri.id) 
+            && !colCtxData.subdivisions[subdiv].walls.includes(tri.id) 
+            && !colCtxData.subdivisions[subdiv].ceilings.includes(tri.id))
+            continue;
+        
+        // -----------------------
+        // Add triangle to merged mesh
+        // -----------------------
+        mergedVerts.push(
+            va.x, va.y, va.z,
+            vb.x, vb.y, vb.z,
+            vc.x, vc.y, vc.z
+        );
+
+        // -----------------------
+        // Add edges for merged edges
+        // -----------------------
+        mergedEdges.push(
+            va.x, va.y, va.z, vb.x, vb.y, vb.z,
+            vb.x, vb.y, vb.z, vc.x, vc.y, vc.z,
+            vc.x, vc.y, vc.z, va.x, va.y, va.z
+        );
+    }
+
+    // If no triangles matched
+    if (mergedVerts.length === 0) return null;
+
+    // -------------------------
+    // Build merged mesh
+    // -------------------------
+    const meshGeom = new THREE.BufferGeometry();
+    meshGeom.setAttribute(
+        "position",
+        new THREE.Float32BufferAttribute(mergedVerts, 3)
+    );
+    meshGeom.setIndex([...Array(mergedVerts.length / 3).keys()]);
+
+    const meshMat = new THREE.MeshBasicMaterial({
+        color: 0x00ffff,
+        side: THREE.DoubleSide,
+        transparent: true,
+        opacity: 0.9,
+        polygonOffset: true,
+        polygonOffsetFactor: -1,
+        polygonOffsetUnits: -1
+    });
+
+    const mergedMesh = new THREE.Mesh(meshGeom, meshMat);
+    mergedMesh.renderOrder = 1;
+
+    // -------------------------
+    // Build merged edges
+    // -------------------------
+    const edgeGeom = new THREE.BufferGeometry();
+    edgeGeom.setAttribute(
+        "position",
+        new THREE.Float32BufferAttribute(mergedEdges, 3)
+    );
+
+    const edgeMat = new THREE.LineBasicMaterial({
+        color: 0x000000,
+        linewidth: 1.5
+    });
+
+    const mergedEdgesObj = new THREE.LineSegments(edgeGeom, edgeMat);
+    mergedEdgesObj.renderOrder = 999;
+
+    // -------------------------
+    // Build final group with exactly ONE mesh + ONE edges
+    // -------------------------
+    const master = new THREE.Group();
+    master.add(mergedMesh);
+    master.add(mergedEdgesObj);
+
+    return master;
+}
+
+////////////////////////////////////////
+// System: Surface flag markers
+////////////////////////////////////////
 
 export function scanAndBuildSurfaceTypeMarkers(parameter) {
 
@@ -327,7 +448,7 @@ export function scanAndBuildSurfaceTypeMarkers(parameter) {
             if (colCtxData.surfaceTypes[type][parameter] == 0)
                 continue;
         }
-        else if(parameter == "void (FLOOR_PROPERTY_5)") {
+        else if(parameter == "void1 (FLOOR_PROPERTY_5)") {
             if (colCtxData.surfaceTypes[type].floorProperty != 5)
                 continue;
         }
@@ -447,7 +568,7 @@ export function buildSurfaceTypeMarkers(scene) {
         "conveyor",
         "void1 (FLOOR_PROPERTY_5)",
         "noJump2 (FLOOR_PROPERTY_6)",
-        "hoverNoIsg (FLOOR_PROPERTY_7)",
+        "hoverNoISG (FLOOR_PROPERTY_7)",
         "walkAbove (FLOOR_PROPERTY_8)",
         "noJump1 (FLOOR_PROPERTY_9)",
         "diveOff (FLOOR_PROPERTY_11)",
