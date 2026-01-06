@@ -319,7 +319,7 @@ export function parseZeldaModelBinary(scene, buffer, fresh, mapName){
     // Get SurfaceTypes
     let offset = colHeader.surfaceTypeListStart + address_offset;
     for(let i = 0; i < colHeader.numSurfaceTypes; i++){
-        try {
+        if (offset + i*8 < dv.byteLength - 8) {
             const word1 = dv.getUint32(offset + i*8 + 0x0, endianness);
             const word2 = dv.getUint32(offset + i*8 + 0x4, endianness);
             
@@ -345,7 +345,7 @@ export function parseZeldaModelBinary(scene, buffer, fresh, mapName){
             
             colCtx.surfaceTypes.push(surfaceObject);
         }
-        catch {
+        else {
             break;
         }
     }
@@ -548,8 +548,8 @@ export function parseZeldaModelBinary(scene, buffer, fresh, mapName){
     }
     
     const subdivisionSelector = document.getElementById("subdivisionSelector");
-    subdivisionSelector.max = colCtx.subdivisions.length;
-    if (subdivisionSelector.value > colCtx.subdivisions.length)
+    subdivisionSelector.max = colCtx.subdivisions.length-1;
+    if (subdivisionSelector.value > colCtx.subdivisions.length-1)
         subdivisionSelector.value = 0;
     const subdivisionGroup = scanAndBuildSubdivision();
     if (subdivisionGroup) {

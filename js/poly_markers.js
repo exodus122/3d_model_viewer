@@ -389,7 +389,8 @@ export function scanAndBuildSubdivision() {
 
     const edgeMat = new THREE.LineBasicMaterial({
         color: 0x000000,
-        linewidth: 1.5
+        linewidth: 1.5,
+        depthTest: true
     });
 
     const mergedEdgesObj = new THREE.LineSegments(edgeGeom, edgeMat);
