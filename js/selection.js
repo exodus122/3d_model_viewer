@@ -33,6 +33,16 @@ function updateSelectionUI() {
     
     let sampled_triangles = [];
     for (const t of selectedTriangles) {
+        if (t.type === "waterbox") {
+            const wb = t.waterbox;
+            lines.push(
+                `WATERBOX ${t.index}: ` +
+                `xMin=${wb.xMin}, ySurface=${wb.ySurface}, zMin=${wb.zMin}, ` +
+                `xLen=${wb.xLength}, zLen=${wb.zLength}, props=${wb.properties}`
+            );
+            continue;
+        }
+        
         const pts = t.verts.map(v => `${formatNumber(v.x)} ${formatNumber(v.y)} ${formatNumber(v.z)}`);
         let line = `TRI`;
         if (t.id != null)
@@ -77,6 +87,11 @@ function updateSelectionUI() {
 
 // Clear selection
 export function clearSelection(scene) {
+    // ---- WATERBOX ----
+    selectedTriangles
+        .filter(sel => sel.type === "waterbox")
+        .forEach(sel => removeWaterboxMarker(sel, scene));
+    
     // Triangles
     selectedTriangles.forEach(sel => {
         const markerName = `selectionMarker_${sel.modelName}_${sel.index}`;
@@ -179,6 +194,44 @@ function removeEdgeMarker(edge, scene) {
         scene.remove(m);
         m.geometry.dispose();
         m.material.dispose();
+    }
+}
+
+// Draw a yellow cube to highlight a whole waterbox
+function addWaterboxMarker(sel, scene) {
+    const b = sel.bbox;
+
+    const w = b.xMax - b.xMin;
+    const h = b.yMax - b.yMin;
+    const d = b.zMax - b.zMin;
+
+    const cx = (b.xMin + b.xMax) / 2;
+    const cy = (b.yMin + b.yMax) / 2;
+    const cz = (b.zMin + b.zMax) / 2;
+
+    const geom = new THREE.BoxGeometry(w, h, d);
+    const mat = new THREE.MeshBasicMaterial({
+        color: 0xffff66,
+        transparent: true,
+        opacity: 0.35,
+        depthTest: false,
+        depthWrite: false
+    });
+
+    const mesh = new THREE.Mesh(geom, mat);
+    mesh.position.set(cx, cy, cz);
+
+    mesh.name = `waterboxMarker_${sel.modelName}_${sel.index}`;
+    scene.add(mesh);
+}
+
+function removeWaterboxMarker(sel, scene) {
+    const name = `waterboxMarker_${sel.modelName}_${sel.index}`;
+    const m = scene.getObjectByName(name);
+    if (m) {
+        scene.remove(m);
+        if (m.geometry) m.geometry.dispose();
+        if (m.material) m.material.dispose();
     }
 }
 
@@ -306,11 +359,84 @@ export function performSelection(ev, renderer, camera, scene) {
         .map(m => m.mesh);
 
     const inter = raycaster.intersectObjects(visibleMeshes, true);
+    
+    console.log("intersected:", inter.map(x => x.object.name));
     if (inter.length === 0) {
         clearSelection(scene);
         updateSelectionUI();
         return;
     }
+    
+    /////////////////////////////////////////////////////////
+    // ---- WATERBOX SELECTION PASS (BEFORE TRIANGLES) ----
+    /////////////////////////////////////////////////////////
+
+    // Find hit on any waterbox model
+    let wbHit = null;
+    for (const i of inter) {
+        if (i.object.userData && i.object.userData.waterboxes) {
+            wbHit = i;
+            break;
+        }
+    }
+
+    if (wbHit) {
+        const model = wbHit.object;
+        const wbList = model.userData.waterboxes;
+        const tri = wbHit.faceIndex;
+
+        // Find which waterbox contains this triangle
+        const cubeIndex = wbList.findIndex(
+            w => tri >= w.startTri && tri <= w.endTri
+        );
+
+        // should never happen, but safety check
+        if (cubeIndex < 0) {
+            console.warn("Waterbox hit but no cube matched faceIndex", tri);
+            return;
+        }
+
+        const wbMeta = wbList[cubeIndex];
+
+        // If single-select, clear old
+        if (!multiSelectCheckbox.checked)
+            clearSelection(scene);
+
+        // Check if already selected
+        const exists = selectedTriangles.find(x =>
+            x.modelName === model.name &&
+            x.type === "waterbox" &&
+            x.index === cubeIndex
+        );
+
+        if (exists) {
+            removeWaterboxMarker(exists, scene);
+            selectedTriangles = selectedTriangles.filter(
+                x => !(x.modelName === model.name && x.index === cubeIndex)
+            );
+            updateSelectionUI();
+            return;
+        }
+
+        // Build your selection object
+        const sel = {
+            type: "waterbox",
+            modelName: model.name,
+            index: cubeIndex,
+            waterbox: wbMeta.waterbox,
+            bbox: wbMeta.bbox
+        };
+
+        selectedTriangles.push(sel);
+
+        addWaterboxMarker(sel, scene);
+        updateSelectionUI();
+
+        return; // stop here so triangles don't get selected
+    }
+    /////////////////////////////////////////////////////////
+
+
 
     let hit = null;
     for (const i of inter) {

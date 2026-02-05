@@ -35,6 +35,7 @@ const statusEl = document.getElementById('status');
 const controlModeSel = document.getElementById('control-mode');
 const gameSel = document.getElementById('selected-game');
 const subdivisionSelectorContainer = document.getElementById("subdivisionSelectorContainer");
+const waterboxCheckboxElement = document.getElementById("waterboxCheckboxDiv");
 
 const display_fwc = document.getElementById('display_fwc');
 const display_fwc_label = document.getElementById('display_fwc_label');
@@ -201,11 +202,13 @@ gameSel.addEventListener('change',(e)=>{
     if (game == "BK" || game == "BT") {
         display_fwc_label.style.display = "none";
         dropdownElement.style.display = "none";
+        waterboxCheckboxElement.style.display = "none";
         subdivisionSelectorContainer.style.display = "none";
     }
     else {
         display_fwc_label.style.display = "block";
         dropdownElement.style.display = "block";
+        waterboxCheckboxElement.style.display = "block";
         subdivisionSelectorContainer.style.display = "block";
     }
         

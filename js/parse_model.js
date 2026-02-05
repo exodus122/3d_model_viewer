@@ -3,7 +3,8 @@ import { addModelCheckbox, buildGeometry, buildGeometry_fwc, buildGeometryFromTr
 import { buildGeometry2, buildGeometry3, buildGeometry4 } from './gap.js';
 import { initColCtx, initializeSubdivisions } from './subdivisions.js';
 import { renderStandableSurfaceXZ, renderCollisionWallsXY, renderCollisionWallsYZ, renderStandableSurfaceXZ_old } from './standable_surfaces.js';
-import { scanAndBuildFlatGroundMarkers, scanAndBuildSpecialNormalMarkers, buildSurfaceTypeMarkers, scanAndBuildSubdivision } from './poly_markers.js';
+import { scanAndBuildFlatGroundMarkers, scanAndBuildSpecialNormalMarkers, buildSurfaceTypeMarkers, scanAndBuildSubdivision } from './poly_markers.js'
+import { buildWaterBoxModel } from './waterboxes.js';
 
 const wireframeCheckbox = document.getElementById('wireframe');
 const surfaceTypeDropdown = document.getElementById("surfaceTypeDropdown");
@@ -276,14 +277,18 @@ export function parseZeldaModelBinary(scene, buffer, fresh, mapName){
                     colHeader.numPolygons = dv.getUint16(cmd2+address_offset+0x14, endianness);
                     colHeader.polygonListStart = dv.getUint32(cmd2+address_offset+0x18, endianness);
                     colHeader.surfaceTypeListStart = dv.getUint32(cmd2+address_offset+0x1C, endianness);
+                    colHeader.numWaterboxes = dv.getUint16(cmd2+address_offset+0x24, endianness);
+                    colHeader.waterboxListStart = dv.getUint32(cmd2+address_offset+0x28, endianness);
                     colHeader.numSurfaceTypes = 200; // there is no numSurfaceTypes in these games, so just get 200 I guess...
                 }
                 else if (game == "OOT3D") {
                     colHeader.numPolygons = dv.getUint16(cmd2+address_offset+0x0E, endianness);
                     colHeader.numSurfaceTypes = dv.getUint16(cmd2+address_offset+0x10, endianness);
+                    colHeader.numWaterboxes = dv.getUint16(cmd2+address_offset+0x14, endianness);
                     colHeader.vtxListStart = dv.getUint32(cmd2+address_offset+0x18, endianness);
                     colHeader.polygonListStart = dv.getUint32(cmd2+address_offset+0x1C, endianness);
                     colHeader.surfaceTypeListStart = dv.getUint32(cmd2+address_offset+0x20, endianness);
+                    colHeader.waterboxListStart = dv.getUint32(cmd2+address_offset+0x24, endianness);
                 }
             }
             else if (game == "MM3D") {
@@ -296,9 +301,11 @@ export function parseZeldaModelBinary(scene, buffer, fresh, mapName){
                 colHeader.numVtxs = dv.getUint16(cmd2+address_offset+0x0E, endianness);
                 colHeader.numPolygons = dv.getUint16(cmd2+address_offset+0x10, endianness);
                 colHeader.numSurfaceTypes = dv.getUint16(cmd2+address_offset+0x12, endianness);
+                colHeader.numWaterboxes = dv.getUint16(cmd2+address_offset+0x26, endianness);
                 colHeader.vtxListStart = dv.getUint32(cmd2+address_offset+0x18, endianness);
                 colHeader.polygonListStart = dv.getUint32(cmd2+address_offset+0x1C, endianness);
                 colHeader.surfaceTypeListStart = dv.getUint32(cmd2+address_offset+0x20, endianness);
+                colHeader.waterboxListStart = dv.getUint32(cmd2+address_offset+0x24, endianness);
             }
             break;
         }
@@ -451,57 +458,6 @@ export function parseZeldaModelBinary(scene, buffer, fresh, mapName){
     else
         buildGeometry(scene, verts, tris, allTriangleData, colCtx, modelName, fresh);
     
-    
-    /*allTriangleData = [ // test data oot ice cavern wall
-        {
-                vtxs: [
-                        new THREE.Vector3(878,162,-2187),
-                        new THREE.Vector3(829,119,-2123),
-                        new THREE.Vector3(830,140,-2123)
-                ],
-                normals: [-26400,1257,-19368],
-                d: -592
-        }
-    ];*/
-    
-    /*allTriangleData = [ // test data oot ice cavern floor
-        { 
-                vtxs: [
-                        new THREE.Vector3(857,140,-2088),
-                        new THREE.Vector3(878,162,-2187),
-                        new THREE.Vector3(830,140,-2123)
-                ],
-                normals: [-7119,31509,5492],
-                d: 402
-        }
-    ];*/
-    
-    /*allTriangleData = [ // test data oot3d kokiri left
-        {
-                vtxs: [
-                        new THREE.Vector3(-1272, 60, -834),
-                        new THREE.Vector3(-1276, 0, -834),
-                        new THREE.Vector3(-1115, 1, -841)
-                ],
-                normals: [1380, -35, 32737],
-                d: 886.93
-        }
-    ];*/
-    
-    /*allTriangleData = [ // test data oot3d kokiri right
-        {
-                vtxs: [
-                        new THREE.Vector3(-1113, 60, -841),
-                        new THREE.Vector3(-1115, 1, -841),
-                        new THREE.Vector3(-928, 1, -833)
-                ],
-                normals: [-1339, 17, 32739],
-                d: 794.779
-        }
-    ];*/
-    
-    //drawSampledTriangles(scene, allTriangleData, 0.1); // works well for a few, but laggy with multiple triangles
-    
     const standableSurfaceMesh = renderStandableSurfaceXZ(allTriangleData);
     if (standableSurfaceMesh) {
         scene.add(standableSurfaceMesh);
@@ -559,6 +515,95 @@ export function parseZeldaModelBinary(scene, buffer, fresh, mapName){
     }
     
     buildSurfaceTypeMarkers(scene);
+    
+    
+    // Parse and Render Waterboxes
+    /*const waterBoxes = [
+        { xMin: 0,   ySurface: 50, zMin: 0,   xLength: 200, zLength: 150, properties: 0 },
+        { xMin: 300, ySurface: 40, zMin: -50, xLength: 100, zLength: 80,  properties: 0 },
+    ];*/
+
+    const waterboxCheckbox = document.getElementById('showFullWaterboxDepth');
+    
+    const waterBoxes = [];
+    if (colHeader.waterboxListStart != 0) {
+        offset = colHeader.waterboxListStart + address_offset;
+        for(let i = 0; i < colHeader.numWaterboxes; i++){
+            const xMin = dv.getInt16(offset + i*0x10 + 0x0, endianness);
+            const ySurface = dv.getInt16(offset + i*0x10 + 0x2, endianness);
+            const zMin = dv.getInt16(offset + i*0x10 + 0x4, endianness); 
+            const xLength = dv.getInt16(offset + i*0x10 + 0x6, endianness); 
+            const zLength = dv.getInt16(offset + i*0x10 + 0x8, endianness); 
+            const properties = dv.getUint32(offset + i*0x10 + 0xC, endianness); 
+
+            waterBoxes.push({xMin: xMin, ySurface: ySurface, zMin: zMin, xLength: xLength, zLength: zLength, properties: properties});
+        }
+        console.log(waterBoxes);
+        
+        const { mesh: waterMesh, edges: waterEdges } = buildWaterBoxModel(waterBoxes, waterboxCheckbox.checked);
+        scene.add(waterMesh);
+        scene.add(waterEdges);
+
+        loadedModels.push({ name: "Waterboxes", mesh: waterMesh, edges: waterEdges });
+        addModelCheckbox(scene, "Waterboxes", waterMesh, waterEdges, false, false, "#00FFFF");
+    }
+
+    waterboxCheckbox.addEventListener('change', () => {
+        // --- Remove old waterbox mesh & edges ---
+        const oldMeshIndex = loadedModels.findIndex(m => m.name === "Waterboxes");
+        if (oldMeshIndex >= 0) {
+            const old = loadedModels[oldMeshIndex];
+            if (old.mesh) {
+                scene.remove(old.mesh);
+                if (old.mesh.geometry) old.mesh.geometry.dispose();
+                if (old.mesh.material) old.mesh.material.dispose();
+            }
+            if (old.edges) {
+                scene.remove(old.edges);
+                if (old.edges.geometry) old.edges.geometry.dispose();
+                if (old.edges.material) old.edges.material.dispose();
+            }
+            loadedModels.splice(oldMeshIndex, 1);
+        }
+
+        // --- Remove old model checkbox from UI ---
+        const container = document.querySelector('.controls'); // adjust if your container is different
+        if (container) {
+            const oldCheckbox = Array.from(container.children).find(
+                child => child.dataset && child.dataset.modelName === "Waterboxes"
+            );
+            if (oldCheckbox) container.removeChild(oldCheckbox);
+        }
+        
+        // Remove old waterbox mesh & edges
+        const oldMesh = loadedModels.find(m => m.name === "WaterboxesMesh");
+        if (oldMesh) {
+            scene.remove(oldMesh.mesh);
+            if (oldMesh.mesh.geometry) oldMesh.mesh.geometry.dispose();
+            if (oldMesh.mesh.material) oldMesh.mesh.material.dispose();
+            loadedModels.splice(loadedModels.indexOf(oldMesh), 1);
+        }
+
+        const oldEdges = loadedModels.find(m => m.name === "WaterboxesEdges");
+        if (oldEdges) {
+            scene.remove(oldEdges.mesh);
+            if (oldEdges.mesh.geometry) oldEdges.mesh.geometry.dispose();
+            if (oldEdges.mesh.material) oldEdges.mesh.material.dispose();
+            loadedModels.splice(loadedModels.indexOf(oldEdges), 1);
+        }
+
+        // Rebuild waterbox model with updated depth
+        const { mesh: waterMesh, edges: waterEdges } = buildWaterBoxModel(waterBoxes, waterboxCheckbox.checked);
+
+        // Add both to scene
+        scene.add(waterMesh);
+        scene.add(waterEdges);
+
+        // Add both to loadedModels for selection, toggles, etc.
+        loadedModels.push({ name: "Waterboxes", mesh: waterMesh, edges: waterEdges });
+        addModelCheckbox(scene, "Waterboxes", waterMesh, waterEdges, false, false, "#00FFFF");
+    });
+
 }
 
 export function parseInvisibleSeams1D(scene, text) {
