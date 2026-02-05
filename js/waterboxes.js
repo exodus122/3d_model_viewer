@@ -60,6 +60,7 @@ export function buildWaterBoxModel(waterBoxes, fullDepth = false) {
             wireframe: false
         })
     );
+    mesh.renderOrder = 1000;
     mesh.name = "WaterboxesMesh";
     mesh.userData.waterboxes = metadata;
 
