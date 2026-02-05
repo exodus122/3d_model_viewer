@@ -10,21 +10,24 @@ import * as BufferGeometryUtils from 'three/addons/utils/BufferGeometryUtils.js'
 export function buildWaterBoxModel(waterBoxes, fullDepth = false) {
     const geometries = [];
     const metadata = [];
-
     let triOffset = 0;
 
     waterBoxes.forEach((wb, index) => {
-        // determine height based on toggle
-        const height = fullDepth ? wb.ySurface + 32000 : wb.ySurface;
+        // Determine top and bottom
+        const top = wb.ySurface;
+        const bottom = fullDepth ? -32000 : Math.min(0, wb.ySurface); // ensures bottom <= top
 
-        // center needs to adjust
-        const cy = fullDepth ? (wb.ySurface - 32000) / 2 : height / 2;
+        // Compute height and center
+        const height = top - bottom;
+        const cy = (top + bottom) / 2;
         const cx = wb.xMin + wb.xLength / 2;
         const cz = wb.zMin + wb.zLength / 2;
 
+        // Build BoxGeometry
         const geom = new THREE.BoxGeometry(wb.xLength, height, wb.zLength);
         const triCount = geom.index.count / 3;
 
+        // Store per-box metadata
         metadata.push({
             index,
             waterbox: wb,
@@ -33,21 +36,20 @@ export function buildWaterBoxModel(waterBoxes, fullDepth = false) {
             bbox: {
                 xMin: wb.xMin,
                 xMax: wb.xMin + wb.xLength,
-                yMin: fullDepth ? -32000 : 0,
-                yMax: wb.ySurface,
+                yMin: bottom,
+                yMax: top,
                 zMin: wb.zMin,
                 zMax: wb.zMin + wb.zLength
             }
         });
-
         triOffset += triCount;
 
-        // position cube
+        // Position cube at correct center
         geom.applyMatrix4(new THREE.Matrix4().makeTranslation(cx, cy, cz));
         geometries.push(geom);
     });
 
-    // merge all waterboxes
+    // Merge geometries into a single mesh
     const merged = BufferGeometryUtils.mergeBufferGeometries(geometries, false);
 
     // ----- Mesh -----
@@ -57,10 +59,11 @@ export function buildWaterBoxModel(waterBoxes, fullDepth = false) {
             color: 0x00FFFF,
             transparent: true,
             opacity: 0.35,
+            depthWrite: false, // ensures translucency behaves consistently
             wireframe: false
         })
     );
-    mesh.renderOrder = 1000;
+    mesh.renderOrder = 1000; // draw in front
     mesh.name = "WaterboxesMesh";
     mesh.userData.waterboxes = metadata;
 
@@ -71,7 +74,7 @@ export function buildWaterBoxModel(waterBoxes, fullDepth = false) {
         new THREE.LineBasicMaterial({ color: 0x00FFFF, linewidth: 1 })
     );
     edges.name = "WaterboxesEdges";
-    edges.userData.waterboxes = metadata; // same metadata so selection still works
+    edges.userData.waterboxes = metadata; // same metadata for selection
 
     return { mesh, edges };
 }
