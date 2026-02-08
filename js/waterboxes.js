@@ -15,7 +15,7 @@ export function buildWaterBoxModel(waterBoxes, fullDepth = false) {
     waterBoxes.forEach((wb, index) => {
         // Determine top and bottom
         const top = wb.ySurface;
-        const bottom = fullDepth ? -32000 : Math.min(0, wb.ySurface); // ensures bottom <= top
+        const bottom = fullDepth ? -32000 : wb.ySurface; // ensures bottom <= top
 
         // Compute height and center
         const height = top - bottom;
