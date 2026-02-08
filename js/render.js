@@ -23,18 +23,28 @@ export function addModelCheckbox(scene, name, meshObj, edgesObj, clearFirst, che
     label.style.alignItems = 'center';
     const chk = document.createElement('input');
     chk.type = 'checkbox';
-    chk.checked = checked;
-    if (meshObj != null)
-        meshObj.visible = checked;
-    if (edgesObj != null)
-        edgesObj.visible = checked;
+    
+    const savedVisible = modelState[name]?.visible;
+    const isChecked = savedVisible !== undefined ? savedVisible : checked;
+
+    chk.checked = isChecked;
+    if (meshObj) meshObj.visible = isChecked;
+    if (edgesObj) edgesObj.visible = isChecked;
+    
     chk.addEventListener('change', () => {
-        if (meshObj != null)
-            meshObj.visible = chk.checked;
-        if (edgesObj != null && meshObj == null)
+        if (meshObj) meshObj.visible = chk.checked;
+
+        if (edgesObj && !meshObj)
             edgesObj.visible = chk.checked;
-        else if (edgesObj != null)
+        else if (edgesObj)
             edgesObj.visible = chk.checked && wireframeCheckbox.checked;
+
+        // Ensure entry exists
+        if (!modelState[name]) modelState[name] = {};
+
+        // Save visibility
+        modelState[name].visible = chk.checked;
+
         clearSelection(scene);
     });
     label.appendChild(chk);
@@ -79,23 +89,42 @@ export function addModelCheckbox(scene, name, meshObj, edgesObj, clearFirst, che
     // Color picker
     const colorInput = document.createElement('input');
     colorInput.type = 'color';
-    if (color != null)
-        colorInput.value = color;
-    else
-        colorInput.value = clearFirst ? '#3aa6ff' : '#3aff78';
+    
+    const savedColor = modelState[name]?.color;
+
+    colorInput.value = savedColor ??
+        (color ?? (clearFirst ? '#3aa6ff' : '#3aff78'));
+
+    if (meshObj?.material) {
+        meshObj.material.color.set(colorInput.value);
+    }
+    else if (meshObj?.children) {
+        meshObj.children[0].material.color.set(colorInput.value);
+    }
+    else if (edgesObj?.material) {
+        edgesObj.material.color.set(colorInput.value);
+    }
+    
     colorInput.addEventListener('input', () => {
-        if (meshObj != null && meshObj.material) {
+
+        if (meshObj?.material) {
             meshObj.material.color.set(colorInput.value);
             meshObj.material.needsUpdate = true;
         }
-        else if (meshObj != null && meshObj.children) {
+        else if (meshObj?.children) {
             meshObj.children[0].material.color.set(colorInput.value);
-            meshObj.children[0].material.needsUpdate = true;    
+            meshObj.children[0].material.needsUpdate = true;
         }
-        else if (edgesObj != null && edgesObj.material) {
+        else if (edgesObj?.material) {
             edgesObj.material.color.set(colorInput.value);
             edgesObj.material.needsUpdate = true;
         }
+
+        // Ensure entry exists
+        if (!modelState[name]) modelState[name] = {};
+
+        // Save color
+        modelState[name].color = colorInput.value;
     });
 
     // Assemble
@@ -116,7 +145,10 @@ export function removeAllModelCheckboxes() {
             container.remove();
         }
     });
+    //delete modelVisibilityState[name];
 }
+
+const modelState = {};
 
 ////////////////////////////////////////
 // System: Geometry creation

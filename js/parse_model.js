@@ -538,7 +538,7 @@ export function parseZeldaModelBinary(scene, buffer, fresh, mapName){
 
             waterBoxes.push({xMin: xMin, ySurface: ySurface, zMin: zMin, xLength: xLength, zLength: zLength, properties: properties});
         }
-        console.log(waterBoxes);
+        //console.log(waterBoxes);
         
         const { mesh: waterMesh, edges: waterEdges } = buildWaterBoxModel(waterBoxes, waterboxCheckbox.checked);
         scene.add(waterMesh);
