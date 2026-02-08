@@ -288,7 +288,7 @@ export function parseZeldaModelBinary(scene, buffer, fresh, mapName){
                     colHeader.vtxListStart = dv.getUint32(cmd2+address_offset+0x18, endianness);
                     colHeader.polygonListStart = dv.getUint32(cmd2+address_offset+0x1C, endianness);
                     colHeader.surfaceTypeListStart = dv.getUint32(cmd2+address_offset+0x20, endianness);
-                    colHeader.waterboxListStart = dv.getUint32(cmd2+address_offset+0x24, endianness);
+                    colHeader.waterboxListStart = dv.getUint32(cmd2+address_offset+0x28, endianness);
                 }
             }
             else if (game == "MM3D") {
@@ -305,7 +305,7 @@ export function parseZeldaModelBinary(scene, buffer, fresh, mapName){
                 colHeader.vtxListStart = dv.getUint32(cmd2+address_offset+0x18, endianness);
                 colHeader.polygonListStart = dv.getUint32(cmd2+address_offset+0x1C, endianness);
                 colHeader.surfaceTypeListStart = dv.getUint32(cmd2+address_offset+0x20, endianness);
-                colHeader.waterboxListStart = dv.getUint32(cmd2+address_offset+0x24, endianness);
+                colHeader.waterboxListStart = dv.getUint32(cmd2+address_offset+0x28, endianness);
             }
             break;
         }
