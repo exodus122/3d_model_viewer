@@ -301,7 +301,7 @@ export function parseZeldaModelBinary(scene, buffer, fresh, mapName){
                 colHeader.numVtxs = dv.getUint16(cmd2+address_offset+0x0E, endianness);
                 colHeader.numPolygons = dv.getUint16(cmd2+address_offset+0x10, endianness);
                 colHeader.numSurfaceTypes = dv.getUint16(cmd2+address_offset+0x12, endianness);
-                colHeader.numWaterboxes = dv.getUint16(cmd2+address_offset+0x26, endianness);
+                colHeader.numWaterboxes = dv.getUint16(cmd2+address_offset+0x16, endianness);
                 colHeader.vtxListStart = dv.getUint32(cmd2+address_offset+0x18, endianness);
                 colHeader.polygonListStart = dv.getUint32(cmd2+address_offset+0x1C, endianness);
                 colHeader.surfaceTypeListStart = dv.getUint32(cmd2+address_offset+0x20, endianness);
