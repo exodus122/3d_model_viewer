@@ -241,6 +241,11 @@ export function parseZeldaModelBinary(scene, buffer, fresh, mapName){
             current_addr = 0x60;
     }
     
+    // Initialize scene data
+    let sceneData = {
+        rooms: []
+    };
+    
     // Initialize colHeader
     let colHeader = {
         numVtxs: 0, 
@@ -258,10 +263,68 @@ export function parseZeldaModelBinary(scene, buffer, fresh, mapName){
     let cmd2 = dv.getUint32(current_addr+0x4, endianness);
     
     while (cmd1 != 0x14) {
-        if (cmd1 == 0x19 && (game == "OOT" || game == "OOT3D")) { // misc_settings
+        /*if (cmd1 == 0x04) { // rooms
+            sceneData.numRooms = dv.getUint8(current_addr+0x1);
+            sceneData.roomListStart = dv.getUint32(current_addr+0x4, endianness);
+            
+            let current_addr2 = sceneData.roomListStart & 0x00FFFFFF;
+            
+            for(let i = 0; i < sceneData.numRooms; i++) {
+                let roomSegmentStart = dv.getUint32(current_addr2 + i*0x8, endianness);
+                let roomSegmentEnd = dv.getUint32(current_addr2 + (i+1)*0x8, endianness);
+                
+                let current_addr3 = roomSegmentStart & 0x00FFFFFF;
+                
+                let roomCmd1 = dv.getUint8(current_addr3);
+                let roomParam1 = dv.getUint8(current_addr3+0x1);
+                let roomParam2 = dv.getUint32(current_addr3+0x4, endianness) & 0x00FFFFFF;
+                
+                while (roomCmd1 != 0x14) {
+                    if (roomCmd1 == 0x01) { // actorList
+                        sceneData.rooms[i] = {
+                            numActors: dv.getUint8(current_addr3+0x1),
+                            actorListStart: dv.getUint32(current_addr3+0x4, endianness),
+                            actorList: []
+                        }
+                        
+                        // Get ActorList
+                        let offset = sceneData.actorListStart & 0x00FFFFFF;
+                        for(let i = 0; i < sceneData.numActors; i++){
+                            if (offset + i*8 < dv.byteLength - 8) {
+                                let actorEntry = {
+                                    id: dv.getInt16(offset + i*16 + 0x0, endianness),
+                                    pos: [
+                                        dv.getInt16(offset + i*16 + 0x2, endianness),
+                                        dv.getInt16(offset + i*16 + 0x4, endianness),
+                                        dv.getInt16(offset + i*16 + 0x6, endianness)
+                                    ],
+                                    rot: [
+                                        dv.getInt16(offset + i*16 + 0x8, endianness),
+                                        dv.getInt16(offset + i*16 + 0xA, endianness),
+                                        dv.getInt16(offset + i*16 + 0xC, endianness)
+                                    ],
+                                    params: dv.getInt16(offset + i*16 + 0xE, endianness)
+                                }
+
+                                sceneData.rooms[i].actorList.push(actorEntry);
+                            }
+                            else {
+                                break;
+                            }
+                        }
+                    }
+                    
+                    current_addr2 = current_addr2 + 0x8;
+                    roomCmd1 = dv.getUint8(current_addr2);
+                    roomParam1 = dv.getUint8(current_addr2+0x1);
+                    roomParam2 = dv.getUint32(current_addr2+0x4, endianness);
+                }
+            }
+        }
+        else*/ if (cmd1 == 0x19 && (game == "OOT" || game == "OOT3D")) { // misc_settings
             colHeader.camType = dv.getUint8(current_addr+0x1);
         }
-        if (cmd1 == 0x03) { // collision_header
+        else if (cmd1 == 0x03) { // collision_header
             //console.log("current_addr: "+current_addr+", "+cmd1+", "+cmd2);
             if (game == "OOT" || game == "MM" || game == "OOT3D") {
                 colHeader.minBounds.x = dv.getInt16(cmd2+address_offset+0x00, endianness);

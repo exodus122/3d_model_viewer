@@ -16,8 +16,6 @@ const wireframeCheckbox = document.getElementById('wireframe');
 
 // Material used as base for clones per mesh
 const material = new THREE.MeshStandardMaterial({color:0x3aa6ff,side:THREE.FrontSide,transparent:true,opacity:1.0,flatShading:true});
-const material2 = new THREE.MeshStandardMaterial({color:0xf56342,side:THREE.FrontSide,transparent:true,opacity:1.0,flatShading:true});
-const material3 = new THREE.MeshStandardMaterial({color:0xe1eb34,side:THREE.FrontSide,transparent:true,opacity:1.0,flatShading:true});
 
 export function buildGeometry2(scene, verts, tris, allTriangleData, colCtx, name = "Main Model", clearFirst = true) {
 

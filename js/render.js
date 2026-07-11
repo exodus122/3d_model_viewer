@@ -166,8 +166,8 @@ wireframeCheckbox.addEventListener('change', () => {
 
 // Material used as base for clones per mesh
 const material = new THREE.MeshStandardMaterial({color:0x3aa6ff,side:THREE.FrontSide,transparent:true,opacity:1.0,flatShading:true});
-const material2 = new THREE.MeshStandardMaterial({color:0xf56342,side:THREE.FrontSide,transparent:true,opacity:1.0,flatShading:true});
-const material3 = new THREE.MeshStandardMaterial({color:0xe1eb34,side:THREE.FrontSide,transparent:true,opacity:1.0,flatShading:true});
+const material_red_wall = new THREE.MeshStandardMaterial({color:0xf56342,side:THREE.FrontSide,transparent:true,opacity:1.0,flatShading:true});
+const material_yellow_ceiling = new THREE.MeshStandardMaterial({color:0xe1eb34,side:THREE.FrontSide,transparent:true,opacity:1.0,flatShading:true});
 
 export function buildGeometry(scene, verts, tris, allTriangleData, colCtx, name = "Main Model", clearFirst = true) {
     
@@ -357,8 +357,8 @@ export function buildGeometry_fwc(scene, verts, tris, name = "Main Model", clear
         geom,
         [
             material.clone(),   // group 0
-            material2.clone(),  // group 1
-            material3.clone()   // group 2
+            material_red_wall.clone(),  // group 1
+            material_yellow_ceiling.clone()   // group 2
         ]
     );
 
