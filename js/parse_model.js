@@ -497,6 +497,21 @@ export function parseZeldaModelBinary(scene, buffer, fresh, mapName){
     
     initializeSubdivisions(game, colCtx, allTriangleData);
     
+    // Populate the subdivision dropdown right away, based only on colCtx.
+    // Doing this here (rather than after the rest of the scene is built)
+    // means the list still gets filled in even if something later in this
+    // function throws while building standable surfaces, walls, etc.
+    const subdivisionSelector = document.getElementById("subdivisionSelector");
+    subdivisionSelector.innerHTML = "";
+    colCtx.subdivisions.forEach((sub, idx) => {
+        const triCount = sub.floors.length + sub.walls.length + sub.ceilings.length;
+        if (triCount === 0) return;
+        const option = document.createElement("option");
+        option.value = idx;
+        option.textContent = `${idx} (${triCount} tri${triCount === 1 ? '' : 's'})`;
+        subdivisionSelector.appendChild(option);
+    });
+    
     const allIdx = [].concat(...tris);
     const maxIdx = Math.max(...allIdx);
     const minIdx = Math.min(...allIdx);
@@ -566,16 +581,43 @@ export function parseZeldaModelBinary(scene, buffer, fresh, mapName){
         addModelCheckbox(scene, "Special Normal", specialNormalGroup, null, false, false, "#00FFFF");
     }
     
-    const subdivisionSelector = document.getElementById("subdivisionSelector");
-    subdivisionSelector.max = colCtx.subdivisions.length-1;
-    if (subdivisionSelector.value > colCtx.subdivisions.length-1)
-        subdivisionSelector.value = 0;
-    const subdivisionGroup = scanAndBuildSubdivision();
-    if (subdivisionGroup) {
-        scene.add(subdivisionGroup);
-        loadedModels.push({ name: "Subdivision", mesh: subdivisionGroup, edges: null });
-        addModelCheckbox(scene, "Subdivision", subdivisionGroup, null, false, false, "#00FFFF");
+    function rebuildSubdivisionVisualization() {
+        // Remove the old subdivision mesh from the scene/loadedModels
+        const oldIndex = loadedModels.findIndex(m => m.name === "Subdivision");
+        if (oldIndex >= 0) {
+            const old = loadedModels[oldIndex];
+            if (old.mesh) {
+                scene.remove(old.mesh);
+                old.mesh.traverse(obj => {
+                    if (obj.geometry) obj.geometry.dispose();
+                    if (obj.material) obj.material.dispose();
+                });
+            }
+            loadedModels.splice(oldIndex, 1);
+        }
+
+        // Remove its checkbox from the sidebar
+        const container = document.querySelector('.controls');
+        if (container) {
+            const oldCheckbox = Array.from(container.children).find(
+                child => child.dataset && child.dataset.modelName === "Subdivision"
+            );
+            if (oldCheckbox) container.removeChild(oldCheckbox);
+        }
+
+        const subdivisionGroup = scanAndBuildSubdivision();
+        if (subdivisionGroup) {
+            scene.add(subdivisionGroup);
+            loadedModels.push({ name: "Subdivision", mesh: subdivisionGroup, edges: null });
+            addModelCheckbox(scene, "Subdivision", subdivisionGroup, null, false, false, "#00FFFF");
+        }
     }
+
+    // Assigning to .onchange (rather than addEventListener) means loading a
+    // new map replaces the previous handler instead of stacking another one.
+    subdivisionSelector.onchange = rebuildSubdivisionVisualization;
+
+    rebuildSubdivisionVisualization();
     
     buildSurfaceTypeMarkers(scene);
     
