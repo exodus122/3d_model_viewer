@@ -24,8 +24,8 @@ function createGroundClipMarker(verts) {
         transparent: true,
         opacity: 0.9,
         polygonOffset: true,
-        polygonOffsetFactor: -1,
-        polygonOffsetUnits: -1
+        polygonOffsetFactor: 1,
+        polygonOffsetUnits: 1
     });
 
     const mesh = new THREE.Mesh(geom, mat);
@@ -135,8 +135,8 @@ export function scanAndBuildFlatGroundMarkers() {
         transparent: true,
         opacity: 0.9,
         polygonOffset: true,
-        polygonOffsetFactor: -1,
-        polygonOffsetUnits: -1
+        polygonOffsetFactor: 1,
+        polygonOffsetUnits: 1
     });
 
     const mergedMesh = new THREE.Mesh(meshGeom, meshMat);
@@ -253,8 +253,8 @@ export function scanAndBuildSpecialNormalMarkers() {
         transparent: true,
         opacity: 0.9,
         polygonOffset: true,
-        polygonOffsetFactor: -1,
-        polygonOffsetUnits: -1
+        polygonOffsetFactor: 1,
+        polygonOffsetUnits: 1
     });
 
     const mergedMesh = new THREE.Mesh(meshGeom, meshMat);
@@ -371,8 +371,8 @@ export function scanAndBuildSubdivision() {
         transparent: true,
         opacity: 0.9,
         polygonOffset: true,
-        polygonOffsetFactor: -1,
-        polygonOffsetUnits: -1
+        polygonOffsetFactor: 1,
+        polygonOffsetUnits: 1
     });
 
     const mergedMesh = new THREE.Mesh(meshGeom, meshMat);
@@ -524,8 +524,8 @@ export function scanAndBuildSurfaceTypeMarkers(parameter) {
         transparent: true,
         opacity: 0.9,
         polygonOffset: true,
-        polygonOffsetFactor: -1,
-        polygonOffsetUnits: -1
+        polygonOffsetFactor: 1,
+        polygonOffsetUnits: 1
     });
 
     const mergedMesh = new THREE.Mesh(meshGeom, meshMat);
