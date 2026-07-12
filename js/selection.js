@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { drawSampledTriangles } from './sample_points.js';
+import { drawSampledTriangles, removeAllSampledPoints } from './sample_points.js';
 
 ////////////////////////////////////////
 // System: Selection (raycast, markers, UI)
@@ -24,7 +24,7 @@ multiSelectCheckbox.addEventListener('change', () => {
 });
 
 // Update selection UI
-function updateSelectionUI() {
+export function updateSelectionUI() {
     function formatNumber(v) {
         return (v % 1 === 0) ? v.toString() : v.toFixed(7);
     }
@@ -360,7 +360,7 @@ export function performSelection(ev, renderer, camera, scene) {
 
     const inter = raycaster.intersectObjects(visibleMeshes, true);
     
-    console.log("intersected:", inter.map(x => x.object.name));
+    //console.log("intersected:", inter.map(x => x.object.name));
     if (inter.length === 0) {
         clearSelection(scene);
         updateSelectionUI();
@@ -503,11 +503,14 @@ export function performSelection(ev, renderer, camera, scene) {
     addSelectionMarker(newTri, scene);
     updateSelectionUI();
         
+    // Sample Triangle
+    removeAllSampledPoints(scene);
+
     const sample_tri = [{
         vtxs: [
-            va,
-            vb,
-            vc
+            va.clone(),
+            vb.clone(),
+            vc.clone()
         ],
         normals: meta ? meta.normals : null,
         d: meta ? meta.d : null,
@@ -515,26 +518,24 @@ export function performSelection(ev, renderer, camera, scene) {
         flags: meta ? meta.flags : null
     }];
     
-    let pts = null
+    let pts = null;
     if ((game == "OOT" || game == "MM" || game == "OOT3D" || game == "MM3D") && samplePointsEnabled && meta) {
-        // --- AUTO-DELETE OLD POINTS MODEL ---
-        const existing = loadedModels.find(m => m.name === "Points");
-        if (existing) {
-            // Find the UI container for this model and click its delete button.
-            const section = document.querySelector('.controls');
-            const children = Array.from(section.children);
-
-            for (const child of children) {
-                if (child.dataset && child.dataset.modelName === "Points") {
-                    const delBtn = child.querySelector('.delete-btn');
-                    if (delBtn) delBtn.click();
-                    break;
+        // Check if the triangle faces upward (normal points up)
+        if (sample_tri[0].normals && sample_tri[0].normals[1] > f32(0.0) && !isZero(sample_tri[0].normals[1])) {
+            // Remove old points before generating new ones
+            const existingPointsIndex = loadedModels.findIndex(m => m.name === "Points");
+            if (existingPointsIndex !== -1) {
+                const existing = loadedModels[existingPointsIndex];
+                if (existing && existing.mesh) {
+                    scene.remove(existing.mesh);
+                    if (existing.mesh.geometry) existing.mesh.geometry.dispose();
+                    if (existing.mesh.material) existing.mesh.material.dispose();
                 }
+                loadedModels.splice(existingPointsIndex, 1);
             }
-        }
-        
-        if(sample_tri[0].normals[1] > f32(0.0) && !isZero(sample_tri[0].normals[1])) {
-            pts = drawSampledTriangles(scene, sample_tri, Number(samplePointsResolution.value))
+            
+            // Draw new points
+            pts = drawSampledTriangles(scene, sample_tri, Number(samplePointsResolution.value));
         }
     }
     

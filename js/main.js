@@ -43,7 +43,7 @@ const display_fwc_label = document.getElementById('display_fwc_label');
 ////////////////////////////////////////
 // System: Scene, Renderer, Camera, Lights
 ////////////////////////////////////////
-let speed = 1500; // movement units per second
+let speed = 850; // movement units per second
 let controlMode = 'pointer'; // State regarding which control mode is active: 'pointer' | 'orbit' | 'auto'
 let mesh = null;
 let edges = null;

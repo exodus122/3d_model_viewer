@@ -8,6 +8,13 @@ const samplePointsContainer = document.getElementById("samplePointsContainer");
 const samplePointsCheckbox  = document.getElementById("samplePointsCheckbox");
 const samplePointsResolution  = document.getElementById("samplePointsResolution");
 
+// Target number of points per triangle (adjust as needed)
+const TARGET_POINTS_PER_TRIANGLE = 500;
+
+// Global flag to check if sampling is in progress
+let isSamplingInProgress = false;
+let currentPointsObject = null;
+
 // ------------------------
 // Helper Functions
 // ------------------------
@@ -63,10 +70,6 @@ function cirSquareVsTriSquare(x0,y0, x1,y1, x2,y2, cx,cy, r) {
 
 // z,x order matches OoT exactly
 function triChkPointParaYImpl(v0, v1, v2, z, x, detMax, chkDist, ny) {
-
-    //if (x > 842.25 && x < 842.35 && z > -2139.45 && z < -2139.35)
-    //    console.log("test");
-
     if (isZero(ny)) {
         return false;
     }
@@ -123,8 +126,99 @@ function triChkPointParaYImpl(v0, v1, v2, z, x, detMax, chkDist, ny) {
 // Compute Y from plane
 function computeYFromPlane(nx,ny,nz,d,x,z) {
     if (isZero(ny)) return 0;
-    //return f32((-(nx*x + nz*z) - d)/ny);
     return (f32)((((-nx * x) - (nz * z)) - d) / ny);
+}
+
+// Calculate the area of a triangle in the XZ plane
+function calculateTriangleXZArea(v0, v1, v2) {
+    // Using the shoelace formula for the 2D polygon area
+    const area = Math.abs(
+        (v0.x * (v1.z - v2.z) +
+         v1.x * (v2.z - v0.z) +
+         v2.x * (v0.z - v1.z)) / 2
+    );
+    return area;
+}
+
+// Calculate adaptive resolution based on triangle area
+function calculateAdaptiveResolution(tri, baseResolution) {
+    const v0 = tri.vtxs[0], v1 = tri.vtxs[1], v2 = tri.vtxs[2];
+    
+    // Calculate the XZ area of the triangle
+    const xzArea = calculateTriangleXZArea(v0, v1, v2);
+    
+    // If area is very small, use a minimum resolution
+    // If area is very large, increase resolution step size
+    const MIN_AREA = 1.0;
+    const MAX_AREA = 100000.0;
+    const clampedArea = Math.max(MIN_AREA, Math.min(MAX_AREA, xzArea));
+    
+    // Calculate the step size that would give us the target number of points
+    const stepSize = Math.sqrt(clampedArea / TARGET_POINTS_PER_TRIANGLE);
+    
+    // Clamp the step size to reasonable bounds
+    const minStep = 0.5;  // Minimum step to prevent too many points on tiny triangles
+    const maxStep = 50.0; // Maximum step to prevent too few points on huge triangles
+    const clampedStep = Math.max(minStep, Math.min(maxStep, stepSize));
+    
+    // Apply the user's resolution as a multiplier
+    const userMultiplier = baseResolution / 0.1;
+    const finalStep = clampedStep * userMultiplier;
+    
+    return finalStep;
+}
+
+// Process a single triangle and return its points
+function processSingleTriangle(tri, resolution) {
+    const COLPOLY_NORMAL_FRAC = 1.0 / 32767.0;
+    
+    const v0 = tri.vtxs[0], v1 = tri.vtxs[1], v2 = tri.vtxs[2];
+    const nx = tri.normals[0] * COLPOLY_NORMAL_FRAC;
+    const ny = tri.normals[1] * COLPOLY_NORMAL_FRAC;
+    const nz = tri.normals[2] * COLPOLY_NORMAL_FRAC;
+    const d = tri.d;
+    const chkDist = 1.0;
+
+    // Compute bounds
+    const xs = [v0.x, v1.x, v2.x], zs = [v0.z, v1.z, v2.z];
+    const minX = Math.min(...xs) - chkDist, maxX = Math.max(...xs) + chkDist;
+    const minZ = Math.min(...zs) - chkDist, maxZ = Math.max(...zs) + chkDist;
+
+    const result = [];
+    
+    // Calculate area-based step size
+    const adaptiveStep = calculateAdaptiveResolution(tri, resolution);
+    
+    // For very small triangles, just sample the center
+    if (adaptiveStep > (maxX - minX) * 2 || adaptiveStep > (maxZ - minZ) * 2) {
+        const centerX = (v0.x + v1.x + v2.x) / 3;
+        const centerZ = (v0.z + v1.z + v2.z) / 3;
+        const y = computeYFromPlane(nx, ny, nz, d, centerX, centerZ);
+        result.push({x: f32(centerX), z: f32(centerZ), y});
+        return result;
+    }
+
+    // Use simple for loops for better performance
+    for (let x = minX; x <= maxX; x += adaptiveStep) {
+        const fx = f32(x);
+        for (let z = minZ; z <= maxZ; z += adaptiveStep) {
+            const fz = f32(z);
+
+            if (!triChkPointParaYImpl(v0, v1, v2, fz, fx, 0.0, chkDist, ny)) {
+                continue;
+            }
+
+            const y = computeYFromPlane(nx, ny, nz, d, fx, fz);
+
+            // --- Vertex-Y early out ---
+            const minVertexY = Math.min(v0.y, v1.y, v2.y);
+            if (y < minVertexY) continue;
+
+            result.push({x: fx, z: fz, y});
+        }
+    }
+    
+    return result;
 }
 
 // ------------------------
@@ -143,100 +237,152 @@ samplePointsCheckbox.addEventListener("change", () => {
     samplePointsEnabled = samplePointsCheckbox.checked;
 });
 
-function sampledStandableFootprint(tri, resolution=0.25) {
-    const COLPOLY_NORMAL_FRAC = 1.0 / 32767.0;
-    
-    const v0 = tri.vtxs[0], v1 = tri.vtxs[1], v2 = tri.vtxs[2];
-    const nx = tri.normals[0] * COLPOLY_NORMAL_FRAC;
-    const ny = tri.normals[1] * COLPOLY_NORMAL_FRAC;
-    const nz = tri.normals[2] * COLPOLY_NORMAL_FRAC;
-    const d = tri.d;
-    const chkDist = 1.0;
-
-    // Compute bounds
-    const xs = [v0.x, v1.x, v2.x], zs = [v0.z, v1.z, v2.z];
-    const minX = Math.min(...xs) - chkDist, maxX = Math.max(...xs) + chkDist;
-    const minZ = Math.min(...zs) - chkDist, maxZ = Math.max(...zs) + chkDist;
-
-    const result = [];
-    let total = Math.ceil((maxX - minX) / resolution) * Math.ceil((maxZ - minZ) / resolution);
-    let count = 0;
-
-    for (let x = minX; x <= maxX; x += resolution) {
-        x = f32(x);
-        for (let z = minZ; z <= maxZ; z += resolution) {
-            z = f32(z);
-            count++;
-            if (count % Math.floor(total / 100) === 0) console.log("Sampling progress: " + Math.floor(count / total * 100) + "%");
-
-            if (!triChkPointParaYImpl(v0, v1, v2, z, x, 0.0, chkDist, ny)) {
-                continue;
-            }
-
-            const y = computeYFromPlane(nx, ny, nz, d, x, z);
-
-            // --- Vertex-Y early out ---
-            const minVertexY = Math.min(v0.y, v1.y, v2.y);
-            if (y < minVertexY) continue;
-
-            result.push({x: f32(x), z: f32(z), y});
-        }
-    }
-
-    console.log("Sampling complete: 100%");
-    /*console.log(result)
-    
-    function jsonToCsv(arr) {
-        if (!arr.length) return "";
-
-        const headers = Object.keys(arr[0]);
-        const rows = arr.map(obj =>
-            headers.map(h => JSON.stringify(obj[h] ?? "")).join(",")
-        );
-
-        return headers.join(",") + "\n" + rows.join("\n");
-    }
-
-    console.log(jsonToCsv(result));*/
-    
-    return result;
-}
-
+// Main function to draw sampled triangles - synchronous version for selection.js
 export function drawSampledTriangles(scene, allTriangleData, sampleStep = 0.1) {
-    // First, count total number of points
-    let totalPoints = 0;
-    allTriangleData.forEach(tri => {
-        totalPoints += sampledStandableFootprint(tri, sampleStep).length;
-    });
+    // Prevent multiple simultaneous sampling operations
+    if (isSamplingInProgress) {
+        console.warn("Sampling already in progress, please wait...");
+        return null;
+    }
+    
+    // Remove existing points if any
+    removeExistingPoints(scene);
+    
+    isSamplingInProgress = true;
+    
+    try {
+        // Filter out invalid triangles
+        const validTriangles = allTriangleData.filter(tri => 
+            tri && tri.vtxs && tri.vtxs.length === 3 &&
+            tri.vtxs[0] && tri.vtxs[1] && tri.vtxs[2] &&
+            tri.normals && tri.normals.length === 3
+        );
+        
+        if (validTriangles.length === 0) {
+            console.warn("No valid triangles to sample");
+            isSamplingInProgress = false;
+            return null;
+        }
+        
+        console.log(`Processing ${validTriangles.length} triangle(s)...`);
+        
+        // Process all triangles
+        const allPoints = [];
+        let totalPoints = 0;
+        
+        for (let i = 0; i < validTriangles.length; i++) {
+            const tri = validTriangles[i];
+            const points = processSingleTriangle(tri, sampleStep);
+            allPoints.push(...points);
+            totalPoints += points.length;
+            
+            if (validTriangles.length > 1 && i % 10 === 0) {
+                console.log(`Processed ${i + 1}/${validTriangles.length} triangles, total points: ${totalPoints}`);
+            }
+        }
+        
+        console.log(`Total points generated: ${totalPoints} from ${validTriangles.length} triangle(s)`);
 
-    // Pre-allocate Float32Array
-    const vertices = new Float32Array(totalPoints * 3);
-    let offset = 0;
+        // If no points were generated, return null
+        if (totalPoints === 0) {
+            console.warn("No points were generated. The triangle may not be standable or the resolution may be too high.");
+            isSamplingInProgress = false;
+            return null;
+        }
 
-    // Fill vertices
-    let count = 0
-    allTriangleData.forEach(tri => {
-        const points = sampledStandableFootprint(tri, sampleStep);
-        points.forEach(p => {
+        // If we have too many points, warn and maybe limit
+        if (totalPoints > 5000000) {
+            console.warn(`Warning: ${totalPoints} points is a very large number. Consider increasing the resolution.`);
+        }
+
+        // Build BufferGeometry
+        const vertices = new Float32Array(totalPoints * 3);
+        let offset = 0;
+        
+        for (let i = 0; i < allPoints.length; i++) {
+            const p = allPoints[i];
             vertices[offset++] = Math.fround(p.x);
             vertices[offset++] = Math.fround(p.y);
             vertices[offset++] = Math.fround(p.z);
+        }
+
+        const geometry = new THREE.BufferGeometry();
+        geometry.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
+
+        // Calculate point size based on total points to prevent overdraw
+        let pointSize = 0.5;
+        if (totalPoints > 100000) pointSize = 0.3;
+        if (totalPoints > 500000) pointSize = 0.2;
+        if (totalPoints > 1000000) pointSize = 0.15;
+        if (totalPoints > 5000000) pointSize = 0.1;
+        
+        // Create Points object
+        const material = new THREE.PointsMaterial({ 
+            color: 0xff0000, 
+            size: pointSize,
+            sizeAttenuation: true,
+            transparent: true,
+            opacity: 0.9
         });
-        count += 1;
-        console.log("completed "+count+"/"+allTriangleData.length)
+        const pts = new THREE.Points(geometry, material);
+        pts.name = "SampledPoints";
+
+        scene.add(pts);
+        currentPointsObject = pts;
+        
+        // Also add to loadedModels for proper cleanup
+        loadedModels.push({ name: "Points", mesh: pts, edges: null });
+        
+        isSamplingInProgress = false;
+        return pts;
+        
+    } catch (error) {
+        console.error("Error during sampling:", error);
+        isSamplingInProgress = false;
+        return null;
+    }
+}
+
+// Helper function to remove existing points
+function removeExistingPoints(scene) {
+    // Remove from loadedModels
+    const index = loadedModels.findIndex(m => m.name === "Points");
+    if (index !== -1) {
+        const model = loadedModels[index];
+        if (model.mesh) {
+            scene.remove(model.mesh);
+            if (model.mesh.geometry) model.mesh.geometry.dispose();
+            if (model.mesh.material) model.mesh.material.dispose();
+        }
+        loadedModels.splice(index, 1);
+    }
+    
+    // Also check for any stray Points objects by name
+    const toRemove = [];
+    scene.children.forEach(child => {
+        if (child.name === "SampledPoints" || child.name === "Points") {
+            toRemove.push(child);
+        }
     });
-
-    // Build BufferGeometry
-    const geometry = new THREE.BufferGeometry();
-    geometry.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
-
-    // Single Points object
-    const material = new THREE.PointsMaterial({ color: 0xff0000, size: 0.5 });
-    const pts = new THREE.Points(geometry, material);
-
-    scene.add(pts);
     
-    loadedModels.push({ name: "Points", mesh: pts, edges: null });
+    toRemove.forEach(child => {
+        scene.remove(child);
+        if (child.geometry) child.geometry.dispose();
+        if (child.material) child.material.dispose();
+    });
     
-    return pts;
+    currentPointsObject = null;
+}
+
+// Export for external use
+export function removeAllSampledPoints(scene) {
+    removeExistingPoints(scene);
+}
+
+// Clean up function for when the scene changes
+export function cleanupSampledPoints() {
+    if (currentPointsObject) {
+        // The scene will handle removal when the model is removed
+        currentPointsObject = null;
+    }
 }

@@ -1,6 +1,6 @@
 import * as THREE from 'three';
-import { clearSelection } from './selection.js';
-import { updateSamplePointsUIVisibility, drawSampledTriangles } from './sample_points.js';
+import { clearSelection, updateSelectionUI } from './selection.js';
+import { updateSamplePointsUIVisibility } from './sample_points.js';
 
 ////////////////////////////////////////
 // Model checkboxes
