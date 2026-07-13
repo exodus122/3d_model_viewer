@@ -171,7 +171,14 @@ function calculateAdaptiveResolution(tri, baseResolution) {
 // Process a single triangle and return its points
 function processSingleTriangle(tri, resolution) {
     const COLPOLY_NORMAL_FRAC = 1.0 / 32767.0;
-    
+
+    // WebGL's polygonOffset only affects GL_TRIANGLES fill rasterization, it has
+    // no effect on GL_POINTS draws, so PointsMaterial.polygonOffset is a no-op.
+    // Instead we nudge each sampled point a tiny bit along the triangle's own
+    // normal, which achieves the same visual result (points floating just off
+    // the surface instead of z-fighting with it).
+    const POINT_SURFACE_OFFSET = 0.15;
+
     const v0 = tri.vtxs[0], v1 = tri.vtxs[1], v2 = tri.vtxs[2];
     const nx = tri.normals[0] * COLPOLY_NORMAL_FRAC;
     const ny = tri.normals[1] * COLPOLY_NORMAL_FRAC;
@@ -194,7 +201,11 @@ function processSingleTriangle(tri, resolution) {
         const centerX = (v0.x + v1.x + v2.x) / 3;
         const centerZ = (v0.z + v1.z + v2.z) / 3;
         const y = computeYFromPlane(nx, ny, nz, d, centerX, centerZ);
-        result.push({x: f32(centerX), z: f32(centerZ), y});
+        result.push({
+            x: f32(centerX + nx * POINT_SURFACE_OFFSET),
+            z: f32(centerZ + nz * POINT_SURFACE_OFFSET),
+            y: y + ny * POINT_SURFACE_OFFSET
+        });
         return result;
     }
 
@@ -214,7 +225,11 @@ function processSingleTriangle(tri, resolution) {
             const minVertexY = Math.min(v0.y, v1.y, v2.y);
             if (y < minVertexY) continue;
 
-            result.push({x: fx, z: fz, y});
+            result.push({
+                x: fx + nx * POINT_SURFACE_OFFSET,
+                z: fz + nz * POINT_SURFACE_OFFSET,
+                y: y + ny * POINT_SURFACE_OFFSET
+            });
         }
     }
     
@@ -237,12 +252,24 @@ samplePointsCheckbox.addEventListener("change", () => {
     samplePointsEnabled = samplePointsCheckbox.checked;
 });
 
+// Must match the #samplePointsResolution slider's min/max in index.html.
+// The slider itself stays a normal left-to-right range input; we just flip
+// which end of it means "dense" here so right = dense, left = sparse.
+const SAMPLE_STEP_SLIDER_MIN = 0.005;
+const SAMPLE_STEP_SLIDER_MAX = 0.03;
+
 // Main function to draw sampled triangles - synchronous version for selection.js
 export function drawSampledTriangles(scene, allTriangleData, sampleStep = 0.1) {
     // Prevent multiple simultaneous sampling operations
     if (isSamplingInProgress) {
         console.warn("Sampling already in progress, please wait...");
         return null;
+    }
+
+    // Invert the raw slider value: dragging right (toward the slider's max)
+    // should give a smaller/denser step, and left (toward min) a larger/sparser one.
+    if (sampleStep >= SAMPLE_STEP_SLIDER_MIN && sampleStep <= SAMPLE_STEP_SLIDER_MAX) {
+        sampleStep = (SAMPLE_STEP_SLIDER_MIN + SAMPLE_STEP_SLIDER_MAX) - sampleStep;
     }
     
     // Remove existing points if any
@@ -326,6 +353,7 @@ export function drawSampledTriangles(scene, allTriangleData, sampleStep = 0.1) {
         });
         const pts = new THREE.Points(geometry, material);
         pts.name = "SampledPoints";
+        pts.renderOrder = 1001; // draw in front of waterboxes and other meshes
 
         scene.add(pts);
         currentPointsObject = pts;

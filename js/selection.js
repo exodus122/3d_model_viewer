@@ -437,7 +437,11 @@ export function performSelection(ev, renderer, camera, scene) {
     }
     /////////////////////////////////////////////////////////
 
+    /////////////////////////////////////
+    // ---- TRIANGLE SELECTION PASS  ----
+    /////////////////////////////////////
 
+    removeAllSampledPoints(scene);
 
     let hit = null;
     for (const i of inter) {
@@ -505,7 +509,6 @@ export function performSelection(ev, renderer, camera, scene) {
     updateSelectionUI();
         
     // Create a sampled standable points model for the selected triangle
-    removeAllSampledPoints(scene);
 
     const sample_tri = [{
         vtxs: [
