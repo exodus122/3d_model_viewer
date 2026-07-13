@@ -345,33 +345,20 @@ export function drawSampledTriangles(scene, allTriangleData, sampleStep = 0.1) {
 
 // Helper function to remove existing points
 function removeExistingPoints(scene) {
-    // Remove from loadedModels
-    const index = loadedModels.findIndex(m => m.name === "Points");
-    if (index !== -1) {
-        const model = loadedModels[index];
-        if (model.mesh) {
-            scene.remove(model.mesh);
-            if (model.mesh.geometry) model.mesh.geometry.dispose();
-            if (model.mesh.material) model.mesh.material.dispose();
+    const existing = loadedModels.find(m => m.name === "Points");
+    if (existing) {
+        // Find the UI container for this model and click its delete button.
+        const section = document.querySelector('.controls');
+        const children = Array.from(section.children);
+
+        for (const child of children) {
+            if (child.dataset && child.dataset.modelName === "Points") {
+                const delBtn = child.querySelector('.delete-btn');
+                if (delBtn) delBtn.click();
+                break;
+            }
         }
-        loadedModels.splice(index, 1);
     }
-    
-    // Also check for any stray Points objects by name
-    const toRemove = [];
-    scene.children.forEach(child => {
-        if (child.name === "SampledPoints" || child.name === "Points") {
-            toRemove.push(child);
-        }
-    });
-    
-    toRemove.forEach(child => {
-        scene.remove(child);
-        if (child.geometry) child.geometry.dispose();
-        if (child.material) child.material.dispose();
-    });
-    
-    currentPointsObject = null;
 }
 
 // Export for external use

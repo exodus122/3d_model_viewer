@@ -308,6 +308,7 @@ export function performSelection(ev, renderer, camera, scene) {
 
     for (const m of loadedModels) {
         if (!m.edges || !m.edges.visible) continue;
+        if(m.name != "Seams Model") continue; // only allow edge selection on the seams model
 
         const pos = m.edges.geometry.attributes.position;
 
@@ -503,7 +504,7 @@ export function performSelection(ev, renderer, camera, scene) {
     addSelectionMarker(newTri, scene);
     updateSelectionUI();
         
-    // Sample Triangle
+    // Create a sampled standable points model for the selected triangle
     removeAllSampledPoints(scene);
 
     const sample_tri = [{
