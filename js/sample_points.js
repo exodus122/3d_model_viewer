@@ -433,6 +433,23 @@ export function drawSampledTriangles(scene, allTriangleData, sampleStep = 0.1) {
             transparent: true,
             opacity: 0.9
         });
+
+        // WebGL's polygonOffset doesn't apply to POINTS draws, so points can
+        // still lose depth-ties against whatever they were sampled from,
+        // especially from angles where the earlier per-point normal offset
+        // doesn't point toward the camera. This nudges each point's clip-space
+        // depth toward the camera by a small amount proportional to distance
+        // (the same idea real GL polygon offset uses for triangles), which
+        // works regardless of camera angle or surface orientation.
+        const POINT_DEPTH_BIAS = 0.0015;
+        material.onBeforeCompile = (shader) => {
+            shader.vertexShader = shader.vertexShader.replace(
+                '#include <project_vertex>',
+                `#include <project_vertex>
+                gl_Position.z -= ${POINT_DEPTH_BIAS.toFixed(6)} * gl_Position.w;`
+            );
+        };
+
         const pts = new THREE.Points(geometry, material);
         pts.name = "SampledPoints";
         pts.renderOrder = 1001; // draw in front of waterboxes and other meshes

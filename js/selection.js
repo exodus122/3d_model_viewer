@@ -152,10 +152,12 @@ function addPointMarker(pointObj, scene) {
     const mat = new THREE.MeshBasicMaterial({
         color: 0x44ff44,
         transparent: true,
-        opacity: 1.0
+        opacity: 1.0,
+        depthTest: false // selection marker should always be visible, never lose a depth-tie
     });
     const mesh = new THREE.Mesh(geo, mat);
     mesh.position.copy(pointObj.pos);
+    mesh.renderOrder = 9999; // draw after everything, including the biased sampled points (renderOrder 1001)
     mesh.name = `pointMarker_${pointObj.modelName}_${pointObj.index}_${pointObj.vertex}`;
     scene.add(mesh);
 }
