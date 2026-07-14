@@ -63,6 +63,62 @@ function clipPolygonBelowMinY(verts, minY) {
     return out;
 }
 
+// Keeps the portion of the polygon AT OR BELOW maxY.
+function clipPolygonByMaxY(verts, maxY) {
+    const out = [];
+    const n = verts.length;
+
+    for (let i = 0; i < n; i++) {
+        const a = verts[i];
+        const b = verts[(i + 1) % n];
+
+        const aBelow = a.y <= maxY;
+        const bBelow = b.y <= maxY;
+
+        // Keep vertices below the plane
+        if (aBelow) out.push(a);
+
+        // Add intersection if the edge crosses the plane
+        if (aBelow !== bBelow) {
+            const t = (maxY - a.y) / (b.y - a.y);
+            out.push({
+                x: a.x + (b.x - a.x) * t,
+                y: maxY,
+                z: a.z + (b.z - a.z) * t,
+            });
+        }
+    }
+
+    return out;
+}
+
+// Keeps the portion of the polygon ABOVE maxY.
+function clipPolygonAboveMaxY(verts, maxY) {
+    const out = [];
+    const n = verts.length;
+
+    for (let i = 0; i < n; i++) {
+        const a = verts[i];
+        const b = verts[(i + 1) % n];
+
+        const aAbove = a.y > maxY;
+        const bAbove = b.y > maxY;
+
+        if (aAbove) out.push(a);
+
+        if (aAbove !== bAbove) {
+            const t = (maxY - a.y) / (b.y - a.y);
+            out.push({
+                x: a.x + (b.x - a.x) * t,
+                y: maxY,
+                z: a.z + (b.z - a.z) * t,
+            });
+        }
+    }
+
+    return out;
+}
+
 // Kept for the _old function below.
 function clipTriangleByMinY(verts, minY) {
     return clipPolygonByMinY(verts, minY);
@@ -314,6 +370,7 @@ function buildStandableSurfaceTriangles(tri, pushGreen, pushRed, pushBlue) {
     // Clip threshold is based on the raw stored vertex heights (the actual
     // floor reference), same as the original function.
     const minY = Math.min(rawV0.y, rawV1.y, rawV2.y);
+    const maxY = Math.max(rawV0.y, rawV1.y, rawV2.y);
 
     // Everything we render, though — including the base triangle itself — uses
     // the Y recomputed from the plane equation, not the raw stored vertex Y.

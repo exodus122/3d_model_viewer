@@ -5,7 +5,6 @@ import { initColCtx, initializeSubdivisions } from './subdivisions.js';
 import { renderStandableSurfaceXZ, renderStandableSurfaceXZ_old, renderCollisionWallsXY, renderCollisionWallsYZ } from './standable_surfaces.js';
 import { scanAndBuildFlatGroundMarkers, scanAndBuildSpecialNormalMarkers, buildSurfaceTypeMarkers, scanAndBuildSubdivision } from './poly_markers.js'
 import { buildWaterBoxModel } from './waterboxes.js';
-import { drawSampledSurfaceMesh } from './sample_points.js';
 
 const wireframeCheckbox = document.getElementById('wireframe');
 const surfaceTypeDropdown = document.getElementById("surfaceTypeDropdown");
@@ -567,12 +566,6 @@ export function parseZeldaModelBinary(scene, buffer, fresh, mapName){
         loadedModels.push({ name: "Wall Collision (YZ)", mesh: wallSurfaceMeshYZ, edges: wallSurfaceMeshYZ.children[1] });
         addModelCheckbox(scene, "Wall Collision (YZ)", wallSurfaceMeshYZ, null, false, false, "#ff0000");
     }
-
-    /*const sampledMesh = drawSampledSurfaceMesh(scene, allTriangleData, Number(samplePointsResolution.value));
-    if (sampledMesh) {
-        loadedModels.push({ name: "Sampled Surface", mesh: sampledMesh, edges: null });
-        addModelCheckbox(scene, "Sampled Surface", sampledMesh, null, false, false, "#00FFFF");
-    }*/
     
     const flatGroup = scanAndBuildFlatGroundMarkers();
     if (flatGroup) {

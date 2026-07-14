@@ -225,89 +225,6 @@ function processSingleTriangle(tri, resolution) {
     return result;
 }
 
-// ------------------------
-// Mesh Generation
-// ------------------------
-
-// Same containment/height logic as processSingleTriangle, but instead of
-// loose points it tracks them on an indexed grid and stitches adjacent grid
-// cells into triangle faces. This preserves the "quirky" OoT standable
-// boundary shape faithfully (only genuinely-adjacent sample points are
-// connected), unlike a naive Delaunay triangulation over the whole point
-// cloud, which would incorrectly bridge across gaps/holes.
-export function processSingleTriangleForMesh(tri, resolution) {
-    const COLPOLY_NORMAL_FRAC = 1.0 / 32767.0;
-
-    const v0 = tri.vtxs[0], v1 = tri.vtxs[1], v2 = tri.vtxs[2];
-    const nx = tri.normals[0] * COLPOLY_NORMAL_FRAC;
-    const ny = tri.normals[1] * COLPOLY_NORMAL_FRAC;
-    const nz = tri.normals[2] * COLPOLY_NORMAL_FRAC;
-    const d = tri.d;
-    const chkDist = 1.0;
-
-    const xs = [v0.x, v1.x, v2.x], zs = [v0.z, v1.z, v2.z];
-    const minX = Math.min(...xs) - chkDist, maxX = Math.max(...xs) + chkDist;
-    const minZ = Math.min(...zs) - chkDist, maxZ = Math.max(...zs) + chkDist;
-
-    const adaptiveStep = calculateAdaptiveResolution(tri, resolution);
-    const faces = [];
-
-    // Tiny triangle: no grid to stitch, so just emit the triangle itself.
-    if (adaptiveStep > (maxX - minX) * 2 || adaptiveStep > (maxZ - minZ) * 2) {
-        faces.push([
-            { x: v0.x, y: v0.y, z: v0.z },
-            { x: v1.x, y: v1.y, z: v1.z },
-            { x: v2.x, y: v2.y, z: v2.z }
-        ]);
-        return faces;
-    }
-
-    // Build the accepted-point grid, keyed by integer grid indices "ix,iz".
-    const grid = new Map();
-
-    let ix = 0;
-    for (let x = minX; x <= maxX; x += adaptiveStep, ix++) {
-        const fx = f32(x);
-        let iz = 0;
-        for (let z = minZ; z <= maxZ; z += adaptiveStep, iz++) {
-            const fz = f32(z);
-
-            if (!triChkPointParaYImpl(v0, v1, v2, fz, fx, 0.0, chkDist, ny)) {
-                continue;
-            }
-
-            const y = computeYFromPlane(nx, ny, nz, d, fx, fz);
-
-            grid.set(ix + "," + iz, { x: fx, y, z: fz });
-        }
-    }
-
-    // Stitch adjacent grid cells: 4 corners present -> two triangles (a quad),
-    // exactly 3 present -> one triangle so boundary edges aren't stair-stepped.
-    const cols = Math.ceil((maxX - minX) / adaptiveStep) + 2;
-    const rows = Math.ceil((maxZ - minZ) / adaptiveStep) + 2;
-
-    for (let cx = 0; cx < cols - 1; cx++) {
-        for (let cz = 0; cz < rows - 1; cz++) {
-            const p00 = grid.get(cx + "," + cz);
-            const p10 = grid.get((cx + 1) + "," + cz);
-            const p01 = grid.get(cx + "," + (cz + 1));
-            const p11 = grid.get((cx + 1) + "," + (cz + 1));
-
-            const corners = [p00, p10, p11, p01].filter(Boolean);
-
-            if (corners.length === 4) {
-                faces.push([p00, p10, p11]);
-                faces.push([p00, p11, p01]);
-            } else if (corners.length === 3) {
-                faces.push(corners);
-            }
-        }
-    }
-
-    return faces;
-}
-
 
 export function updateSamplePointsUIVisibility(game) {
     if (["OOT","MM","OOT3D","MM3D"].includes(game)) {
@@ -457,90 +374,6 @@ export function drawSampledTriangles(scene, allTriangleData, sampleStep = 0.1) {
     }
 }
 
-// Build a solid mesh of the whole standable surface, by stitching each
-// triangle's accepted sample grid into faces (see processSingleTriangleForMesh).
-export function drawSampledSurfaceMesh(scene, allTriangleData, sampleStep = 0.1) {
-    if (isSamplingInProgress) {
-        console.warn("Sampling already in progress, please wait...");
-        return null;
-    }
-
-    // Same slider inversion as drawSampledTriangles.
-    if (sampleStep >= SAMPLE_STEP_SLIDER_MIN && sampleStep <= SAMPLE_STEP_SLIDER_MAX) {
-        sampleStep = (SAMPLE_STEP_SLIDER_MIN + SAMPLE_STEP_SLIDER_MAX) - sampleStep;
-    }
-
-    removeExistingSurfaceMesh(scene);
-
-    isSamplingInProgress = true;
-
-    try {
-        const validTriangles = allTriangleData.filter(tri =>
-            tri && tri.vtxs && tri.vtxs.length === 3 &&
-            tri.vtxs[0] && tri.vtxs[1] && tri.vtxs[2] &&
-            tri.normals && tri.normals.length === 3
-        );
-
-        if (validTriangles.length === 0) {
-            console.warn("No valid triangles to sample");
-            isSamplingInProgress = false;
-            return null;
-        }
-
-        console.log(`Building surface mesh from ${validTriangles.length} triangle(s)...`);
-
-        const positions = [];
-
-        for (let i = 0; i < validTriangles.length; i++) {
-            const faces = processSingleTriangleForMesh(validTriangles[i], sampleStep);
-            for (const face of faces) {
-                for (const p of face) {
-                    positions.push(p.x, p.y, p.z);
-                }
-            }
-        }
-
-        if (positions.length === 0) {
-            console.warn("No standable surface mesh generated. The triangles may not be standable or the resolution may be too high.");
-            isSamplingInProgress = false;
-            return null;
-        }
-
-        console.log(`Surface mesh: ${positions.length / 9} faces generated.`);
-
-        const geometry = new THREE.BufferGeometry();
-        geometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(positions), 3));
-        geometry.computeVertexNormals();
-
-        const material = new THREE.MeshBasicMaterial({
-            color: 0x00ff88,
-            transparent: true,
-            opacity: 0.55,
-            side: THREE.DoubleSide,
-            depthWrite: false,
-            polygonOffset: true,
-            polygonOffsetFactor: -4,
-            polygonOffsetUnits: -4
-        });
-
-        const mesh = new THREE.Mesh(geometry, material);
-        mesh.name = "SampledSurfaceMesh";
-        mesh.renderOrder = 1001;
-
-        scene.add(mesh);
-
-        loadedModels.push({ name: "SurfaceMesh", mesh: mesh, edges: null });
-
-        isSamplingInProgress = false;
-        return mesh;
-
-    } catch (error) {
-        console.error("Error during surface mesh generation:", error);
-        isSamplingInProgress = false;
-        return null;
-    }
-}
-
 
 function removeExistingModel(scene, modelName) {
     const existing = loadedModels.find(m => m.name === modelName);
@@ -563,17 +396,9 @@ function removeExistingPoints(scene) {
     removeExistingModel(scene, "Points");
 }
 
-function removeExistingSurfaceMesh(scene) {
-    removeExistingModel(scene, "SurfaceMesh");
-}
-
 // Export for external use
 export function removeAllSampledPoints(scene) {
     removeExistingPoints(scene);
-}
-
-export function removeAllSampledSurfaceMesh(scene) {
-    removeExistingSurfaceMesh(scene);
 }
 
 // Clean up function for when the scene changes
