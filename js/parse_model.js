@@ -537,7 +537,7 @@ export function parseZeldaModelBinary(scene, buffer, fresh, mapName){
     else
         buildGeometry(scene, verts, tris, allTriangleData, colCtx, modelName, fresh);
     
-    const standableSurfaceMesh = renderStandableSurfaceXZ(allTriangleData);
+    /*const standableSurfaceMesh = renderStandableSurfaceXZ(allTriangleData);
     if (standableSurfaceMesh) {
         scene.add(standableSurfaceMesh);
         
@@ -550,7 +550,7 @@ export function parseZeldaModelBinary(scene, buffer, fresh, mapName){
             loadedModels.push({ name: "Standable Surface", mesh: standableSurfaceMesh, edges: standableSurfaceMesh.children[3] });
         
         addModelCheckbox(scene, "Standable Surface", standableSurfaceMesh, null, false, true, "#ff0000");
-    }
+    }*/
 
     const standableSurfaceMesh2 = renderStandableSurfaceXZ_NEW(allTriangleData);
     if (standableSurfaceMesh2) {
@@ -564,7 +564,7 @@ export function parseZeldaModelBinary(scene, buffer, fresh, mapName){
         if(standableSurfaceMesh2.children[3])
             loadedModels.push({ name: "Standable Surface Seams", mesh: standableSurfaceMesh2, edges: standableSurfaceMesh2.children[3] });
         
-        addModelCheckbox(scene, "Standable Surface Seams", standableSurfaceMesh2, null, false, true, "#00ff00");
+        addModelCheckbox(scene, "Standable Surface Seams", standableSurfaceMesh2, null, false, true, "#ff0000");
     }
     
     const wallSurfaceMeshXY = renderCollisionWallsXY(allTriangleData);

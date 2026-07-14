@@ -307,7 +307,7 @@ function buildStandableSurfaceTriangles(tri, pushTri) {
     };
 
     // 1. Base triangle — all 3 verts are >= minY by definition, no clip needed.
-    //pushTri(v0, v1, v2);
+    pushTri(v0, v1, v2);
 
     const cx = (v0.x + v1.x + v2.x) / 3;
     const cz = (v0.z + v1.z + v2.z) / 3;
@@ -327,7 +327,7 @@ function buildStandableSurfaceTriangles(tri, pushTri) {
     }
 
     // 3. Edge buffer strip — only for |Ny| > 0.5, matches triChkPointParaYImpl.
-    /*if (Math.abs(Ny) > 0.5) {
+    if (Math.abs(Ny) > 0.5) {
         for (let ei = 0; ei < 3; ei++) {
             const a = verts[ei];
             const b = verts[(ei + 1) % 3];
@@ -359,7 +359,7 @@ function buildStandableSurfaceTriangles(tri, pushTri) {
             pushClippedTri(a, b, b2);
             pushClippedTri(a, b2, a2);
         }
-    }*/
+    }
 }
 
 export function renderStandableSurfaceXZ_NEW(allTriangleData) {
@@ -394,7 +394,7 @@ export function renderStandableSurfaceXZ_NEW(allTriangleData) {
         const mesh = new THREE.Mesh(
             geometry,
             new THREE.MeshStandardMaterial({
-                color: 0x00ff00,
+                color: 0xff0000,
                 side: THREE.DoubleSide,
                 flatShading: true,
                 polygonOffset: true,
@@ -405,7 +405,7 @@ export function renderStandableSurfaceXZ_NEW(allTriangleData) {
 
         const edges = new THREE.LineSegments(
             new THREE.EdgesGeometry(geometry),
-            new THREE.LineBasicMaterial({ color: 0x00ff00 })
+            new THREE.LineBasicMaterial({ color: 0x000000 })
         );
 
         group.add(mesh);
