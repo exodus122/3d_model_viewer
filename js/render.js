@@ -86,50 +86,59 @@ export function addModelCheckbox(scene, name, meshObj, edgesObj, clearFirst, che
         updateSelectionUI();
     });
 
+    // A group with more than one mesh+edges pair (e.g. our green/red/blue
+    // standable-surface group) has more than one independent color, so a
+    // single swatch can't represent it — skip creating/forcing that picker.
+    const isMultiMeshGroup = !!(meshObj?.children && !meshObj.material && meshObj.children.length > 2);
+
     // Color picker
     const colorInput = document.createElement('input');
     colorInput.type = 'color';
-    
-    const savedColor = modelState[name]?.color;
 
-    colorInput.value = savedColor ??
-        (color ?? (clearFirst ? '#3aa6ff' : '#3aff78'));
+    if (!isMultiMeshGroup) {
+        const savedColor = modelState[name]?.color;
 
-    if (meshObj?.material) {
-        meshObj.material.color.set(colorInput.value);
-    }
-    else if (meshObj?.children) {
-        meshObj.children[0].material.color.set(colorInput.value);
-    }
-    else if (edgesObj?.material) {
-        edgesObj.material.color.set(colorInput.value);
-    }
-    
-    colorInput.addEventListener('input', () => {
+        colorInput.value = savedColor ??
+            (color ?? (clearFirst ? '#3aa6ff' : '#3aff78'));
 
         if (meshObj?.material) {
             meshObj.material.color.set(colorInput.value);
-            meshObj.material.needsUpdate = true;
         }
         else if (meshObj?.children) {
             meshObj.children[0].material.color.set(colorInput.value);
-            meshObj.children[0].material.needsUpdate = true;
         }
         else if (edgesObj?.material) {
             edgesObj.material.color.set(colorInput.value);
-            edgesObj.material.needsUpdate = true;
         }
 
-        // Ensure entry exists
-        if (!modelState[name]) modelState[name] = {};
+        colorInput.addEventListener('input', () => {
 
-        // Save color
-        modelState[name].color = colorInput.value;
-    });
+            if (meshObj?.material) {
+                meshObj.material.color.set(colorInput.value);
+                meshObj.material.needsUpdate = true;
+            }
+            else if (meshObj?.children) {
+                meshObj.children[0].material.color.set(colorInput.value);
+                meshObj.children[0].material.needsUpdate = true;
+            }
+            else if (edgesObj?.material) {
+                edgesObj.material.color.set(colorInput.value);
+                edgesObj.material.needsUpdate = true;
+            }
+
+            // Ensure entry exists
+            if (!modelState[name]) modelState[name] = {};
+
+            // Save color
+            modelState[name].color = colorInput.value;
+        });
+    }
 
     // Assemble
     container.appendChild(label);
-    container.appendChild(colorInput);
+    if (!isMultiMeshGroup) {
+        container.appendChild(colorInput);
+    }
     if(deleteButton) {
         container.appendChild(del);
     }

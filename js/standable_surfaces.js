@@ -36,6 +36,33 @@ function clipPolygonByMinY(verts, minY) {
     return out;
 }
 
+// Mirror of clipPolygonByMinY, keeping the portion BELOW minY instead.
+function clipPolygonBelowMinY(verts, minY) {
+    const out = [];
+    const n = verts.length;
+
+    for (let i = 0; i < n; i++) {
+        const a = verts[i];
+        const b = verts[(i + 1) % n];
+
+        const aBelow = a.y < minY;
+        const bBelow = b.y < minY;
+
+        if (aBelow) out.push(a);
+
+        if (aBelow !== bBelow) {
+            const t = (minY - a.y) / (b.y - a.y);
+            out.push({
+                x: a.x + (b.x - a.x) * t,
+                y: minY,
+                z: a.z + (b.z - a.z) * t,
+            });
+        }
+    }
+
+    return out;
+}
+
 // Kept for the _old function below.
 function clipTriangleByMinY(verts, minY) {
     return clipPolygonByMinY(verts, minY);
@@ -77,7 +104,7 @@ function computeYFromPlaneLocal(nx, ny, nz, d, x, z) {
     return f32((((-nx * x) - (nz * z)) - d) / ny);
 }
 
-export function renderStandableSurfaceXZ(allTriangleData) {
+export function renderStandableSurfaceXZ_old(allTriangleData) {
     const f32 = Math.fround;
 
     const positionsNormal = [];
@@ -263,13 +290,13 @@ export function renderStandableSurfaceXZ(allTriangleData) {
 
 // Builds the exact region triChkPointParaYImpl accepts for a single triangle,
 // as a handful of overlapping filled shapes instead of a sampled grid:
-//   - the triangle itself
-//   - a full circle of radius chkDist centered at each vertex (always)
-//   - a straight buffer strip along each edge, only when |Ny| > 0.5
+//   - the triangle itself + the edge buffer strips -> pushRed / pushBlue,
+//     split by minVertexY (blue = the portion that dipped below), matching
+//     the original function's red/blue distinction.
+//   - a full circle of radius chkDist centered at each vertex (always) -> pushGreen
 // Overlap between these pieces is fine since we're only filling area, not
-// tracing a single outline. Each piece is clipped against minVertexY, same
-// as the old clipTriangleByMinY step.
-function buildStandableSurfaceTriangles(tri, pushTri) {
+// tracing a single outline.
+function buildStandableSurfaceTriangles(tri, pushGreen, pushRed, pushBlue) {
     const vtxs = tri.vtxs;
     const normals = tri.normals;
     const D = f32(tri.d);
@@ -299,20 +326,40 @@ function buildStandableSurfaceTriangles(tri, pushTri) {
     const v2 = liftY(rawV2);
     const verts = [v0, v1, v2];
 
-    const pushClippedTri = (a, b, c) => {
-        const clipped = clipPolygonByMinY([a, b, c], minY);
-        for (let i = 1; i < clipped.length - 1; i++) {
-            pushTri(clipped[0], clipped[i], clipped[i + 1]);
+    const belowEnabled = Ny > 0.5; // matches the original's `if (Ny > 0.5)` gate
+
+    // Clips [a,b,c] against minY, sending the above-minY portion to pushRed
+    // and (if belowEnabled) the below-minY portion to pushBlue.
+    const pushClippedTriSplit = (a, b, c) => {
+        const above = clipPolygonByMinY([a, b, c], minY);
+        for (let i = 1; i < above.length - 1; i++) {
+            pushRed(above[0], above[i], above[i + 1]);
+        }
+        if (belowEnabled) {
+            const below = clipPolygonBelowMinY([a, b, c], minY);
+            for (let i = 1; i < below.length - 1; i++) {
+                pushBlue(below[0], below[i], below[i + 1]);
+            }
         }
     };
 
-    // 1. Base triangle — all 3 verts are >= minY by definition, no clip needed.
-    pushTri(v0, v1, v2);
+    // Vertex bulge pieces only ever contribute to the green mesh, clipped to
+    // discard anything below the floor (same as before), never split into blue.
+    const pushClippedTriGreen = (a, b, c) => {
+        const clipped = clipPolygonByMinY([a, b, c], minY);
+        for (let i = 1; i < clipped.length - 1; i++) {
+            pushGreen(clipped[0], clipped[i], clipped[i + 1]);
+        }
+    };
+
+    // 1. Base triangle (red/blue split, though it's almost always fully red
+    // since its own vertices define minY).
+    pushClippedTriSplit(v0, v1, v2);
 
     const cx = (v0.x + v1.x + v2.x) / 3;
     const cz = (v0.z + v1.z + v2.z) / 3;
 
-    // 2. Vertex bulge: full circle of radius chkDist at each vertex.
+    // 2. Vertex bulge: full circle of radius chkDist at each vertex (green).
     for (let vi = 0; vi < 3; vi++) {
         const center = verts[vi];
         let prev = null;
@@ -321,12 +368,13 @@ function buildStandableSurfaceTriangles(tri, pushTri) {
             const px = center.x + Math.cos(theta) * STANDABLE_CHK_DIST;
             const pz = center.z + Math.sin(theta) * STANDABLE_CHK_DIST;
             const p = { x: f32(px), y: computeYFromPlaneLocal(Nx, Ny, Nz, D, px, pz), z: f32(pz) };
-            if (prev) pushClippedTri(center, prev, p);
+            if (prev) pushClippedTriGreen(center, prev, p);
             prev = p;
         }
     }
 
     // 3. Edge buffer strip — only for |Ny| > 0.5, matches triChkPointParaYImpl.
+    // belowEnabled is already true here (Ny > 0.5 given the earlier Ny < 0 bail).
     if (Math.abs(Ny) > 0.5) {
         for (let ei = 0; ei < 3; ei++) {
             const a = verts[ei];
@@ -356,32 +404,37 @@ function buildStandableSurfaceTriangles(tri, pushTri) {
             const a2 = { x: f32(a2x), y: computeYFromPlaneLocal(Nx, Ny, Nz, D, a2x, a2z), z: f32(a2z) };
             const b2 = { x: f32(b2x), y: computeYFromPlaneLocal(Nx, Ny, Nz, D, b2x, b2z), z: f32(b2z) };
 
-            pushClippedTri(a, b, b2);
-            pushClippedTri(a, b2, a2);
+            pushClippedTriSplit(a, b, b2);
+            pushClippedTriSplit(a, b2, a2);
         }
     }
 }
 
-export function renderStandableSurfaceXZ_NEW(allTriangleData) {
-    const positions = [];
-    const indices = [];
-    let vertexOffset = 0;
+export function renderStandableSurfaceXZ(allTriangleData) {
+    function makeBucket() {
+        const positions = [];
+        const indices = [];
+        let vertexOffset = 0;
+        const push = (a, b, c) => {
+            positions.push(a.x, a.y, a.z, b.x, b.y, b.z, c.x, c.y, c.z);
+            indices.push(vertexOffset, vertexOffset + 1, vertexOffset + 2);
+            vertexOffset += 3;
+        };
+        return { positions, indices, push };
+    }
 
-    const pushTri = (a, b, c) => {
-        positions.push(a.x, a.y, a.z, b.x, b.y, b.z, c.x, c.y, c.z);
-        indices.push(vertexOffset, vertexOffset + 1, vertexOffset + 2);
-        vertexOffset += 3;
-    };
+    const green = makeBucket(); // vertex bulges
+    const red = makeBucket();   // above minVertexY
+    const blue = makeBucket();  // below minVertexY (only for Ny > 0.5 triangles)
 
-    allTriangleData.forEach(tri => buildStandableSurfaceTriangles(tri, pushTri));
+    allTriangleData.forEach(tri => buildStandableSurfaceTriangles(tri, green.push, red.push, blue.push));
 
-    // Build mesh
-    const group = new THREE.Group();
+    function buildMesh(bucket, color, edgeColor = 0x000000) {
+        if (bucket.positions.length === 0) return null;
 
-    if (positions.length > 0) {
         let geometry = new THREE.BufferGeometry();
-        geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-        geometry.setIndex(indices);
+        geometry.setAttribute('position', new THREE.Float32BufferAttribute(bucket.positions, 3));
+        geometry.setIndex(bucket.indices);
 
         // Weld coincident vertices so EdgesGeometry can tell genuine silhouette
         // edges apart from the internal seams between our overlapping circle
@@ -394,7 +447,7 @@ export function renderStandableSurfaceXZ_NEW(allTriangleData) {
         const mesh = new THREE.Mesh(
             geometry,
             new THREE.MeshStandardMaterial({
-                color: 0xff0000,
+                color,
                 side: THREE.DoubleSide,
                 flatShading: true,
                 polygonOffset: true,
@@ -405,11 +458,26 @@ export function renderStandableSurfaceXZ_NEW(allTriangleData) {
 
         const edges = new THREE.LineSegments(
             new THREE.EdgesGeometry(geometry),
-            new THREE.LineBasicMaterial({ color: 0x000000 })
+            new THREE.LineBasicMaterial({ color: edgeColor })
         );
 
-        group.add(mesh);
-        group.add(edges);
+        return { mesh, edges };
+    }
+
+    // Flat structure (mesh, edges, mesh, edges, ...) — addModelCheckbox (in
+    // render.js) expects meshObj.children[0] to be a Mesh with a .material
+    // directly, so nested sub-Groups per color would break its color picker.
+    const group = new THREE.Group();
+    for (const bucket of [
+        { data: green, color: 0x00cc44, edgeColor: 0x39ff64 }, // bright green edges: the thin vertex-bulge slivers get lost in black outlines otherwise
+        { data: red, color: 0xff0000, edgeColor: 0x000000 },
+        { data: blue, color: 0x0000ff, edgeColor: 0x000000 },
+    ]) {
+        const built = buildMesh(bucket.data, bucket.color, bucket.edgeColor);
+        if (built) {
+            group.add(built.mesh);
+            group.add(built.edges);
+        }
     }
 
     return group;
@@ -676,134 +744,6 @@ export function renderCollisionWallsYZ(allTriangleData) {
         group.add(mesh);
         group.add(edges);
     }
-
-    return group;
-}
-
-export function renderStandableSurfaceXZ_old(allTriangleData) {
-    const f32 = Math.fround;
-
-    const positions = [];
-    const indices = [];
-    let vertexOffset = 0;
-
-    allTriangleData.forEach(tri => {
-        
-        const vtxs = tri.vtxs;
-        const normals = tri.normals;
-        const D = f32(tri.d);
-        
-        if (vtxs[0].x == 485 && vtxs[0].y == 1233 && vtxs[0].z == 1764 && 
-        vtxs[1].x == -69 && vtxs[1].y == 1233 && vtxs[1].z == 1487 && 
-        vtxs[2].x == -291 && vtxs[2].y == 1233 && vtxs[2].z == 1875)
-            console.log("test")
-            
-        if (normals[0] == 0 && normals[1] == 32766 && normals[2] == 0) {
-            console.log(vtxs[0].x + ", " + vtxs[0].y + ", " + vtxs[0].z
-             + ", " + vtxs[1].x + ", " + vtxs[1].y + ", " + vtxs[1].z
-              + ", " + vtxs[2].x + ", " + vtxs[2].y + ", " + vtxs[2].z)
-            return;
-        }
-
-        const Nx = f32(normals[0] * COLPOLY_NORMAL_FRAC);
-        const Ny = f32(normals[1] * COLPOLY_NORMAL_FRAC);
-        const Nz = f32(normals[2] * COLPOLY_NORMAL_FRAC);
-
-        if (Ny < f32(0.0) || isZero(Ny)) return;
-
-        // Find original lowest Y vertex
-        let minY = Math.min(vtxs[0].y, vtxs[1].y, vtxs[2].y);
-
-        function liftVertex(x, z) {
-            if (Math.abs(Ny) < 1e-12) return 0.0; // should this be here?
-            return f32(-(Nx * x + Nz * z + D) / Ny);
-        }
-
-        // Determine if we need to offset triangle
-        let expandedVertices = vtxs.map(v => ({ x: f32(v.x), z: f32(v.z) }));
-
-        if (Math.abs(Ny) > 0.5) {
-            // Expand triangle by 1 unit on all sides with rounded corners
-            // Simple approach: move each vertex away from centroid
-            const centroid = {
-                x: (expandedVertices[0].x + expandedVertices[1].x + expandedVertices[2].x) / 3,
-                z: (expandedVertices[0].z + expandedVertices[1].z + expandedVertices[2].z) / 3
-            };
-
-            expandedVertices = expandedVertices.map(v => {
-                const dx = v.x - centroid.x;
-                const dz = v.z - centroid.z;
-                const len = Math.sqrt(dx*dx + dz*dz);
-                const factor = len > 0 ? (len + 1) / len : 1;
-                return {
-                    x: centroid.x + dx * factor,
-                    z: centroid.z + dz * factor
-                };
-            });
-        }
-
-        const rawVerts = [];
-
-        for (let i = 0; i < 3; i++) {
-            const vx = expandedVertices[i].x;
-            const vz = expandedVertices[i].z;
-            const vy = liftVertex(vx, vz);
-            rawVerts.push({ x: vx, y: vy, z: vz });
-        }
-
-        // Clip polygon against y = minY
-        const clipped = clipTriangleByMinY(rawVerts, minY);
-
-        // If clipped polygon has < 3 vertices, it is gone
-        if (clipped.length < 3) return;
-
-        // Triangulate the clipped polygon (fan)
-        for (let i = 1; i < clipped.length - 1; i++) {
-            const v0 = clipped[0];
-            const v1 = clipped[i];
-            const v2 = clipped[i + 1];
-
-            positions.push(v0.x, v0.y, v0.z);
-            positions.push(v1.x, v1.y, v1.z);
-            positions.push(v2.x, v2.y, v2.z);
-
-            indices.push(
-                vertexOffset,
-                vertexOffset + 1,
-                vertexOffset + 2
-            );
-            vertexOffset += 3;
-        }
-    });
-
-    // Create main mesh
-    const geometry = new THREE.BufferGeometry();
-    geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-    geometry.setIndex(indices);
-    geometry.computeVertexNormals();
-
-    const mesh = new THREE.Mesh(
-        geometry,
-        new THREE.MeshStandardMaterial({
-            //color: 0x00ff99,
-            color: 0xff0000,
-            side: THREE.DoubleSide,
-            flatShading: true,
-            polygonOffset: true,
-            polygonOffsetFactor: 4,
-            polygonOffsetUnits: 4
-        })
-    );
-
-    // Edges
-    const edgesGeom = new THREE.EdgesGeometry(geometry);
-    const edgesMat = new THREE.LineBasicMaterial({ color: 0x000000 });
-    const edges = new THREE.LineSegments(edgesGeom, edgesMat);
-
-    // Group
-    const group = new THREE.Group();
-    group.add(mesh);
-    group.add(edges);
 
     return group;
 }
