@@ -1,18 +1,20 @@
 import * as THREE from 'three';
+import { mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
 
 ////////////////////////////////////////
 // System: Standable Surfaces
 ////////////////////////////////////////
 const COLPOLY_NORMAL_FRAC = f32(1.0 / 32767.0);
 
-function clipTriangleByMinY(verts, minY) {
-    // verts = [{x,y,z}, ... 3 items]
+function clipPolygonByMinY(verts, minY) {
+    // verts = [{x,y,z}, ...] any length, in order around the polygon
 
     const out = [];
+    const n = verts.length;
 
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; i < n; i++) {
         const a = verts[i];
-        const b = verts[(i + 1) % 3];
+        const b = verts[(i + 1) % n];
 
         const aAbove = a.y >= minY;
         const bAbove = b.y >= minY;
@@ -32,6 +34,11 @@ function clipTriangleByMinY(verts, minY) {
     }
 
     return out;
+}
+
+// Kept for the _old function below.
+function clipTriangleByMinY(verts, minY) {
+    return clipPolygonByMinY(verts, minY);
 }
 
 // Helper: compute vertices below minY (clipped slice)
@@ -60,6 +67,14 @@ function getClippedBelowTriangle(rawVerts, minY) {
     }
 
     return belowVerts;
+}
+
+const STANDABLE_CHK_DIST = 1.0; // must match sample_points.js's chkDist
+const STANDABLE_CIRCLE_SEGMENTS = 16;
+
+function computeYFromPlaneLocal(nx, ny, nz, d, x, z) {
+    if (isZero(ny)) return 0;
+    return f32((((-nx * x) - (nz * z)) - d) / ny);
 }
 
 export function renderStandableSurfaceXZ(allTriangleData) {
@@ -241,6 +256,160 @@ export function renderStandableSurfaceXZ(allTriangleData) {
 
         group.add(meshS);
         group.add(edgesS);
+    }
+
+    return group;
+}
+
+// Builds the exact region triChkPointParaYImpl accepts for a single triangle,
+// as a handful of overlapping filled shapes instead of a sampled grid:
+//   - the triangle itself
+//   - a full circle of radius chkDist centered at each vertex (always)
+//   - a straight buffer strip along each edge, only when |Ny| > 0.5
+// Overlap between these pieces is fine since we're only filling area, not
+// tracing a single outline. Each piece is clipped against minVertexY, same
+// as the old clipTriangleByMinY step.
+function buildStandableSurfaceTriangles(tri, pushTri) {
+    const vtxs = tri.vtxs;
+    const normals = tri.normals;
+    const D = f32(tri.d);
+
+    const Nx = f32(normals[0] * COLPOLY_NORMAL_FRAC);
+    const Ny = f32(normals[1] * COLPOLY_NORMAL_FRAC);
+    const Nz = f32(normals[2] * COLPOLY_NORMAL_FRAC);
+
+    if (Ny < f32(0.0) || isZero(Ny)) return;
+
+    const rawV0 = { x: f32(vtxs[0].x), y: f32(vtxs[0].y), z: f32(vtxs[0].z) };
+    const rawV1 = { x: f32(vtxs[1].x), y: f32(vtxs[1].y), z: f32(vtxs[1].z) };
+    const rawV2 = { x: f32(vtxs[2].x), y: f32(vtxs[2].y), z: f32(vtxs[2].z) };
+
+    // Clip threshold is based on the raw stored vertex heights (the actual
+    // floor reference), same as the original function.
+    const minY = Math.min(rawV0.y, rawV1.y, rawV2.y);
+
+    // Everything we render, though — including the base triangle itself — uses
+    // the Y recomputed from the plane equation, not the raw stored vertex Y.
+    // Those two can differ slightly due to rounding baked into the stored
+    // integer collision data, and the plane-based value is what the point
+    // sampler (and the original liftVertex()) actually used.
+    const liftY = (v) => ({ x: v.x, y: computeYFromPlaneLocal(Nx, Ny, Nz, D, v.x, v.z), z: v.z });
+    const v0 = liftY(rawV0);
+    const v1 = liftY(rawV1);
+    const v2 = liftY(rawV2);
+    const verts = [v0, v1, v2];
+
+    const pushClippedTri = (a, b, c) => {
+        const clipped = clipPolygonByMinY([a, b, c], minY);
+        for (let i = 1; i < clipped.length - 1; i++) {
+            pushTri(clipped[0], clipped[i], clipped[i + 1]);
+        }
+    };
+
+    // 1. Base triangle — all 3 verts are >= minY by definition, no clip needed.
+    //pushTri(v0, v1, v2);
+
+    const cx = (v0.x + v1.x + v2.x) / 3;
+    const cz = (v0.z + v1.z + v2.z) / 3;
+
+    // 2. Vertex bulge: full circle of radius chkDist at each vertex.
+    for (let vi = 0; vi < 3; vi++) {
+        const center = verts[vi];
+        let prev = null;
+        for (let s = 0; s <= STANDABLE_CIRCLE_SEGMENTS; s++) {
+            const theta = (s / STANDABLE_CIRCLE_SEGMENTS) * Math.PI * 2;
+            const px = center.x + Math.cos(theta) * STANDABLE_CHK_DIST;
+            const pz = center.z + Math.sin(theta) * STANDABLE_CHK_DIST;
+            const p = { x: f32(px), y: computeYFromPlaneLocal(Nx, Ny, Nz, D, px, pz), z: f32(pz) };
+            if (prev) pushClippedTri(center, prev, p);
+            prev = p;
+        }
+    }
+
+    // 3. Edge buffer strip — only for |Ny| > 0.5, matches triChkPointParaYImpl.
+    /*if (Math.abs(Ny) > 0.5) {
+        for (let ei = 0; ei < 3; ei++) {
+            const a = verts[ei];
+            const b = verts[(ei + 1) % 3];
+
+            const dx = b.x - a.x;
+            const dz = b.z - a.z;
+            const len = Math.sqrt(dx * dx + dz * dz);
+            if (len < 1e-6) continue;
+
+            let nX = -dz / len;
+            let nZ = dx / len;
+
+            // Ensure normal points away from the triangle's centroid.
+            const midX = (a.x + b.x) / 2;
+            const midZ = (a.z + b.z) / 2;
+            if ((nX * (cx - midX) + nZ * (cz - midZ)) > 0) {
+                nX = -nX;
+                nZ = -nZ;
+            }
+
+            const a2x = a.x + nX * STANDABLE_CHK_DIST;
+            const a2z = a.z + nZ * STANDABLE_CHK_DIST;
+            const b2x = b.x + nX * STANDABLE_CHK_DIST;
+            const b2z = b.z + nZ * STANDABLE_CHK_DIST;
+
+            const a2 = { x: f32(a2x), y: computeYFromPlaneLocal(Nx, Ny, Nz, D, a2x, a2z), z: f32(a2z) };
+            const b2 = { x: f32(b2x), y: computeYFromPlaneLocal(Nx, Ny, Nz, D, b2x, b2z), z: f32(b2z) };
+
+            pushClippedTri(a, b, b2);
+            pushClippedTri(a, b2, a2);
+        }
+    }*/
+}
+
+export function renderStandableSurfaceXZ_NEW(allTriangleData) {
+    const positions = [];
+    const indices = [];
+    let vertexOffset = 0;
+
+    const pushTri = (a, b, c) => {
+        positions.push(a.x, a.y, a.z, b.x, b.y, b.z, c.x, c.y, c.z);
+        indices.push(vertexOffset, vertexOffset + 1, vertexOffset + 2);
+        vertexOffset += 3;
+    };
+
+    allTriangleData.forEach(tri => buildStandableSurfaceTriangles(tri, pushTri));
+
+    // Build mesh
+    const group = new THREE.Group();
+
+    if (positions.length > 0) {
+        let geometry = new THREE.BufferGeometry();
+        geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+        geometry.setIndex(indices);
+
+        // Weld coincident vertices so EdgesGeometry can tell genuine silhouette
+        // edges apart from the internal seams between our overlapping circle
+        // fans/strips (which are all coplanar and would otherwise all get
+        // drawn as if they were boundary edges, since nothing shares vertices
+        // in the raw un-indexed output above).
+        geometry = mergeVertices(geometry);
+        geometry.computeVertexNormals();
+
+        const mesh = new THREE.Mesh(
+            geometry,
+            new THREE.MeshStandardMaterial({
+                color: 0x00ff00,
+                side: THREE.DoubleSide,
+                flatShading: true,
+                polygonOffset: true,
+                polygonOffsetFactor: 4,
+                polygonOffsetUnits: 4
+            })
+        );
+
+        const edges = new THREE.LineSegments(
+            new THREE.EdgesGeometry(geometry),
+            new THREE.LineBasicMaterial({ color: 0x00ff00 })
+        );
+
+        group.add(mesh);
+        group.add(edges);
     }
 
     return group;
