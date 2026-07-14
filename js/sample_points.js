@@ -172,13 +172,6 @@ function calculateAdaptiveResolution(tri, baseResolution) {
 function processSingleTriangle(tri, resolution) {
     const COLPOLY_NORMAL_FRAC = 1.0 / 32767.0;
 
-    // WebGL's polygonOffset only affects GL_TRIANGLES fill rasterization, it has
-    // no effect on GL_POINTS draws, so PointsMaterial.polygonOffset is a no-op.
-    // Instead we nudge each sampled point a tiny bit along the triangle's own
-    // normal, which achieves the same visual result (points floating just off
-    // the surface instead of z-fighting with it).
-    const POINT_SURFACE_OFFSET = 0.15;
-
     const v0 = tri.vtxs[0], v1 = tri.vtxs[1], v2 = tri.vtxs[2];
     const nx = tri.normals[0] * COLPOLY_NORMAL_FRAC;
     const ny = tri.normals[1] * COLPOLY_NORMAL_FRAC;
@@ -202,9 +195,9 @@ function processSingleTriangle(tri, resolution) {
         const centerZ = (v0.z + v1.z + v2.z) / 3;
         const y = computeYFromPlane(nx, ny, nz, d, centerX, centerZ);
         result.push({
-            x: f32(centerX + nx * POINT_SURFACE_OFFSET),
-            z: f32(centerZ + nz * POINT_SURFACE_OFFSET),
-            y: y + ny * POINT_SURFACE_OFFSET
+            x: f32(centerX),
+            z: f32(centerZ),
+            y: y
         });
         return result;
     }
@@ -221,14 +214,10 @@ function processSingleTriangle(tri, resolution) {
 
             const y = computeYFromPlane(nx, ny, nz, d, fx, fz);
 
-            // --- Vertex-Y early out ---
-            const minVertexY = Math.min(v0.y, v1.y, v2.y);
-            if (y < minVertexY) continue;
-
             result.push({
-                x: fx + nx * POINT_SURFACE_OFFSET,
-                z: fz + nz * POINT_SURFACE_OFFSET,
-                y: y + ny * POINT_SURFACE_OFFSET
+                x: fx,
+                z: fz,
+                y: y
             });
         }
     }
@@ -275,7 +264,6 @@ export function processSingleTriangleForMesh(tri, resolution) {
 
     // Build the accepted-point grid, keyed by integer grid indices "ix,iz".
     const grid = new Map();
-    const minVertexY = Math.min(v0.y, v1.y, v2.y);
 
     let ix = 0;
     for (let x = minX; x <= maxX; x += adaptiveStep, ix++) {
@@ -289,7 +277,6 @@ export function processSingleTriangleForMesh(tri, resolution) {
             }
 
             const y = computeYFromPlane(nx, ny, nz, d, fx, fz);
-            if (y < minVertexY) continue;
 
             grid.set(ix + "," + iz, { x: fx, y, z: fz });
         }

@@ -326,8 +326,6 @@ function buildStandableSurfaceTriangles(tri, pushGreen, pushRed, pushBlue) {
     const v2 = liftY(rawV2);
     const verts = [v0, v1, v2];
 
-    const belowEnabled = Ny > 0.5; // matches the original's `if (Ny > 0.5)` gate
-
     // Clips [a,b,c] against minY, sending the above-minY portion to pushRed
     // and (if belowEnabled) the below-minY portion to pushBlue.
     const pushClippedTriSplit = (a, b, c) => {
@@ -335,20 +333,9 @@ function buildStandableSurfaceTriangles(tri, pushGreen, pushRed, pushBlue) {
         for (let i = 1; i < above.length - 1; i++) {
             pushRed(above[0], above[i], above[i + 1]);
         }
-        if (belowEnabled) {
-            const below = clipPolygonBelowMinY([a, b, c], minY);
-            for (let i = 1; i < below.length - 1; i++) {
-                pushBlue(below[0], below[i], below[i + 1]);
-            }
-        }
-    };
-
-    // Vertex bulge pieces only ever contribute to the green mesh, clipped to
-    // discard anything below the floor (same as before), never split into blue.
-    const pushClippedTriGreen = (a, b, c) => {
-        const clipped = clipPolygonByMinY([a, b, c], minY);
-        for (let i = 1; i < clipped.length - 1; i++) {
-            pushGreen(clipped[0], clipped[i], clipped[i + 1]);
+        const below = clipPolygonBelowMinY([a, b, c], minY);
+        for (let i = 1; i < below.length - 1; i++) {
+            pushBlue(below[0], below[i], below[i + 1]);
         }
     };
 
@@ -368,13 +355,12 @@ function buildStandableSurfaceTriangles(tri, pushGreen, pushRed, pushBlue) {
             const px = center.x + Math.cos(theta) * STANDABLE_CHK_DIST;
             const pz = center.z + Math.sin(theta) * STANDABLE_CHK_DIST;
             const p = { x: f32(px), y: computeYFromPlaneLocal(Nx, Ny, Nz, D, px, pz), z: f32(pz) };
-            if (prev) pushClippedTriGreen(center, prev, p);
+            if (prev) pushGreen(center, prev, p);
             prev = p;
         }
     }
 
     // 3. Edge buffer strip — only for |Ny| > 0.5, matches triChkPointParaYImpl.
-    // belowEnabled is already true here (Ny > 0.5 given the earlier Ny < 0 bail).
     if (Math.abs(Ny) > 0.5) {
         for (let ei = 0; ei < 3; ei++) {
             const a = verts[ei];
@@ -425,7 +411,7 @@ export function renderStandableSurfaceXZ(allTriangleData) {
 
     const green = makeBucket(); // vertex bulges
     const red = makeBucket();   // above minVertexY
-    const blue = makeBucket();  // below minVertexY (only for Ny > 0.5 triangles)
+    const blue = makeBucket();  // below minVertexY
 
     allTriangleData.forEach(tri => buildStandableSurfaceTriangles(tri, green.push, red.push, blue.push));
 
