@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { drawSampledTriangles, removeAllSampledPoints } from './sample_points.js';
+import { currentColCtx } from './parse_model.js';
 
 ////////////////////////////////////////
 // System: Selection (raycast, markers, UI)
@@ -513,6 +514,7 @@ export function performSelection(ev, renderer, camera, scene) {
     // Create a sampled standable points model for the selected triangle
 
     const sample_tri = [{
+        id: meta ? meta.id : null,
         vtxs: [
             va.clone(),
             vb.clone(),
@@ -541,7 +543,7 @@ export function performSelection(ev, renderer, camera, scene) {
             }
             
             // Draw new points
-            pts = drawSampledTriangles(scene, sample_tri, Number(samplePointsResolution.value));
+            pts = drawSampledTriangles(scene, sample_tri, Number(samplePointsResolution.value), currentColCtx);
         }
     }
     

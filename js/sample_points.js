@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { getPointSubdivisionIndex, BGCHECK_SUBDIV_OVERLAP } from './subdivisions.js';
 
 ////////////////////////////////////////
 // System: Sample Standable Polygon Surface
@@ -168,8 +169,74 @@ function calculateAdaptiveResolution(tri, baseResolution) {
     return finalStep;
 }
 
+// Checks whether a sample point generated from triangle `polyIdx` actually
+// lands in a subdivision that triangle was registered in as standable
+// ground (floor or wall - see colCtx.polyStandableSubdivIndices in
+// subdivisions.js; ceilings are excluded since they can't be stood on).
+//
+// A triangle can be registered in multiple subdivision cells (its bounding
+// box, expanded by BGCHECK_SUBDIV_OVERLAP, can straddle several cells - see
+// initializeSubdivisions in subdivisions.js). At runtime, collision is
+// looked up per-subdivision, so a point outside every cell the triangle was
+// actually registered in isn't really reachable as standable ground on that
+// triangle. Since we no longer clip sample points to stay above the
+// triangle's lowest vertex Y, a point can now land at a height that falls
+// into a subdivision cell *below* every cell the triangle was registered in.
+//
+// Subdivision cells are coarse - a single cell can span a much taller Y
+// range than the sliver of geometry a triangle actually occupies inside it
+// (subdivAmount.y is typically single digits across the whole map). That's
+// fine for triangles with a reasonable slope, but for a near-vertical
+// triangle (Ny close to 0), computeYFromPlane can extrapolate wildly for a
+// point sampled even slightly off the triangle's true footprint, producing
+// a Y hundreds of units away from anything real while still technically
+// landing in the same coarse subdivision cell as the triangle - so the
+// subdivision check alone wouldn't catch it. To catch that, we also reject
+// points whose Y falls below the triangle's own vertex Y range by more than
+// BGCHECK_SUBDIV_OVERLAP - the same margin the collision system itself pads
+// a triangle's registration by, so it's a real tolerance, not an arbitrary
+// one, and it only rejects implausibly large drops rather than clipping
+// every modest slope continuation (which is what the old "clip below
+// lowest vertex Y" logic did wrong).
+//
+// We only apply these "below" checks for now. If the point's subdivision
+// isn't an exact registered match but its y-index isn't below the
+// registered range either (e.g. it's above the range, or in a mismatched
+// x/z column at the same height), we conservatively keep it - sorting that
+// out properly needs to consider neighboring columns too, which is out of
+// scope for now.
+function isSamplePointValid(colCtx, polyIdx, x, y, z, triMinVertexY) {
+    console.log('check', { polyIdx, y, triMinVertexY, hasColCtx: !!colCtx });
+    if (!colCtx || polyIdx === undefined || polyIdx === null) return true;
+
+    const standableSet = colCtx.polyStandableSubdivIndices && colCtx.polyStandableSubdivIndices[polyIdx];
+    if (!standableSet) {
+        // Never registered as standable ground (floor or wall) in any
+        // subdivision - shouldn't normally happen for real geometry, but if
+        // it does, the game would never surface this triangle via a floor
+        // check anywhere.
+        return false;
+    }
+
+    if (triMinVertexY !== undefined && triMinVertexY !== null &&
+        y < f32(triMinVertexY) - BGCHECK_SUBDIV_OVERLAP) {
+        return false;
+    }
+
+    const { sy, index } = getPointSubdivisionIndex(colCtx, { x, y, z });
+
+    if (standableSet.has(index)) return true;
+
+    const yRange = colCtx.polyStandableYRange[polyIdx];
+    if (yRange && sy < yRange.min) {
+        return false;
+    }
+
+    return true;
+}
+
 // Process a single triangle and return its points
-function processSingleTriangle(tri, resolution) {
+function processSingleTriangle(tri, resolution, colCtx = null, polyIdx = null) {
     const COLPOLY_NORMAL_FRAC = 1.0 / 32767.0;
 
     const v0 = tri.vtxs[0], v1 = tri.vtxs[1], v2 = tri.vtxs[2];
@@ -178,6 +245,12 @@ function processSingleTriangle(tri, resolution) {
     const nz = tri.normals[2] * COLPOLY_NORMAL_FRAC;
     const d = tri.d;
     const chkDist = 1.0;
+
+    // Triangle's own actual vertex Y range - used to sanity-bound how far
+    // below a computed sample point is allowed to fall (see
+    // isSamplePointValid), since subdivision cells alone can be too coarse
+    // to catch a plane-equation blowup on a near-vertical triangle.
+    const triMinVertexY = Math.min(v0.y, v1.y, v2.y);
 
     // Compute bounds
     const xs = [v0.x, v1.x, v2.x], zs = [v0.z, v1.z, v2.z];
@@ -194,11 +267,13 @@ function processSingleTriangle(tri, resolution) {
         const centerX = (v0.x + v1.x + v2.x) / 3;
         const centerZ = (v0.z + v1.z + v2.z) / 3;
         const y = computeYFromPlane(nx, ny, nz, d, centerX, centerZ);
-        result.push({
-            x: f32(centerX),
-            z: f32(centerZ),
-            y: y
-        });
+        if (isSamplePointValid(colCtx, polyIdx, f32(centerX), y, f32(centerZ), triMinVertexY)) {
+            result.push({
+                x: f32(centerX),
+                z: f32(centerZ),
+                y: y
+            });
+        }
         return result;
     }
 
@@ -213,6 +288,10 @@ function processSingleTriangle(tri, resolution) {
             }
 
             const y = computeYFromPlane(nx, ny, nz, d, fx, fz);
+
+            if (!isSamplePointValid(colCtx, polyIdx, fx, y, fz, triMinVertexY)) {
+                continue;
+            }
 
             result.push({
                 x: fx,
@@ -245,7 +324,15 @@ const SAMPLE_STEP_SLIDER_MIN = 0.005;
 const SAMPLE_STEP_SLIDER_MAX = 0.03;
 
 // Main function to draw sampled triangles - synchronous version for selection.js
-export function drawSampledTriangles(scene, allTriangleData, sampleStep = 0.1) {
+//
+// colCtx (optional): the collision context built by initColCtx +
+// initializeSubdivisions in subdivisions.js, from the SAME allTriangleData
+// array (unfiltered, so indices line up). When provided, generated points
+// are checked against the subdivisions their source triangle was actually
+// registered in as a floor, and points that fall below all of those
+// subdivisions are discarded. Omit it to fall back to the old unfiltered
+// behavior.
+export function drawSampledTriangles(scene, allTriangleData, sampleStep = 0.1, colCtx = null) {
     // Prevent multiple simultaneous sampling operations
     if (isSamplingInProgress) {
         console.warn("Sampling already in progress, please wait...");
@@ -264,12 +351,17 @@ export function drawSampledTriangles(scene, allTriangleData, sampleStep = 0.1) {
     isSamplingInProgress = true;
     
     try {
-        // Filter out invalid triangles
-        const validTriangles = allTriangleData.filter(tri => 
-            tri && tri.vtxs && tri.vtxs.length === 3 &&
-            tri.vtxs[0] && tri.vtxs[1] && tri.vtxs[2] &&
-            tri.normals && tri.normals.length === 3
-        );
+        // Filter out invalid triangles, keeping each triangle's original
+        // index into allTriangleData so it still matches up with colCtx's
+        // per-poly subdivision data (which was built from that same array).
+        const validTriangles = [];
+        allTriangleData.forEach((tri, polyIdx) => {
+            if (tri && tri.vtxs && tri.vtxs.length === 3 &&
+                tri.vtxs[0] && tri.vtxs[1] && tri.vtxs[2] &&
+                tri.normals && tri.normals.length === 3) {
+                validTriangles.push({ tri, polyIdx });
+            }
+        });
         
         if (validTriangles.length === 0) {
             console.warn("No valid triangles to sample");
@@ -284,8 +376,8 @@ export function drawSampledTriangles(scene, allTriangleData, sampleStep = 0.1) {
         let totalPoints = 0;
         
         for (let i = 0; i < validTriangles.length; i++) {
-            const tri = validTriangles[i];
-            const points = processSingleTriangle(tri, sampleStep);
+            const { tri, polyIdx } = validTriangles[i];
+            const points = processSingleTriangle(tri, sampleStep, colCtx, polyIdx);
             allPoints.push(...points);
             totalPoints += points.length;
             

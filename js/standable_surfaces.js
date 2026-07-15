@@ -352,7 +352,7 @@ export function renderStandableSurfaceXZ_old(allTriangleData) {
 //   - a full circle of radius chkDist centered at each vertex (always) -> pushGreen
 // Overlap between these pieces is fine since we're only filling area, not
 // tracing a single outline.
-function buildStandableSurfaceTriangles(tri, pushGreen, pushRed, pushBlue) {
+function buildStandableSurfaceTriangles(tri, pushGreen, pushRed, pushBlue, pushYellow) {
     const vtxs = tri.vtxs;
     const normals = tri.normals;
     const D = f32(tri.d);
@@ -386,9 +386,14 @@ function buildStandableSurfaceTriangles(tri, pushGreen, pushRed, pushBlue) {
     // Clips [a,b,c] against minY, sending the above-minY portion to pushRed
     // and (if belowEnabled) the below-minY portion to pushBlue.
     const pushClippedTriSplit = (a, b, c) => {
-        const above = clipPolygonByMinY([a, b, c], minY);
+        const above = clipPolygonAboveMaxY([a, b, c], maxY);
         for (let i = 1; i < above.length - 1; i++) {
-            pushRed(above[0], above[i], above[i + 1]);
+            pushYellow(above[0], above[i], above[i + 1]);
+        }
+        let mid = clipPolygonByMinY([a, b, c], minY);
+        mid = clipPolygonByMaxY(mid, maxY);
+        for (let i = 1; i < mid.length - 1; i++) {
+            pushRed(mid[0], mid[i], mid[i + 1]);
         }
         const below = clipPolygonBelowMinY([a, b, c], minY);
         for (let i = 1; i < below.length - 1; i++) {
@@ -469,8 +474,9 @@ export function renderStandableSurfaceXZ(allTriangleData) {
     const green = makeBucket(); // vertex bulges
     const red = makeBucket();   // above minVertexY
     const blue = makeBucket();  // below minVertexY
+    const yellow = makeBucket(); // at minVertexY
 
-    allTriangleData.forEach(tri => buildStandableSurfaceTriangles(tri, green.push, red.push, blue.push));
+    allTriangleData.forEach(tri => buildStandableSurfaceTriangles(tri, green.push, red.push, blue.push, yellow.push));
 
     function buildMesh(bucket, color, edgeColor = 0x000000) {
         if (bucket.positions.length === 0) return null;
@@ -515,6 +521,7 @@ export function renderStandableSurfaceXZ(allTriangleData) {
         { data: green, color: 0x00cc44, edgeColor: 0x39ff64 }, // bright green edges: the thin vertex-bulge slivers get lost in black outlines otherwise
         { data: red, color: 0xff0000, edgeColor: 0x000000 },
         { data: blue, color: 0x0000ff, edgeColor: 0x000000 },
+        { data: yellow, color: 0xffff00, edgeColor: 0x000000 },
     ]) {
         const built = buildMesh(bucket.data, bucket.color, bucket.edgeColor);
         if (built) {

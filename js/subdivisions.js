@@ -6,6 +6,7 @@ const BGCHECK_Y_MIN = f32(-32000.0);
 const BGCHECK_Y_MAX = f32(32000.0);
 const BGCHECK_XYZ_ABSMAX = f32(32760.0);
 const BGCHECK_SUBDIV_OVERLAP = f32(50.0);
+export { BGCHECK_SUBDIV_OVERLAP };
 const BGCHECK_SUBDIV_MIN = f32(150.0);
 
 const OOT_sceneSubdivisionList = {
@@ -417,6 +418,32 @@ function getSubdivisionMinBounds(colCtx, pos, out) {
     out.sz = sz;
 }
 
+// Computes the subdivision cell a single point occupies. Unlike
+// getSubdivisionMinBounds/getSubdivisionMaxBounds (which nudge the index by
+// one to account for BGCHECK_SUBDIV_OVERLAP when registering a polygon's
+// bounding box into neighboring cells), this is a plain per-axis truncation:
+// a query point either is or isn't in a given cell, there's no box to expand.
+export function getPointSubdivisionIndex(colCtx, pos) {
+    const dx = f32(f32(pos.x) - f32(colCtx.minBounds.x));
+    const dy = f32(f32(pos.y) - f32(colCtx.minBounds.y));
+    const dz = f32(f32(pos.z) - f32(colCtx.minBounds.z));
+
+    let sx = (f32(dx * colCtx.subdivLengthInv.x)) | 0;
+    let sy = (f32(dy * colCtx.subdivLengthInv.y)) | 0;
+    let sz = (f32(dz * colCtx.subdivLengthInv.z)) | 0;
+
+    // Clamp into valid range (points can legitimately sit right on the
+    // scene's bounding box edge, or a hair outside it due to f32 rounding).
+    sx = Math.min(Math.max(sx, 0), colCtx.subdivAmount.x - 1);
+    sy = Math.min(Math.max(sy, 0), colCtx.subdivAmount.y - 1);
+    sz = Math.min(Math.max(sz, 0), colCtx.subdivAmount.z - 1);
+
+    const subdivAmountXY = colCtx.subdivAmount.x * colCtx.subdivAmount.y;
+    const index = (sz * subdivAmountXY) + (sy * colCtx.subdivAmount.x) + sx;
+
+    return { sx, sy, sz, index };
+}
+
 function getPolySubdivisionBounds(colCtx, poly, outMin, outMax) {
     // Get first vertex
     let v = poly.vtxs[0];
@@ -452,6 +479,28 @@ export function initializeSubdivisions(game, colCtx, allTriangleData) {
     const total = colCtx.subdivAmount.x * colCtx.subdivAmount.y * colCtx.subdivAmount.z;
 
     const subdivAmountXY = colCtx.subdivAmount.x * colCtx.subdivAmount.y;
+
+    // Per-poly bookkeeping of exactly which subdivision cells it was
+    // registered into as *floor or wall* (i.e. triIntersectsCube returned
+    // true for that cell), plus the min/max y-subdivision index it touched.
+    // Ceilings are excluded - a downward-facing poly can never be stood on.
+    //
+    // We track floor+wall together, not just floor: the floor/wall/ceiling
+    // split below is keyed purely off Ny thresholds (>0.5 floor, <-0.8
+    // ceiling, else wall), but standability (as sampled elsewhere off
+    // triChkPointParaYImpl) only requires Ny > 0. A poly with e.g. Ny = 0.02
+    // is a perfectly valid standable surface yet lands in the wall bucket,
+    // not the floor bucket - so a floor-only registry would wrongly treat
+    // every point on it as unregistered anywhere.
+    //
+    // Consumers (e.g. the sample point generator) use this to tell whether a
+    // point sitting on a standable triangle actually falls within a
+    // subdivision that triangle is registered in - since collision at
+    // runtime is looked up per-subdivision, a point outside all of a
+    // triangle's registered cells wouldn't actually be reachable as
+    // standable ground on that triangle.
+    colCtx.polyStandableSubdivIndices = new Array(allTriangleData.length);
+    colCtx.polyStandableYRange = new Array(allTriangleData.length);
 
     const subdivLengthX = f32(colCtx.subdivLength.x + f32(2 * BGCHECK_SUBDIV_OVERLAP));
     const subdivLengthY = f32(colCtx.subdivLength.y + f32(2 * BGCHECK_SUBDIV_OVERLAP));
@@ -508,12 +557,29 @@ export function initializeSubdivisions(game, colCtx, allTriangleData) {
                     if (triIntersectsCube(tri, box)) {
                         // console.log("added poly "+polyIdx+" to subdiv "+index)
                         
-                        if (f32(poly.normals[1] * COLPOLY_NORMAL_FRAC) > 0.5) {
+                        const ny = f32(poly.normals[1] * COLPOLY_NORMAL_FRAC);
+
+                        if (ny > 0.5) {
                             colCtx.subdivisions[index].floors.push(polyIdx);          // floor
-                        } else if (f32(poly.normals[1] * COLPOLY_NORMAL_FRAC) < -0.8) {
+                        } else if (ny < -0.8) {
                             colCtx.subdivisions[index].ceilings.push(polyIdx);          // ceiling
                         } else {
                             colCtx.subdivisions[index].walls.push(polyIdx);          // wall
+                        }
+
+                        // Track floor+wall registrations together (see
+                        // comment above colCtx.polyStandableSubdivIndices)
+                        // for anything that isn't a ceiling.
+                        if (ny > -0.8) {
+                            if (!colCtx.polyStandableSubdivIndices[polyIdx]) {
+                                colCtx.polyStandableSubdivIndices[polyIdx] = new Set();
+                                colCtx.polyStandableYRange[polyIdx] = { min: sy, max: sy };
+                            }
+                            colCtx.polyStandableSubdivIndices[polyIdx].add(index);
+
+                            const yRange = colCtx.polyStandableYRange[polyIdx];
+                            if (sy < yRange.min) yRange.min = sy;
+                            if (sy > yRange.max) yRange.max = sy;
                         }
                     }
 

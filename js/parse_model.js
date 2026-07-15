@@ -9,6 +9,20 @@ import { buildWaterBoxModel } from './waterboxes.js';
 const wireframeCheckbox = document.getElementById('wireframe');
 const surfaceTypeDropdown = document.getElementById("surfaceTypeDropdown");
 
+// The collision context (subdivisions, bounds, etc.) for the last-parsed
+// OOT/MM/OOT3D/MM3D collision map. Set once initializeSubdivisions has
+// finished populating it, so consumers (e.g. selection.js's sample point
+// generator) always see a fully-built colCtx rather than a half-initialized
+// one. This is a live export binding, so importers see updates whenever a
+// new map is parsed.
+//
+// Deliberately only ever SET here, never reset to null elsewhere: several
+// of the other loaders in this file (invisible seams, secondary/overlay
+// models, etc.) can be loaded alongside an already-loaded collision map
+// rather than replacing it, so clearing this on their load would wipe out
+// a colCtx that's still valid and still in use.
+export let currentColCtx = null;
+
 ////////////////////////////////////////
 // System: Model Parsing (text vs binary dispatch)
 ////////////////////////////////////////
@@ -511,6 +525,7 @@ export function parseZeldaModelBinary(scene, buffer, fresh, mapName){
         option.textContent = `${idx} (${triCount} tri${triCount === 1 ? '' : 's'})`;
         subdivisionSelector.appendChild(option);
     });
+    currentColCtx = colCtx;
     
     const allIdx = [].concat(...tris);
     const maxIdx = Math.max(...allIdx);
