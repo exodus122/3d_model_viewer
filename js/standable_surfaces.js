@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
+import { BGCHECK_SUBDIV_OVERLAP } from './subdivisions.js';
 
 ////////////////////////////////////////
 // System: Standable Surfaces
@@ -352,7 +353,28 @@ export function renderStandableSurfaceXZ_old(allTriangleData) {
 //   - a full circle of radius chkDist centered at each vertex (always) -> pushGreen
 // Overlap between these pieces is fine since we're only filling area, not
 // tracing a single outline.
-function buildStandableSurfaceTriangles(tri, pushGreen, pushRed, pushBlue, pushYellow) {
+// Builds the exact region triChkPointParaYImpl accepts for a single triangle,
+// as a handful of overlapping filled shapes instead of a sampled grid:
+//   - the triangle itself + the edge buffer strips -> pushRed / pushBlue,
+//     split by minVertexY (blue = the portion that dipped below), matching
+//     the original function's red/blue distinction.
+//   - a full circle of radius chkDist centered at each vertex (always) -> pushGreen
+// Overlap between these pieces is fine since we're only filling area, not
+// tracing a single outline.
+//
+// colCtx/polyIdx (optional): mirrors the validity rules sample_points.js
+// applies to individual sample points (see isSamplePointValid there):
+//   - If this triangle was never registered as standable ground (floor or
+//     wall) in any subdivision, none of its geometry is emitted at all.
+//   - Any geometry whose Y falls below (this triangle's own lowest vertex Y
+//     - BGCHECK_SUBDIV_OVERLAP) is clipped away, since that's the same
+//     tolerance sample_points.js uses to reject plane-equation blowups on
+//     near-vertical triangles (subdivision cells alone are too coarse to
+//     catch these). This applies to every piece we emit - the base
+//     triangle, the edge buffer strips, and the vertex-bulge circles -
+//     not just the existing minY/maxY red/blue/yellow split.
+// Omit colCtx to fall back to the old unfiltered behavior.
+function buildStandableSurfaceTriangles(tri, pushGreen, pushRed, pushBlue, pushYellow, colCtx = null, polyIdx = null) {
     const vtxs = tri.vtxs;
     const normals = tri.normals;
     const D = f32(tri.d);
@@ -363,6 +385,14 @@ function buildStandableSurfaceTriangles(tri, pushGreen, pushRed, pushBlue, pushY
 
     if (Ny < f32(0.0) || isZero(Ny)) return;
 
+    // Never registered as standable ground (floor or wall) in any
+    // subdivision - the game would never surface this triangle via a floor
+    // check anywhere, so none of its geometry belongs here either.
+    if (colCtx && polyIdx !== undefined && polyIdx !== null) {
+        const standableSet = colCtx.polyStandableSubdivIndices && colCtx.polyStandableSubdivIndices[polyIdx];
+        if (!standableSet) return;
+    }
+
     const rawV0 = { x: f32(vtxs[0].x), y: f32(vtxs[0].y), z: f32(vtxs[0].z) };
     const rawV1 = { x: f32(vtxs[1].x), y: f32(vtxs[1].y), z: f32(vtxs[1].z) };
     const rawV2 = { x: f32(vtxs[2].x), y: f32(vtxs[2].y), z: f32(vtxs[2].z) };
@@ -371,6 +401,27 @@ function buildStandableSurfaceTriangles(tri, pushGreen, pushRed, pushBlue, pushY
     // floor reference), same as the original function.
     const minY = Math.min(rawV0.y, rawV1.y, rawV2.y);
     const maxY = Math.max(rawV0.y, rawV1.y, rawV2.y);
+
+    // Same tolerance/rationale as sample_points.js's isSamplePointValid:
+    // only active when colCtx is provided, so behavior is unchanged if it's
+    // omitted.
+    const cutoffY = (colCtx && polyIdx !== undefined && polyIdx !== null)
+        ? f32(minY - BGCHECK_SUBDIV_OVERLAP)
+        : null;
+
+    // Clips a triangle down to the portion at/above cutoffY, fan-pushing
+    // whatever's left (if anything) via pushFn. No-op passthrough when
+    // cutoffY isn't set.
+    const pushAboveCutoff = (pushFn, a, b, c) => {
+        if (cutoffY === null) {
+            pushFn(a, b, c);
+            return;
+        }
+        const kept = clipPolygonByMinY([a, b, c], cutoffY);
+        for (let i = 1; i < kept.length - 1; i++) {
+            pushFn(kept[0], kept[i], kept[i + 1]);
+        }
+    };
 
     // Everything we render, though — including the base triangle itself — uses
     // the Y recomputed from the plane equation, not the raw stored vertex Y.
@@ -396,8 +447,9 @@ function buildStandableSurfaceTriangles(tri, pushGreen, pushRed, pushBlue, pushY
             pushRed(mid[0], mid[i], mid[i + 1]);
         }
         const below = clipPolygonBelowMinY([a, b, c], minY);
-        for (let i = 1; i < below.length - 1; i++) {
-            pushBlue(below[0], below[i], below[i + 1]);
+        const keptBelow = cutoffY === null ? below : clipPolygonByMinY(below, cutoffY);
+        for (let i = 1; i < keptBelow.length - 1; i++) {
+            pushBlue(keptBelow[0], keptBelow[i], keptBelow[i + 1]);
         }
     };
 
@@ -417,7 +469,7 @@ function buildStandableSurfaceTriangles(tri, pushGreen, pushRed, pushBlue, pushY
             const px = center.x + Math.cos(theta) * STANDABLE_CHK_DIST;
             const pz = center.z + Math.sin(theta) * STANDABLE_CHK_DIST;
             const p = { x: f32(px), y: computeYFromPlaneLocal(Nx, Ny, Nz, D, px, pz), z: f32(pz) };
-            if (prev) pushGreen(center, prev, p);
+            if (prev) pushAboveCutoff(pushGreen, center, prev, p);
             prev = p;
         }
     }
@@ -458,7 +510,15 @@ function buildStandableSurfaceTriangles(tri, pushGreen, pushRed, pushBlue, pushY
     }
 }
 
-export function renderStandableSurfaceXZ(allTriangleData) {
+// colCtx (optional): the collision context built by initColCtx +
+// initializeSubdivisions in subdivisions.js (exposed as `currentColCtx` from
+// parse_model.js). When provided, geometry is filtered/clipped using the
+// same rules sample_points.js applies to individual sample points - see the
+// comment above buildStandableSurfaceTriangles. Each triangle in
+// allTriangleData should carry an `id` matching the polygon index colCtx
+// was built with (falls back to array position if absent). Omit colCtx to
+// fall back to the old unfiltered behavior.
+export function renderStandableSurfaceXZ(allTriangleData, colCtx = null) {
     function makeBucket() {
         const positions = [];
         const indices = [];
@@ -476,7 +536,10 @@ export function renderStandableSurfaceXZ(allTriangleData) {
     const blue = makeBucket();  // below minVertexY
     const yellow = makeBucket(); // at minVertexY
 
-    allTriangleData.forEach(tri => buildStandableSurfaceTriangles(tri, green.push, red.push, blue.push, yellow.push));
+    allTriangleData.forEach((tri, arrayIdx) => {
+        const polyIdx = (tri.id !== undefined && tri.id !== null) ? tri.id : arrayIdx;
+        buildStandableSurfaceTriangles(tri, green.push, red.push, blue.push, yellow.push, colCtx, polyIdx);
+    });
 
     function buildMesh(bucket, color, edgeColor = 0x000000) {
         if (bucket.positions.length === 0) return null;

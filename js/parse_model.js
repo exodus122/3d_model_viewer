@@ -510,6 +510,7 @@ export function parseZeldaModelBinary(scene, buffer, fresh, mapName){
     //console.log(tris)
     
     initializeSubdivisions(game, colCtx, allTriangleData);
+    currentColCtx = colCtx;
     
     // Populate the subdivision dropdown right away, based only on colCtx.
     // Doing this here (rather than after the rest of the scene is built)
@@ -525,7 +526,6 @@ export function parseZeldaModelBinary(scene, buffer, fresh, mapName){
         option.textContent = `${idx} (${triCount} tri${triCount === 1 ? '' : 's'})`;
         subdivisionSelector.appendChild(option);
     });
-    currentColCtx = colCtx;
     
     const allIdx = [].concat(...tris);
     const maxIdx = Math.max(...allIdx);
@@ -551,7 +551,7 @@ export function parseZeldaModelBinary(scene, buffer, fresh, mapName){
     else
         buildGeometry(scene, verts, tris, allTriangleData, colCtx, modelName, fresh);
 
-    const standableSurfaceMesh2 = renderStandableSurfaceXZ(allTriangleData);
+    const standableSurfaceMesh2 = renderStandableSurfaceXZ(allTriangleData, colCtx);
     if (standableSurfaceMesh2) {
         scene.add(standableSurfaceMesh2);
         
