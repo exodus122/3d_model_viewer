@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { getPointSubdivisionIndex, BGCHECK_SUBDIV_OVERLAP } from './subdivisions.js';
+import { getPointSubdivisionIndex, decomposeSubdivIndex, BGCHECK_SUBDIV_OVERLAP } from './subdivisions.js';
 
 ////////////////////////////////////////
 // System: Sample Standable Polygon Surface
@@ -9,12 +9,31 @@ const samplePointsContainer = document.getElementById("samplePointsContainer");
 const samplePointsCheckbox  = document.getElementById("samplePointsCheckbox");
 const samplePointsResolution  = document.getElementById("samplePointsResolution");
 
+// Debug-only toggle: when checked, points that got filtered out by
+// isSamplePointValid are still generated and rendered (in a different
+// color) instead of being silently dropped, so they can be compared
+// against in-game testing rather than just trusting the filter. Off by
+// default so normal use is unaffected. Created dynamically so no
+// index.html changes are needed.
+const showExcludedPointsCheckbox = document.createElement('input');
+showExcludedPointsCheckbox.type = 'checkbox';
+showExcludedPointsCheckbox.id = 'showExcludedPointsCheckbox';
+const showExcludedPointsLabel = document.createElement('label');
+showExcludedPointsLabel.htmlFor = 'showExcludedPointsCheckbox';
+showExcludedPointsLabel.textContent = 'Show excluded points (debug)';
+showExcludedPointsLabel.style.marginLeft = '4px';
+if (samplePointsContainer) {
+    samplePointsContainer.appendChild(showExcludedPointsCheckbox);
+    samplePointsContainer.appendChild(showExcludedPointsLabel);
+}
+
 // Target number of points per triangle (adjust as needed)
 const TARGET_POINTS_PER_TRIANGLE = 500;
 
 // Global flag to check if sampling is in progress
 let isSamplingInProgress = false;
 let currentPointsObject = null;
+let currentExcludedPointsObject = null;
 
 // ------------------------
 // Helper Functions
@@ -169,45 +188,77 @@ function calculateAdaptiveResolution(tri, baseResolution) {
     return finalStep;
 }
 
-// Checks whether a sample point generated from triangle `polyIdx` actually
-// lands in a subdivision that triangle was registered in as standable
-// ground (floor or wall - see colCtx.polyStandableSubdivIndices in
-// subdivisions.js; ceilings are excluded since they can't be stood on).
+// Checks whether a sample point generated from triangle `polyIdx` is
+// actually reachable as standable ground on that triangle, mirroring how
+// the real floor search works:
 //
-// A triangle can be registered in multiple subdivision cells (its bounding
-// box, expanded by BGCHECK_SUBDIV_OVERLAP, can straddle several cells - see
-// initializeSubdivisions in subdivisions.js). At runtime, collision is
-// looked up per-subdivision, so a point outside every cell the triangle was
-// actually registered in isn't really reachable as standable ground on that
-// triangle. Since we no longer clip sample points to stay above the
-// triangle's lowest vertex Y, a point can now land at a height that falls
-// into a subdivision cell *below* every cell the triangle was registered in.
+//  - VERTEX-Y GUARD: reject outright if the point's Y has dropped below the
+//    triangle's own lowest vertex by more than BGCHECK_SUBDIV_OVERLAP. This
+//    exists because subdivision cells are too coarse on their own to catch
+//    a plane-equation blowup on a near-vertical/shallow triangle - a small
+//    X/Z sampling deviation can compute a Y hundreds of units away from
+//    anything the triangle's actual geometry represents, while still
+//    landing in a subdivision cell the triangle happens to be registered
+//    in (registration can legitimately extend one cell past a triangle's
+//    own vertex range because of that same overlap margin). See the case
+//    below for what's left to the subdivision logic once this guard passes.
 //
-// Subdivision cells are coarse - a single cell can span a much taller Y
-// range than the sliver of geometry a triangle actually occupies inside it
-// (subdivAmount.y is typically single digits across the whole map). That's
-// fine for triangles with a reasonable slope, but for a near-vertical
-// triangle (Ny close to 0), computeYFromPlane can extrapolate wildly for a
-// point sampled even slightly off the triangle's true footprint, producing
-// a Y hundreds of units away from anything real while still technically
-// landing in the same coarse subdivision cell as the triangle - so the
-// subdivision check alone wouldn't catch it. To catch that, we also reject
-// points whose Y falls below the triangle's own vertex Y range by more than
-// BGCHECK_SUBDIV_OVERLAP - the same margin the collision system itself pads
-// a triangle's registration by, so it's a real tolerance, not an arbitrary
-// one, and it only rejects implausibly large drops rather than clipping
-// every modest slope continuation (which is what the old "clip below
-// lowest vertex Y" logic did wrong).
+//  - TRIVIAL CASE: if the point's own subdivision cell (exact match, no
+//    overlap padding) is one this triangle is registered in as standable
+//    ground (floor or wall - see colCtx.polyStandableSubdivIndices in
+//    subdivisions.js; ceilings are excluded since they can't be stood on),
+//    it's valid immediately - regardless of what else might be registered
+//    in that same cell alongside it.
 //
-// We only apply these "below" checks for now. If the point's subdivision
-// isn't an exact registered match but its y-index isn't below the
-// registered range either (e.g. it's above the range, or in a mismatched
-// x/z column at the same height), we conservatively keep it - sorting that
-// out properly needs to consider neighboring columns too, which is out of
-// scope for now.
+//    This intentionally does NOT use the cells' overlap-padded world-space
+//    bounds (BGCHECK_SUBDIV_OVERLAP) - that was tried, since a naive
+//    truncated point-index can in principle land one cell off from where a
+//    triangle registered near a subdivision boundary, but it caused false
+//    positives in practice: the padded box of a triangle's true cell can
+//    reach far enough into the cell below it that a point genuinely in that
+//    lower, unregistered cell would wrongly pass here - before the
+//    downward-scan/occlusion logic below (which would have correctly
+//    rejected it) ever runs.
+//
+//  - DOWNWARD SCAN: otherwise, look straight down through this (x,z)
+//    column's subdivisions from the point's own cell for the closest one
+//    (if any) this triangle is registered in. If none is found before
+//    running out of subdivisions below the point, the triangle is either
+//    entirely below the point or not in this column at all - invalid.
+//
+//  - OCCLUSION CHECK: if a lower cell containing the triangle *is* found,
+//    the point is above the triangle in this column. This is only valid if
+//    nothing else that's actually upward-facing (Ny > 0 - a different
+//    standable triangle, whether bucketed as a floor or a shallow "wall")
+//    AND at or below the point's actual Y (see colCtx.polyWorldYRange in
+//    subdivisions.js - a candidate whose entire vertex range sits above
+//    the point can't be hit by a straight-down scan from it, even if it
+//    happens to share the point's coarse cell) is registered anywhere from
+//    the point's own cell down through (but not including) the triangle's
+//    own cell - otherwise, a real straight-down search would hit that
+//    other triangle first. A downward-facing "wall" (Ny between -0.8 and
+//    0, an overhang) doesn't count, same as a ceiling doesn't - neither
+//    can catch a falling character. The point's own cell IS included in
+//    this check (a different triangle there blocks it too, same as
+//    anywhere else in the range) - only the triangle's own target cell is
+//    excluded, since other triangles sharing that specific cell don't
+//    matter (that's where the search successfully ends either way).
 function isSamplePointValid(colCtx, polyIdx, x, y, z, triMinVertexY) {
-    console.log('check', { polyIdx, y, triMinVertexY, hasColCtx: !!colCtx });
     if (!colCtx || polyIdx === undefined || polyIdx === null) return true;
+
+    // VERTEX-Y GUARD: subdivision cells alone aren't fine-grained enough to
+    // catch a plane-equation blowup on a near-vertical/shallow triangle - a
+    // triangle's registration can legitimately extend one cell past its own
+    // vertex range (see BGCHECK_SUBDIV_OVERLAP in subdivisions.js), and once
+    // the downward scan below finds *a* registered cell, it doesn't care how
+    // far the computed Y has drifted from the triangle's actual geometry.
+    // So first reject anything that's dropped further below the triangle's
+    // own lowest vertex than that same overlap margin allows - this is the
+    // real tolerance the collision system itself uses, not an arbitrary one.
+    if (triMinVertexY !== undefined && triMinVertexY !== null &&
+        y < f32(triMinVertexY) - BGCHECK_SUBDIV_OVERLAP) {
+        return false;
+    }
 
     const standableSet = colCtx.polyStandableSubdivIndices && colCtx.polyStandableSubdivIndices[polyIdx];
     if (!standableSet) {
@@ -218,18 +269,80 @@ function isSamplePointValid(colCtx, polyIdx, x, y, z, triMinVertexY) {
         return false;
     }
 
-    if (triMinVertexY !== undefined && triMinVertexY !== null &&
-        y < f32(triMinVertexY) - BGCHECK_SUBDIV_OVERLAP) {
+    const registeredCells = [];
+    for (const regIndex of standableSet) {
+        registeredCells.push(decomposeSubdivIndex(colCtx, regIndex));
+    }
+
+    const { sx, sy, sz, index } = getPointSubdivisionIndex(colCtx, { x, y, z });
+
+    // TRIVIAL CASE: point's own cell (exact match, no overlap padding)
+    // is one this triangle is registered in.
+    //
+    // This deliberately does NOT use the cells' overlap-padded bounds
+    // (BGCHECK_SUBDIV_OVERLAP) - that was tried and caused false positives:
+    // the padded box of the triangle's true cell can extend far enough into
+    // the cell below it that a point genuinely in that lower (unregistered)
+    // cell would wrongly pass here, before ever reaching the downward-scan/
+    // occlusion logic that would have correctly rejected it.
+    if (standableSet.has(index)) return true;
+
+    // DOWNWARD SCAN: closest registered cell strictly below the point, in
+    // this same (sx,sz) column.
+    let targetSy = null;
+    for (const c of registeredCells) {
+        if (c.sx === sx && c.sz === sz && c.sy < sy) {
+            if (targetSy === null || c.sy > targetSy) targetSy = c.sy;
+        }
+    }
+
+    if (targetSy === null) {
         return false;
     }
 
-    const { sy, index } = getPointSubdivisionIndex(colCtx, { x, y, z });
+    // OCCLUSION CHECK: scan from the point's own cell down through (but not
+    // including) the triangle's topmost registered cell in this column.
+    // Uses each cell's .standable list (Ny>0 polys only, same rule as
+    // colCtx.polyStandableSubdivIndices - see subdivisions.js) rather than
+    // raw .floors/.walls: a downward-facing "wall" (Ny between -0.8 and 0,
+    // an overhang) can't catch a falling character any more than a ceiling
+    // can, so it shouldn't count as an occluder here.
+    //
+    // Also filters by colCtx.polyWorldYRange and colCtx.polyWorldXZBounds:
+    // a subdivision cell can be far taller/wider/deeper than any individual
+    // polygon inside it, so a candidate sharing the point's own cell isn't
+    // necessarily anywhere near the point - if its entire vertex Y range
+    // sits above the point's actual Y, or its X/Z footprint doesn't
+    // actually overlap the point's (x,z) position at all, it can't be hit
+    // by a straight-down scan starting at the point, no matter how coarse
+    // a cell they both happen to be registered in.
+    const subdivAmountXY = colCtx.subdivAmount.x * colCtx.subdivAmount.y;
+    for (let s = sy; s > targetSy; s--) {
+        const cellIndex = (sz * subdivAmountXY) + (s * colCtx.subdivAmount.x) + sx;
+        const cell = colCtx.subdivisions[cellIndex];
+        if (cell && cell.standable) {
+            const blocker = cell.standable.find(p => {
+                if (p === polyIdx) return false;
 
-    if (standableSet.has(index)) return true;
+                const yRange = colCtx.polyWorldYRange && colCtx.polyWorldYRange[p];
+                // If we don't have Y-range data for some reason, fall back
+                // to the old (coarser) behavior of treating it as a blocker.
+                if (yRange && yRange.max > y) return false;
 
-    const yRange = colCtx.polyStandableYRange[polyIdx];
-    if (yRange && sy < yRange.min) {
-        return false;
+                const xzBounds = colCtx.polyWorldXZBounds && colCtx.polyWorldXZBounds[p];
+                // Same idea for X/Z: a candidate sharing the point's coarse
+                // cell could be positioned anywhere else within that whole
+                // cell, so only count it if its own footprint actually
+                // overlaps the point's (x,z) position. Falls back to
+                // treating it as a blocker if we don't have this data.
+                if (xzBounds && (x < xzBounds.minX || x > xzBounds.maxX || z < xzBounds.minZ || z > xzBounds.maxZ)) return false;
+
+                return true;
+            });
+            if (blocker !== undefined) {
+                return false;
+            }
+        }
     }
 
     return true;
@@ -246,10 +359,9 @@ function processSingleTriangle(tri, resolution, colCtx = null, polyIdx = null) {
     const d = tri.d;
     const chkDist = 1.0;
 
-    // Triangle's own actual vertex Y range - used to sanity-bound how far
-    // below a computed sample point is allowed to fall (see
-    // isSamplePointValid), since subdivision cells alone can be too coarse
-    // to catch a plane-equation blowup on a near-vertical triangle.
+    // Triangle's own actual vertex Y range - used by isSamplePointValid's
+    // vertex-Y guard to sanity-bound how far below a computed sample point
+    // is allowed to fall.
     const triMinVertexY = Math.min(v0.y, v1.y, v2.y);
 
     // Compute bounds
@@ -267,13 +379,13 @@ function processSingleTriangle(tri, resolution, colCtx = null, polyIdx = null) {
         const centerX = (v0.x + v1.x + v2.x) / 3;
         const centerZ = (v0.z + v1.z + v2.z) / 3;
         const y = computeYFromPlane(nx, ny, nz, d, centerX, centerZ);
-        if (isSamplePointValid(colCtx, polyIdx, f32(centerX), y, f32(centerZ), triMinVertexY)) {
-            result.push({
-                x: f32(centerX),
-                z: f32(centerZ),
-                y: y
-            });
-        }
+        const centerValid = isSamplePointValid(colCtx, polyIdx, f32(centerX), y, f32(centerZ), triMinVertexY);
+        result.push({
+            x: f32(centerX),
+            z: f32(centerZ),
+            y: y,
+            valid: centerValid
+        });
         return result;
     }
 
@@ -289,14 +401,13 @@ function processSingleTriangle(tri, resolution, colCtx = null, polyIdx = null) {
 
             const y = computeYFromPlane(nx, ny, nz, d, fx, fz);
 
-            if (!isSamplePointValid(colCtx, polyIdx, fx, y, fz, triMinVertexY)) {
-                continue;
-            }
+            const pointValid = isSamplePointValid(colCtx, polyIdx, fx, y, fz, triMinVertexY);
 
             result.push({
                 x: fx,
                 z: fz,
-                y: y
+                y: y,
+                valid: pointValid
             });
         }
     }
@@ -352,13 +463,18 @@ export function drawSampledTriangles(scene, allTriangleData, sampleStep = 0.1, c
     
     try {
         // Filter out invalid triangles, keeping each triangle's original
-        // index into allTriangleData so it still matches up with colCtx's
-        // per-poly subdivision data (which was built from that same array).
+        // polygon index so it still matches up with colCtx's per-poly
+        // subdivision data. Prefer tri.id (the polygon's actual index at
+        // parse time, e.g. allTriangleData[i].id === i in parse_model.js)
+        // over the array position here, since a caller may pass a smaller
+        // synthetic array (selection.js samples just the one selected
+        // triangle) whose position in THAT array is meaningless to colCtx.
         const validTriangles = [];
-        allTriangleData.forEach((tri, polyIdx) => {
+        allTriangleData.forEach((tri, arrayIdx) => {
             if (tri && tri.vtxs && tri.vtxs.length === 3 &&
                 tri.vtxs[0] && tri.vtxs[1] && tri.vtxs[2] &&
                 tri.normals && tri.normals.length === 3) {
+                const polyIdx = (tri.id !== undefined && tri.id !== null) ? tri.id : arrayIdx;
                 validTriangles.push({ tri, polyIdx });
             }
         });
@@ -373,91 +489,109 @@ export function drawSampledTriangles(scene, allTriangleData, sampleStep = 0.1, c
         
         // Process all triangles
         const allPoints = [];
-        let totalPoints = 0;
         
         for (let i = 0; i < validTriangles.length; i++) {
             const { tri, polyIdx } = validTriangles[i];
             const points = processSingleTriangle(tri, sampleStep, colCtx, polyIdx);
             allPoints.push(...points);
-            totalPoints += points.length;
             
             if (validTriangles.length > 1 && i % 10 === 0) {
-                console.log(`Processed ${i + 1}/${validTriangles.length} triangles, total points: ${totalPoints}`);
+                console.log(`Processed ${i + 1}/${validTriangles.length} triangles, total points so far: ${allPoints.length}`);
             }
         }
-        
-        console.log(`Total points generated: ${totalPoints} from ${validTriangles.length} triangle(s)`);
 
-        // If no points were generated, return null
-        if (totalPoints === 0) {
+        const validPoints = allPoints.filter(p => p.valid);
+        const excludedPoints = allPoints.filter(p => !p.valid);
+
+        console.log(`Total points generated: ${validPoints.length} valid, ${excludedPoints.length} excluded, from ${validTriangles.length} triangle(s)`);
+
+        // If no points were generated at all, return null
+        if (validPoints.length === 0 && excludedPoints.length === 0) {
             console.warn("No points were generated. The triangle may not be standable or the resolution may be too high.");
             isSamplingInProgress = false;
             return null;
         }
 
         // If we have too many points, warn and maybe limit
-        if (totalPoints > 5000000) {
-            console.warn(`Warning: ${totalPoints} points is a very large number. Consider increasing the resolution.`);
+        if (validPoints.length > 5000000) {
+            console.warn(`Warning: ${validPoints.length} points is a very large number. Consider increasing the resolution.`);
         }
 
-        // Build BufferGeometry
-        const vertices = new Float32Array(totalPoints * 3);
-        let offset = 0;
-        
-        for (let i = 0; i < allPoints.length; i++) {
-            const p = allPoints[i];
-            vertices[offset++] = Math.fround(p.x);
-            vertices[offset++] = Math.fround(p.y);
-            vertices[offset++] = Math.fround(p.z);
+        // Builds a THREE.Points mesh from a list of {x,y,z} points, sized
+        // relative to the point count and depth-biased toward the camera
+        // (see the comment inside) so points don't lose depth-ties against
+        // whatever surface they were sampled from.
+        function buildPointsMesh(points, color, name) {
+            if (points.length === 0) return null;
+
+            const vertices = new Float32Array(points.length * 3);
+            let offset = 0;
+            for (let i = 0; i < points.length; i++) {
+                const p = points[i];
+                vertices[offset++] = Math.fround(p.x);
+                vertices[offset++] = Math.fround(p.y);
+                vertices[offset++] = Math.fround(p.z);
+            }
+
+            const geometry = new THREE.BufferGeometry();
+            geometry.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
+
+            // Calculate point size based on total points to prevent overdraw
+            let pointSize = 0.5;
+            if (points.length > 100000) pointSize = 0.3;
+            if (points.length > 500000) pointSize = 0.2;
+            if (points.length > 1000000) pointSize = 0.15;
+            if (points.length > 5000000) pointSize = 0.1;
+
+            const material = new THREE.PointsMaterial({
+                color: color,
+                size: pointSize,
+                sizeAttenuation: true,
+                transparent: true,
+                opacity: 0.9
+            });
+
+            // WebGL's polygonOffset doesn't apply to POINTS draws, so points can
+            // still lose depth-ties against whatever they were sampled from,
+            // especially from angles where the earlier per-point normal offset
+            // doesn't point toward the camera. This nudges each point's clip-space
+            // depth toward the camera by a small amount proportional to distance
+            // (the same idea real GL polygon offset uses for triangles), which
+            // works regardless of camera angle or surface orientation.
+            const POINT_DEPTH_BIAS = 0.0015;
+            material.onBeforeCompile = (shader) => {
+                shader.vertexShader = shader.vertexShader.replace(
+                    '#include <project_vertex>',
+                    `#include <project_vertex>
+                    gl_Position.z -= ${POINT_DEPTH_BIAS.toFixed(6)} * gl_Position.w;`
+                );
+            };
+
+            const pts = new THREE.Points(geometry, material);
+            pts.name = name;
+            pts.renderOrder = 1001; // draw in front of waterboxes and other meshes
+            return pts;
         }
 
-        const geometry = new THREE.BufferGeometry();
-        geometry.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
+        const pts = buildPointsMesh(validPoints, 0xff0000, "SampledPoints");
+        if (pts) {
+            scene.add(pts);
+            currentPointsObject = pts;
+            loadedModels.push({ name: "Points", mesh: pts, edges: null });
+        }
 
-        // Calculate point size based on total points to prevent overdraw
-        let pointSize = 0.5;
-        if (totalPoints > 100000) pointSize = 0.3;
-        if (totalPoints > 500000) pointSize = 0.2;
-        if (totalPoints > 1000000) pointSize = 0.15;
-        if (totalPoints > 5000000) pointSize = 0.1;
-        
-        // Create Points object
-        const material = new THREE.PointsMaterial({ 
-            color: 0xff0000, 
-            size: pointSize,
-            sizeAttenuation: true,
-            transparent: true,
-            opacity: 0.9
-        });
+        // Excluded points get a visually distinct color and start hidden -
+        // toggle "Show excluded points (debug)" to compare them in-game.
+        const excludedPts = buildPointsMesh(excludedPoints, 0xffa500, "ExcludedSampledPoints");
+        if (excludedPts) {
+            excludedPts.visible = showExcludedPointsCheckbox.checked;
+            scene.add(excludedPts);
+            currentExcludedPointsObject = excludedPts;
+            loadedModels.push({ name: "ExcludedPoints", mesh: excludedPts, edges: null });
+        }
 
-        // WebGL's polygonOffset doesn't apply to POINTS draws, so points can
-        // still lose depth-ties against whatever they were sampled from,
-        // especially from angles where the earlier per-point normal offset
-        // doesn't point toward the camera. This nudges each point's clip-space
-        // depth toward the camera by a small amount proportional to distance
-        // (the same idea real GL polygon offset uses for triangles), which
-        // works regardless of camera angle or surface orientation.
-        const POINT_DEPTH_BIAS = 0.0015;
-        material.onBeforeCompile = (shader) => {
-            shader.vertexShader = shader.vertexShader.replace(
-                '#include <project_vertex>',
-                `#include <project_vertex>
-                gl_Position.z -= ${POINT_DEPTH_BIAS.toFixed(6)} * gl_Position.w;`
-            );
-        };
-
-        const pts = new THREE.Points(geometry, material);
-        pts.name = "SampledPoints";
-        pts.renderOrder = 1001; // draw in front of waterboxes and other meshes
-
-        scene.add(pts);
-        currentPointsObject = pts;
-        
-        // Also add to loadedModels for proper cleanup
-        loadedModels.push({ name: "Points", mesh: pts, edges: null });
-        
         isSamplingInProgress = false;
-        return pts;
+        return pts || excludedPts;
         
     } catch (error) {
         console.error("Error during sampling:", error);
@@ -486,6 +620,7 @@ function removeExistingModel(scene, modelName) {
 
 function removeExistingPoints(scene) {
     removeExistingModel(scene, "Points");
+    removeExistingModel(scene, "ExcludedPoints");
 }
 
 // Export for external use
@@ -499,4 +634,16 @@ export function cleanupSampledPoints() {
         // The scene will handle removal when the model is removed
         currentPointsObject = null;
     }
+    if (currentExcludedPointsObject) {
+        currentExcludedPointsObject = null;
+    }
 }
+
+// Live-toggle the excluded points' visibility without needing to
+// regenerate them - lets you flip the debug view on/off instantly while
+// comparing against in-game testing.
+showExcludedPointsCheckbox.addEventListener("change", () => {
+    if (currentExcludedPointsObject) {
+        currentExcludedPointsObject.visible = showExcludedPointsCheckbox.checked;
+    }
+});

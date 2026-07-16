@@ -446,6 +446,27 @@ export function performSelection(ev, renderer, camera, scene) {
 
     removeAllSampledPoints(scene);
 
+    // The DOM-click-based removal above isn't reliable for every model
+    // name (ExcludedPoints in particular doesn't reliably get cleared by
+    // it - likely because it has no corresponding UI list entry for that
+    // mechanism to find and click), so also remove both directly here.
+    // Doing this unconditionally at the top of the triangle pass (rather
+    // than only when a new upward-facing triangle gets selected below)
+    // ensures stale points don't linger if the next click misses, hits a
+    // non-upward-facing triangle, or hits nothing at all.
+    for (const name of ["Points", "ExcludedPoints"]) {
+        const existingIndex = loadedModels.findIndex(m => m.name === name);
+        if (existingIndex !== -1) {
+            const existing = loadedModels[existingIndex];
+            if (existing && existing.mesh) {
+                scene.remove(existing.mesh);
+                if (existing.mesh.geometry) existing.mesh.geometry.dispose();
+                if (existing.mesh.material) existing.mesh.material.dispose();
+            }
+            loadedModels.splice(existingIndex, 1);
+        }
+    }
+
     let hit = null;
     for (const i of inter) {
         if (i.face && i.object.visible) {
@@ -530,18 +551,6 @@ export function performSelection(ev, renderer, camera, scene) {
     if ((game == "OOT" || game == "MM" || game == "OOT3D" || game == "MM3D") && samplePointsEnabled && meta) {
         // Check if the triangle faces upward (normal points up)
         if (sample_tri[0].normals && sample_tri[0].normals[1] > f32(0.0) && !isZero(sample_tri[0].normals[1])) {
-            // Remove old points before generating new ones
-            const existingPointsIndex = loadedModels.findIndex(m => m.name === "Points");
-            if (existingPointsIndex !== -1) {
-                const existing = loadedModels[existingPointsIndex];
-                if (existing && existing.mesh) {
-                    scene.remove(existing.mesh);
-                    if (existing.mesh.geometry) existing.mesh.geometry.dispose();
-                    if (existing.mesh.material) existing.mesh.material.dispose();
-                }
-                loadedModels.splice(existingPointsIndex, 1);
-            }
-            
             // Draw new points
             pts = drawSampledTriangles(scene, sample_tri, Number(samplePointsResolution.value), currentColCtx);
         }

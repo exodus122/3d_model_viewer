@@ -185,7 +185,8 @@ export function initColCtx(game, sceneName, colHeader) {
                     ],
                     floors: [],
                     walls: [],
-                    ceilings: []
+                    ceilings: [],
+                    standable: []
                 });
             }
         }
@@ -413,9 +414,18 @@ function getSubdivisionMinBounds(colCtx, pos, out) {
     }
 
     // Output result — matches pointers in C version
-    out.sx = sx;
-    out.sy = sy;
-    out.sz = sz;
+    //
+    // NOTE: must match .x/.y/.z (not .sx/.sy/.sz) - this is what
+    // getPolySubdivisionBounds's caller (the registration loop in
+    // initializeSubdivisions) actually reads minIdx.x/.y/.z from, and what
+    // getSubdivisionMaxBounds already uses for its own output. Writing
+    // .sx/.sy/.sz here silently left minIdx at its initial {x:0,y:0,z:0}
+    // forever, causing every single polygon in the map to register into
+    // every subdivision from the map's (0,0,0) corner up through its real
+    // position, instead of just the handful of cells actually near it.
+    out.x = sx;
+    out.y = sy;
+    out.z = sz;
 }
 
 // Computes the subdivision cell a single point occupies. Unlike
@@ -442,6 +452,50 @@ export function getPointSubdivisionIndex(colCtx, pos) {
     const index = (sz * subdivAmountXY) + (sy * colCtx.subdivAmount.x) + sx;
 
     return { sx, sy, sz, index };
+}
+
+// Inverse of the index math in getPointSubdivisionIndex/initializeSubdivisions:
+// given a flat subdivision array index, recovers which (sx,sy,sz) cell it
+// refers to.
+export function decomposeSubdivIndex(colCtx, index) {
+    const subdivAmountXY = colCtx.subdivAmount.x * colCtx.subdivAmount.y;
+    const sz = Math.floor(index / subdivAmountXY);
+    const rem = index - sz * subdivAmountXY;
+    const sy = Math.floor(rem / colCtx.subdivAmount.x);
+    const sx = rem - sy * colCtx.subdivAmount.x;
+    return { sx, sy, sz };
+}
+
+// The exact overlap-padded world-space box for subdivision cell (sx,sy,sz) -
+// matching precisely the `box` object initializeSubdivisions builds and
+// tests triangles against via triIntersectsCube. Reconstructing this lets a
+// consumer test true point-in-cell containment directly, instead of
+// comparing truncated point indices (see getPointSubdivisionIndex) against
+// registered cell indices, which can disagree by one cell near a
+// subdivision boundary since registration - but not that truncation - is
+// adjusted for BGCHECK_SUBDIV_OVERLAP.
+export function getSubdivisionCellBounds(colCtx, sx, sy, sz) {
+    const pad = f32(2 * BGCHECK_SUBDIV_OVERLAP);
+
+    const xmin = f32(f32(colCtx.subdivLength.x * sx) + colCtx.minBounds.x - BGCHECK_SUBDIV_OVERLAP);
+    const xmax = f32(xmin + f32(colCtx.subdivLength.x + pad));
+
+    const ymin = f32(f32(colCtx.subdivLength.y * sy) + colCtx.minBounds.y - BGCHECK_SUBDIV_OVERLAP);
+    const ymax = f32(ymin + f32(colCtx.subdivLength.y + pad));
+
+    const zmin = f32(f32(colCtx.subdivLength.z * sz) + colCtx.minBounds.z - BGCHECK_SUBDIV_OVERLAP);
+    const zmax = f32(zmin + f32(colCtx.subdivLength.z + pad));
+
+    return { xmin, xmax, ymin, ymax, zmin, zmax };
+}
+
+// True if world-space point (x,y,z) falls within subdivision cell (sx,sy,sz)'s
+// true overlap-padded bounds.
+export function pointInSubdivisionCell(colCtx, sx, sy, sz, x, y, z) {
+    const b = getSubdivisionCellBounds(colCtx, sx, sy, sz);
+    return x >= b.xmin && x <= b.xmax &&
+           y >= b.ymin && y <= b.ymax &&
+           z >= b.zmin && z <= b.zmax;
 }
 
 function getPolySubdivisionBounds(colCtx, poly, outMin, outMax) {
@@ -502,6 +556,25 @@ export function initializeSubdivisions(game, colCtx, allTriangleData) {
     colCtx.polyStandableSubdivIndices = new Array(allTriangleData.length);
     colCtx.polyStandableYRange = new Array(allTriangleData.length);
 
+    // Each polygon's actual vertex Y range (min/max), independent of the
+    // subdivision grid entirely. Subdivision cells can be much taller than
+    // any individual polygon inside them, so two polys can share a cell
+    // while one is genuinely far above the other in true world space. The
+    // occlusion check in sample_points.js uses this to tell whether a
+    // candidate polygon registered in the same cell as a query point could
+    // plausibly be "hit" by a straight-down scan from that point - a
+    // polygon whose entire Y extent sits above the point can't be, no
+    // matter how coarse a cell they both happen to share.
+    colCtx.polyWorldYRange = new Array(allTriangleData.length);
+
+    // Same idea, but for X/Z: a subdivision cell can be far wider/deeper
+    // than any individual polygon inside it, so a candidate sharing the
+    // point's cell isn't necessarily anywhere near the point's actual
+    // (x,z) position - it could be positioned anywhere else within that
+    // whole cell. This is a plain vertex-bounding-box check (not a precise
+    // point-in-triangle test), same level of approximation used elsewhere.
+    colCtx.polyWorldXZBounds = new Array(allTriangleData.length);
+
     const subdivLengthX = f32(colCtx.subdivLength.x + f32(2 * BGCHECK_SUBDIV_OVERLAP));
     const subdivLengthY = f32(colCtx.subdivLength.y + f32(2 * BGCHECK_SUBDIV_OVERLAP));
     const subdivLengthZ = f32(colCtx.subdivLength.z + f32(2 * BGCHECK_SUBDIV_OVERLAP));
@@ -514,7 +587,17 @@ export function initializeSubdivisions(game, colCtx, allTriangleData) {
 
     for (let polyIdx = 0; polyIdx < allTriangleData.length; polyIdx++) {
         let poly = allTriangleData[polyIdx];
-        
+
+        const polyMinY = f32(Math.min(poly.vtxs[0].y, poly.vtxs[1].y, poly.vtxs[2].y));
+        const polyMaxY = f32(Math.max(poly.vtxs[0].y, poly.vtxs[1].y, poly.vtxs[2].y));
+        colCtx.polyWorldYRange[polyIdx] = { min: polyMinY, max: polyMaxY };
+
+        const polyMinX = f32(Math.min(poly.vtxs[0].x, poly.vtxs[1].x, poly.vtxs[2].x));
+        const polyMaxX = f32(Math.max(poly.vtxs[0].x, poly.vtxs[1].x, poly.vtxs[2].x));
+        const polyMinZ = f32(Math.min(poly.vtxs[0].z, poly.vtxs[1].z, poly.vtxs[2].z));
+        const polyMaxZ = f32(Math.max(poly.vtxs[0].z, poly.vtxs[1].z, poly.vtxs[2].z));
+        colCtx.polyWorldXZBounds[polyIdx] = { minX: polyMinX, maxX: polyMaxX, minZ: polyMinZ, maxZ: polyMaxZ };
+
         getPolySubdivisionBounds(
             colCtx, poly,
             minIdx, maxIdx
@@ -567,10 +650,19 @@ export function initializeSubdivisions(game, colCtx, allTriangleData) {
                             colCtx.subdivisions[index].walls.push(polyIdx);          // wall
                         }
 
-                        // Track floor+wall registrations together (see
-                        // comment above colCtx.polyStandableSubdivIndices)
-                        // for anything that isn't a ceiling.
-                        if (ny > -0.8) {
+                        // Track upward-facing (standable) registrations
+                        // together (see comment above
+                        // colCtx.polyStandableSubdivIndices). This is
+                        // Ny > 0, not just "not a ceiling" - the .walls
+                        // bucket above spans -0.8 to 0.5, which includes
+                        // downward-facing overhangs (Ny between -0.8 and 0)
+                        // that face away from anything standing on or
+                        // falling onto them, same as a ceiling does. Only
+                        // strictly-upward-facing polys (whether bucketed as
+                        // a floor or as a shallow "wall") can actually be
+                        // stood on or catch a falling character, so those
+                        // are the only ones that belong here.
+                        if (ny > f32(0.0)) {
                             if (!colCtx.polyStandableSubdivIndices[polyIdx]) {
                                 colCtx.polyStandableSubdivIndices[polyIdx] = new Set();
                                 colCtx.polyStandableYRange[polyIdx] = { min: sy, max: sy };
@@ -580,6 +672,13 @@ export function initializeSubdivisions(game, colCtx, allTriangleData) {
                             const yRange = colCtx.polyStandableYRange[polyIdx];
                             if (sy < yRange.min) yRange.min = sy;
                             if (sy > yRange.max) yRange.max = sy;
+
+                            // Per-cell mirror of the same thing, so a
+                            // consumer checking "does this cell contain any
+                            // standable poly" (e.g. an occlusion check) can
+                            // query it directly instead of having to
+                            // re-filter .floors/.walls by Ny itself.
+                            colCtx.subdivisions[index].standable.push(polyIdx);
                         }
                     }
 
