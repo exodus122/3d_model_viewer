@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
 import { BGCHECK_SUBDIV_OVERLAP } from './subdivisions.js';
+import { isSamplePointValid } from './sample_points.js';
 
 ////////////////////////////////////////
 // System: Standable Surfaces
@@ -123,6 +124,58 @@ function clipPolygonAboveMaxY(verts, maxY) {
 // Kept for the _old function below.
 function clipTriangleByMinY(verts, minY) {
     return clipPolygonByMinY(verts, minY);
+}
+
+// Generic Sutherland-Hodgman clip of a polygon against a single axis-aligned
+// half-plane in the XZ plane, keeping the requested side. `axis` is 'x' or
+// 'z'; `op` is one of '<','<=','>','>=' describing which side of `value` to
+// KEEP. Y (and the untouched axis) are linearly interpolated at crossings so
+// the emitted polygon still lies flush on the triangle's plane. Used by the
+// occlusion split to carve a sub-triangle into "outside the occluder box"
+// slabs (emitted whole) and an "inside the box" slab (rasterized).
+//
+// Note the boundary is inclusive-consistent between complementary ops: e.g.
+// clipPolyKeep(p,'x','<',v) and clipPolyKeep(p,'x','>=',v) partition p with no
+// gap and no overlap, so splitting a polygon into both halves loses no area.
+function clipPolyKeep(verts, axis, op, value) {
+    const n = verts.length;
+    if (n === 0) return [];
+
+    const coord = (v) => (axis === 'x' ? v.x : v.z);
+    const inside = (v) => {
+        const c = coord(v);
+        switch (op) {
+            case '<':  return c <  value;
+            case '<=': return c <= value;
+            case '>':  return c >  value;
+            case '>=': return c >= value;
+        }
+        return false;
+    };
+
+    const out = [];
+    for (let i = 0; i < n; i++) {
+        const a = verts[i];
+        const b = verts[(i + 1) % n];
+        const aIn = inside(a);
+        const bIn = inside(b);
+
+        if (aIn) out.push(a);
+
+        if (aIn !== bIn) {
+            const ca = coord(a);
+            const cb = coord(b);
+            const denom = (cb - ca);
+            // Parallel-to-plane edges never cross; guarded by aIn!==bIn anyway.
+            const t = denom !== 0 ? (value - ca) / denom : 0;
+            out.push({
+                x: a.x + (b.x - a.x) * t,
+                y: a.y + (b.y - a.y) * t,
+                z: a.z + (b.z - a.z) * t,
+            });
+        }
+    }
+    return out;
 }
 
 // Helper: compute vertices below minY (clipped slice)
@@ -366,7 +419,53 @@ export function renderStandableSurfaceXZ_old(allTriangleData) {
 //     triangle, the edge buffer strips, and the vertex-bulge circles -
 //     not just the existing minY/maxY red/blue/yellow split.
 // Omit colCtx to fall back to the old unfiltered behavior.
-function buildStandableSurfaceTriangles(tri, pushGreen, pushRed, pushBlue, pushYellow, colCtx = null, polyIdx = null) {
+// Occlusion top-clip tuning.
+//
+// The bottom-clip (cutoffY) and the standable-set membership test are exact
+// polygon operations, but the occlusion/downward-scan portion of
+// isSamplePointValid is inherently per-(x,z)-position (which other polys sit
+// above/below a given column, and whether their footprints contain that exact
+// x,z), so there's no single plane to clip a whole triangle against.
+//
+// Rather than rasterize the whole surface into fixed cells (which explodes
+// into millions of tiny quads on large floors and can overflow the vertex
+// array), we ADAPTIVELY REFINE: a sub-triangle that overlaps no occluder is
+// emitted whole; one that does is recursively quartered, and each piece that
+// turns out uniformly valid/invalid (sampled via isSamplePointValid) is
+// emitted or dropped as a whole polygon. Only pieces straddling a validity
+// boundary keep subdividing, down to a minimum feature size. This keeps the
+// output geometry proportional to the *length of the occlusion boundary*, not
+// the *area* of the surface, so open floors stay cheap and the vertex count
+// can't blow up.
+
+// Smallest edge length (world units) an occluded region is refined to before
+// we stop subdividing and just decide the whole leaf by its center sample.
+// ~2 units keeps the clipped silhouette visually indistinguishable from the
+// point cloud. Larger = coarser boundary but fewer triangles.
+const STANDABLE_OCCLUSION_MIN_FEATURE = 1.0;
+
+// Max quadtree depth per sub-triangle, a hard bound on work regardless of
+// triangle size (a huge triangle just yields larger leaves, not more of them).
+const STANDABLE_OCCLUSION_MAX_DEPTH = 8;
+
+// Coarse seed-grid cell size (world units). The entry point pre-splits each
+// triangle so no region handed to the adaptive refiner starts larger than this
+// before probing. It bounds how large an invalid band can be while still
+// slipping between a region's probe points: a fully-valid or fully-invalid
+// seed cell is decided in one probe (cheap), and only cells straddling a
+// validity boundary refine further. Smaller = safer against thin missed bands
+// but more baseline probes on big surfaces; ~64 units catches Shadow-Temple-
+// scale features while keeping open floors light.
+const STANDABLE_OCCLUSION_SAMPLE_SEED = 64.0;
+
+// Scene-wide safety ceiling on triangles emitted by the occlusion clip across
+// ALL polygons in one renderStandableSurfaceXZ call. The positions arrays are
+// scene-global, so a per-triangle cap isn't enough to guarantee we never hit
+// JS's max array length; this is the real backstop. Well above what any real
+// scene needs, but finite. Reset at the top of each render call.
+const STANDABLE_OCCLUSION_SCENE_TRI_BUDGET = 4000000;
+
+function buildStandableSurfaceTriangles(tri, pushGreen, pushRed, pushBlue, pushYellow, colCtx = null, polyIdx = null, budget = null) {
     const vtxs = tri.vtxs;
     const normals = tri.normals;
     const D = f32(tri.d);
@@ -400,6 +499,288 @@ function buildStandableSurfaceTriangles(tri, pushGreen, pushRed, pushBlue, pushY
     const cutoffY = (colCtx && polyIdx !== undefined && polyIdx !== null)
         ? f32(minY - BGCHECK_SUBDIV_OVERLAP)
         : null;
+
+    // Whether the occlusion ("top") clip is active. Same gate as the
+    // bottom-clip: only when we actually have subdivision context to test
+    // against. When off, geometry passes through to the buckets untouched
+    // (old behavior).
+    const occlusionClipEnabled = (colCtx && polyIdx !== undefined && polyIdx !== null);
+
+    // TOP CLIP.
+    //
+    // The bottom-clip above (cutoffY) and the standable-set membership test at
+    // the top of this function already mirror the first two rejection paths in
+    // sample_points.js's isSamplePointValid. This handles the rest: everything
+    // else that predicate can reject - both occlusion by another standable poly
+    // AND downward-scan failure (a near-vertical "standable" triangle whose
+    // plane-equation Y drifts into subdivision cells it isn't registered below,
+    // very common in e.g. Shadow Temple). Neither can be expressed as a single
+    // clip plane, so we defer to isSamplePointValid itself, sampled adaptively
+    // (see the refiner below), and emit only the regions it accepts.
+
+    // Lift an (x,z) onto the triangle's plane.
+    const lift = (x, z) => ({ x: f32(x), y: computeYFromPlaneLocal(Nx, Ny, Nz, D, x, z), z: f32(z) });
+
+    // ---- Cheap "can any of this triangle be invalid?" pre-check. ----
+    //
+    // isSamplePointValid rejects a point only via (a) the vertex-Y guard
+    // (already handled by the bottom-clip), (b) downward-scan failure, or (c)
+    // occlusion by another standable poly. If NEITHER (b) nor (c) can happen
+    // anywhere on this triangle, every point is valid and we can emit it whole
+    // without any sampling - restoring the fast path for the common flat, open
+    // floor. We test cheap sufficient conditions for "can't happen":
+    //
+    //  (c) occlusion: gather other standable polys sharing a subdivision cell
+    //      with this triangle whose XZ footprint overlaps it and whose Y range
+    //      isn't entirely above it. None -> no possible occluder.
+    //
+    //  (b) downward-scan failure: happens when the plane-equation Y drifts out
+    //      of the subdivision cells the triangle is registered below - i.e. on
+    //      steep triangles whose plane Y ranges far beyond their own vertex Y
+    //      span. If the plane Y across the triangle's XZ extent stays within the
+    //      vertex Y range (flat triangle), the sampled point sits right on the
+    //      triangle and the downward scan finds its own cell. We approximate
+    //      "flat enough" as |Ny| close to 1 (near-horizontal). Steeper than that
+    //      and we can't rule (b) out, so we sample.
+    let mayBeInvalid = false;
+    if (occlusionClipEnabled) {
+        // (b) steepness test: near-horizontal floors can't downward-scan-fail.
+        // Ny is normalized; treat > 0.99 as flat enough to skip sampling.
+        const nearFlat = Ny > f32(0.99);
+
+        // (c) occluder presence test.
+        let hasOccluder = false;
+        const standableSet = colCtx.polyStandableSubdivIndices && colCtx.polyStandableSubdivIndices[polyIdx];
+        if (standableSet) {
+            const oMinX = Math.min(rawV0.x, rawV1.x, rawV2.x) - STANDABLE_CHK_DIST;
+            const oMaxX = Math.max(rawV0.x, rawV1.x, rawV2.x) + STANDABLE_CHK_DIST;
+            const oMinZ = Math.min(rawV0.z, rawV1.z, rawV2.z) - STANDABLE_CHK_DIST;
+            const oMaxZ = Math.max(rawV0.z, rawV1.z, rawV2.z) + STANDABLE_CHK_DIST;
+            const seen = new Set();
+            outer:
+            for (const cellIndex of standableSet) {
+                const cell = colCtx.subdivisions[cellIndex];
+                if (!cell || !cell.standable) continue;
+                for (const p of cell.standable) {
+                    if (p === polyIdx || seen.has(p)) continue;
+                    seen.add(p);
+                    const yr = colCtx.polyWorldYRange && colCtx.polyWorldYRange[p];
+                    // A real downward occluder must sit strictly below some part
+                    // of this triangle. A candidate whose entire Y range is at or
+                    // above this triangle's own top can't be reached by a
+                    // straight-down scan from any point on it - this also
+                    // excludes coplanar same-level neighbors (e.g. adjacent
+                    // floor tiles), which share cells and overlap in XZ but never
+                    // occlude each other, so they must NOT force the slow path.
+                    if (yr && yr.min >= minY) continue;
+                    const xz = colCtx.polyWorldXZBounds && colCtx.polyWorldXZBounds[p];
+                    if (xz && (xz.maxX < oMinX || xz.minX > oMaxX || xz.maxZ < oMinZ || xz.minZ > oMaxZ)) continue;
+                    hasOccluder = true;
+                    break outer;
+                }
+            }
+        }
+
+        mayBeInvalid = hasOccluder || !nearFlat;
+    }
+
+    // Validity of a single (x,z) via the point sampler's own predicate, Y taken
+    // from the plane exactly as the sampler does.
+    const validAt = (x, z) => {
+        const y = computeYFromPlaneLocal(Nx, Ny, Nz, D, x, z);
+        return isSamplePointValid(colCtx, polyIdx, f32(x), y, f32(z), minY);
+    };
+
+    // Emit a polygon (already in XZ, plane-lifted) as fan triangles into pushFn,
+    // charging the scene-wide budget. Returns false if the budget is exhausted.
+    const emitPoly = (pushFn, verts) => {
+        for (let i = 1; i < verts.length - 1; i++) {
+            if (budget && budget.remaining <= 0) return false;
+            pushFn(verts[0], verts[i], verts[i + 1]);
+            if (budget) budget.remaining--;
+        }
+        return true;
+    };
+
+    // ADAPTIVE VALIDITY CLIP.
+    //
+    // isSamplePointValid can reject a point for reasons that are NOT captured by
+    // occluder footprints:
+    //   - DOWNWARD-SCAN FAILURE: if the triangle isn't registered in any
+    //     subdivision cell strictly below the sample point's own cell, the point
+    //     is invalid - independent of any other polygon. This happens a lot on
+    //     near-vertical "standable" triangles (Ny just above 0), where the
+    //     plane-equation Y drifts far from the triangle's own cells.
+    //   - OCCLUSION by another standable poly at/below the point.
+    // Because of the first case, we CANNOT decide validity from occluder boxes
+    // alone (an earlier version did, and left large invalid regions of shallow
+    // walls un-clipped). So this refiner is driven purely by sampling the
+    // sampler's own predicate, coarse-to-fine:
+    //
+    //   - Probe the region (centroid, vertices, edge midpoints). If every probe
+    //     agrees valid -> emit whole; if every probe agrees invalid -> drop.
+    //   - Otherwise subdivide (quadtree) and recurse, down to a min feature size.
+    //
+    // To avoid missing a thin invalid band that slips between probes on a very
+    // large piece, the entry point pre-splits the triangle so no leaf handed to
+    // refine() starts larger than SAMPLE_SEED beforehand. Output scales with the
+    // area that actually varies plus the seed grid, not with raw surface area.
+    // Per-axis XZ resolution that keeps each step's plane-Y change bounded.
+    // On a near-vertical triangle (tiny Ny) a small XZ step spans a huge Y
+    // range, and validity here is largely a function of Y, so it can flip many
+    // times within a single coarse XZ cell. Sampling purely by XZ extent then
+    // drops or keeps whole cells wrongly (leaving large invalid regions, or
+    // erasing valid ones). Tie resolution to the plane gradient: dY/dX = -Nx/Ny
+    // and dY/dZ = -Nz/Ny, so to move at most K in Y we may move at most
+    // K*|Ny/Nx| in X (and K*|Ny/Nz| in Z).
+    const gradX = Math.abs(Nx) > 1e-9 ? Math.abs(Ny / Nx) : Infinity;
+    const gradZ = Math.abs(Nz) > 1e-9 ? Math.abs(Ny / Nz) : Infinity;
+    // Smallest cell we'll refine to on each axis (steepness-limited but floored
+    // so a near-vertical face doesn't demand sub-unit cells and explode count).
+    const FEATURE_FLOOR = 0.25;
+    const featX = Math.max(FEATURE_FLOOR, Math.min(STANDABLE_OCCLUSION_MIN_FEATURE, STANDABLE_OCCLUSION_MIN_FEATURE * gradX));
+    const featZ = Math.max(FEATURE_FLOOR, Math.min(STANDABLE_OCCLUSION_MIN_FEATURE, STANDABLE_OCCLUSION_MIN_FEATURE * gradZ));
+    // Coarse seed step per axis: at most SAMPLE_SEED, but fine enough that a
+    // seed cell spans a bounded Y range too.
+    const seedX = Math.max(featX, Math.min(STANDABLE_OCCLUSION_SAMPLE_SEED, STANDABLE_OCCLUSION_SAMPLE_SEED * gradX));
+    const seedZ = Math.max(featZ, Math.min(STANDABLE_OCCLUSION_SAMPLE_SEED, STANDABLE_OCCLUSION_SAMPLE_SEED * gradZ));
+
+    const probeAllSame = (verts, cxs, czs) => {
+        const first = validAt(cxs, czs);
+        // Vertices (inset a hair toward centroid so we test interior).
+        for (const v of verts) {
+            const sx = v.x + (cxs - v.x) * 1e-3;
+            const sz = v.z + (czs - v.z) * 1e-3;
+            if (validAt(sx, sz) !== first) return { same: false, valid: first };
+        }
+        // Edge midpoints (also inset), to catch bands that miss all vertices.
+        for (let i = 0; i < verts.length; i++) {
+            const a = verts[i], b = verts[(i + 1) % verts.length];
+            let mx = (a.x + b.x) * 0.5, mz = (a.z + b.z) * 0.5;
+            mx += (cxs - mx) * 1e-3; mz += (czs - mz) * 1e-3;
+            if (validAt(mx, mz) !== first) return { same: false, valid: first };
+        }
+        return { same: true, valid: first };
+    };
+
+    const refine = (pushFn, verts, minX, maxX, minZ, maxZ, depth) => {
+        if (verts.length < 3) return;
+        if (budget && budget.remaining <= 0) return;
+
+        let cxs = 0, czs = 0;
+        for (const v of verts) { cxs += v.x; czs += v.z; }
+        cxs /= verts.length; czs /= verts.length;
+
+        const probe = probeAllSame(verts, cxs, czs);
+        if (probe.same) {
+            if (probe.valid) emitPoly(pushFn, verts);
+            return; // uniformly valid -> emit; uniformly invalid -> drop
+        }
+
+        const w = maxX - minX;
+        const h = maxZ - minZ;
+        // Fine enough when each axis is within its (possibly steepness-reduced)
+        // feature size - so on near-vertical faces we keep splitting the axis
+        // that carries the large Y gradient until the Y span per cell is small.
+        const small = (w <= featX && h <= featZ);
+
+        // Can't refine further: decide the whole leaf by its centroid. The leaf
+        // is at most MIN_FEATURE across, so any error is a sub-feature sliver.
+        if (small || depth >= STANDABLE_OCCLUSION_MAX_DEPTH) {
+            if (validAt(cxs, czs)) emitPoly(pushFn, verts);
+            return;
+        }
+
+        // Split into up to four quadrants via a vertical then horizontal cut.
+        const midX = (minX + maxX) * 0.5;
+        const midZ = (minZ + maxZ) * 0.5;
+
+        const left  = clipPolyKeep(verts, 'x', '<=', midX);
+        const right = clipPolyKeep(verts, 'x', '>',  midX);
+
+        const quads = [];
+        if (left.length >= 3) {
+            quads.push([clipPolyKeep(left,  'z', '<=', midZ), minX, midX, minZ, midZ]);
+            quads.push([clipPolyKeep(left,  'z', '>',  midZ), minX, midX, midZ, maxZ]);
+        }
+        if (right.length >= 3) {
+            quads.push([clipPolyKeep(right, 'z', '<=', midZ), midX, maxX, minZ, midZ]);
+            quads.push([clipPolyKeep(right, 'z', '>',  midZ), midX, maxX, midZ, maxZ]);
+        }
+        for (const [qv, qx0, qx1, qz0, qz1] of quads) {
+            refine(pushFn, qv, qx0, qx1, qz0, qz1, depth + 1);
+        }
+    };
+
+    // Top-clip entry point for a single (bottom-clipped, plane-lifted)
+    // sub-triangle. Pre-splits into a coarse seed grid (so no probe region
+    // starts too large to trust), then adaptively refines each seed cell.
+
+    const emitTriOcclusionClipped = (pushFn, a, b, c) => {
+        // Whole-triangle fast path: provably no invalid area -> emit as-is,
+        // no sampling (restores flat-open-floor speed).
+        if (!mayBeInvalid) {
+            emitPoly(pushFn, [a, b, c]);
+            return;
+        }
+
+        const triMinX = Math.min(a.x, b.x, c.x);
+        const triMaxX = Math.max(a.x, b.x, c.x);
+        const triMinZ = Math.min(a.z, b.z, c.z);
+        const triMaxZ = Math.max(a.z, b.z, c.z);
+
+        const spanX = triMaxX - triMinX;
+        const spanZ = triMaxZ - triMinZ;
+
+        // Seed columns/rows so each seed cell is small in both XZ extent AND
+        // (via the steepness-aware seed step) in Y extent.
+        let nx = Math.max(1, Math.ceil(spanX / seedX));
+        let nz = Math.max(1, Math.ceil(spanZ / seedZ));
+        // Guard against an accidental explosion on a pathological triangle.
+        const MAX_SEED_CELLS = 20000;
+        while (nx * nz > MAX_SEED_CELLS && (nx > 1 || nz > 1)) {
+            if (nx >= nz) nx = Math.max(1, nx >> 1); else nz = Math.max(1, nz >> 1);
+        }
+
+        // Fast path: small triangle, no seeding needed - refine directly.
+        if (nx === 1 && nz === 1) {
+            refine(pushFn, [a, b, c], triMinX, triMaxX, triMinZ, triMaxZ, 0);
+            return;
+        }
+
+        const stepX = spanX / nx;
+        const stepZ = spanZ / nz;
+        const poly = [a, b, c];
+
+        for (let ix = 0; ix < nx; ix++) {
+            const x0 = triMinX + stepX * ix;
+            const x1 = (ix === nx - 1) ? triMaxX : x0 + stepX;
+            let col = clipPolyKeep(poly, 'x', '>=', x0);
+            col = clipPolyKeep(col, 'x', '<=', x1);
+            if (col.length < 3) continue;
+            for (let iz = 0; iz < nz; iz++) {
+                const z0 = triMinZ + stepZ * iz;
+                const z1 = (iz === nz - 1) ? triMaxZ : z0 + stepZ;
+                let cell = clipPolyKeep(col, 'z', '>=', z0);
+                cell = clipPolyKeep(cell, 'z', '<=', z1);
+                if (cell.length < 3) continue;
+                refine(pushFn, cell, x0, x1, z0, z1, 0);
+                if (budget && budget.remaining <= 0) return;
+            }
+        }
+    };
+
+    // Wrap the four raw bucket writers so that, when occlusion clipping is on,
+    // every piece the generators below produce (base triangle, vertex-bulge
+    // circles, edge buffer strips) is automatically top-clipped. When it's off,
+    // they pass straight through and behavior is identical to before.
+    const rawGreen = pushGreen, rawRed = pushRed, rawBlue = pushBlue, rawYellow = pushYellow;
+    if (occlusionClipEnabled) {
+        pushGreen  = (a, b, c) => emitTriOcclusionClipped(rawGreen,  a, b, c);
+        pushRed    = (a, b, c) => emitTriOcclusionClipped(rawRed,    a, b, c);
+        pushBlue   = (a, b, c) => emitTriOcclusionClipped(rawBlue,   a, b, c);
+        pushYellow = (a, b, c) => emitTriOcclusionClipped(rawYellow, a, b, c);
+    }
 
     // Clips a triangle down to the portion at/above cutoffY, fan-pushing
     // whatever's left (if anything) via pushFn. No-op passthrough when
@@ -533,9 +914,15 @@ export function renderStandableSurfaceXZ(allTriangleData, colCtx = null) {
     const blue = makeBucket();  // below minVertexY
     const yellow = makeBucket(); // at minVertexY
 
+    // Scene-wide backstop shared across every triangle: the positions arrays
+    // are global, so a per-triangle cap can't guarantee we never approach JS's
+    // max array length. When this hits zero the occlusion refiner stops
+    // emitting new geometry (already-decided whole triangles are unaffected).
+    const budget = { remaining: STANDABLE_OCCLUSION_SCENE_TRI_BUDGET };
+
     allTriangleData.forEach((tri, arrayIdx) => {
         const polyIdx = (tri.id !== undefined && tri.id !== null) ? tri.id : arrayIdx;
-        buildStandableSurfaceTriangles(tri, green.push, red.push, blue.push, yellow.push, colCtx, polyIdx);
+        buildStandableSurfaceTriangles(tri, green.push, red.push, blue.push, yellow.push, colCtx, polyIdx, budget);
     });
 
     function buildMesh(bucket, color, edgeColor = 0x000000) {

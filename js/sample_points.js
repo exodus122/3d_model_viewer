@@ -243,7 +243,7 @@ function calculateAdaptiveResolution(tri, baseResolution) {
 //    anywhere else in the range) - only the triangle's own target cell is
 //    excluded, since other triangles sharing that specific cell don't
 //    matter (that's where the search successfully ends either way).
-function isSamplePointValid(colCtx, polyIdx, x, y, z, triMinVertexY) {
+export function isSamplePointValid(colCtx, polyIdx, x, y, z, triMinVertexY) {
     if (!colCtx || polyIdx === undefined || polyIdx === null) return true;
 
     // VERTEX-Y GUARD: subdivision cells alone aren't fine-grained enough to
