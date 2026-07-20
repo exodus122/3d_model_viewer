@@ -442,11 +442,34 @@ export function renderStandableSurfaceXZ_old(allTriangleData) {
 // we stop subdividing and just decide the whole leaf by its center sample.
 // ~2 units keeps the clipped silhouette visually indistinguishable from the
 // point cloud. Larger = coarser boundary but fewer triangles.
-const STANDABLE_OCCLUSION_MIN_FEATURE = 1.0;
+const STANDABLE_OCCLUSION_MIN_FEATURE = 2.0;
 
 // Max quadtree depth per sub-triangle, a hard bound on work regardless of
-// triangle size (a huge triangle just yields larger leaves, not more of them).
-const STANDABLE_OCCLUSION_MAX_DEPTH = 8;
+// triangle size. Set with headroom for steep triangles: a near-vertical seed
+// cell can start with a large plane-Y span, and reaching OCCLUSION_Y_FLOOR from
+// there takes several extra splits, so this must be comfortably above the flat-
+// surface need (which is only ~log2(SAMPLE_SEED/MIN_FEATURE)).
+const STANDABLE_OCCLUSION_MAX_DEPTH = 12;
+
+// Absolute smallest cell the refiner will split a MIXED (boundary-straddling)
+// leaf down to, even below the per-axis feature size. This exists for pieces
+// that START smaller than the feature size - notably the radius-1 vertex-bulge
+// circle segments - which would otherwise be decided whole by a single
+// centroid probe and poke a full piece-width past the clip boundary. Splitting
+// them to this floor snaps the bulge edge to the same boundary the base
+// surface uses. Smaller = tighter bulge clipping but more tiny triangles along
+// boundaries; ~0.25 is well below the bulge radius and keeps the count modest.
+const STANDABLE_OCCLUSION_HARD_FLOOR = 0.25;
+
+// Terminal refinement threshold on a mixed cell's PLANE-Y span (world units).
+// The validity boundary on these surfaces is largely a function of Y, so on a
+// near-vertical triangle a cell that's tiny in XZ can still span a huge Y range
+// and clip the boundary coarsely. This makes the refiner keep splitting a mixed
+// cell until its Y extent is this thin (auto-adapting to steepness: flat cells
+// bottom out on the XZ hard floor first, steep cells keep going until the Y
+// band is narrow). This is what actually tightens the green vertex bulge in the
+// invalid region. Smaller = tighter boundary but more triangles on steep faces.
+const STANDABLE_OCCLUSION_Y_FLOOR = 4.0;
 
 // Coarse seed-grid cell size (world units). The entry point pre-splits each
 // triangle so no region handed to the adaptive refiner starts larger than this
@@ -679,14 +702,36 @@ function buildStandableSurfaceTriangles(tri, pushGreen, pushRed, pushBlue, pushY
 
         const w = maxX - minX;
         const h = maxZ - minZ;
-        // Fine enough when each axis is within its (possibly steepness-reduced)
-        // feature size - so on near-vertical faces we keep splitting the axis
-        // that carries the large Y gradient until the Y span per cell is small.
-        const small = (w <= featX && h <= featZ);
+        // The refiner must resolve the validity boundary, which on these
+        // surfaces is largely a function of plane-Y. On a near-vertical
+        // triangle a small XZ cell still spans a huge Y range, so an XZ-only
+        // stop criterion (feature size) can't clip the boundary finely no
+        // matter how small FEATURE_FLOOR is in XZ - the limiting quantity is Y.
+        // So the terminal test is the cell's actual plane-Y span: keep
+        // splitting a MIXED leaf until either its Y span is below
+        // OCCLUSION_Y_FLOOR *or* its XZ extent hits the absolute XZ floor
+        // (whichever comes first), then decide the remainder by centroid. This
+        // auto-adapts to steepness: flat cells stop on XZ size, steep cells keep
+        // going until the Y band is thin - without over-refining flat floors.
+        let cyMin = Infinity, cyMax = -Infinity;
+        for (const v of verts) {
+            const vy = computeYFromPlaneLocal(Nx, Ny, Nz, D, v.x, v.z);
+            if (vy < cyMin) cyMin = vy;
+            if (vy > cyMax) cyMax = vy;
+        }
+        const ySpan = cyMax - cyMin;
 
-        // Can't refine further: decide the whole leaf by its centroid. The leaf
-        // is at most MIN_FEATURE across, so any error is a sub-feature sliver.
-        if (small || depth >= STANDABLE_OCCLUSION_MAX_DEPTH) {
+        const yThin = (ySpan <= STANDABLE_OCCLUSION_Y_FLOOR);
+
+        // Terminal decision. The Y span is the quantity that actually governs
+        // the validity boundary, so it takes priority: a cell that is already
+        // below the XZ floor but still spans a large Y range (a thin sliver on a
+        // near-vertical face - exactly the vertex-bulge case) must KEEP
+        // splitting until its Y band is thin, not stop just because it's small
+        // in XZ. So we stop only when the Y band is thin, or as an ultimate
+        // backstop the depth cap is hit. Splitting halves the Y span each level
+        // (Y is linear in XZ), so the Y floor is reachable within the depth cap.
+        if (yThin || depth >= STANDABLE_OCCLUSION_MAX_DEPTH) {
             if (validAt(cxs, czs)) emitPoly(pushFn, verts);
             return;
         }
