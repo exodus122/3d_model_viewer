@@ -448,6 +448,8 @@ export function parseZeldaModelBinary(scene, buffer, fresh, mapName){
     
     // Get Triangles
     const tris = [];
+    const intangibleTris = [];
+    const intangibleTriangleData = [];
     offset = colHeader.polygonListStart + address_offset;
     for(let i = 0; i < colHeader.numPolygons; i++){
         if(offset+poly_length > dv.byteLength) break;
@@ -485,8 +487,27 @@ export function parseZeldaModelBinary(scene, buffer, fresh, mapName){
             dist = dv.getFloat32(offset + poly_length*i + 0x10, endianness);
         }
         
-        //if (xpFlags & 2) // skip polys that don't have collision
-        //    continue;
+        if (xpFlags & 2) {
+            // Intangible collision - excluded from the real collision
+            // model/subdivisions (it has no actual collision in-game), but
+            // built as its own separate visual-only model below rather
+            // than just discarded.
+            intangibleTris.push([a+1,b+1,c+1]);
+            intangibleTriangleData.push({
+                id: i,
+                type: type,
+                vtxs: [
+                    new THREE.Vector3(verts[a][0], verts[a][1], verts[a][2]),
+                    new THREE.Vector3(verts[b][0], verts[b][1], verts[b][2]),
+                    new THREE.Vector3(verts[c][0], verts[c][1], verts[c][2])
+                ],
+                normals: [normX, normY, normZ],
+                d: dist,
+                xpFlags: xpFlags,
+                flags: flags
+            });
+            continue;
+        }
         
         tris.push([a+1,b+1,c+1]);
         
@@ -534,6 +555,15 @@ export function parseZeldaModelBinary(scene, buffer, fresh, mapName){
         for(let i = 0; i < tris.length; i++) tris[i]=tris[i].map(x=>x-1);
     }
     
+    if (intangibleTris.length > 0) {
+        const allIntangibleIdx = [].concat(...intangibleTris);
+        const maxIntangibleIdx = Math.max(...allIntangibleIdx);
+        const minIntangibleIdx = Math.min(...allIntangibleIdx);
+        if(minIntangibleIdx >= 1 && maxIntangibleIdx <= verts.length) {
+            for(let i = 0; i < intangibleTris.length; i++) intangibleTris[i]=intangibleTris[i].map(x=>x-1);
+        }
+    }
+    
     for (let i = 0; i < tris.length; i++) {
         const [a,b,c] = tris[i];
         if (a < 0 || b < 0 || c < 0 ||
@@ -551,19 +581,42 @@ export function parseZeldaModelBinary(scene, buffer, fresh, mapName){
     else
         buildGeometry(scene, verts, tris, allTriangleData, colCtx, modelName, fresh);
 
-    const standableSurfaceMesh2 = renderStandableSurfaceXZ(allTriangleData, colCtx);
-    if (standableSurfaceMesh2) {
-        scene.add(standableSurfaceMesh2);
-        
-        standableSurfaceMesh2.children[1].visible = wireframeCheckbox.checked;
-        if(standableSurfaceMesh2.children[3])
-            standableSurfaceMesh2.children[3].visible = wireframeCheckbox.checked;
-        
-        loadedModels.push({ name: "Standable Surface", mesh: standableSurfaceMesh2, edges: standableSurfaceMesh2.children[1] });
-        if(standableSurfaceMesh2.children[3])
-            loadedModels.push({ name: "Standable Surface", mesh: standableSurfaceMesh2, edges: standableSurfaceMesh2.children[3] });
-        
-        addModelCheckbox(scene, "Standable Surface", standableSurfaceMesh2, null, false, true, "#ff0000");
+    // Intangible collision (xpFlags & 2) as its own separate model - these
+    // polygons have no real collision in-game, so they're deliberately
+    // excluded from allTriangleData/colCtx above (not registered in the
+    // subdivision system, not considered for sample points or standable
+    // surfaces), but are still worth being able to see. Always additive
+    // (fresh=false) since the main model above already handled clearing
+    // the scene for a fresh load.
+    if (intangibleTris.length > 0) {
+        buildGeometry(scene, verts, intangibleTris, intangibleTriangleData, null, "Intangible Collision", false);
+    }
+
+    const standableSurfaceResult = renderStandableSurfaceXZ(allTriangleData, colCtx);
+    if (standableSurfaceResult) {
+        const { main: standableSurfaceMain, vertexBulge: standableSurfaceVertexBulge } = standableSurfaceResult;
+
+        if (standableSurfaceMain) {
+            scene.add(standableSurfaceMain);
+
+            if (standableSurfaceMain.children[1])
+                standableSurfaceMain.children[1].visible = wireframeCheckbox.checked;
+
+            loadedModels.push({ name: "Standable Surface", mesh: standableSurfaceMain, edges: standableSurfaceMain.children[1] });
+
+            addModelCheckbox(scene, "Standable Surface", standableSurfaceMain, null, false, true, "#ff0000");
+        }
+
+        if (standableSurfaceVertexBulge) {
+            scene.add(standableSurfaceVertexBulge);
+
+            if (standableSurfaceVertexBulge.children[1])
+                standableSurfaceVertexBulge.children[1].visible = wireframeCheckbox.checked;
+
+            loadedModels.push({ name: "Seams Model", mesh: standableSurfaceVertexBulge, edges: standableSurfaceVertexBulge.children[1] });
+
+            addModelCheckbox(scene, "Seams Model", standableSurfaceVertexBulge, null, false, true, "#00cc44");
+        }
     }
     
     const wallSurfaceMeshXY = renderCollisionWallsXY(allTriangleData);

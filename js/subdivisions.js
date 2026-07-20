@@ -585,8 +585,18 @@ export function initializeSubdivisions(game, colCtx, allTriangleData) {
     let minIdx = { x: 0, y: 0, z: 0 };
     let maxIdx = { x: 0, y: 0, z: 0 };
 
-    for (let polyIdx = 0; polyIdx < allTriangleData.length; polyIdx++) {
-        let poly = allTriangleData[polyIdx];
+    for (let arrayIdx = 0; arrayIdx < allTriangleData.length; arrayIdx++) {
+        let poly = allTriangleData[arrayIdx];
+
+        // Prefer poly.id (the polygon's true original index) over its
+        // position in this array. These only diverge if allTriangleData was
+        // built by skipping some polygons while assigning id (e.g. an
+        // xpFlags check that does `continue` before pushing) - array
+        // position alone would then silently register data under the wrong
+        // polygon's index, since consumers (sample_points.js,
+        // standable_surfaces.js) look things up by poly.id, not by where a
+        // polygon happened to land in this specific array.
+        const polyIdx = (poly.id !== undefined && poly.id !== null) ? poly.id : arrayIdx;
 
         const polyMinY = f32(Math.min(poly.vtxs[0].y, poly.vtxs[1].y, poly.vtxs[2].y));
         const polyMaxY = f32(Math.max(poly.vtxs[0].y, poly.vtxs[1].y, poly.vtxs[2].y));

@@ -353,14 +353,6 @@ export function renderStandableSurfaceXZ_old(allTriangleData) {
 //   - a full circle of radius chkDist centered at each vertex (always) -> pushGreen
 // Overlap between these pieces is fine since we're only filling area, not
 // tracing a single outline.
-// Builds the exact region triChkPointParaYImpl accepts for a single triangle,
-// as a handful of overlapping filled shapes instead of a sampled grid:
-//   - the triangle itself + the edge buffer strips -> pushRed / pushBlue,
-//     split by minVertexY (blue = the portion that dipped below), matching
-//     the original function's red/blue distinction.
-//   - a full circle of radius chkDist centered at each vertex (always) -> pushGreen
-// Overlap between these pieces is fine since we're only filling area, not
-// tracing a single outline.
 //
 // colCtx/polyIdx (optional): mirrors the validity rules sample_points.js
 // applies to individual sample points (see isSamplePointValid there):
@@ -518,6 +510,11 @@ function buildStandableSurfaceTriangles(tri, pushGreen, pushRed, pushBlue, pushY
 // allTriangleData should carry an `id` matching the polygon index colCtx
 // was built with (falls back to array position if absent). Omit colCtx to
 // fall back to the old unfiltered behavior.
+//
+// Returns { main, vertexBulge } - two separate Groups instead of one
+// combined one, so the vertex-bulge (green) geometry can be given its own
+// model entry/checkbox distinct from the red/blue/yellow main surface.
+// Either can be null if that bucket produced no geometry.
 export function renderStandableSurfaceXZ(allTriangleData, colCtx = null) {
     function makeBucket() {
         const positions = [];
@@ -579,21 +576,31 @@ export function renderStandableSurfaceXZ(allTriangleData, colCtx = null) {
     // Flat structure (mesh, edges, mesh, edges, ...) — addModelCheckbox (in
     // render.js) expects meshObj.children[0] to be a Mesh with a .material
     // directly, so nested sub-Groups per color would break its color picker.
-    const group = new THREE.Group();
-    for (const bucket of [
+    function buildGroup(buckets) {
+        const group = new THREE.Group();
+        let any = false;
+        for (const bucket of buckets) {
+            const built = buildMesh(bucket.data, bucket.color, bucket.edgeColor);
+            if (built) {
+                group.add(built.mesh);
+                group.add(built.edges);
+                any = true;
+            }
+        }
+        return any ? group : null;
+    }
+
+    const vertexBulge = buildGroup([
         { data: green, color: 0x00cc44, edgeColor: 0x39ff64 }, // bright green edges: the thin vertex-bulge slivers get lost in black outlines otherwise
+    ]);
+
+    const main = buildGroup([
         { data: red, color: 0xff0000, edgeColor: 0x000000 },
         { data: blue, color: 0x0000ff, edgeColor: 0x000000 },
         { data: yellow, color: 0xffff00, edgeColor: 0x000000 },
-    ]) {
-        const built = buildMesh(bucket.data, bucket.color, bucket.edgeColor);
-        if (built) {
-            group.add(built.mesh);
-            group.add(built.edges);
-        }
-    }
+    ]);
 
-    return group;
+    return { main, vertexBulge };
 }
 
 export function renderCollisionWallsXY(allTriangleData) {

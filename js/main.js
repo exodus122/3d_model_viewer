@@ -262,7 +262,7 @@ loadMap.addEventListener('click', async (e) => {
             console.log(mapFilename+": Binary file length:", buffer1.byteLength);
             parseZeldaModelBinary(scene, buffer1, true, mapName);
             
-            if (game == "OOT" || game == "MM" || game == "OOT3D" || game == "MM3D") {
+            /* if (game == "OOT" || game == "MM" || game == "OOT3D" || game == "MM3D") {
                 let mapFilename2 = getMapProperty(game, mapName, "seams");
                 if (mapFilename2 === undefined) {
                 
@@ -280,7 +280,7 @@ loadMap.addEventListener('click', async (e) => {
                     
                     parseInvisibleSeams1D(scene, new TextDecoder().decode(buffer2));
                 }
-            }
+            } */
         } catch (err) {
             console.error(err);
         }
