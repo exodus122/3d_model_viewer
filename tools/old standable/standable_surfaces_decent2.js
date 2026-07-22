@@ -161,6 +161,72 @@ function computeYFromPlaneLocal(nx, ny, nz, d, x, z) {
     return f32((((-nx * x) - (nz * z)) - d) / ny);
 }
 
+// ============================================================================
+// TOP-CUT CORE (pure geometry, no colCtx dependency).
+//
+// Given a standable triangle on plane T and a "cutter" polygon on plane C, cut
+// off the part of the triangle that sits BELOW C within C's XZ footprint
+// (i.e. the part C overhangs). This is exact and cheap: the boundary where
+// T's height equals C's height is a straight line in XZ, so removing "T above
+// which C sits" is a sequence of half-plane clips (the y_T<y_C half-plane,
+// intersected with C's footprint edges). No sampling.
+//
+// A cutter is described by {nx,ny,nz,d, foot:[{x,z},...]} where (nx,ny,nz,d)
+// is its world plane (N·p + d = 0) and foot is its XZ footprint polygon.
+// The standable triangle is described by its own plane (tnx..td).
+// ============================================================================
+
+// Signed value yC - yT at (x,z): how far the cutter (floor) poly's plane sits
+// above the standable surface. >0 means the surface is UNDER the floor poly.
+//
+// POLARITY (see cutPolyTop): the caller KEEPS where this is >= 0, i.e. keeps the
+// surface where it stays at or below the floor poly, and DELETES where the
+// surface rises above it. The floor poly acts as a lid: standable area that
+// pokes up through it isn't reachable.
+//
+// Only valid for a substantially horizontal cutter - see TOPCUT_MIN_CUTTER_NY.
+// The gather enforces that, but guard here too: a degenerate ny would otherwise
+// make computeYFromPlaneLocal return 0 (or explode) and produce a meaningless
+// comparison. Return +1 (reads as "surface is under the lid" -> kept), so a
+// degenerate cutter never deletes anything.
+function cutterMinusSurfaceY(c, tnx, tny, tnz, td, x, z) {
+    if (!(Math.abs(c.ny) > 1e-3)) return 1; // degenerate -> keep (no deletion)
+    const yT = computeYFromPlaneLocal(tnx, tny, tnz, td, x, z);
+    // SITUATION 1 (blocker shares a subdivision with the triangle): the surface
+    // is truncated at the top of the triangle's highest subdivision rather than
+    // at the blocker's plane - collision lookup can't see past that boundary.
+    //
+    // This is a pure horizontal cut. Whether the blocker is actually above the
+    // surface is decided ONCE per cutter (see cutPolyTop), not per point: mixing
+    // the two tests here makes this function discontinuous, and Sutherland-
+    // Hodgman interpolates crossings linearly, so a discontinuous side function
+    // places cut vertices wrongly and can cancel the cut entirely.
+    if (c.cellTopY !== null && c.cellTopY !== undefined) {
+        return c.cellTopY - yT; // keep where the surface is under the cell top
+    }
+    // SITUATION 2: cut at the blocker's own plane.
+    const yC = computeYFromPlaneLocal(c.nx, c.ny, c.nz, c.d, x, z);
+    return yC - yT;
+}
+
+// Is this blocker above the surface anywhere within its own footprint? Used to
+// gate situation-1 cuts, which are horizontal and so can't encode the test
+// themselves. Sampled at the footprint vertices and centroid - enough for the
+// convex triangle footprints this data uses.
+function cutterIsAboveSurfaceAnywhere(c, tnx, tny, tnz, td) {
+    if (!(Math.abs(c.ny) > 1e-3)) return false;
+    let cx = 0, cz = 0;
+    for (const v of c.foot) { cx += v.x; cz += v.z; }
+    cx /= c.foot.length; cz /= c.foot.length;
+    const pts = c.foot.concat([{ x: cx, z: cz }]);
+    for (const pt of pts) {
+        const yT = computeYFromPlaneLocal(tnx, tny, tnz, td, pt.x, pt.z);
+        const yC = computeYFromPlaneLocal(c.nx, c.ny, c.nz, c.d, pt.x, pt.z);
+        if (yC > yT) return true;
+    }
+    return false;
+}
+
 // Sutherland-Hodgman clip of an {x,y,z} polygon against one XZ half-plane
 // defined by a scalar function side(x,z): keep vertices where keepPositive
 // ? side>=0 : side<=0. At crossings, position is interpolated in XZ and Y is
@@ -188,6 +254,18 @@ function clipPolyXZByFn(verts, sideFn, keepPositive, liftFn) {
     return out;
 }
 
+// Clip `poly` to the OUTSIDE of the cutter footprint edge (e0->e1), i.e. drop
+// the side of the edge that faces the footprint interior. footCentroid picks
+// which side is interior.
+function clipPolyOutsideFootEdge(poly, e0, e1, footCentroid, liftFn) {
+    const dx = e1.x - e0.x, dz = e1.z - e0.z;
+    const nx = -dz, nz = dx;
+    const side = (x, z) => (x - e0.x) * nx + (z - e0.z) * nz;
+    const interiorIsPositive = side(footCentroid.x, footCentroid.z) > 0;
+    // keep the opposite side from the interior
+    return clipPolyXZByFn(poly, side, !interiorIsPositive, liftFn);
+}
+
 // Maximum surviving pieces per standable triangle. The subtract-a-convex-region
 // operation can split a polygon once per cutter half-plane, so without a cap a
 // column with many overhead polys multiplies pieces without bound (this is what
@@ -196,218 +274,121 @@ function clipPolyXZByFn(verts, sideFn, keepPositive, liftFn) {
 // far better than a frozen load.
 const TOPCUT_MAX_PIECES = 64;
 
-// Only surfaces steeper than this get the subdivision-based clipping. Above it
-// the 1/Ny lift is tame enough that the rendered geometry never leaves the
-// triangle's own registered cells, so clipping would only fragment a floor that
-// was already correct. 0.5 matches subdivisions.js's floor/wall split, so
-// "floor" and "not clipped" mean the same thing.
-const TOPCUT_MAX_SURFACE_NY = 0.5;
-
 // Maximum cutters gathered per standable triangle. Guards against a pathological
 // column (tall cells, dense geometry above) handing the clipper an unbounded
 // candidate list.
 const TOPCUT_MAX_CUTTERS = 48;
 
+// Minimum ny for a poly to be usable as a cutter. The cut is driven by the
+// cutter plane's height above (x,z), computed as (-nx*x - nz*z - d)/ny, so the
+// sensitivity to the rounding baked into the stored d is 1/ny. At ny=0.5 that's
+// ~2 units of error; at 0.1 it's ~10; below ~0.05 it degrades fast (20+ units),
+// and a near-vertical poly (ny ~ 0.004) is off by hundreds - meaningless.
+//
+// This is deliberately NOT the game's floor/wall threshold (0.5). That boundary
+// describes how the game buckets collision, not where this arithmetic stops
+// working. Using 0.5 excluded steep ramps (ny ~ 0.15-0.46) that are perfectly
+// well-conditioned here and genuinely do block the surfaces below them.
+const TOPCUT_MIN_CUTTER_NY = 0.1;
+
 // Apply cutters in sequence, each further trimming all surviving pieces.
 // `cutters` should already be XZ-rejected against this triangle (see
 // gatherTopCutters). Returns polygons ready to fan-triangulate.
-//
-// EQUIVALENCE WITH THE POINT SAMPLER
-// ----------------------------------
-// This reproduces sample_points.js's isSamplePointValid analytically, so the
-// rendered surface matches the sampled points exactly without paying for
-// per-point sampling (which is what made the sampled view laggy and gave it
-// ragged, dithered edges instead of clean cuts).
-//
-// isSamplePointValid rejects a point on three independent grounds. Each one is
-// a region bounded by AXIS-ALIGNED PLANES, so each is a plain polygon clip:
-//
-//   Gate 1  y < triMinVertexY - BGCHECK_SUBDIV_OVERLAP
-//           -> one horizontal plane. Already applied upstream via `cutoffY`
-//              in buildStandableSurfaceTriangles, so it is not repeated here.
-//
-//   Gate 2  the point's own subdivision cell is not in the triangle's
-//           registered set, AND no registered cell lies below it in the same
-//           (sx,sz) column.
-//           -> the surviving band in each column is bounded above by the top of
-//              that column's highest registered cell, so this is a horizontal
-//              clip at a subdivision cell boundary, per column.
-//
-//   Gate 3  scanning down from the point's cell to the triangle's topmost
-//           registered cell in that column, some OTHER standable poly is found
-//           whose polyWorldYRange.max <= y and whose polyWorldXZBounds contains
-//           (x,z).
-//           -> note this tests AXIS-ALIGNED BOUNDING BOXES, not the blocker's
-//              actual triangle footprint or its plane. Subtracting a box from a
-//              polygon is four vertical half-plane clips plus one horizontal
-//              one.
-//
-// The earlier implementation of this function cut against each cutter's exact
-// triangle footprint and its exact (unbounded) plane. That is a different
-// region from what the sampler tests, which is why steep triangles kept their
-// bulges: a neighbour could contain the bulge inside its AABB while sharing no
-// footprint area at all, so the footprint clip found nothing to do.
-function cutTriangleTopAll(a, b, c, topCut, tnx, tny, tnz, td, liftFn, colCtx) {
-    if (!topCut) return [[a, b, c]];
-    const { blockers, columnBand } = topCut;
-    if (!columnBand || !colCtx || !colCtx.subdivLength || !colCtx.minBounds) {
-        return [[a, b, c]];
-    }
-
-    const SLx = colCtx.subdivLength.x, SLy = colCtx.subdivLength.y, SLz = colCtx.subdivLength.z;
-    const mb = colCtx.minBounds;
-    const PAD = f32(2 * BGCHECK_SUBDIV_OVERLAP);
-
-    // The sampler's structure (isSamplePointValid) is:
-    //
-    //   if (point's own cell is registered) -> VALID, and the occlusion scan
-    //                                          never runs;
-    //   else if (a registered cell lies below in this column) -> run occlusion;
-    //   else -> INVALID.
-    //
-    // So the surface splits into two regions that are treated differently, and
-    // gate 3 applies to only ONE of them. Applying blockers to the whole
-    // triangle (as an earlier version did) wrongly deleted the parts sitting in
-    // the triangle's own registered cells - which is most of a steep triangle,
-    // since a large coplanar floor under its bottom edge satisfies the
-    // yMax <= y blocker test almost everywhere.
-    //
-    // Both regions are unions of axis-aligned cell boxes, so both are built by
-    // clipping a copy of the triangle to each cell and collecting the pieces.
-    const out = [];
-
-    for (const [key, band] of columnBand) {
-        const comma = key.indexOf(',');
-        const xi = +key.slice(0, comma), zi = +key.slice(comma + 1);
-
-        // Overlap-padded column slab in XZ (getSubdivisionCellBounds).
-        const xmin = f32(f32(SLx * xi) + mb.x - BGCHECK_SUBDIV_OVERLAP);
-        const xmax = f32(xmin + f32(SLx + PAD));
-        const zmin = f32(f32(SLz * zi) + mb.z - BGCHECK_SUBDIV_OVERLAP);
-        const zmax = f32(zmin + f32(SLz + PAD));
-
-        let slab = [a, b, c];
-        slab = clipPolyXZByFn(slab, (x) => x - xmin, true, liftFn);
-        slab = clipPolyXZByFn(slab, (x) => xmax - x, true, liftFn);
-        slab = clipPolyXZByFn(slab, (x, z) => z - zmin, true, liftFn);
-        slab = clipPolyXZByFn(slab, (x, z) => zmax - z, true, liftFn);
-        if (slab.length < 3) continue;
-
-        // REGION A: inside the registered cells themselves -> kept outright,
-        // no blocker test (the sampler returns true before scanning).
-        // Cell membership for a POINT uses getPointSubdivisionIndex, which
-        // truncates and does NOT apply BGCHECK_SUBDIV_OVERLAP - sample_points.js
-        // says so explicitly (it tried the padded bounds and got false
-        // positives). Registration is padded; the lookup is not. So the band's
-        // world extent here is the raw cell range, with no pad.
-        const regLoY = f32(mb.y + f32(SLy * band.lo));
-        const regHiY = f32(mb.y + f32(SLy * (band.hi + 1)));
-
-        let inReg = clipPolyToMaxSurfaceY(slab, regHiY, tnx, tny, tnz, td, liftFn);
-        inReg = clipPolyToMinSurfaceY(inReg, regLoY, tnx, tny, tnz, td, liftFn);
-        if (inReg.length >= 3) out.push(inReg);
-
-        // REGION B: above the registered band but still in this column. Here a
-        // registered cell does lie below, so the occlusion scan runs and the
-        // blockers apply. Bounded above by the top of the highest cell that can
-        // still see a registered cell below it - the sampler's downward scan
-        // imposes no ceiling of its own beyond the column, so this is the rest
-        // of the column above regHiY.
-        let above = clipPolyToMinSurfaceY(slab, regHiY, tnx, tny, tnz, td, liftFn);
-        if (above.length >= 3) {
-            let pieces = [above];
-            for (const blocker of blockers) {
-                if (pieces.length === 0) break;
-                // Only blockers reached through THIS column apply here.
-                if (blocker.col !== key) continue;
-                const next = [];
-                for (const p of pieces) {
-                    const cut = cutPolyByBlockerBox(p, blocker, tnx, tny, tnz, td, liftFn);
-                    for (const q of cut) next.push(q);
-                }
-                pieces = next;
-                if (pieces.length > TOPCUT_MAX_PIECES) break;
+function cutTriangleTopAll(a, b, c, cutters, tnx, tny, tnz, td, liftFn) {
+    // All situation-1 cutters in play produce the SAME horizontal cut (the top of
+    // the triangle's highest subdivision), so at most one needs to be applied.
+    // Keep the first that actually rises above the surface; drop the rest.
+    let sit1 = null;
+    const others = [];
+    for (const cutter of cutters) {
+        if (cutter.cellTopY !== null && cutter.cellTopY !== undefined) {
+            if (sit1 === null && cutterIsAboveSurfaceAnywhere(cutter, tnx, tny, tnz, td)) {
+                sit1 = cutter;
             }
-            for (const p of pieces) if (p.length >= 3) out.push(p);
+        } else {
+            others.push(cutter);
         }
+    }
+    const effective = sit1 ? [sit1].concat(others) : others;
 
-        if (out.length > TOPCUT_MAX_PIECES) break;
+    let pieces = [[a, b, c]];
+    for (const cutter of effective) {
+        const next = [];
+        for (const p of pieces) {
+            const out = cutPolyTop(p, cutter, tnx, tny, tnz, td, liftFn);
+            for (const q of out) next.push(q);
+        }
+        pieces = next;
+        if (pieces.length === 0) break;
+        if (pieces.length > TOPCUT_MAX_PIECES) break; // bail, keep what we have
+    }
+    return pieces;
+}
+
+// Subtract one cutter's overhang from a polygon.
+//
+// The removed region is the intersection of half-planes:
+//   (inside each footprint edge)  AND  (yC > yT)
+// Collision polys are triangles, so the footprint is convex and this
+// intersection is a convex region. Subtracting a convex region R from polygon P
+// is done by walking R's half-planes: at each step, the part of the carry that
+// is OUTSIDE that half-plane can never be in R, so it is kept as a final piece;
+// the part inside is carried to the next half-plane. Whatever survives all
+// half-planes is exactly R∩P and is dropped.
+//
+// This emits at most (numHalfPlanes) pieces and, critically, only splits the
+// carry - it does not re-split already-kept pieces (the earlier version fed
+// every piece back through every edge, giving 4^N growth and hanging the load).
+function cutPolyTop(poly0, cutter, tnx, tny, tnz, td, liftFn) {
+    // SITUATION 1: the blocker shares a subdivision with the triangle, so the
+    // surface is truncated at the top of that subdivision. The blocker's presence
+    // is what TRIGGERS the truncation - its footprint is not the extent of it.
+    // The cut therefore applies to the whole polygon, with no footprint clip.
+    //
+    // (Clipping to the footprint here is what made this fail on vertex bulges:
+    // fan triangles inside the footprint got cut while those outside passed
+    // through untouched, leaving a ragged half-cut bulge.)
+    if (cutter.cellTopY !== null && cutter.cellTopY !== undefined) {
+        if (!cutterIsAboveSurfaceAnywhere(cutter, tnx, tny, tnz, td)) return [poly0];
+        const hSide = (x, z) => cutterMinusSurfaceY(cutter, tnx, tny, tnz, td, x, z);
+        const underCellTop = clipPolyXZByFn(poly0, hSide, true, liftFn);
+        return underCellTop.length >= 3 ? [underCellTop] : [];
     }
 
-    return out;
-}
+    const foot = cutter.foot;
+    const n = foot.length;
 
-// Mirror of clipPolyToMaxSurfaceY keeping the portion at or ABOVE floorY.
-function clipPolyToMinSurfaceY(poly, floorY, tnx, tny, tnz, td, liftFn) {
-    if (!poly || poly.length < 3) return [];
-    if (floorY === -Infinity) return poly;
-    const side = (x, z) => computeYFromPlaneLocal(tnx, tny, tnz, td, x, z) - floorY;
-    return clipPolyXZByFn(poly, side, true, liftFn);
-}
+    // Footprint centroid, for deciding which side of each edge is interior.
+    let fcx = 0, fcz = 0;
+    for (const v of foot) { fcx += v.x; fcz += v.z; }
+    fcx /= n; fcz /= n;
 
-// Clip `poly` to the region where the surface stays at or below `capY`.
-// Because the polygon lies on the surface plane, "surface height <= capY" is a
-// half-plane in XZ, so this is a single Sutherland-Hodgman pass with the
-// crossing re-lifted onto the surface (keeping the cut flush).
-//
-// For a near-horizontal surface the boundary line runs off to infinity and the
-// clip is a no-op; for a steep one it is a clean straight cut, which is exactly
-// the behaviour that was wanted in place of sampling.
-function clipPolyToMaxSurfaceY(poly, capY, tnx, tny, tnz, td, liftFn) {
-    if (!poly || poly.length < 3) return [];
-    if (!(capY > -Infinity) || capY === Infinity) return poly;
-    const side = (x, z) => capY - computeYFromPlaneLocal(tnx, tny, tnz, td, x, z);
-    return clipPolyXZByFn(poly, side, true, liftFn); // keep capY - yT >= 0
-}
-
-// GATE 3, for one blocker: subtract the blocker's AABB column from `poly`.
-//
-// The removed region is { (x,z) inside [minX,maxX]x[minZ,maxZ] } AND
-// { surfaceY >= blockerYMax }. Both are half-plane intersections, so the
-// subtraction walks them the same way cutPolyTop does: whatever falls OUTSIDE a
-// half-plane can never be in the removed region and is kept immediately; only
-// the carry is split further. Emits at most 5 pieces and never re-splits a
-// kept piece.
-function cutPolyByBlockerBox(poly0, blocker, tnx, tny, tnz, td, liftFn) {
     const kept = [];
     let carry = poly0;
 
-    // Four vertical half-planes of the AABB footprint.
-    const edges = [
-        { fn: (x) => x - blocker.minX },   // inside: x >= minX
-        { fn: (x) => blocker.maxX - x },   // inside: x <= maxX
-        { fn: (x, z) => z - blocker.minZ },
-        { fn: (x, z) => blocker.maxZ - z },
-    ];
-    for (let i = 0; i < edges.length; i++) {
+    // Footprint half-planes.
+    for (let i = 0; i < n; i++) {
         if (!carry || carry.length < 3) break;
-        const side = (i < 2)
-            ? ((x, z) => edges[i].fn(x, z))
-            : ((x, z) => edges[i].fn(x, z));
-        const outside = clipPolyXZByFn(carry, side, false, liftFn); // side <= 0
+        const e0 = foot[i], e1 = foot[(i + 1) % n];
+        const dx = e1.x - e0.x, dz = e1.z - e0.z;
+        const nx = -dz, nz = dx;
+        const side = (x, z) => (x - e0.x) * nx + (z - e0.z) * nz;
+        const interiorIsPositive = side(fcx, fcz) > 0;
+
+        const outside = clipPolyXZByFn(carry, side, !interiorIsPositive, liftFn);
         if (outside.length >= 3) kept.push(outside);
-        carry = clipPolyXZByFn(carry, side, true, liftFn);          // side >= 0
+        carry = clipPolyXZByFn(carry, side, interiorIsPositive, liftFn);
     }
 
-    // Horizontal half-plane. Two conditions must BOTH hold for occlusion:
-    //   (a) the blocker's top is at or below the surface (yMax <= y), matching
-    //       isSamplePointValid's `yRange.max > y -> not a blocker`; and
-    //   (b) the surface point's own cell is at or above the cell slice where
-    //       this blocker was found - the sampler scans only from the point's own
-    //       cell downwards, so it would never encounter a blocker living above
-    //       the point.
-    // The effective occlusion floor is therefore the HIGHER of the two. Without
-    // (b), a flat floor sitting at the triangle's own band (e.g. the y=60 floors
-    // under tri 1580's vertex) deletes the whole bulge above it, because every
-    // bulge point trivially satisfies y >= yMax.
+    // Height half-plane. The floor poly is a LID: keep the surface where it sits
+    // at or below that lid (yC - yT >= 0), delete where the surface rises above
+    // it. This is the cut along the line where the standable surface crosses the
+    // floor poly's plane.
     if (carry && carry.length >= 3) {
-        const floorY = (blocker.cellLoY !== undefined && blocker.cellLoY > blocker.yMax)
-            ? blocker.cellLoY
-            : blocker.yMax;
-        const under = clipPolyToMaxSurfaceY(carry, floorY, tnx, tny, tnz, td, liftFn);
-        if (under.length >= 3) kept.push(under);
-        // the rest (surface at/above the blocker's top, inside its box) is
-        // occluded -> dropped
+        const hSide = (x, z) => cutterMinusSurfaceY(cutter, tnx, tny, tnz, td, x, z);
+        const underLid = clipPolyXZByFn(carry, hSide, true, liftFn); // yC - yT >= 0
+        if (underLid.length >= 3) kept.push(underLid);
+        // the remainder (yT > yC: surface pushes ABOVE the floor poly) is dropped
     }
 
     return kept;
@@ -429,149 +410,212 @@ function cutPolyByBlockerBox(poly0, blocker, tnx, tny, tnz, td, liftFn) {
 // together are every non-ceiling poly the cell holds.
 // ============================================================================
 function gatherTopCutters(colCtx, polyIdx, triMinX, triMaxX, triMinZ, triMaxZ) {
-    const EMPTY = { blockers: [], columnBand: null };
-    if (!colCtx || polyIdx === undefined || polyIdx === null) return EMPTY;
+    if (!colCtx || polyIdx === undefined || polyIdx === null) return [];
     const subs = colCtx.subdivisions;
     const amt = colCtx.subdivAmount;
-    const standableSet = colCtx.polyStandableSubdivIndices && colCtx.polyStandableSubdivIndices[polyIdx];
-    // Mirrors isSamplePointValid: a poly never registered as standable ground
-    // anywhere is entirely invalid, not merely uncut. Signal that to the caller.
-    if (!subs || !amt || !standableSet) return { blockers: [], columnBand: new Map() };
+    const myCells = colCtx.polyStandableSubdivIndices && colCtx.polyStandableSubdivIndices[polyIdx];
+    if (!subs || !amt || !myCells) return [];
 
     const AX = amt.x, AY = amt.y, AZ = amt.z;
     const AXY = AX * AY;
+    const getPoly = (p) => (colCtx.polys ? colCtx.polys[p] : null);
+    const xzBounds = colCtx.polyWorldXZBounds;
 
-    // ---- GATE 2: per-column registered band. ----
+    // Collect the distinct (xi,zi) columns and the HIGHEST yi this triangle
+    // occupies in each, so the walk below starts strictly above every slice the
+    // triangle itself is registered in.
     //
-    // isSamplePointValid accepts a point when its own cell is registered, or
-    // when a registered cell lies BELOW it in the same (sx,sz) column. So in
-    // each column the valid band runs from the lowest registered cell up to the
-    // top of the highest, and a point outside that band is rejected.
-    //
-    // This is per-column and two-sided. An earlier attempt used a single global
-    // cap (the top of the highest registered cell anywhere) and it was wrong in
-    // both directions: it kept points sitting in a column whose registered cells
-    // are all ABOVE them - the downward scan finds nothing, so the sampler
-    // rejects - and it applied one column's ceiling to every other column.
-    //
-    // Cell bounds use the overlap-padded values from subdivisions.js's
-    // getSubdivisionCellBounds, matching how registration itself was done.
-    const columnBand = new Map(); // "sx,sz" -> { lo, hi } registered sy range
-    for (const regIndex of standableSet) {
-        const zi = Math.floor(regIndex / AXY);
-        const rem = regIndex - zi * AXY;
+    // This must be the max, not the min: a triangle that spans several Y slices
+    // (tall or steep ones do) would otherwise have the walk start at min+1,
+    // which is still a slice the triangle occupies - and a floor sharing that
+    // cell would be gathered as a cutter even though it lives in the SAME
+    // subdivision as the triangle, not above it. Only floors in a subdivision
+    // strictly above one containing the triangle may clip it.
+    const columnMaxYi = new Map();
+    for (const cellIndex of myCells) {
+        const zi = Math.floor(cellIndex / AXY);
+        const rem = cellIndex - zi * AXY;
         const yi = Math.floor(rem / AX);
         const xi = rem - yi * AX;
         const key = xi + ',' + zi;
-        const b = columnBand.get(key);
-        if (!b) columnBand.set(key, { lo: yi, hi: yi });
-        else { if (yi < b.lo) b.lo = yi; if (yi > b.hi) b.hi = yi; }
+        const cur = columnMaxYi.get(key);
+        if (cur === undefined || yi > cur) columnMaxYi.set(key, yi);
     }
 
-    // ---- GATE 3: occluding standable polys. ----
-    //
-    // The sampler scans from the point's cell down to the triangle's topmost
-    // registered cell in that column, consulting each cell's .standable list.
-    // We gather the union over every column the triangle occupies, then subtract
-    // each candidate as an AABB.
-    //
-    // .standable is the list the sampler uses: the Ny > 0 set, which excludes
-    // downward-facing overhangs bucketed as "walls" (Ny in -0.8..0) that cannot
-    // catch a falling character. Using .floors/.walls here would be a different
-    // set.
-    const blockers = [];
+    const cutters = [];
     const seen = new Set();
-    const mbY = colCtx.minBounds ? colCtx.minBounds.y : 0;
-    const SLyLocal = colCtx.subdivLength ? colCtx.subdivLength.y : 0;
-    const yRanges = colCtx.polyWorldYRange;
-    const xzBounds = colCtx.polyWorldXZBounds;
 
-    // Walk only the cells of the columns this triangle occupies, above each
-    // column's registered band. Scanning the whole subdivision array here was
-    // O(cells) per triangle, which dominated load time on real scenes.
-    for (const [key, bandHere] of columnBand) {
-      const comma = key.indexOf(',');
-      const xi = +key.slice(0, comma), zi = +key.slice(comma + 1);
-      // Start strictly ABOVE the column's HIGHEST registered slice, not its
-      // lowest. The sampler's occlusion loop runs `for (s = sy; s > t; s--)`
-      // where t is the nearest registered cell below the point, so it only ever
-      // visits cells above the registered band - it never looks inside it.
-      // Starting at lo+1 scanned cells within the band itself and picked up the
-      // floors living there (Kokiri Forest: tri 1580 is registered in sy 0..1,
-      // and the y=60 floors sit in sy=1), which then cut the bulge at the
-      // sy=1/sy=2 boundary, y=179.
-      for (let yi = bandHere.hi + 1; yi < AY; yi++) {
-        const ci = zi * AXY + yi * AX + xi;
-        const cell = subs[ci];
-        if (!cell || !cell.standable || cell.standable.length === 0) continue;
-        // The sampler scans from the point's own cell DOWN TO (exclusive) the
-        // nearest registered cell below it, so an occluder must sit strictly
-        // ABOVE that registered cell - i.e. above the column's LOW registered
-        // slice. Cells at or below `lo` are never visited: that is why the
-        // coplanar floors under a steep triangle's bottom edge (e.g. the y=-40
-        // floors beneath tri 2970) correctly fail to cut it, even though they
-        // satisfy the yMax <= y blocker test everywhere on the surface.
-
-        for (const p of cell.standable) {
-            if (p === polyIdx) continue;
-            // Keyed by column too: the same poly reached through a different
-            // column has a different scan range, so it is a distinct blocker.
-            const seenKey = p + '@' + key;
-            if (seen.has(seenKey)) continue;
-            seen.add(seenKey);
-
-            // The sampler treats missing data as "is a blocker", but without a
-            // box there is no region to subtract, so such a candidate cannot be
-            // expressed as a clip. Skip it: under-cutting beats deleting the
-            // whole surface.
-            const yr = yRanges && yRanges[p];
-            const b = xzBounds && xzBounds[p];
-            if (!yr || !b) continue;
-
-            // CHEAP XZ REJECT against the triangle's bulge-expanded bounds.
-            if (b.maxX < triMinX || b.minX > triMaxX ||
-                b.maxZ < triMinZ || b.minZ > triMaxZ) continue;
-
-            // The sampler only ever meets this candidate while scanning cells
-            // strictly above the triangle's registered cell in that column, and
-            // it only counts as a blocker where yMax <= y. So a candidate whose
-            // top lies at or below the bottom of the registered band can never
-            // occlude: every surface point at or above it is in a cell the scan
-            // does not reach.
-            //
-            // Without this a large flat floor sharing the triangle's own low
-            // slice (e.g. the y=-40 floors under tri 2970's bottom edge) gets
-            // admitted through some far-away cell of its own that happens to sit
-            // above the band, and then wrongly deletes almost the whole surface.
-            const bandFloorY = f32(
-                f32(colCtx.minBounds.y + f32(colCtx.subdivLength.y * bandHere.lo))
-                - BGCHECK_SUBDIV_OVERLAP
-            );
-            if (f32(yr.max) <= bandFloorY) continue;
-
-            // Record which cell slice this candidate was found in, and in which
-            // column. The sampler only ever sees a candidate while scanning the
-            // cells BETWEEN the point and the registered cell below it, so a
-            // blocker found in slice `yi` can only occlude points whose own cell
-            // is at or above `yi`. Applying it to the whole column instead (as an
-            // earlier version did) let the flat floors sitting at the triangle's
-            // own band delete the entire bulge above them.
-            blockers.push({
-                minX: f32(b.minX), maxX: f32(b.maxX),
-                minZ: f32(b.minZ), maxZ: f32(b.maxZ),
-                yMax: f32(yr.max),
-                cellLoY: f32(f32(mbY + f32(SLyLocal * yi))),
-                col: key,
-            });
-            if (blockers.length >= TOPCUT_MAX_CUTTERS) {
-                return { blockers, columnBand };
-            }
-        }
-      }
+    // A gathered cutter is applied to the WHOLE triangle, so "in a subdivision
+    // above" has to hold globally, not merely in the column it was found
+    // through. Take the highest yi the triangle occupies anywhere: a candidate
+    // must live strictly above that to be eligible.
+    //
+    // Without this, a triangle that climbs across its footprint (e.g. a steep
+    // standable poly rising from y=12 to y=202) gets clipped by floors that are
+    // above its LOW end but sit in the same subdivision as its HIGH end - the
+    // floors are then not "in a subdivision above a subdivision containing the
+    // triangle" at all, and must not clip it.
+    let triTopYi = -1;
+    for (const cellIndex of myCells) {
+        const zi = Math.floor(cellIndex / AXY);
+        const rem = cellIndex - zi * AXY;
+        const yi = Math.floor(rem / AX);
+        if (yi > triTopYi) triTopYi = yi;
     }
 
-    return { blockers, columnBand };
+    // A candidate blocks only if it reaches into a subdivision ABOVE one that
+    // contains the triangle. We track each candidate's HIGHEST occupied yi (and
+    // which cell that was) and compare against the triangle's highest.
+    const candidateCells = new Map(); // poly -> highest yi it occupies
+    // Pass 1a: find which polys are candidates at all - those sharing a column
+    // with this triangle.
+    //
+    // Both floors AND walls are collected. The game's "wall" bucket spans
+    // ny in (-0.8, 0.5], which includes steep-but-standable ramps that really do
+    // block what's beneath them; restricting this to cell.floors missed them
+    // entirely. Ceilings stay excluded (downward-facing, never a blocker), and
+    // the ny filter in pass 2 drops the genuinely near-vertical ones whose plane
+    // height can't be computed reliably.
+    const columnKeys = new Set(columnMaxYi.keys());
+    const candidateSet = new Set();
+    // Candidates that occupy at least one cell the triangle is also in. These
+    // SITUATION TEST (per-cell, not per-poly).
+    //
+    // Situation 1 is "there is a blocker above the triangle WITHIN the same
+    // subdivision" - the blocking happens inside a cell they share. Whether the
+    // blocker also rises higher elsewhere is irrelevant.
+    //
+    //   exists a shared cell where the blocker is above the triangle -> sit 1
+    //   otherwise (blocker only blocks from cells above)             -> sit 2
+    //
+    // Testing mere overlap (sit 1 whenever they share any cell) misclassifies
+    // blockers that share a cell only in passing but do their blocking higher up.
+    // Testing the blocker's topmost cell misclassifies the reverse: a blocker
+    // that blocks inside a shared cell but happens to extend a slice above it.
+    // Only "where does the blocking actually occur" separates them.
+    const yRange = colCtx.polyWorldYRange;
+    const triYRange = yRange && yRange[polyIdx];
+    const blocksInsideSharedCell = (p) => {
+        const cyr = yRange && yRange[p];
+        if (!cyr || !triYRange) return false;
+        for (const ci of myCellSet) {
+            const cell = subs[ci];
+            if (!cell || !cell.bounds) continue;
+            const inCell = (cell.floors && cell.floors.indexOf(p) !== -1) ||
+                           (cell.walls && cell.walls.indexOf(p) !== -1);
+            if (!inCell) continue;
+            // Both are in this cell. Does the blocker sit above the triangle
+            // within this cell's own Y span?
+            const cellMinY = cell.bounds[1][0], cellMaxY = cell.bounds[1][1];
+            const bTop = Math.min(cyr.max, cellMaxY);
+            const tBot = Math.max(triYRange.min, cellMinY);
+            if (bTop > tBot) return true;
+        }
+        return false;
+    };
+    const myCellSet = (myCells instanceof Set) ? myCells : new Set(myCells);
+    for (let ci = 0; ci < subs.length; ci++) {
+        const cell = subs[ci];
+        if (!cell) continue;
+        const hasFloors = cell.floors && cell.floors.length > 0;
+        const hasWalls = cell.walls && cell.walls.length > 0;
+        if (!hasFloors && !hasWalls) continue;
+        const zi = Math.floor(ci / AXY);
+        const rem = ci - zi * AXY;
+        const yi = Math.floor(rem / AX);
+        const xi = rem - yi * AX;
+        if (!columnKeys.has(xi + ',' + zi)) continue; // not over this triangle
+        if (hasFloors) for (const p of cell.floors) { if (p !== polyIdx) candidateSet.add(p); }
+        if (hasWalls) for (const p of cell.walls) { if (p !== polyIdx) candidateSet.add(p); }
+    }
 
+    // Pass 1b: for those candidates, find the HIGHEST yi each reaches anywhere in
+    // the grid - not just within the triangle's columns - and remember which cell
+    // that was, since the situation test keys off that specific cell.
+    if (candidateSet.size > 0) {
+        for (let ci = 0; ci < subs.length; ci++) {
+            const cell = subs[ci];
+            if (!cell) continue;
+            const zi = Math.floor(ci / AXY);
+            const rem = ci - zi * AXY;
+            const yi = Math.floor(rem / AX);
+            const note = (p) => {
+                if (!candidateSet.has(p)) return;
+                const cur = candidateCells.get(p);
+                if (cur === undefined || yi > cur) candidateCells.set(p, yi);
+            };
+            if (cell.floors) for (const p of cell.floors) note(p);
+            if (cell.walls) for (const p of cell.walls) note(p);
+        }
+    }
+
+    // Top Y of the triangle's HIGHEST subdivision - the cut plane for
+    // situation-1 blockers (ones sharing a subdivision with the triangle).
+    let triTopCellMaxY = null;
+    for (const ci of myCellSet) {
+        const c = subs[ci];
+        if (!c || !c.bounds) continue;
+        const zi = Math.floor(ci / AXY);
+        const rem = ci - zi * AXY;
+        const yi = Math.floor(rem / AX);
+        if (yi === triTopYi) {
+            const topY = c.bounds[1][1];
+            if (triTopCellMaxY === null || topY > triTopCellMaxY) triTopCellMaxY = topY;
+        }
+    }
+
+    // Pass 2: classify each candidate.
+    //   Situation 1 - shares a subdivision with the triangle: the surface is
+    //     truncated at the top of the triangle's highest subdivision, because
+    //     collision lookup can't see past that cell boundary.
+    //   Situation 2 - lives only in subdivisions above the triangle's: the
+    //     surface is truncated at the blocker's own plane.
+    // Either way the candidate must actually be above the surface somewhere;
+    // that's enforced geometrically by the yC > yT test during clipping.
+    for (const [p, highestYi] of candidateCells) {
+        // Situation 1 iff the blocking happens inside a cell they share.
+        const sharesCell = blocksInsideSharedCell(p);
+        // Situation 2 requires reaching strictly above the triangle. Situation 1
+        // blockers do their blocking in a shared cell, so they qualify regardless.
+        if (!sharesCell && highestYi <= triTopYi) continue;
+        if (seen.has(p)) continue;
+        seen.add(p);
+
+        // CHEAP XZ REJECT (before any clipping work). A subdivision cell is far
+        // wider than most polys in it, so without this we pay a full clip for
+        // cutters that don't overlap the triangle at all.
+        const b = xzBounds && xzBounds[p];
+        if (b && (b.maxX < triMinX || b.minX > triMaxX ||
+                  b.maxZ < triMinZ || b.minZ > triMaxZ)) continue;
+
+        const poly = getPoly(p);
+        if (!poly || !poly.vtxs || !poly.normals) continue;
+
+        const cny = f32(poly.normals[1] * COLPOLY_NORMAL_FRAC);
+
+        // HORIZONTAL-ENOUGH TEST. The cut is driven by the cutter plane's height
+        // above (x,z), which is only meaningful for a substantially horizontal
+        // poly. A vertical wall (ny ~ 0) has no height there at all:
+        // computeYFromPlaneLocal returns 0 when ny is zero, so yC - yT collapses
+        // to -yT and, on any surface at negative Y, reads as "cutter above"
+        // across the whole footprint. Tiny ny is just as bad - the division
+        // sends the computed height to thousands.
+        // 0.5 matches subdivisions.js's own floor threshold.
+        if (cny <= TOPCUT_MIN_CUTTER_NY) continue;
+
+        cutters.push({
+            nx: f32(poly.normals[0] * COLPOLY_NORMAL_FRAC),
+            ny: cny,
+            nz: f32(poly.normals[2] * COLPOLY_NORMAL_FRAC),
+            d: f32(poly.d),
+            foot: poly.vtxs.map(v => ({ x: f32(v.x), z: f32(v.z) })),
+            // Situation 1: cut at the top of the triangle's highest subdivision
+            // instead of at this poly's plane. null => use the plane (situation 2).
+            cellTopY: (sharesCell && triTopCellMaxY !== null) ? f32(triTopCellMaxY) : null,
+        });
+        if (cutters.length >= TOPCUT_MAX_CUTTERS) return cutters;
+    }
+    return cutters;
 }
 
 export function renderStandableSurfaceXZ_old(allTriangleData) {
@@ -850,29 +894,12 @@ function buildStandableSurfaceTriangles(tri, pushGreen, pushRed, pushBlue, pushY
     const tcMaxX = Math.max(rawV0.x, rawV1.x, rawV2.x) + STANDABLE_CHK_DIST;
     const tcMinZ = Math.min(rawV0.z, rawV1.z, rawV2.z) - STANDABLE_CHK_DIST;
     const tcMaxZ = Math.max(rawV0.z, rawV1.z, rawV2.z) + STANDABLE_CHK_DIST;
-    // NEAR-VERTICAL ONLY. All of the subdivision-based clipping below exists to
-    // tame the plane-equation blowup on a steep poly: the rendered geometry is
-    // lifted through 1/Ny, so on a near-vertical triangle a 1-unit XZ expansion
-    // swings Y by hundreds or thousands of units and pokes far outside the
-    // triangle's real extent (tri 1580: Ny = 0.00052, 1/Ny = 1927).
-    //
-    // A substantially horizontal floor has no such blowup - its rendered
-    // geometry stays within a unit or two of its own vertices, always inside its
-    // own registered cells - so the clip can only ever chop it into pieces along
-    // subdivision boundaries for no visual gain. Those floors rendered correctly
-    // before any of this existed, so skip them entirely and leave them whole.
-    const isNearVertical = Math.abs(Ny) < TOPCUT_MAX_SURFACE_NY;
-    const topCut = isNearVertical
-        ? gatherTopCutters(colCtx, polyIdx, tcMinX, tcMaxX, tcMinZ, tcMaxZ)
-        : null;
+    const cutters = gatherTopCutters(colCtx, polyIdx, tcMinX, tcMaxX, tcMinZ, tcMaxZ);
     const liftOnSurface = (x, z) => ({ x: f32(x), y: computeYFromPlaneLocal(Nx, Ny, Nz, D, x, z), z: f32(z) });
-    // Nothing to do only when there are no blockers AND no finite column cap.
-    const topCutActive = topCut &&
-        (topCut.blockers.length > 0 || (topCut.columnBand && topCut.columnBand.size > 0));
     const wrapCut = (rawPush) => {
-        if (!topCutActive) return rawPush;
+        if (cutters.length === 0) return rawPush;
         return (a, b, c) => {
-            const pieces = cutTriangleTopAll(a, b, c, topCut, Nx, Ny, Nz, D, liftOnSurface, colCtx);
+            const pieces = cutTriangleTopAll(a, b, c, cutters, Nx, Ny, Nz, D, liftOnSurface);
             for (const poly of pieces) {
                 for (let i = 1; i < poly.length - 1; i++) {
                     rawPush(poly[0], poly[i], poly[i + 1]);
