@@ -354,86 +354,112 @@ function gatherTopCutters(colCtx, polyIdx, triMinX, triMaxX, triMinZ, triMaxZ) {
     const getPoly = (p) => (colCtx.polys ? colCtx.polys[p] : null);
     const xzBounds = colCtx.polyWorldXZBounds;
 
-    // Collect the distinct (xi,zi) columns and the lowest yi this triangle
-    // occupies in each, so we only pull polys from strictly-higher slices.
-    const columnMinYi = new Map();
+    // Collect the distinct (xi,zi) columns and the HIGHEST yi this triangle
+    // occupies in each, so the walk below starts strictly above every slice the
+    // triangle itself is registered in.
+    //
+    // This must be the max, not the min: a triangle that spans several Y slices
+    // (tall or steep ones do) would otherwise have the walk start at min+1,
+    // which is still a slice the triangle occupies - and a floor sharing that
+    // cell would be gathered as a cutter even though it lives in the SAME
+    // subdivision as the triangle, not above it. Only floors in a subdivision
+    // strictly above one containing the triangle may clip it.
+    const columnMaxYi = new Map();
     for (const cellIndex of myCells) {
         const zi = Math.floor(cellIndex / AXY);
         const rem = cellIndex - zi * AXY;
         const yi = Math.floor(rem / AX);
         const xi = rem - yi * AX;
         const key = xi + ',' + zi;
-        const cur = columnMinYi.get(key);
-        if (cur === undefined || yi < cur) columnMinYi.set(key, yi);
+        const cur = columnMaxYi.get(key);
+        if (cur === undefined || yi > cur) columnMaxYi.set(key, yi);
     }
 
     const cutters = [];
     const seen = new Set();
-    for (const [key, myYi] of columnMinYi) {
-        const comma = key.indexOf(',');
-        const xi = +key.slice(0, comma);
-        const zi = +key.slice(comma + 1);
-        // Walk every slice strictly above this triangle's lowest slice here.
-        for (let yi = myYi + 1; yi < AY; yi++) {
-            const cellIndex = zi * AXY + yi * AX + xi;
-            const cell = subs[cellIndex];
-            if (!cell) continue;
-            // Only floors can overhang. Ceilings are downward-facing (excluded
-            // by definition) and walls are near-vertical, which have no
-            // meaningful "height above (x,z)" - see TOPCUT_MIN_CUTTER_NY below.
-            const lists = [cell.floors];
-            for (const list of lists) {
-                if (!list) continue;
-                for (const p of list) {
-                    if (p === polyIdx || seen.has(p)) continue;
-                    seen.add(p);
 
-                    // CHEAP XZ REJECT (do this before any clipping work). A
-                    // subdivision cell is far wider than most polys in it, so
-                    // without this a tall column hands us hundreds of cutters
-                    // that don't overlap the triangle at all - each one then
-                    // costs a full clip and can split the piece list. This is
-                    // the single most important filter for load time.
-                    const b = xzBounds && xzBounds[p];
-                    if (b && (b.maxX < triMinX || b.minX > triMaxX ||
-                              b.maxZ < triMinZ || b.minZ > triMaxZ)) continue;
+    // A gathered cutter is applied to the WHOLE triangle, so "in a subdivision
+    // above" has to hold globally, not merely in the column it was found
+    // through. Take the highest yi the triangle occupies anywhere: a candidate
+    // must live strictly above that to be eligible.
+    //
+    // Without this, a triangle that climbs across its footprint (e.g. a steep
+    // standable poly rising from y=12 to y=202) gets clipped by floors that are
+    // above its LOW end but sit in the same subdivision as its HIGH end - the
+    // floors are then not "in a subdivision above a subdivision containing the
+    // triangle" at all, and must not clip it.
+    let triTopYi = -1;
+    for (const cellIndex of myCells) {
+        const zi = Math.floor(cellIndex / AXY);
+        const rem = cellIndex - zi * AXY;
+        const yi = Math.floor(rem / AX);
+        if (yi > triTopYi) triTopYi = yi;
+    }
 
-                    const poly = getPoly(p);
-                    if (!poly || !poly.vtxs || !poly.normals) continue;
-
-                    const cny = f32(poly.normals[1] * COLPOLY_NORMAL_FRAC);
-
-                    // HORIZONTAL-ENOUGH TEST. The whole cut is driven by "how
-                    // high is the cutter's plane above (x,z)", which is only
-                    // meaningful for a substantially horizontal poly. A vertical
-                    // wall (ny ~ 0) has NO height at a given (x,z):
-                    // computeYFromPlaneLocal literally returns 0 when ny is zero,
-                    // so yC - yT collapses to -yT and, on any surface at negative
-                    // Y, reads as "cutter above" across the wall's whole
-                    // footprint - cutting away the entire region. Near-vertical
-                    // walls are just as bad: a tiny ny sends the computed height
-                    // to thousands and swamps the comparison.
-                    //
-                    // A wall standing ON a floor doesn't overhang it anyway, so
-                    // excluding walls here is correct, not just defensive. Only
-                    // genuinely overhanging (roughly floor-like) polys can cut.
-                    // 0.5 matches subdivisions.js's own floor threshold.
-                    if (cny <= TOPCUT_MIN_CUTTER_NY) continue;
-
-                    cutters.push({
-                        nx: f32(poly.normals[0] * COLPOLY_NORMAL_FRAC),
-                        ny: cny,
-                        nz: f32(poly.normals[2] * COLPOLY_NORMAL_FRAC),
-                        d: f32(poly.d),
-                        foot: poly.vtxs.map(v => ({ x: f32(v.x), z: f32(v.z) })),
-                    });
-                    // Hard cap: past this many overlapping cutters the surface is
-                    // so built-over that additional cuts change little, and the
-                    // cost is not worth a possible hang.
-                    if (cutters.length >= TOPCUT_MAX_CUTTERS) return cutters;
-                }
-            }
+    // A candidate is eligible only if EVERY cell it occupies is strictly above
+    // triTopYi. Sharing (or sitting below) any slice the triangle reaches makes
+    // it same-subdivision geometry, which never clips.
+    const candidateCells = new Map(); // poly -> lowest yi it occupies
+    const noteCandidateCell = (p, yi) => {
+        const cur = candidateCells.get(p);
+        if (cur === undefined || yi < cur) candidateCells.set(p, yi);
+    };
+    // Pass 1: collect every floor sharing a column with this triangle, recording
+    // the LOWEST yi it occupies. Eligibility needs the candidate's global
+    // minimum, not the slice we happened to find it at.
+    const columnKeys = new Set(columnMaxYi.keys());
+    for (let ci = 0; ci < subs.length; ci++) {
+        const cell = subs[ci];
+        if (!cell || !cell.floors || cell.floors.length === 0) continue;
+        const zi = Math.floor(ci / AXY);
+        const rem = ci - zi * AXY;
+        const yi = Math.floor(rem / AX);
+        const xi = rem - yi * AX;
+        if (!columnKeys.has(xi + ',' + zi)) continue; // not over this triangle
+        for (const p of cell.floors) {
+            if (p === polyIdx) continue;
+            noteCandidateCell(p, yi);
         }
+    }
+
+    // Pass 2: a candidate clips only if EVERY cell it occupies is strictly above
+    // EVERY cell the triangle occupies. Sharing any slice the triangle reaches
+    // makes it same-subdivision geometry, which must never clip.
+    for (const [p, lowestYi] of candidateCells) {
+        if (lowestYi <= triTopYi) continue;
+        if (seen.has(p)) continue;
+        seen.add(p);
+
+        // CHEAP XZ REJECT (before any clipping work). A subdivision cell is far
+        // wider than most polys in it, so without this we pay a full clip for
+        // cutters that don't overlap the triangle at all.
+        const b = xzBounds && xzBounds[p];
+        if (b && (b.maxX < triMinX || b.minX > triMaxX ||
+                  b.maxZ < triMinZ || b.minZ > triMaxZ)) continue;
+
+        const poly = getPoly(p);
+        if (!poly || !poly.vtxs || !poly.normals) continue;
+
+        const cny = f32(poly.normals[1] * COLPOLY_NORMAL_FRAC);
+
+        // HORIZONTAL-ENOUGH TEST. The cut is driven by the cutter plane's height
+        // above (x,z), which is only meaningful for a substantially horizontal
+        // poly. A vertical wall (ny ~ 0) has no height there at all:
+        // computeYFromPlaneLocal returns 0 when ny is zero, so yC - yT collapses
+        // to -yT and, on any surface at negative Y, reads as "cutter above"
+        // across the whole footprint. Tiny ny is just as bad - the division
+        // sends the computed height to thousands.
+        // 0.5 matches subdivisions.js's own floor threshold.
+        if (cny <= TOPCUT_MIN_CUTTER_NY) continue;
+
+        cutters.push({
+            nx: f32(poly.normals[0] * COLPOLY_NORMAL_FRAC),
+            ny: cny,
+            nz: f32(poly.normals[2] * COLPOLY_NORMAL_FRAC),
+            d: f32(poly.d),
+            foot: poly.vtxs.map(v => ({ x: f32(v.x), z: f32(v.z) })),
+        });
+        if (cutters.length >= TOPCUT_MAX_CUTTERS) return cutters;
     }
     return cutters;
 }
