@@ -302,8 +302,50 @@ fileInput.addEventListener('change', async (ev)=>{
 ////////////////////////////////////////
 // System: Canvas / Pointer interactions
 ////////////////////////////////////////
-const pointerControls = new PointerLockControls(camera, renderer.domElement);
+// PointerLockControls is attached to a throwaway object, NOT the camera. We only
+// want its lock()/unlock() plumbing; its own mouse-look math round-trips the
+// camera quaternion through a YXZ Euler every frame, which can decompose to a
+// z=±PI representation and then get its roll discarded -> sudden 180 flip.
+// Camera orientation is driven by the yaw/pitch state below instead.
+const _pointerLockProxy = new THREE.Object3D();
+const pointerControls = new PointerLockControls(_pointerLockProxy, renderer.domElement);
 let pointerLockBlocked = false; // whether requestPointerLock is blocked (sandboxed iframe)
+
+// Authoritative mouse-look state. Never read back from camera.quaternion.
+const LOOK_SENSITIVITY = 0.002;
+const PITCH_LIMIT = Math.PI/2 - 0.001; // stay strictly inside the poles
+const _lookEuler = new THREE.Euler(0, 0, 0, 'YXZ');
+let yaw = 0, pitch = 0;
+
+// Seed yaw/pitch once from whatever orientation the camera was set up with.
+{
+    const seed = new THREE.Euler().setFromQuaternion(camera.quaternion, 'YXZ');
+    yaw = seed.y;
+    pitch = Math.max(-PITCH_LIMIT, Math.min(PITCH_LIMIT, seed.x));
+    _lookEuler.set(pitch, yaw, 0, 'YXZ');
+    camera.quaternion.setFromEuler(_lookEuler);
+}
+
+// Pointer lock occasionally reports a huge bogus delta in a single event --
+// on the first event after lock, after an OS cursor warp, or when the physical
+// cursor hits a screen edge. Observed values around 540px, which at the
+// sensitivity below is ~60 degrees of yaw in one frame. Real hand motion between
+// two events never gets close to this, so anything past the threshold is dropped
+// rather than clamped (clamping would still apply a large bogus turn).
+const MAX_MOVEMENT_PX = 200;
+
+renderer.domElement.ownerDocument.addEventListener('mousemove', (ev)=>{
+    if(document.pointerLockElement !== renderer.domElement) return;
+    if(controlMode === 'orbit') return;
+    const dx = ev.movementX || 0;
+    const dy = ev.movementY || 0;
+    if(Math.abs(dx) > MAX_MOVEMENT_PX || Math.abs(dy) > MAX_MOVEMENT_PX) return;
+    yaw   -= dx * LOOK_SENSITIVITY;
+    pitch -= dy * LOOK_SENSITIVITY;
+    pitch = Math.max(-PITCH_LIMIT, Math.min(PITCH_LIMIT, pitch));
+    _lookEuler.set(pitch, yaw, 0, 'YXZ');
+    camera.quaternion.setFromEuler(_lookEuler);
+});
 
 renderer.domElement.addEventListener('click', (ev)=>{
     // If user explicitly selected Orbit mode, always treat click as selection (no pointer lock)
@@ -443,6 +485,10 @@ document.addEventListener('keyup',(e)=>{
 
 let last = performance.now();
 
+// Hoisted scratch objects (previously allocated every frame)
+const _moveDir = new THREE.Vector3();
+const _readoutEuler = new THREE.Euler(0, 0, 0, 'YXZ');
+
 function animate(){
     requestAnimationFrame(animate);
     const now = performance.now();
@@ -452,25 +498,25 @@ function animate(){
 
     if(controlMode !== 'orbit' && document.pointerLockElement === renderer.domElement){
         // Apply WASD movement in pointer-lock mode
-        const dir = new THREE.Vector3();
-        if(move.forward) dir.z -= 1;
-        if(move.back) dir.z += 1;
-        if(move.left) dir.x -= 1;
-        if(move.right) dir.x += 1;
-        if(move.up) dir.y += 1;
-        if(move.down) dir.y -= 1;
-        if(dir.lengthSq()>0){
-            dir.normalize();
-            const worldDir = dir.applyQuaternion(camera.quaternion).multiplyScalar(speed*dt);
-            pointerControls.getObject().position.add(worldDir);
-            camera.position.copy(pointerControls.getObject().position);
+        _moveDir.set(0,0,0);
+        if(move.forward) _moveDir.z -= 1;
+        if(move.back) _moveDir.z += 1;
+        if(move.left) _moveDir.x -= 1;
+        if(move.right) _moveDir.x += 1;
+        if(move.up) _moveDir.y += 1;
+        if(move.down) _moveDir.y -= 1;
+        if(_moveDir.lengthSq()>0){
+            _moveDir.normalize()
+                .applyQuaternion(camera.quaternion)
+                .multiplyScalar(speed*dt);
+            camera.position.add(_moveDir);
         }
     }
 
     // Update UI
     camPosEl.textContent = `${camera.position.x.toFixed(2)}, ${camera.position.y.toFixed(2)}, ${camera.position.z.toFixed(2)}`;
-    const euler = new THREE.Euler().setFromQuaternion(camera.quaternion);
-    camRotEl.textContent = `${THREE.MathUtils.radToDeg(euler.x).toFixed(1)}, ${THREE.MathUtils.radToDeg(euler.y).toFixed(1)}, ${THREE.MathUtils.radToDeg(euler.z).toFixed(1)}`;
+    _readoutEuler.setFromQuaternion(camera.quaternion, 'YXZ');
+    camRotEl.textContent = `${THREE.MathUtils.radToDeg(_readoutEuler.x).toFixed(1)}, ${THREE.MathUtils.radToDeg(_readoutEuler.y).toFixed(1)}, ${THREE.MathUtils.radToDeg(_readoutEuler.z).toFixed(1)}`;
 
     // Update orbit controls if active
     if(orbitControls) orbitControls.update();
