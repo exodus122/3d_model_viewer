@@ -256,7 +256,6 @@ function cutTriangleTopAll(a, b, c, topCut, tnx, tny, tnz, td, liftFn, colCtx) {
 
     const SLx = colCtx.subdivLength.x, SLy = colCtx.subdivLength.y, SLz = colCtx.subdivLength.z;
     const mb = colCtx.minBounds;
-    const PAD = f32(2 * BGCHECK_SUBDIV_OVERLAP);
 
     // The sampler's structure (isSamplePointValid) is:
     //
@@ -280,11 +279,26 @@ function cutTriangleTopAll(a, b, c, topCut, tnx, tny, tnz, td, liftFn, colCtx) {
         const comma = key.indexOf(',');
         const xi = +key.slice(0, comma), zi = +key.slice(comma + 1);
 
-        // Overlap-padded column slab in XZ (getSubdivisionCellBounds).
-        const xmin = f32(f32(SLx * xi) + mb.x - BGCHECK_SUBDIV_OVERLAP);
-        const xmax = f32(xmin + f32(SLx + PAD));
-        const zmin = f32(f32(SLz * zi) + mb.z - BGCHECK_SUBDIV_OVERLAP);
-        const zmax = f32(zmin + f32(SLz + PAD));
+        // UNPADDED column slab in XZ. This must be the raw cell range, not the
+        // overlap-padded one from getSubdivisionCellBounds.
+        //
+        // The padding belongs to REGISTRATION (deciding which cells a poly is
+        // listed in - a poly near a border is registered in both neighbours).
+        // The point->cell mapping the sampler actually uses,
+        // getPointSubdivisionIndex, simply truncates, so every point belongs to
+        // exactly ONE cell and the cells TILE.
+        //
+        // Clipping is a partition, not a coverage test: if we clip a fresh copy
+        // of the triangle to each PADDED column, the 2*OVERLAP-wide strip shared
+        // by neighbouring columns gets emitted once per column. On tri 1571
+        // (registered across sx 11-12 and sz 21-23, whose padded ranges overlap
+        // by 100 units in both axes) that produced 4 overlapping pieces totalling
+        // 1.32x the triangle's own area - visible as several differently-cut
+        // copies of the same region stacked on top of each other.
+        const xmin = f32(f32(SLx * xi) + mb.x);
+        const xmax = f32(xmin + SLx);
+        const zmin = f32(f32(SLz * zi) + mb.z);
+        const zmax = f32(zmin + SLz);
 
         let slab = [a, b, c];
         slab = clipPolyXZByFn(slab, (x) => x - xmin, true, liftFn);
@@ -300,8 +314,19 @@ function cutTriangleTopAll(a, b, c, topCut, tnx, tny, tnz, td, liftFn, colCtx) {
         // says so explicitly (it tried the padded bounds and got false
         // positives). Registration is padded; the lookup is not. So the band's
         // world extent here is the raw cell range, with no pad.
-        const regLoY = f32(mb.y + f32(SLy * band.lo));
-        const regHiY = f32(mb.y + f32(SLy * (band.hi + 1)));
+        // getPointSubdivisionIndex CLAMPS the computed index into
+        // [0, subdivAmount-1], so a point below the grid's minBounds.y still
+        // maps to slice 0, and a point above the top still maps to the last
+        // slice. Mirror that here: the lowest band extends down to -Infinity and
+        // the highest up to +Infinity, otherwise geometry hanging outside the
+        // scene bounds (tri 1571 reaches y=-283 against a minBounds.y of -157)
+        // gets clipped away even though the sampler accepts it.
+        const regLoY = (band.lo <= 0)
+            ? -Infinity
+            : f32(mb.y + f32(SLy * band.lo));
+        const regHiY = (band.hi >= colCtx.subdivAmount.y - 1)
+            ? Infinity
+            : f32(mb.y + f32(SLy * (band.hi + 1)));
 
         let inReg = clipPolyToMaxSurfaceY(slab, regHiY, tnx, tny, tnz, td, liftFn);
         inReg = clipPolyToMinSurfaceY(inReg, regLoY, tnx, tny, tnz, td, liftFn);
