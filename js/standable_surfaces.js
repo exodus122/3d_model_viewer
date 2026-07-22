@@ -334,7 +334,25 @@ function cutTriangleTopAll(a, b, c, topCut, tnx, tny, tnz, td, liftFn, colCtx) {
         if (out.length > TOPCUT_MAX_PIECES) break;
     }
 
-    return out;
+    // DE-DUPLICATE. Columns are padded by BGCHECK_SUBDIV_OVERLAP on every side,
+    // so when a triangle is smaller than that pad along an axis (tri 1580 spans
+    // only 8 units in Z against a 50-unit pad) several adjacent columns each
+    // contain it whole and emit byte-identical pieces. Rendering those stacks
+    // duplicate coplanar geometry, which z-fights and - because every edge is
+    // then covered an even number of times - erases the computed outline.
+    if (out.length < 2) return out;
+    const seenPieces = new Set();
+    const deduped = [];
+    for (const poly of out) {
+        let key = '';
+        for (const v of poly) {
+            key += v.x.toFixed(3) + ',' + v.y.toFixed(3) + ',' + v.z.toFixed(3) + ';';
+        }
+        if (seenPieces.has(key)) continue;
+        seenPieces.add(key);
+        deduped.push(poly);
+    }
+    return deduped;
 }
 
 // Mirror of clipPolyToMaxSurfaceY keeping the portion at or ABOVE floorY.
