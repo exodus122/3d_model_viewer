@@ -127,10 +127,16 @@ function addSelectionMarker(tri, scene) {
     selGeom.setAttribute('position', new THREE.BufferAttribute(arr, 3));
     selGeom.setIndex([0, 1, 2]);
 
+    // transparent:false (was true) - same fill-rate fix as render.js's base
+    // materials: opacity is always 1.0 here (nothing ever animates it), so
+    // alpha-blending this was pure overhead - a read-modify-write blend per
+    // pixel instead of a plain opaque write, with no early-Z rejection.
+    // Costly precisely when the selected triangle is one of the huge ones
+    // that fills most of the viewport.
     const selMat = new THREE.MeshBasicMaterial({
         color: 0xffff66,
         side: THREE.DoubleSide,
-        transparent: true,
+        transparent: false,
         opacity: 1.0,
         polygonOffset: true,
         polygonOffsetFactor: -2,
