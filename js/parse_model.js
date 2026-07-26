@@ -395,8 +395,7 @@ export function parseZeldaModelBinary(scene, buffer, fresh, mapName){
     
     let colCtx = initColCtx(game, mapName, colHeader);
     
-    console.log("numVtxs: "+colHeader.numVtxs);
-    console.log("numPolygons: "+colHeader.numPolygons);
+    console.log(game+" - "+mapName+" - numVtxs: "+colHeader.numVtxs+", numPolygons: "+colHeader.numPolygons);
     //console.log("vtxListStart: "+colHeader.vtxListStart);
     //console.log("polygonListStart: "+colHeader.polygonListStart);
     

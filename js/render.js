@@ -174,9 +174,38 @@ wireframeCheckbox.addEventListener('change', () => {
 });
 
 // Material used as base for clones per mesh
-const material = new THREE.MeshStandardMaterial({color:0x3aa6ff,side:THREE.FrontSide,transparent:true,opacity:1.0,flatShading:true});
-const material_red_wall = new THREE.MeshStandardMaterial({color:0xf56342,side:THREE.FrontSide,transparent:true,opacity:1.0,flatShading:true});
-const material_yellow_ceiling = new THREE.MeshStandardMaterial({color:0xe1eb34,side:THREE.FrontSide,transparent:true,opacity:1.0,flatShading:true});
+//
+// MeshLambertMaterial, not MeshStandardMaterial: Standard/Physical materials
+// compute full PBR lighting per-fragment; Lambert computes it per-vertex and
+// interpolates, so its cost scales with vertex count rather than covered
+// screen area. Helps, but wasn't the main cost - see transparent:false below.
+//
+// transparent: false (was true) - this is the actual fix for "a couple huge
+// triangles lag hard, thousands of small ones don't, and shrinking the
+// browser window makes it go away." That symptom set (resolution-dependent,
+// scales with pixels covered, not triangle/vertex count) is the signature of
+// a fill-rate/blending cost, not a shading-model or JS cost.
+//
+// transparent:true puts the GPU on the alpha-blend path for every fragment:
+// blending is a read-modify-write against the framebuffer (must read the
+// existing pixel color to blend with it) instead of a plain write, and it
+// forfeits the early-depth-test/early-Z rejection opaque draws get, so the
+// fragment shader can end up running for pixels a depth pre-pass would
+// otherwise have skipped. That cost is paid per pixel covered - negligible
+// for lots of small triangles scattered across the screen, but huge for one
+// enormous triangle that fills most of the viewport when the camera is
+// close to it and facing it - exactly "look towards a very large triangle."
+//
+// This was always effectively dead weight: the opacity slider and
+// "Translucent" checkbox that setMaterialProps() reads to decide
+// transparent/opacity are both `style="display:none"` in index.html, so
+// there's no live UI path that ever sets transparent back to true or
+// changes opacity off of 1.0 - every mesh has been permanently opaque in
+// appearance but paying the translucent-rendering cost since these
+// materials were created.
+const material = new THREE.MeshLambertMaterial({color:0x3aa6ff,side:THREE.FrontSide,transparent:false,opacity:1.0,flatShading:true});
+const material_red_wall = new THREE.MeshLambertMaterial({color:0xf56342,side:THREE.FrontSide,transparent:false,opacity:1.0,flatShading:true});
+const material_yellow_ceiling = new THREE.MeshLambertMaterial({color:0xe1eb34,side:THREE.FrontSide,transparent:false,opacity:1.0,flatShading:true});
 
 export function buildGeometry(scene, verts, tris, allTriangleData, colCtx, name = "Main Model", clearFirst = true) {
     

@@ -50,7 +50,7 @@ export function buildWaterBoxModel(waterBoxes, fullDepth = false) {
     });
 
     // Merge geometries into a single mesh
-    const merged = BufferGeometryUtils.mergeBufferGeometries(geometries, false);
+    const merged = BufferGeometryUtils.mergeGeometries(geometries, false);
 
     // ----- Mesh -----
     const mesh = new THREE.Mesh(
