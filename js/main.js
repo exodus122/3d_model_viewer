@@ -489,6 +489,29 @@ let last = performance.now();
 const _moveDir = new THREE.Vector3();
 const _readoutEuler = new THREE.Euler(0, 0, 0, 'YXZ');
 
+////////////////////////////////////////
+// System: Depth pre-pass
+////////////////////////////////////////
+//
+// Toggle from the console: window.__enableDepthPrepass = false
+//
+// The collision mesh's triangles aren't submitted in any front-to-back
+// order - they're just in whatever order the file happened to store them
+// in. In a part of the level with real depth complexity (walls behind
+// walls, floors under floors, nested rooms), that means a far/hidden
+// surface can get fully fragment-shaded, only for a closer surface drawn
+// afterward to completely cover it on screen - paying real shading cost for
+// pixels whose final visible color came from something else entirely.
+//
+// This renders the whole scene once first, depth-only (colorWrite disabled,
+// cheapest possible unlit shader, so this pass itself is nearly free per
+// pixel), which fills the depth buffer with the true nearest-surface depth
+// everywhere. The second, real, color pass's depth test then rejects a
+// hidden fragment before it ever reaches the real fragment shader, instead
+// of after - regardless of submission order.
+window.__enableDepthPrepass = false;
+const depthPrepassMaterial = new THREE.MeshBasicMaterial({ colorWrite: false });
+
 function animate(){
     requestAnimationFrame(animate);
     const now = performance.now();
@@ -523,6 +546,18 @@ function animate(){
 
     // update edges transformation if any
     if(edges && mesh){ edges.position.copy(mesh.position); edges.rotation.copy(mesh.rotation); }
+
+    if (window.__enableDepthPrepass) {
+        // Match whatever culling mode the real materials are currently
+        // using, so the prepass doesn't write depth for backfaces the real
+        // pass would have culled away (which would make the prepass depth
+        // wrong - too close - and cause the real pass to wrongly reject
+        // fragments that should be visible).
+        depthPrepassMaterial.side = backfaceCheckbox.checked ? THREE.DoubleSide : THREE.FrontSide;
+        scene.overrideMaterial = depthPrepassMaterial;
+        renderer.render(scene, camera);
+        scene.overrideMaterial = null;
+    }
 
     renderer.render(scene,camera);
 }

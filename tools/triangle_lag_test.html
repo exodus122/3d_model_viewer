@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Triangle Lag Test</title>
+<style>
+  html,body{margin:0;height:100%;background:#111;color:#eee;font-family:monospace;overflow:hidden}
+  #hud{position:absolute;top:8px;left:8px;background:rgba(0,0,0,0.65);padding:10px 14px;border-radius:6px;font-size:13px;line-height:1.6;z-index:10;white-space:pre}
+  #controls{position:absolute;top:8px;right:8px;background:rgba(0,0,0,0.65);padding:12px 16px;border-radius:6px;font-size:13px;z-index:10;width:280px}
+  #controls label{display:block;margin:10px 0 2px}
+  #controls input[type=range]{width:100%}
+  #controls select{width:100%}
+  #note{font-size:12px;color:#9db;margin-top:12px;line-height:1.4}
+  canvas{display:block}
+  button{width:100%;padding:6px;margin-top:10px;cursor:pointer}
+</style>
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.152.2/build/three.module.js"
+  }
+}
+</script>
+</head>
+<body>
+<div id="hud"></div>
+<div id="controls">
+  <div><b>Triangle Lag Test</b></div>
+
+  <label>Split factor (grid is N&times;N): <span id="splitVal">1</span></label>
+  <input type="range" id="split" min="1" max="32" step="1" value="1">
+
+  <label>Material</label>
+  <select id="material">
+    <option value="basic">Basic (unlit)</option>
+    <option value="lambert" selected>Lambert</option>
+    <option value="standard">Standard (PBR)</option>
+  </select>
+
+  <label><input type="checkbox" id="transparent"> Transparent (opacity still 1.0)</label>
+  <label><input type="checkbox" id="wireframe"> Wireframe overlay</label>
+  <label><input type="checkbox" id="antialias" checked> Antialias</label>
+
+  <label>Resolution scale: <span id="resVal">1.00</span></label>
+  <input type="range" id="res" min="0.25" max="1" step="0.05" value="1">
+
+  <label>Reset distance: <span id="distVal">3000</span></label>
+  <input type="range" id="dist" min="200" max="20000" step="100" value="3000">
+
+  <label>Wall size (world units): <span id="sizeVal">20000</span></label>
+  <input type="range" id="size" min="2000" max="30000" step="500" value="20000">
+
+  <label>Fly speed: <span id="speedVal">2500</span></label>
+  <input type="range" id="speed" min="200" max="10000" step="100" value="2500">
+
+  <button id="resetStats">Reset averages</button>
+  <button id="resetView">Reset camera to face wall</button>
+
+  <div id="note">
+    Click the canvas to fly (WASD + mouse look, Esc to release, Space/C for
+    up/down) - just like the real viewer - so you can reproduce "lags at a
+    certain angle while flying" directly against this isolated wall instead
+    of guessing from a slider. The wall's footprint stays identical as you
+    move Split from 1 to 32 - only triangle count changes, so if GPU time
+    doesn't move, triangle count isn't the variable.
+  </div>
+</div>
+<script type="module">
+import * as THREE from 'three';
+
+let canvas = document.createElement('canvas');
+document.body.appendChild(canvas);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x0b1220);
+
+const camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.1, 100000);
+
+const hemi = new THREE.HemisphereLight(0xaaaaee,0xaaaaee,0.8);
+scene.add(hemi);
+const dir = new THREE.DirectionalLight(0xffffff,0.7);
+dir.position.set(100,200,100);
+scene.add(dir);
+
+let renderer = null;
+let gl = null, timerExt = null, pending = [];
+
+function createRenderer(){
+  const antialias = document.getElementById('antialias').checked;
+  renderer = new THREE.WebGLRenderer({ canvas, antialias });
+  renderer.setPixelRatio(1); // resolution scale handled manually via renderer.setSize below
+  gl = renderer.getContext();
+  timerExt = gl.getExtension('EXT_disjoint_timer_query_webgl2');
+  pending = [];
+  if (!timerExt) {
+    console.log('[gpu-timer] EXT_disjoint_timer_query_webgl2 not available - only rAF-gap (CPU-visible frame time) will be meaningful, GPU ms will show as 0.');
+  }
+}
+
+// Antialiasing is a context-creation-time flag - a canvas can only ever have
+// ONE WebGL context, so toggling it means swapping in a fresh canvas
+// element entirely, not just a new THREE.WebGLRenderer on the same one.
+function rebuildCanvas(){
+  const fresh = document.createElement('canvas');
+  canvas.replaceWith(fresh);
+  if (renderer) renderer.dispose();
+  canvas = fresh;
+  createRenderer();
+  attachCanvasHandlers();
+  onResize();
+}
+
+// ---- Fly controls (mirrors main.js: yaw/pitch state is authoritative,
+// never read back from camera.quaternion, to avoid gimbal-flip issues) ----
+const LOOK_SENSITIVITY = 0.002;
+const PITCH_LIMIT = Math.PI/2 - 0.001;
+const _lookEuler = new THREE.Euler(0,0,0,'YXZ');
+let yaw = 0, pitch = 0;
+const move = { forward:false, back:false, left:false, right:false, up:false, down:false };
+const _moveDir = new THREE.Vector3();
+
+function applyLook(){
+  _lookEuler.set(pitch, yaw, 0, 'YXZ');
+  camera.quaternion.setFromEuler(_lookEuler);
+}
+
+function attachCanvasHandlers(){
+  canvas.addEventListener('click', () => {
+    if (document.pointerLockElement !== canvas) canvas.requestPointerLock();
+  });
+}
+
+document.addEventListener('mousemove', (ev) => {
+  if (document.pointerLockElement !== canvas) return;
+  yaw   -= (ev.movementX||0) * LOOK_SENSITIVITY;
+  pitch -= (ev.movementY||0) * LOOK_SENSITIVITY;
+  pitch = Math.max(-PITCH_LIMIT, Math.min(PITCH_LIMIT, pitch));
+  applyLook();
+});
+document.addEventListener('keydown', (e) => {
+  if(e.code==='KeyW') move.forward=true;
+  if(e.code==='KeyS') move.back=true;
+  if(e.code==='KeyA') move.left=true;
+  if(e.code==='KeyD') move.right=true;
+  if(e.code==='Space') move.up=true;
+  if(e.code==='KeyC') move.down=true;
+});
+document.addEventListener('keyup', (e) => {
+  if(e.code==='KeyW') move.forward=false;
+  if(e.code==='KeyS') move.back=false;
+  if(e.code==='KeyA') move.left=false;
+  if(e.code==='KeyD') move.right=false;
+  if(e.code==='Space') move.up=false;
+  if(e.code==='KeyC') move.down=false;
+});
+document.getElementById('resetView').addEventListener('click', () => {
+  updateCamera();
+});
+document.getElementById('speed').addEventListener('input', () => {
+  document.getElementById('speedVal').textContent = document.getElementById('speed').value;
+});
+
+let mesh = null;
+let wireMesh = null;
+let hudTriCount = 2;
+
+function makeMaterial(){
+  const type = document.getElementById('material').value;
+  const transparent = document.getElementById('transparent').checked;
+  const opts = { color:0x3aa6ff, side:THREE.FrontSide, transparent, opacity:1.0, flatShading:true };
+  if (type === 'basic') return new THREE.MeshBasicMaterial(opts);
+  if (type === 'standard') return new THREE.MeshStandardMaterial(opts);
+  return new THREE.MeshLambertMaterial(opts);
+}
+
+function buildWall(){
+  if (mesh){ scene.remove(mesh); mesh.geometry.dispose(); mesh.material.dispose(); mesh = null; }
+  if (wireMesh){ scene.remove(wireMesh); wireMesh.geometry.dispose(); wireMesh.material.dispose(); wireMesh = null; }
+
+  const N = parseInt(document.getElementById('split').value, 10);
+  const size = parseFloat(document.getElementById('size').value);
+  const half = size/2;
+  const step = size/N;
+
+  // N x N grid of independent quads (2 triangles each) covering the exact
+  // same [-half,half] x [-half,half] square regardless of N. Total covered
+  // screen area is therefore constant as N changes - only triangle count
+  // (2*N*N) and vertex count change.
+  const positions = [];
+  const indices = [];
+  let vi = 0;
+  for (let iy = 0; iy < N; iy++){
+    for (let ix = 0; ix < N; ix++){
+      const x0 = -half + ix*step, x1 = x0+step;
+      const y0 = -half + iy*step, y1 = y0+step;
+      positions.push(x0,y0,0,  x1,y0,0,  x1,y1,0,  x0,y1,0);
+      indices.push(vi,vi+1,vi+2,  vi,vi+2,vi+3);
+      vi += 4;
+    }
+  }
+
+  const geom = new THREE.BufferGeometry();
+  geom.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  geom.setIndex(indices);
+  geom.computeVertexNormals();
+
+  mesh = new THREE.Mesh(geom, makeMaterial());
+  scene.add(mesh);
+
+  if (document.getElementById('wireframe').checked){
+    wireMesh = new THREE.LineSegments(
+      new THREE.WireframeGeometry(geom),
+      new THREE.LineBasicMaterial({ color:0x3240a8 })
+    );
+    scene.add(wireMesh);
+  }
+
+  hudTriCount = N*N*2;
+}
+
+function updateCamera(){
+  const dist = parseFloat(document.getElementById('dist').value);
+  camera.position.set(0,0,dist);
+  // Reset yaw/pitch (not camera.lookAt) to keep them as the single source of
+  // truth for orientation - once fly controls take over, lookAt() would
+  // silently fight with them on the next mouse move.
+  yaw = 0;
+  pitch = 0;
+  applyLook();
+}
+
+function onResize(){
+  const scale = parseFloat(document.getElementById('res').value);
+  const w = window.innerWidth, h = window.innerHeight;
+  camera.aspect = w/h;
+  camera.updateProjectionMatrix();
+  renderer.setSize(Math.round(w*scale), Math.round(h*scale), false);
+  canvas.style.width = w+'px';
+  canvas.style.height = h+'px';
+}
+window.addEventListener('resize', onResize);
+
+['split','material','transparent','wireframe','size'].forEach(id=>{
+  document.getElementById(id).addEventListener('input', () => {
+    document.getElementById('splitVal').textContent = document.getElementById('split').value;
+    document.getElementById('sizeVal').textContent = document.getElementById('size').value;
+    buildWall();
+  });
+});
+document.getElementById('antialias').addEventListener('change', rebuildCanvas);
+document.getElementById('res').addEventListener('input', () => {
+  document.getElementById('resVal').textContent = parseFloat(document.getElementById('res').value).toFixed(2);
+  onResize();
+});
+document.getElementById('dist').addEventListener('input', () => {
+  document.getElementById('distVal').textContent = document.getElementById('dist').value;
+  updateCamera();
+});
+document.getElementById('resetStats').addEventListener('click', () => {
+  gpuSamples.length = 0;
+  rafSamples.length = 0;
+});
+
+function beginQuery(){
+  if (!timerExt) return null;
+  const q = gl.createQuery();
+  gl.beginQuery(timerExt.TIME_ELAPSED_EXT, q);
+  return q;
+}
+function endQuery(q){
+  if (!q) return;
+  gl.endQuery(timerExt.TIME_ELAPSED_EXT);
+  pending.push(q);
+}
+function pollQueries(){
+  while (pending.length){
+    const q = pending[0];
+    if (!gl.getQueryParameter(q, gl.QUERY_RESULT_AVAILABLE)) break;
+    pending.shift();
+    const disjoint = gl.getParameter(timerExt.GPU_DISJOINT_EXT);
+    if (!disjoint){
+      const ms = gl.getQueryParameter(q, gl.QUERY_RESULT) / 1e6;
+      gpuSamples.push(ms);
+      if (gpuSamples.length > 60) gpuSamples.shift();
+    }
+    gl.deleteQuery(q);
+  }
+}
+
+const gpuSamples = [];
+const rafSamples = [];
+let last = performance.now();
+function avg(arr){ return arr.length ? arr.reduce((a,b)=>a+b,0)/arr.length : 0; }
+
+function tick(){
+  requestAnimationFrame(tick);
+  const now = performance.now();
+  const gap = now - last;
+  last = now;
+  rafSamples.push(gap);
+  if (rafSamples.length > 60) rafSamples.shift();
+
+  const dt = Math.min(0.05, gap/1000);
+  if (document.pointerLockElement === canvas){
+    const speed = parseFloat(document.getElementById('speed').value);
+    _moveDir.set(0,0,0);
+    if(move.forward) _moveDir.z -= 1;
+    if(move.back) _moveDir.z += 1;
+    if(move.left) _moveDir.x -= 1;
+    if(move.right) _moveDir.x += 1;
+    if(move.up) _moveDir.y += 1;
+    if(move.down) _moveDir.y -= 1;
+    if(_moveDir.lengthSq() > 0){
+      _moveDir.normalize().applyQuaternion(camera.quaternion).multiplyScalar(speed*dt);
+      camera.position.add(_moveDir);
+    }
+  }
+
+  pollQueries();
+  const q = beginQuery();
+  renderer.render(scene, camera);
+  endQuery(q);
+
+  const info = renderer.info;
+  const locked = document.pointerLockElement === canvas;
+  document.getElementById('hud').textContent =
+    `${locked ? 'FLYING (Esc to release)' : 'Click canvas to fly'}\n` +
+    `pos: (${camera.position.x.toFixed(0)}, ${camera.position.y.toFixed(0)}, ${camera.position.z.toFixed(0)})\n` +
+    `yaw/pitch: ${THREE.MathUtils.radToDeg(yaw).toFixed(0)}° / ${THREE.MathUtils.radToDeg(pitch).toFixed(0)}°\n` +
+    `triangles: ${hudTriCount}\n` +
+    `drawCalls: ${info.render.calls}\n` +
+    `rAF gap (avg/60): ${avg(rafSamples).toFixed(2)} ms\n` +
+    `GPU time (avg/60): ${avg(gpuSamples).toFixed(2)} ms` + (timerExt ? '' : '  [no GPU timer ext available]');
+}
+
+createRenderer();
+attachCanvasHandlers();
+updateCamera();
+onResize();
+buildWall();
+tick();
+</script>
+</body>
+</html>

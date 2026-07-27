@@ -161,16 +161,55 @@ function computeYFromPlaneLocal(nx, ny, nz, d, x, z) {
     return f32((((-nx * x) - (nz * z)) - d) / ny);
 }
 
+// GROUND-CLIP TEST.
+// Reproduces the `planeDistA` value that CollisionPoly_LineVsPoly computes for a
+// point posA, using the EXACT arithmetic the game uses:
+//
+//   planeDistA = (normal.x*posA.x + normal.y*posA.y + normal.z*posA.z)
+//                    * COLPOLY_NORMAL_FRAC + poly->dist
+//
+// where normal.* are the RAW s16 components (not the unit-scaled Nx/Ny/Nz) and
+// poly->dist is the integer originDist. The multiply/add order and every f32
+// rounding step are preserved because the ground-clip bug lives entirely in that
+// rounding: on some triangles the near-zero residue rounds to -0.000122 (which is
+// < 0 and lets the raycast pass through the floor), and on others it rounds to
+// 0.0 or +0.000122 (which is >= 0 and stays solid). The check in the game is
+// `planeDistA < 0.0f`, so a point is ground-clippable exactly when this returns a
+// value strictly less than 0.
+//
+// normalsRaw : tri.normals (raw s16 ints [x,y,z])
+// originDist : tri.d (integer)
+// (x, y, z)  : the point to test (the on-surface lifted sample point)
+function groundClipPlaneDist(normalsRaw, originDist, x, y, z) {
+    const rx = f32(normalsRaw[0]);
+    const ry = f32(normalsRaw[1]);
+    const rz = f32(normalsRaw[2]);
+    const dot = f32(f32(f32(rx * f32(x)) + f32(ry * f32(y))) + f32(rz * f32(z)));
+    return f32(f32(dot * COLPOLY_NORMAL_FRAC) + f32(originDist));
+}
+
 // Sutherland-Hodgman clip of an {x,y,z} polygon against one XZ half-plane
 // defined by a scalar function side(x,z): keep vertices where keepPositive
 // ? side>=0 : side<=0. At crossings, position is interpolated in XZ and Y is
 // re-lifted onto the surface plane via liftFn(x,z) so the kept polygon stays
 // flush on the standable triangle.
-function clipPolyXZByFn(verts, sideFn, keepPositive, liftFn) {
+// mode:
+//   true / 'geq'   keep s >= 0   (default)
+//   false / 'leq'  keep s <= 0
+//   'lt'           keep s <  0   (strict; boundary dropped)
+//   'gte0'         keep s >= 0   (explicit partner of 'lt')
+// The boolean form is what existing callers use. The 'lt'/'gte0' strict pair is
+// available for an exact, gapless partition but the ground-clip split now uses
+// a bounded region classifier (regionHasGroundClip) instead, so nothing calls
+// them by default — they're kept for reuse.
+function clipPolyXZByFn(verts, sideFn, keepMode, liftFn) {
     if (verts.length < 3) return [];
     const out = [];
     const n = verts.length;
-    const keep = (s) => keepPositive ? s >= 0 : s <= 0;
+    let keep;
+    if (keepMode === true || keepMode === 'geq' || keepMode === 'gte0') keep = (s) => s >= 0;
+    else if (keepMode === 'lt') keep = (s) => s < 0;
+    else keep = (s) => s <= 0; // false / 'leq'
     let sPrev = sideFn(verts[0].x, verts[0].z);
     for (let i = 0; i < n; i++) {
         const a = verts[i], b = verts[(i + 1) % n];
@@ -186,6 +225,83 @@ function clipPolyXZByFn(verts, sideFn, keepPositive, liftFn) {
         }
     }
     return out;
+}
+
+// The ground-clip stripe pattern flips on the order of ~0.07 world units (one
+// f32 ULP of the planeDist accumulator maps to that much XZ movement). We can't
+// resolve those stripes as geometry — a single above-region can be tens of
+// millions of cells at that pitch — and they're far finer than a pixel anyway.
+// Instead we answer one boolean per region: does ANY point in it clip? To find
+// that reliably we must sample finer than the stripe pitch, but with a hard cap
+// so a large/steep region can't blow up. GROUNDCLIP_SAMPLE_STEP is the ideal
+// spacing; GROUNDCLIP_MAX_SAMPLES caps the total, coarsening the effective step
+// if the region is big. Because clip and non-clip stripes alternate densely, a
+// capped grid still lands on clip stripes wherever they exist.
+const GROUNDCLIP_SAMPLE_STEP = 0.02;
+const GROUNDCLIP_MAX_SAMPLES = 4096; // 64x64 worst case
+
+// Standard even-odd point-in-polygon test in XZ.
+function pointInPolyXZ(x, z, poly) {
+    let inside = false;
+    const n = poly.length;
+    for (let i = 0, j = n - 1; i < n; j = i++) {
+        const xi = poly[i].x, zi = poly[i].z;
+        const xj = poly[j].x, zj = poly[j].z;
+        if (((zi > z) !== (zj > z)) &&
+            (x < (xj - xi) * (z - zi) / (zj - zi) + xi)) {
+            inside = !inside;
+        }
+    }
+    return inside;
+}
+
+// REGION GROUND-CLIP CLASSIFIER (boolean).
+// Returns true if any sampled interior point of `poly` is ground-clippable, i.e.
+// sideFn(x,z) — the exact f32 planeDist at the floor-snapped surface point —
+// rounds strictly < 0. Samples on a grid sized by GROUNDCLIP_SAMPLE_STEP but
+// capped to GROUNDCLIP_MAX_SAMPLES points total, so cost is O(1)-bounded per
+// region regardless of triangle size or steepness. Returns as soon as a clip
+// point is found. Also probes the polygon vertices, so a tiny region that the
+// interior grid might skip past still gets checked.
+function regionHasGroundClip(poly, sideFn) {
+    if (poly.length < 3) return false;
+
+    // Vertex probe first (cheap, catches slivers the grid could miss).
+    for (const p of poly) {
+        if (sideFn(p.x, p.z) < 0) return true;
+    }
+
+    let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
+    for (const p of poly) {
+        if (p.x < minX) minX = p.x;
+        if (p.x > maxX) maxX = p.x;
+        if (p.z < minZ) minZ = p.z;
+        if (p.z > maxZ) maxZ = p.z;
+    }
+    const spanX = maxX - minX;
+    const spanZ = maxZ - minZ;
+    if (spanX <= 0 || spanZ <= 0) return false;
+
+    // Ideal sample counts at the target step, then scale down uniformly if the
+    // product exceeds the cap.
+    let nx = Math.max(2, Math.ceil(spanX / GROUNDCLIP_SAMPLE_STEP));
+    let nz = Math.max(2, Math.ceil(spanZ / GROUNDCLIP_SAMPLE_STEP));
+    if (nx * nz > GROUNDCLIP_MAX_SAMPLES) {
+        const scale = Math.sqrt(GROUNDCLIP_MAX_SAMPLES / (nx * nz));
+        nx = Math.max(2, Math.floor(nx * scale));
+        nz = Math.max(2, Math.floor(nz * scale));
+    }
+    const stepX = spanX / nx;
+    const stepZ = spanZ / nz;
+    for (let ix = 0; ix < nx; ix++) {
+        const cx = minX + (ix + 0.5) * stepX;
+        for (let iz = 0; iz < nz; iz++) {
+            const cz = minZ + (iz + 0.5) * stepZ;
+            if (!pointInPolyXZ(cx, cz, poly)) continue;
+            if (sideFn(cx, cz) < 0) return true;
+        }
+    }
+    return false;
 }
 
 // Maximum surviving pieces per standable triangle. The subtract-a-convex-region
@@ -930,10 +1046,36 @@ function buildStandableSurfaceTriangles(tri, pushGreen, pushRed, pushBlue, pushY
 
     // Clips [a,b,c] against minY, sending the above-minY portion to pushRed
     // and (if belowEnabled) the below-minY portion to pushBlue.
+    // Ground-clip predicate for a point at (x, z): lift it onto this triangle's
+    // plane, then evaluate the game's exact f32 planeDist. Negative => the
+    // downward raycast's posA reads below the plane => ground-clippable.
+    const groundClipSide = (x, z) => {
+        const yOnPlane = computeYFromPlaneLocal(Nx, Ny, Nz, D, x, z);
+        return groundClipPlaneDist(normals, tri.d, f32(x), yOnPlane, f32(z));
+    };
+    // Re-lift a point onto the surface (used at clip crossings so cut edges stay
+    // flush on the plane, matching liftOnSurface elsewhere).
+    const liftSurf = (x, z) => ({ x: f32(x), y: computeYFromPlaneLocal(Nx, Ny, Nz, D, x, z), z: f32(z) });
+
     const pushClippedTriSplit = (a, b, c) => {
         const above = clipPolygonAboveMaxY([a, b, c], maxY);
-        for (let i = 1; i < above.length - 1; i++) {
-            pushYellow(above[0], above[i], above[i + 1]);
+        if (above.length >= 3) {
+            // The region above the highest vertex is ground-clippable wherever
+            // planeDist (the exact f32 CollisionPoly_LineVsPoly value at the
+            // floor-snapped surface point) rounds strictly < 0. That clippable
+            // set is a fine periodic stripe pattern (~0.07u wide) — far finer
+            // than a pixel and impossible to tessellate (a single region can be
+            // tens of millions of cells). So rather than resolve the stripes as
+            // geometry, we classify the whole region with one boolean: if ANY
+            // sampled point clips, the entire above-region is emitted as yellow;
+            // otherwise it's red. TRI-200/TRI-198-style seam-straddling regions
+            // therefore read yellow (they do contain clip stripes), while a
+            // region that rounds uniformly >= 0 reads red.
+            const anyClip = regionHasGroundClip(above, groundClipSide);
+            const target = anyClip ? pushYellow : pushRed;
+            for (let i = 1; i < above.length - 1; i++) {
+                target(above[0], above[i], above[i + 1]);
+            }
         }
         let mid = clipPolygonByMinY([a, b, c], minY);
         mid = clipPolygonByMaxY(mid, maxY);

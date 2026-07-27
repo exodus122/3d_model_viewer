@@ -3,7 +3,7 @@ import { addModelCheckbox, buildGeometry, buildGeometry_fwc, buildGeometryFromTr
 import { buildGeometry2, buildGeometry3, buildGeometry4 } from './gap.js';
 import { initColCtx, initializeSubdivisions } from './subdivisions.js';
 import { renderStandableSurfaceXZ, renderStandableSurfaceXZ_old, renderCollisionWallsXY, renderCollisionWallsYZ } from './standable_surfaces.js';
-import { scanAndBuildFlatGroundMarkers, scanAndBuildSpecialNormalMarkers, buildSurfaceTypeMarkers, scanAndBuildSubdivision } from './poly_markers.js'
+import { scanAndBuildFlatGroundMarkers, buildSurfaceTypeMarkers, scanAndBuildSubdivision } from './poly_markers.js'
 import { buildWaterBoxModel } from './waterboxes.js';
 
 const wireframeCheckbox = document.getElementById('wireframe');
@@ -639,13 +639,6 @@ export function parseZeldaModelBinary(scene, buffer, fresh, mapName){
         scene.add(flatGroup);
         loadedModels.push({ name: "Flat Ground Clips", mesh: flatGroup, edges: null });
         addModelCheckbox(scene, "Flat Ground Clips", flatGroup, null, false, false, "#00FFFF");
-    }
-    
-    const specialNormalGroup = scanAndBuildSpecialNormalMarkers();
-    if (specialNormalGroup) {
-        scene.add(specialNormalGroup);
-        loadedModels.push({ name: "Special Normal", mesh: specialNormalGroup, edges: null });
-        addModelCheckbox(scene, "Special Normal", specialNormalGroup, null, false, false, "#00FFFF");
     }
     
     function rebuildSubdivisionVisualization() {
