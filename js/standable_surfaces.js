@@ -200,7 +200,7 @@ function groundClipPlaneDist(normalsRaw, originDist, x, y, z) {
 //   'gte0'         keep s >= 0   (explicit partner of 'lt')
 // The boolean form is what existing callers use. The 'lt'/'gte0' strict pair is
 // available for an exact, gapless partition but the ground-clip split now uses
-// a bounded region classifier (regionHasGroundClip) instead, so nothing calls
+// a bounded region classifier (classifyRegionGroundClip) instead, so nothing calls
 // them by default — they're kept for reuse.
 function clipPolyXZByFn(verts, sideFn, keepMode, liftFn) {
     if (verts.length < 3) return [];
@@ -255,21 +255,32 @@ function pointInPolyXZ(x, z, poly) {
     return inside;
 }
 
-// REGION GROUND-CLIP CLASSIFIER (boolean).
-// Returns true if any sampled interior point of `poly` is ground-clippable, i.e.
-// sideFn(x,z) — the exact f32 planeDist at the floor-snapped surface point —
-// rounds strictly < 0. Samples on a grid sized by GROUNDCLIP_SAMPLE_STEP but
-// capped to GROUNDCLIP_MAX_SAMPLES points total, so cost is O(1)-bounded per
-// region regardless of triangle size or steepness. Returns as soon as a clip
-// point is found. Also probes the polygon vertices, so a tiny region that the
-// interior grid might skip past still gets checked.
-function regionHasGroundClip(poly, sideFn) {
-    if (poly.length < 3) return false;
+// Ground-clip duty-cycle thresholds. The clippable set is always a fine stripe
+// pattern (~0.07u); what varies between regions is the *fraction* of the stripe
+// period that clips (the duty cycle), and that fraction is a stable property of
+// the region, not sampling noise. Empirically: safe regions sit near 0%, "solid"
+// clip regions ~85%+, and coin-flip regions in between. We bucket into three:
+//   fraction <  SAFE   -> not clippable (red)
+//   fraction >= SOLID  -> near-always clippable (yellow)
+//   in between         -> partial / position-dependent clip (orange)
+const GROUNDCLIP_FRAC_SAFE = 0.02;   // below this, treat as non-clippable
+const GROUNDCLIP_FRAC_SOLID = 0.70;  // at/above this, treat as solid clip
 
-    // Vertex probe first (cheap, catches slivers the grid could miss).
-    for (const p of poly) {
-        if (sideFn(p.x, p.z) < 0) return true;
-    }
+// Bucket ids returned by classifyRegionGroundClip.
+const GC_SAFE = 0;    // -> red
+const GC_PARTIAL = 1; // -> orange
+const GC_SOLID = 2;   // -> yellow
+
+// REGION GROUND-CLIP CLASSIFIER (3-way by duty cycle).
+// Samples `poly` on a bounded grid and returns the fraction of interior samples
+// that are ground-clippable (sideFn < 0, the exact f32 planeDist at the floor-
+// snapped surface point), then maps that fraction to GC_SAFE / GC_PARTIAL /
+// GC_SOLID. Grid is sized by GROUNDCLIP_SAMPLE_STEP but capped to
+// GROUNDCLIP_MAX_SAMPLES total points, so cost is O(1)-bounded per region.
+// Because the fraction (duty cycle) is resolution-stable, a modest sample count
+// gives a reliable bucket. Returns an object { bucket, fraction, samples }.
+function classifyRegionGroundClip(poly, sideFn) {
+    if (poly.length < 3) return { bucket: GC_SAFE, fraction: 0, samples: 0 };
 
     let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
     for (const p of poly) {
@@ -280,29 +291,46 @@ function regionHasGroundClip(poly, sideFn) {
     }
     const spanX = maxX - minX;
     const spanZ = maxZ - minZ;
-    if (spanX <= 0 || spanZ <= 0) return false;
 
-    // Ideal sample counts at the target step, then scale down uniformly if the
-    // product exceeds the cap.
-    let nx = Math.max(2, Math.ceil(spanX / GROUNDCLIP_SAMPLE_STEP));
-    let nz = Math.max(2, Math.ceil(spanZ / GROUNDCLIP_SAMPLE_STEP));
-    if (nx * nz > GROUNDCLIP_MAX_SAMPLES) {
-        const scale = Math.sqrt(GROUNDCLIP_MAX_SAMPLES / (nx * nz));
-        nx = Math.max(2, Math.floor(nx * scale));
-        nz = Math.max(2, Math.floor(nz * scale));
-    }
-    const stepX = spanX / nx;
-    const stepZ = spanZ / nz;
-    for (let ix = 0; ix < nx; ix++) {
-        const cx = minX + (ix + 0.5) * stepX;
-        for (let iz = 0; iz < nz; iz++) {
-            const cz = minZ + (iz + 0.5) * stepZ;
-            if (!pointInPolyXZ(cx, cz, poly)) continue;
-            if (sideFn(cx, cz) < 0) return true;
+    let clip = 0, total = 0;
+
+    if (spanX > 0 && spanZ > 0) {
+        let nx = Math.max(2, Math.ceil(spanX / GROUNDCLIP_SAMPLE_STEP));
+        let nz = Math.max(2, Math.ceil(spanZ / GROUNDCLIP_SAMPLE_STEP));
+        if (nx * nz > GROUNDCLIP_MAX_SAMPLES) {
+            const scale = Math.sqrt(GROUNDCLIP_MAX_SAMPLES / (nx * nz));
+            nx = Math.max(2, Math.floor(nx * scale));
+            nz = Math.max(2, Math.floor(nz * scale));
+        }
+        const stepX = spanX / nx;
+        const stepZ = spanZ / nz;
+        for (let ix = 0; ix < nx; ix++) {
+            const cx = minX + (ix + 0.5) * stepX;
+            for (let iz = 0; iz < nz; iz++) {
+                const cz = minZ + (iz + 0.5) * stepZ;
+                if (!pointInPolyXZ(cx, cz, poly)) continue;
+                total++;
+                if (sideFn(cx, cz) < 0) clip++;
+            }
         }
     }
-    return false;
+
+    // Fallback for slivers the interior grid may miss entirely: probe vertices.
+    if (total === 0) {
+        for (const p of poly) {
+            total++;
+            if (sideFn(p.x, p.z) < 0) clip++;
+        }
+    }
+
+    const fraction = total > 0 ? clip / total : 0;
+    let bucket;
+    if (fraction < GROUNDCLIP_FRAC_SAFE) bucket = GC_SAFE;
+    else if (fraction >= GROUNDCLIP_FRAC_SOLID) bucket = GC_SOLID;
+    else bucket = GC_PARTIAL;
+    return { bucket, fraction, samples: total };
 }
+
 
 // Maximum surviving pieces per standable triangle. The subtract-a-convex-region
 // operation can split a polygon once per cutter half-plane, so without a cap a
@@ -938,7 +966,7 @@ export function renderStandableSurfaceXZ_old(allTriangleData) {
 //     triangle, the edge buffer strips, and the vertex-bulge circles -
 //     not just the existing minY/maxY red/blue/yellow split.
 // Omit colCtx to fall back to the old unfiltered behavior.
-function buildStandableSurfaceTriangles(tri, pushGreen, pushRed, pushBlue, pushYellow, colCtx = null, polyIdx = null) {
+function buildStandableSurfaceTriangles(tri, pushGreen, pushRed, pushBlue, pushYellow, pushOrange, colCtx = null, polyIdx = null) {
     const vtxs = tri.vtxs;
     const normals = tri.normals;
     const D = f32(tri.d);
@@ -1043,6 +1071,7 @@ function buildStandableSurfaceTriangles(tri, pushGreen, pushRed, pushBlue, pushY
     pushRed    = wrapCut(pushRed);
     pushBlue   = wrapCut(pushBlue);
     pushYellow = wrapCut(pushYellow);
+    pushOrange = wrapCut(pushOrange);
 
     // Clips [a,b,c] against minY, sending the above-minY portion to pushRed
     // and (if belowEnabled) the below-minY portion to pushBlue.
@@ -1058,30 +1087,41 @@ function buildStandableSurfaceTriangles(tri, pushGreen, pushRed, pushBlue, pushY
     const liftSurf = (x, z) => ({ x: f32(x), y: computeYFromPlaneLocal(Nx, Ny, Nz, D, x, z), z: f32(z) });
 
     const pushClippedTriSplit = (a, b, c) => {
-        const above = clipPolygonAboveMaxY([a, b, c], maxY);
-        if (above.length >= 3) {
-            // The region above the highest vertex is ground-clippable wherever
-            // planeDist (the exact f32 CollisionPoly_LineVsPoly value at the
-            // floor-snapped surface point) rounds strictly < 0. That clippable
-            // set is a fine periodic stripe pattern (~0.07u wide) — far finer
-            // than a pixel and impossible to tessellate (a single region can be
-            // tens of millions of cells). So rather than resolve the stripes as
-            // geometry, we classify the whole region with one boolean: if ANY
-            // sampled point clips, the entire above-region is emitted as yellow;
-            // otherwise it's red. TRI-200/TRI-198-style seam-straddling regions
-            // therefore read yellow (they do contain clip stripes), while a
-            // region that rounds uniformly >= 0 reads red.
-            const anyClip = regionHasGroundClip(above, groundClipSide);
-            const target = anyClip ? pushYellow : pushRed;
-            for (let i = 1; i < above.length - 1; i++) {
-                target(above[0], above[i], above[i + 1]);
+        // Route a region to red / orange / yellow by its ground-clip duty cycle.
+        // The clippable set is always a fine stripe pattern (~0.07u); what varies
+        // is the fraction of the region that clips. classifyRegionGroundClip
+        // samples on a bounded grid (O(1) cost) and returns:
+        //   GC_SAFE    (~0% clip)      -> red    (not clippable)
+        //   GC_PARTIAL (in between)    -> orange (position-dependent coin-flip)
+        //   GC_SOLID   (~85%+ clip)    -> yellow (near-always clippable)
+        // This is done per height-region rather than per cell because the stripes
+        // are sub-pixel and can't be tessellated as geometry.
+        const emitByClip = (poly) => {
+            if (poly.length < 3) return;
+            const { bucket } = classifyRegionGroundClip(poly, groundClipSide);
+            const push = bucket === GC_SOLID ? pushYellow
+                       : bucket === GC_PARTIAL ? pushOrange
+                       : pushRed;
+            for (let i = 1; i < poly.length - 1; i++) {
+                push(poly[0], poly[i], poly[i + 1]);
             }
-        }
+        };
+
+        // ABOVE the highest vertex.
+        const above = clipPolygonAboveMaxY([a, b, c], maxY);
+        emitByClip(above);
+
+        // MIDDLE BAND (between lowest and highest vertex). Ground clips are NOT
+        // confined to the above-highest-vertex region — the stripes are a
+        // property of the f32 rounding at each (x,z), not of the vertex heights.
+        // The above band is usually densest, but the middle can carry real clip
+        // area too (TRI 337's middle is ~25% clippable), so it gets the same
+        // duty-cycle classification. Most middle bands come out red (TRI 200/198
+        // mid ~0.2%) while genuinely clippable ones are flagged.
         let mid = clipPolygonByMinY([a, b, c], minY);
         mid = clipPolygonByMaxY(mid, maxY);
-        for (let i = 1; i < mid.length - 1; i++) {
-            pushRed(mid[0], mid[i], mid[i + 1]);
-        }
+        emitByClip(mid);
+
         const below = clipPolygonBelowMinY([a, b, c], minY);
         const keptBelow = cutoffY === null ? below : clipPolygonByMinY(below, cutoffY);
         for (let i = 1; i < keptBelow.length - 1; i++) {
@@ -1172,10 +1212,11 @@ export function renderStandableSurfaceXZ(allTriangleData, colCtx = null) {
         return { positions, indices, push };
     }
 
-    const green = makeBucket(); // vertex bulges
-    const red = makeBucket();   // above minVertexY
-    const blue = makeBucket();  // below minVertexY
-    const yellow = makeBucket(); // at minVertexY
+    const green = makeBucket();  // vertex bulges
+    const red = makeBucket();    // not ground-clippable
+    const blue = makeBucket();   // below lowest vertex
+    const yellow = makeBucket(); // solid ground-clip (high duty cycle)
+    const orange = makeBucket(); // partial / position-dependent ground-clip
 
     // Expose an id->poly map so the top-cut gather (gatherTopCutters) can read a
     // candidate cutter poly's plane and footprint. Keyed the same way polyIdx is
@@ -1191,7 +1232,7 @@ export function renderStandableSurfaceXZ(allTriangleData, colCtx = null) {
 
     allTriangleData.forEach((tri, arrayIdx) => {
         const polyIdx = (tri.id !== undefined && tri.id !== null) ? tri.id : arrayIdx;
-        buildStandableSurfaceTriangles(tri, green.push, red.push, blue.push, yellow.push, colCtx, polyIdx);
+        buildStandableSurfaceTriangles(tri, green.push, red.push, blue.push, yellow.push, orange.push, colCtx, polyIdx);
     });
 
     function buildMesh(bucket, color, edgeColor = 0x000000) {
@@ -1254,6 +1295,7 @@ export function renderStandableSurfaceXZ(allTriangleData, colCtx = null) {
         { data: red, color: 0xff0000, edgeColor: 0x000000 },
         { data: blue, color: 0x0000ff, edgeColor: 0x000000 },
         { data: yellow, color: 0xffff00, edgeColor: 0x000000 },
+        { data: orange, color: 0xff8800, edgeColor: 0x000000 },
     ]);
 
     return { main, vertexBulge };
