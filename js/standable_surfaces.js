@@ -289,7 +289,13 @@ function bandRegionByGroundClip(poly, sideFn, liftFn, pushClip, pushSafe, pushWh
     }
 
     let nBins = Math.max(1, Math.ceil(span / GROUNDCLIP_BIN_HEIGHT));
-    if (nBins > GROUNDCLIP_MAX_BINS) nBins = GROUNDCLIP_MAX_BINS;
+    if (nBins > GROUNDCLIP_MAX_BINS) {
+        //console.log("polygon "+poly.id+" has too many bins ("+nBins+"), capping to GROUNDCLIP_MAX_BINS")
+        nBins = GROUNDCLIP_MAX_BINS
+    }
+    else {
+        //console.log("polygon "+poly.id+" has "+nBins+" bins, within limit")
+    }
     const binH = span / nBins;
 
     // Sample clip state at each bin's mid-height. To get a representative (x,z)

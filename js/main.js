@@ -37,6 +37,7 @@ const gameSel = document.getElementById('selected-game');
 const subdivisionSelectorContainer = document.getElementById("subdivisionSelectorContainer");
 const waterboxCheckboxElement = document.getElementById("waterboxCheckboxDiv");
 const groundClipBandsLabel = document.getElementById("groundClipBandsLabel");
+const groundClipBandsHint = document.getElementById("groundClipBandsHint");
 
 const display_fwc = document.getElementById('display_fwc');
 const display_fwc_label = document.getElementById('display_fwc_label');
@@ -206,6 +207,7 @@ gameSel.addEventListener('change',(e)=>{
         waterboxCheckboxElement.style.display = "none";
         subdivisionSelectorContainer.style.display = "none";
         groundClipBandsLabel.style.display = "none";
+        groundClipBandsHint.style.display = "none";
     }
     else {
         display_fwc_label.style.display = "block";
@@ -213,6 +215,7 @@ gameSel.addEventListener('change',(e)=>{
         waterboxCheckboxElement.style.display = "block";
         subdivisionSelectorContainer.style.display = "block";
         groundClipBandsLabel.style.display = "block";
+        groundClipBandsHint.style.display = "block";
     }
         
 });

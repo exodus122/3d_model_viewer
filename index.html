@@ -49,7 +49,7 @@
         <label id="display_fwc_label" style="display:none;"><input id="display_fwc" type="checkbox"> Display floors/walls/ceilings on load</label>
         <label><input id="wireframe" type="checkbox" checked> Draw triangle/cube edges</label>
         <label><input id="backface" type="checkbox"> Double-sided triangles</label>
-        <label id="groundClipBandsLabel" style="display:none;"><input id="groundClipBandsCheckbox" type="checkbox"> Ground-clippable standable surface on load</label>
+        <label id="groundClipBandsLabel" style="display:none;" title="Blue = the portion of the surface below its lowest vertex. Red = safe standable ground. Yellow = a ground-clippable band (the raycast-through-floor bug is present there). Cyan = the entire surface is ground-clippable. Unchecking this skips computing the yellow/cyan bands and renders those areas as plain red instead."><input id="groundClipBandsCheckbox" type="checkbox"> Ground-clippable standable surface on load</label>
         <div style="display: flex; align-items: center; margin-bottom: 4px; gap: 8px;" id="samplePointsContainer"><label id="samplePointsLabel"><input type="checkbox" id="samplePointsCheckbox">Sample Standable Points</label><input type="range" id="samplePointsResolution" value="0.02" min="0.005" max="0.03" step="0.005"></div>
         <div class="dropdown" id="surfaceDropdown" style="display:none;">
             <button class="dropdown-btn">Surface Flags ▼</button>
