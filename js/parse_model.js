@@ -8,6 +8,7 @@ import { buildWaterBoxModel } from './waterboxes.js';
 
 const wireframeCheckbox = document.getElementById('wireframe');
 const surfaceTypeDropdown = document.getElementById("surfaceTypeDropdown");
+const groundClipBandsCheckbox = document.getElementById('groundClipBandsCheckbox');
 
 // The collision context (subdivisions, bounds, etc.) for the last-parsed
 // OOT/MM/OOT3D/MM3D collision map. Set once initializeSubdivisions has
@@ -591,7 +592,14 @@ export function parseZeldaModelBinary(scene, buffer, fresh, mapName){
         buildGeometry(scene, verts, intangibleTris, intangibleTriangleData, null, "Intangible Collision", false);
     }
 
-    const standableSurfaceResult = renderStandableSurfaceXZ(allTriangleData, colCtx);
+    // groundClipBandsCheckbox: when unchecked, standable surfaces render as
+    // just the plain red/blue split (no yellow ground-clippable banding, no
+    // cyan fully-clippable fill) - see the groundClipEnabled param on
+    // renderStandableSurfaceXZ / buildStandableSurfaceTriangles in
+    // standable_surfaces.js. Defaults to checked (band computation on),
+    // matching prior behavior. Hidden entirely for BK/BT (main.js's game
+    // selector handler), so it's null there - guard with optional chaining.
+    const standableSurfaceResult = renderStandableSurfaceXZ(allTriangleData, colCtx, groundClipBandsCheckbox?.checked ?? true);
     if (standableSurfaceResult) {
         const { main: standableSurfaceMain, vertexBulge: standableSurfaceVertexBulge } = standableSurfaceResult;
 

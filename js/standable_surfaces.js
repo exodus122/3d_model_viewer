@@ -234,7 +234,7 @@ function clipPolyXZByFn(verts, sideFn, keepMode, liftFn) {
 // yellow stripes among red. This makes "how lenient / how contiguous" visible
 // without splitting into thousands of triangles — the strip count equals the
 // number of runs, not the number of bins.
-const GROUNDCLIP_BIN_HEIGHT = 0.05;
+const GROUNDCLIP_BIN_HEIGHT = 0.1;
 // Hard cap on bins so a (mis-flagged) tall region can't sample unboundedly.
 const GROUNDCLIP_MAX_BINS = 512;
 
@@ -962,7 +962,7 @@ export function renderStandableSurfaceXZ_old(allTriangleData) {
 //     triangle, the edge buffer strips, and the vertex-bulge circles -
 //     not just the existing minY/maxY red/blue/yellow split.
 // Omit colCtx to fall back to the old unfiltered behavior.
-function buildStandableSurfaceTriangles(tri, pushGreen, pushRed, pushBlue, pushYellow, pushCyan, colCtx = null, polyIdx = null) {
+function buildStandableSurfaceTriangles(tri, pushGreen, pushRed, pushBlue, pushYellow, pushCyan, colCtx = null, polyIdx = null, groundClipEnabled = true) {
     const vtxs = tri.vtxs;
     const normals = tri.normals;
     const D = f32(tri.d);
@@ -1098,7 +1098,12 @@ function buildStandableSurfaceTriangles(tri, pushGreen, pushRed, pushBlue, pushY
         // strips follow the slope at constant height (the "y=40 to y=40" bands).
         const emitByClip = (poly) => {
             if (poly.length < 3) return;
-            if (!isStandableFloor) {
+            // groundClipEnabled off: skip the ground-clip band sampling
+            // entirely (also a nice load-time win, since bandRegionByGroundClip
+            // does real per-triangle sampling/clipping work) and just render
+            // the whole region plain red, same as the non-standable-floor
+            // case below. No yellow bands, no cyan fully-clippable fill.
+            if (!isStandableFloor || !groundClipEnabled) {
                 for (let i = 1; i < poly.length - 1; i++) pushRed(poly[0], poly[i], poly[i + 1]);
                 return;
             }
@@ -1192,11 +1197,18 @@ function buildStandableSurfaceTriangles(tri, pushGreen, pushRed, pushBlue, pushY
 // was built with (falls back to array position if absent). Omit colCtx to
 // fall back to the old unfiltered behavior.
 //
+// groundClipEnabled (default true): when false, standable floors render as
+// a plain red/blue split only - the yellow ground-clippable bands and cyan
+// fully-clippable fill are skipped entirely (and the per-triangle band
+// sampling that computes them is never run, which is also a load-time
+// win). Doesn't affect the vertex-bulge (green) geometry or blue (below the
+// lowest vertex) - both render the same either way.
+//
 // Returns { main, vertexBulge } - two separate Groups instead of one
 // combined one, so the vertex-bulge (green) geometry can be given its own
 // model entry/checkbox distinct from the red/blue/yellow main surface.
 // Either can be null if that bucket produced no geometry.
-export function renderStandableSurfaceXZ(allTriangleData, colCtx = null) {
+export function renderStandableSurfaceXZ(allTriangleData, colCtx = null, groundClipEnabled = true) {
     function makeBucket() {
         const positions = [];
         const indices = [];
@@ -1229,7 +1241,7 @@ export function renderStandableSurfaceXZ(allTriangleData, colCtx = null) {
 
     allTriangleData.forEach((tri, arrayIdx) => {
         const polyIdx = (tri.id !== undefined && tri.id !== null) ? tri.id : arrayIdx;
-        buildStandableSurfaceTriangles(tri, green.push, red.push, blue.push, yellow.push, cyan.push, colCtx, polyIdx);
+        buildStandableSurfaceTriangles(tri, green.push, red.push, blue.push, yellow.push, cyan.push, colCtx, polyIdx, groundClipEnabled);
     });
 
     function buildMesh(bucket, color, edgeColor = 0x000000) {
