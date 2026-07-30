@@ -606,7 +606,12 @@ export function parseZeldaModelBinary(scene, buffer, fresh, mapName){
         if (triCount === 0) return;
         const option = document.createElement("option");
         option.value = idx;
-        option.textContent = `${idx} (${triCount} tri${triCount === 1 ? '' : 's'})`;
+        // Raw cell bounds (sub.bounds, from initColCtx) - NOT padded by
+        // BGCHECK_SUBDIV_OVERLAP, same "true, non-overlapping cell" numbers
+        // as the Subdivision Grid / selected-cell cube outline.
+        const [[x0, x1], [y0, y1], [z0, z1]] = sub.bounds;
+        const r = v => Math.round(v);
+        option.textContent = `${idx} (${triCount} tri${triCount === 1 ? '' : 's'})  x:${r(x0)}..${r(x1)} y:${r(y0)}..${r(y1)} z:${r(z0)}..${r(z1)}`;
         subdivisionSelector.appendChild(option);
     });
 
