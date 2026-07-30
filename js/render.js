@@ -563,7 +563,7 @@ export function buildGeometryFromTriangles(scene, allTriangleData, colCtx, name 
     updateSamplePointsUIVisibility(game);
 }
 
-export function buildGeometryEdges(scene, verts, edges, name = "Edge Model", clearFirst = true) {
+export function buildGeometryEdges(scene, verts, edges, name = "Edge Model", clearFirst = true, checked = true) {
 
     if ((!verts || !edges || verts.length === 0 || edges.length === 0) && clearFirst) {
         alert('No valid vertices or edges found');
@@ -614,7 +614,7 @@ export function buildGeometryEdges(scene, verts, edges, name = "Edge Model", cle
     loadedModels.push({ name, mesh: null, edges: edgesObj });
 
     // Register in UI
-    addModelCheckbox(scene, name, null, edgesObj, clearFirst, true);
+    addModelCheckbox(scene, name, null, edgesObj, clearFirst, checked);
 }
 
 ////////////////////////////////////////

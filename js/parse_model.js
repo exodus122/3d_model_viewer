@@ -234,6 +234,68 @@ function parseZeldaModelTextTriangles(scene, text, fresh) {
         buildGeometry(scene, verts, tris, null, null, modelName, fresh);
 }
 
+// Build a wireframe grid of the subdivision cell boundaries: one line per
+// cell-boundary plane intersection, spanning the full bounds - NOT one box
+// per cell (which would draw every internal face's edges once per
+// neighboring cell that shares it). Deliberately uses colCtx.minBounds /
+// subdivLength / subdivAmount directly (the raw grid) rather than
+// colCtx.subdivisions[i].bounds - same numbers, but this makes clear the
+// lines are the bare cell boundaries with BGCHECK_SUBDIV_OVERLAP NOT
+// applied, unlike the padded bounds subdivisions.js hands out for actual
+// polygon-registration/overlap checks (getSubdivisionBoundsForIndex there
+// pads each cell by the overlap in every direction - this grid intentionally
+// does not, so it shows the true, non-overlapping cell partition).
+function buildSubdivisionGridEdges(colCtx) {
+    const verts = [];
+    const vertMap = new Map();
+    const edges = [];
+
+    function getVertIndex(x, y, z) {
+        const key = x + "," + y + "," + z;
+        let idx = vertMap.get(key);
+        if (idx === undefined) {
+            idx = verts.length;
+            verts.push([x, y, z]);
+            vertMap.set(key, idx);
+        }
+        return idx;
+    }
+
+    const { minBounds, subdivLength, subdivAmount } = colCtx;
+    const NX = subdivAmount.x, NY = subdivAmount.y, NZ = subdivAmount.z;
+    const minX = minBounds.x, minY = minBounds.y, minZ = minBounds.z;
+    const maxX = minX + subdivLength.x * NX;
+    const maxY = minY + subdivLength.y * NY;
+    const maxZ = minZ + subdivLength.z * NZ;
+
+    // Lines parallel to X: one per (Y-plane, Z-plane) intersection.
+    for (let yi = 0; yi <= NY; yi++) {
+        const y = minY + subdivLength.y * yi;
+        for (let zi = 0; zi <= NZ; zi++) {
+            const z = minZ + subdivLength.z * zi;
+            edges.push([getVertIndex(minX, y, z), getVertIndex(maxX, y, z)]);
+        }
+    }
+    // Lines parallel to Y: one per (X-plane, Z-plane) intersection.
+    for (let xi = 0; xi <= NX; xi++) {
+        const x = minX + subdivLength.x * xi;
+        for (let zi = 0; zi <= NZ; zi++) {
+            const z = minZ + subdivLength.z * zi;
+            edges.push([getVertIndex(x, minY, z), getVertIndex(x, maxY, z)]);
+        }
+    }
+    // Lines parallel to Z: one per (X-plane, Y-plane) intersection.
+    for (let xi = 0; xi <= NX; xi++) {
+        const x = minX + subdivLength.x * xi;
+        for (let yi = 0; yi <= NY; yi++) {
+            const y = minY + subdivLength.y * yi;
+            edges.push([getVertIndex(x, y, minZ), getVertIndex(x, y, maxZ)]);
+        }
+    }
+
+    return { verts, edges };
+}
+
 export function parseZeldaModelBinary(scene, buffer, fresh, mapName){
 
     const dv = new DataView(buffer);
@@ -547,7 +609,7 @@ export function parseZeldaModelBinary(scene, buffer, fresh, mapName){
         option.textContent = `${idx} (${triCount} tri${triCount === 1 ? '' : 's'})`;
         subdivisionSelector.appendChild(option);
     });
-    
+
     const allIdx = [].concat(...tris);
     const maxIdx = Math.max(...allIdx);
     const minIdx = Math.min(...allIdx);
@@ -590,6 +652,20 @@ export function parseZeldaModelBinary(scene, buffer, fresh, mapName){
     // the scene for a fresh load.
     if (intangibleTris.length > 0) {
         buildGeometry(scene, verts, intangibleTris, intangibleTriangleData, null, "Intangible Collision", false);
+    }
+
+    // "Subdivision Grid": a wireframe box grid of the subdivision cells
+    // themselves (their raw, non-overlap-padded boundaries - see
+    // buildSubdivisionGridEdges above), as its own extra toggleable model.
+    // Always additive (fresh=false, same reasoning as Intangible Collision
+    // above - the main model build already cleared the scene for a fresh
+    // load, and this has to run after that clear or it'd get wiped out
+    // immediately by it). Off by default (checked=false), same as the
+    // single-cell "Subdivision" highlight further down - it's a dev/debug
+    // aid, not something you want cluttering every load.
+    {
+        const { verts: gridVerts, edges: gridEdges } = buildSubdivisionGridEdges(colCtx);
+        buildGeometryEdges(scene, gridVerts, gridEdges, "Subdivision Grid", false, false);
     }
 
     // groundClipBandsCheckbox: when unchecked, standable surfaces render as
