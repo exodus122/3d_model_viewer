@@ -316,14 +316,18 @@ export function performSelection(ev, renderer, camera, scene) {
     const edgeThreshold = 0.08;
 
     for (const m of loadedModels) {
-        if (!m.edges || !m.edges.visible) continue;
-        // Only allow edge selection on edge-only models (built via
-        // buildGeometryEdges - m.mesh is null there), e.g. "Seams Model" and
-        // "Subdivision Grid". Everything else's m.edges is just the
-        // wireframe overlay of its triangle mesh, and triangle selection
-        // already covers those (edge-picking every wireframe line on top of
-        // that would make triangle clicks unreliable).
-        if (m.mesh !== null) continue;
+        // Only allow edge selection on models that explicitly opt in (e.g.
+        // "Seams Model", "Subdivision Grid", and the "Subdivision" cell's
+        // cube outline). Everything else's m.edges is just the wireframe
+        // overlay of its triangle mesh, and triangle selection already
+        // covers those (edge-picking every wireframe line on top of that
+        // would make triangle clicks unreliable).
+        if (!m.edgeSelectable || !m.edges || !m.edges.visible) continue;
+        // m.edges.visible is the edge object's OWN flag, which doesn't
+        // account for a parent group being hidden (e.g. Subdivision's cube
+        // outline is a child of the group the checkbox actually toggles) -
+        // check that too so a hidden model's edges aren't still pickable.
+        if (m.mesh && !m.mesh.visible) continue;
 
         const pos = m.edges.geometry.attributes.position;
 

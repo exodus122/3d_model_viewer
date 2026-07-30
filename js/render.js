@@ -611,7 +611,12 @@ export function buildGeometryEdges(scene, verts, edges, name = "Edge Model", cle
     edgesObj.visible = true;
     scene.add(edgesObj);
 
-    loadedModels.push({ name, mesh: null, edges: edgesObj });
+    // edgeSelectable: true - opts this model's edges into selection.js's
+    // edge-picking pass (see the edgeSelectable check there). Safe here since
+    // these ARE the model's whole geometry (e.g. Seams Model, Subdivision
+    // Grid), unlike a per-triangle wireframe overlay where every edge
+    // becoming individually clickable would make triangle selection noisy.
+    loadedModels.push({ name, mesh: null, edges: edgesObj, edgeSelectable: true });
 
     // Register in UI
     addModelCheckbox(scene, name, null, edgesObj, clearFirst, checked);

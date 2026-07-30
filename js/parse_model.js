@@ -752,7 +752,17 @@ export function parseZeldaModelBinary(scene, buffer, fresh, mapName){
         const subdivisionGroup = scanAndBuildSubdivision();
         if (subdivisionGroup) {
             scene.add(subdivisionGroup);
-            loadedModels.push({ name: "Subdivision", mesh: subdivisionGroup, edges: null });
+            // edges: the cube outline specifically (subdivisionGroup.userData.cubeEdges,
+            // set in scanAndBuildSubdivision) - not the merged triangle-outline
+            // LineSegments also in this group, so only the cube's edges become
+            // individually clickable, not every triangle edge in the highlight.
+            // edgeSelectable opts into selection.js's edge-picking pass.
+            loadedModels.push({
+                name: "Subdivision",
+                mesh: subdivisionGroup,
+                edges: subdivisionGroup.userData.cubeEdges || null,
+                edgeSelectable: true
+            });
             addModelCheckbox(scene, "Subdivision", subdivisionGroup, null, false, false, "#00FFFF");
         }
     }

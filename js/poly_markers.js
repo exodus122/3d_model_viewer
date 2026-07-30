@@ -175,6 +175,43 @@ export function scanAndBuildFlatGroundMarkers() {
 
 const subdivisionSelector = document.getElementById("subdivisionSelector");
 
+// Wireframe box for one subdivision cell's RAW bounds - `bounds` is
+// colCtx.subdivisions[i].bounds, i.e. [[xmin,xmax],[ymin,ymax],[zmin,zmax]]
+// as computed in initColCtx (subdivisions.js), which does NOT pad by
+// BGCHECK_SUBDIV_OVERLAP. That padding only gets applied later, when
+// actually testing/registering polygons against a cell (see
+// getSubdivisionBoundsForIndex in subdivisions.js) - this draws the bare,
+// non-overlapping cell partition, same as the "Subdivision Grid" model.
+function buildSubdivisionCubeEdges(bounds) {
+    const [[x0, x1], [y0, y1], [z0, z1]] = bounds;
+
+    const c = [
+        [x0, y0, z0], [x1, y0, z0], [x1, y0, z1], [x0, y0, z1], // bottom face
+        [x0, y1, z0], [x1, y1, z0], [x1, y1, z1], [x0, y1, z1]  // top face
+    ];
+    const idxPairs = [
+        [0, 1], [1, 2], [2, 3], [3, 0], // bottom
+        [4, 5], [5, 6], [6, 7], [7, 4], // top
+        [0, 4], [1, 5], [2, 6], [3, 7]  // verticals
+    ];
+
+    const positions = [];
+    for (const [a, b] of idxPairs) positions.push(...c[a], ...c[b]);
+
+    const geom = new THREE.BufferGeometry();
+    geom.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+
+    const mat = new THREE.LineBasicMaterial({
+        color: 0xffaa00,
+        linewidth: 2,
+        depthTest: true
+    });
+
+    const edges = new THREE.LineSegments(geom, mat);
+    edges.renderOrder = 999;
+    return edges;
+}
+
 export function scanAndBuildSubdivision() {
     const mainModel = loadedModels.find(m => m.name === "Main Model");
     if (!mainModel || !mainModel.mesh) return null;
@@ -188,102 +225,112 @@ export function scanAndBuildSubdivision() {
     const pos = geom.attributes.position;
     const index = geom.index;
 
+    const subdiv = Number(subdivisionSelector.value);
+    const subdivEntry = colCtxData?.subdivisions?.[subdiv];
+
     // -------------------------
     // Collect merged geometry
     // -------------------------
     const mergedVerts = [];
     const mergedEdges = [];
 
-    for (let i = 0; i < triData.length; i++) {
+    if (subdivEntry) {
+        for (let i = 0; i < triData.length; i++) {
 
-        const ia = index.getX(i*3);
-        const ib = index.getX(i*3 + 1);
-        const ic = index.getX(i*3 + 2);
+            const ia = index.getX(i*3);
+            const ib = index.getX(i*3 + 1);
+            const ic = index.getX(i*3 + 2);
 
-        const va = new THREE.Vector3().fromBufferAttribute(pos, ia);
-        const vb = new THREE.Vector3().fromBufferAttribute(pos, ib);
-        const vc = new THREE.Vector3().fromBufferAttribute(pos, ic);
+            const va = new THREE.Vector3().fromBufferAttribute(pos, ia);
+            const vb = new THREE.Vector3().fromBufferAttribute(pos, ib);
+            const vc = new THREE.Vector3().fromBufferAttribute(pos, ic);
 
-        const tri = triData[i];
-        const nx = tri.normals[0];
-        const ny = tri.normals[1];
-        const nz = tri.normals[2];
-        
-        let subdiv = Number(subdivisionSelector.value);
-        if(!colCtxData.subdivisions[subdiv].floors.includes(tri.id) 
-            && !colCtxData.subdivisions[subdiv].walls.includes(tri.id) 
-            && !colCtxData.subdivisions[subdiv].ceilings.includes(tri.id))
-            continue;
-        
-        // -----------------------
-        // Add triangle to merged mesh
-        // -----------------------
-        mergedVerts.push(
-            va.x, va.y, va.z,
-            vb.x, vb.y, vb.z,
-            vc.x, vc.y, vc.z
-        );
+            const tri = triData[i];
 
-        // -----------------------
-        // Add edges for merged edges
-        // -----------------------
-        mergedEdges.push(
-            va.x, va.y, va.z, vb.x, vb.y, vb.z,
-            vb.x, vb.y, vb.z, vc.x, vc.y, vc.z,
-            vc.x, vc.y, vc.z, va.x, va.y, va.z
-        );
+            if (!subdivEntry.floors.includes(tri.id)
+                && !subdivEntry.walls.includes(tri.id)
+                && !subdivEntry.ceilings.includes(tri.id))
+                continue;
+
+            // -----------------------
+            // Add triangle to merged mesh
+            // -----------------------
+            mergedVerts.push(
+                va.x, va.y, va.z,
+                vb.x, vb.y, vb.z,
+                vc.x, vc.y, vc.z
+            );
+
+            // -----------------------
+            // Add edges for merged edges
+            // -----------------------
+            mergedEdges.push(
+                va.x, va.y, va.z, vb.x, vb.y, vb.z,
+                vb.x, vb.y, vb.z, vc.x, vc.y, vc.z,
+                vc.x, vc.y, vc.z, va.x, va.y, va.z
+            );
+        }
     }
 
-    // If no triangles matched
-    if (mergedVerts.length === 0) return null;
-
     // -------------------------
-    // Build merged mesh
-    // -------------------------
-    const meshGeom = new THREE.BufferGeometry();
-    meshGeom.setAttribute(
-        "position",
-        new THREE.Float32BufferAttribute(mergedVerts, 3)
-    );
-    meshGeom.setIndex([...Array(mergedVerts.length / 3).keys()]);
-
-    const meshMat = new THREE.MeshBasicMaterial({
-        color: 0x00ffff,
-        side: THREE.DoubleSide,
-        transparent: true,
-        opacity: 0.9,
-        polygonOffset: true,
-        polygonOffsetFactor: 1,
-        polygonOffsetUnits: 1
-    });
-
-    const mergedMesh = new THREE.Mesh(meshGeom, meshMat);
-    mergedMesh.renderOrder = 1;
-
-    // -------------------------
-    // Build merged edges
-    // -------------------------
-    const edgeGeom = new THREE.BufferGeometry();
-    edgeGeom.setAttribute(
-        "position",
-        new THREE.Float32BufferAttribute(mergedEdges, 3)
-    );
-
-    const edgeMat = new THREE.LineBasicMaterial({
-        color: 0x000000,
-        linewidth: 1.5,
-        depthTest: true
-    });
-
-    const mergedEdgesObj = new THREE.LineSegments(edgeGeom, edgeMat);
-    mergedEdgesObj.renderOrder = 999;
-
-    // -------------------------
-    // Build final group with exactly ONE mesh + ONE edges
+    // Build final group. Always includes the selected cell's raw-bounds
+    // wireframe cube (when the subdivision index is valid) even if the cell
+    // has no registered triangles, so empty cells are still visible - the
+    // triangle mesh/edges are only added on top when there's actually
+    // geometry in the cell.
     // -------------------------
     const master = new THREE.Group();
-    master.add(mergedMesh);
-    master.add(mergedEdgesObj);
+
+    if (subdivEntry) {
+        const cubeEdges = buildSubdivisionCubeEdges(subdivEntry.bounds);
+        master.add(cubeEdges);
+        // Exposed so the caller (parse_model.js) can wire this specific
+        // object up as the model's selectable edges, without relying on
+        // child ordering within the group.
+        master.userData.cubeEdges = cubeEdges;
+    }
+
+    if (mergedVerts.length > 0) {
+        const meshGeom = new THREE.BufferGeometry();
+        meshGeom.setAttribute(
+            "position",
+            new THREE.Float32BufferAttribute(mergedVerts, 3)
+        );
+        meshGeom.setIndex([...Array(mergedVerts.length / 3).keys()]);
+
+        const meshMat = new THREE.MeshBasicMaterial({
+            color: 0x00ffff,
+            side: THREE.DoubleSide,
+            transparent: true,
+            opacity: 0.9,
+            polygonOffset: true,
+            polygonOffsetFactor: 1,
+            polygonOffsetUnits: 1
+        });
+
+        const mergedMesh = new THREE.Mesh(meshGeom, meshMat);
+        mergedMesh.renderOrder = 1;
+
+        const edgeGeom = new THREE.BufferGeometry();
+        edgeGeom.setAttribute(
+            "position",
+            new THREE.Float32BufferAttribute(mergedEdges, 3)
+        );
+
+        const edgeMat = new THREE.LineBasicMaterial({
+            color: 0x000000,
+            linewidth: 1.5,
+            depthTest: true
+        });
+
+        const mergedEdgesObj = new THREE.LineSegments(edgeGeom, edgeMat);
+        mergedEdgesObj.renderOrder = 999;
+
+        master.add(mergedMesh);
+        master.add(mergedEdgesObj);
+    }
+
+    if (master.children.length === 0) return null;
 
     return master;
 }
