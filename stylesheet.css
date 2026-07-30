@@ -89,6 +89,26 @@ button {
     cursor: pointer
 }
 
+/* The subdivision list packs an index, tri count, and x/y/z bounds into each
+   option, which is too wide at the default size - shrink it and cap the
+   closed select's own width so long option text doesn't push the (fixed
+   320px) sidebar wider than the viewport. */
+/* The generic `select` rule above gives this a blue background, which the
+   dropdown popup's <option> rows inherit. Chromium's own hover highlight for
+   the option under the mouse is just a different shade of blue layered on
+   top of that - close enough to the base color that it barely reads as
+   "hovered" at all. Overriding option:hover's color directly isn't reliably
+   respected here, so instead give the closed-off popup a dark, non-blue base
+   so the browser's built-in (blue-ish) hover tint actually contrasts against
+   it instead of blending in. */
+#subdivisionSelector {
+    font-size: 11px;
+    max-width: 100%;
+    background: #0f1720;
+    color: #e6eef6;
+    border: 1px solid #3a4a5e;
+}
+
 .muted {
     color: #9fb0c8;
     font-size: 13px
