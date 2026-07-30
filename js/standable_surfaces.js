@@ -199,9 +199,8 @@ function groundClipPlaneDist(normalsRaw, originDist, x, y, z) {
 //   'lt'           keep s <  0   (strict; boundary dropped)
 //   'gte0'         keep s >= 0   (explicit partner of 'lt')
 // The boolean form is what existing callers use. The 'lt'/'gte0' strict pair is
-// available for an exact, gapless partition but the ground-clip split now uses
-// a bounded region classifier (regionHasGroundClip) instead, so nothing calls
-// them by default — they're kept for reuse.
+// available for an exact, gapless partition. clipPolyXZByFn is also used by the
+// ground-clip banding (bandRegionByGroundClip) to slice regions into strips.
 function clipPolyXZByFn(verts, sideFn, keepMode, liftFn) {
     if (verts.length < 3) return [];
     const out = [];
@@ -227,82 +226,113 @@ function clipPolyXZByFn(verts, sideFn, keepMode, liftFn) {
     return out;
 }
 
-// The ground-clip stripe pattern flips on the order of ~0.07 world units (one
-// f32 ULP of the planeDist accumulator maps to that much XZ movement). We can't
-// resolve those stripes as geometry — a single above-region can be tens of
-// millions of cells at that pitch — and they're far finer than a pixel anyway.
-// Instead we answer one boolean per region: does ANY point in it clip? To find
-// that reliably we must sample finer than the stripe pitch, but with a hard cap
-// so a large/steep region can't blow up. GROUNDCLIP_SAMPLE_STEP is the ideal
-// spacing; GROUNDCLIP_MAX_SAMPLES caps the total, coarsening the effective step
-// if the region is big. Because clip and non-clip stripes alternate densely, a
-// capped grid still lands on clip stripes wherever they exist.
-const GROUNDCLIP_SAMPLE_STEP = 0.02;
-const GROUNDCLIP_MAX_SAMPLES = 4096; // 64x64 worst case
 
-// Standard even-odd point-in-polygon test in XZ.
-function pointInPolyXZ(x, z, poly) {
-    let inside = false;
-    const n = poly.length;
-    for (let i = 0, j = n - 1; i < n; j = i++) {
-        const xi = poly[i].x, zi = poly[i].z;
-        const xj = poly[j].x, zj = poly[j].z;
-        if (((zi > z) !== (zj > z)) &&
-            (x < (xj - xi) * (z - zi) / (zj - zi) + xi)) {
-            inside = !inside;
-        }
+// Height resolution for sampling the clip pattern along the Y axis. The clip
+// stripes are iso-Y contours, so we sample clip at this vertical spacing, then
+// MERGE contiguous same-state bins into runs. A big contiguous clip run becomes
+// one thick yellow band (reads as solid yellow); isolated clip bins become thin
+// yellow stripes among red. This makes "how lenient / how contiguous" visible
+// without splitting into thousands of triangles — the strip count equals the
+// number of runs, not the number of bins.
+const GROUNDCLIP_BIN_HEIGHT = 0.1;
+// Hard cap on bins so a (mis-flagged) tall region can't sample unboundedly.
+const GROUNDCLIP_MAX_BINS = 512;
+
+// BAND A CLIP REGION into iso-Y yellow (clips) / red (doesn't) strips.
+// Samples clip along the region's height at GROUNDCLIP_BIN_HEIGHT resolution,
+// merges contiguous same-state bins into runs, and emits one height-strip per
+// run (clipped to the run's [loY, hiY] slab, so the strip follows the slope as a
+// constant-height band). `poly` vertices are already lifted onto the surface
+// (they carry .y). Thick contiguous clip = thick yellow band; sparse clip = thin
+// yellow stripes. Strip count = number of runs, which is small in practice.
+//
+// SPECIAL CASE: if the region is FLAT (Y-span below one bin, i.e. a level floor)
+// AND it clips, the ENTIRE poly is clippable at once — there's no height
+// variation to stripe — so it's emitted via pushWholeClip (cyan) to signify
+// "the whole surface clips" rather than yellow (which implies a banded subset).
+function bandRegionByGroundClip(poly, sideFn, liftFn, pushClip, pushSafe, pushWholeClip) {
+    if (poly.length < 3) return;
+
+    let minY = Infinity, maxY = -Infinity;
+    for (const p of poly) {
+        if (p.y < minY) minY = p.y;
+        if (p.y > maxY) maxY = p.y;
     }
-    return inside;
+    const span = maxY - minY;
+
+    // Emit one height-slab [loY, hiY] as a strip, colored by `clips`.
+    const emitSlab = (loY, hiY, clips) => {
+        let strip = clipPolygonByMinY(poly, loY);
+        if (strip.length < 3) return;
+        strip = clipPolygonByMaxY(strip, hiY);
+        if (strip.length < 3) return;
+        const push = clips ? pushClip : pushSafe;
+        for (let i = 1; i < strip.length - 1; i++) {
+            push(strip[0], strip[i], strip[i + 1]);
+        }
+    };
+
+    if (span <= GROUNDCLIP_BIN_HEIGHT) {
+        // Region thinner than one bin (near-level floor): single sample. If it
+        // clips, the WHOLE flat poly is clippable -> cyan (pushWholeClip). If it
+        // doesn't, it's fully safe -> red. No striping possible at this Y-span.
+        let ax = 0, az = 0;
+        for (const p of poly) { ax += p.x; az += p.z; }
+        ax /= poly.length; az /= poly.length;
+        if (sideFn(ax, az) < 0) {
+            const push = pushWholeClip || pushClip;
+            for (let i = 1; i < poly.length - 1; i++) push(poly[0], poly[i], poly[i + 1]);
+        } else {
+            for (let i = 1; i < poly.length - 1; i++) pushSafe(poly[0], poly[i], poly[i + 1]);
+        }
+        return;
+    }
+
+    let nBins = Math.max(1, Math.ceil(span / GROUNDCLIP_BIN_HEIGHT));
+    if (nBins > GROUNDCLIP_MAX_BINS) {
+        //console.log("polygon "+poly.id+" has too many bins ("+nBins+"), capping to GROUNDCLIP_MAX_BINS")
+        nBins = GROUNDCLIP_MAX_BINS
+    }
+    else {
+        //console.log("polygon "+poly.id+" has "+nBins+" bins, within limit")
+    }
+    const binH = span / nBins;
+
+    // Sample clip state at each bin's mid-height. To get a representative (x,z)
+    // on that iso-Y contour, clip the poly to the bin slab and take its centroid.
+    const state = new Array(nBins);
+    for (let b = 0; b < nBins; b++) {
+        const loY = minY + b * binH;
+        const hiY = loY + binH;
+        let strip = clipPolygonByMinY(poly, loY);
+        if (strip.length >= 3) strip = clipPolygonByMaxY(strip, hiY);
+        if (strip.length < 3) { state[b] = null; continue; }
+        let ax = 0, az = 0;
+        for (const p of strip) { ax += p.x; az += p.z; }
+        ax /= strip.length; az /= strip.length;
+        state[b] = sideFn(ax, az) < 0;
+    }
+
+    // Merge contiguous same-state bins into runs, emitting one strip per run.
+    let runStart = 0;
+    while (runStart < nBins && state[runStart] === null) runStart++;
+    while (runStart < nBins) {
+        const runState = state[runStart];
+        let runEnd = runStart;
+        while (runEnd + 1 < nBins && (state[runEnd + 1] === runState || state[runEnd + 1] === null)) {
+            // absorb same-state bins and empty bins into the run
+            if (state[runEnd + 1] === runState) runEnd++;
+            else break;
+        }
+        const loY = minY + runStart * binH;
+        const hiY = minY + (runEnd + 1) * binH;
+        emitSlab(loY, hiY, runState);
+        runStart = runEnd + 1;
+        while (runStart < nBins && state[runStart] === null) runStart++;
+    }
 }
 
-// REGION GROUND-CLIP CLASSIFIER (boolean).
-// Returns true if any sampled interior point of `poly` is ground-clippable, i.e.
-// sideFn(x,z) — the exact f32 planeDist at the floor-snapped surface point —
-// rounds strictly < 0. Samples on a grid sized by GROUNDCLIP_SAMPLE_STEP but
-// capped to GROUNDCLIP_MAX_SAMPLES points total, so cost is O(1)-bounded per
-// region regardless of triangle size or steepness. Returns as soon as a clip
-// point is found. Also probes the polygon vertices, so a tiny region that the
-// interior grid might skip past still gets checked.
-function regionHasGroundClip(poly, sideFn) {
-    if (poly.length < 3) return false;
 
-    // Vertex probe first (cheap, catches slivers the grid could miss).
-    for (const p of poly) {
-        if (sideFn(p.x, p.z) < 0) return true;
-    }
-
-    let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
-    for (const p of poly) {
-        if (p.x < minX) minX = p.x;
-        if (p.x > maxX) maxX = p.x;
-        if (p.z < minZ) minZ = p.z;
-        if (p.z > maxZ) maxZ = p.z;
-    }
-    const spanX = maxX - minX;
-    const spanZ = maxZ - minZ;
-    if (spanX <= 0 || spanZ <= 0) return false;
-
-    // Ideal sample counts at the target step, then scale down uniformly if the
-    // product exceeds the cap.
-    let nx = Math.max(2, Math.ceil(spanX / GROUNDCLIP_SAMPLE_STEP));
-    let nz = Math.max(2, Math.ceil(spanZ / GROUNDCLIP_SAMPLE_STEP));
-    if (nx * nz > GROUNDCLIP_MAX_SAMPLES) {
-        const scale = Math.sqrt(GROUNDCLIP_MAX_SAMPLES / (nx * nz));
-        nx = Math.max(2, Math.floor(nx * scale));
-        nz = Math.max(2, Math.floor(nz * scale));
-    }
-    const stepX = spanX / nx;
-    const stepZ = spanZ / nz;
-    for (let ix = 0; ix < nx; ix++) {
-        const cx = minX + (ix + 0.5) * stepX;
-        for (let iz = 0; iz < nz; iz++) {
-            const cz = minZ + (iz + 0.5) * stepZ;
-            if (!pointInPolyXZ(cx, cz, poly)) continue;
-            if (sideFn(cx, cz) < 0) return true;
-        }
-    }
-    return false;
-}
 
 // Maximum surviving pieces per standable triangle. The subtract-a-convex-region
 // operation can split a polygon once per cutter half-plane, so without a cap a
@@ -938,7 +968,7 @@ export function renderStandableSurfaceXZ_old(allTriangleData) {
 //     triangle, the edge buffer strips, and the vertex-bulge circles -
 //     not just the existing minY/maxY red/blue/yellow split.
 // Omit colCtx to fall back to the old unfiltered behavior.
-function buildStandableSurfaceTriangles(tri, pushGreen, pushRed, pushBlue, pushYellow, colCtx = null, polyIdx = null) {
+function buildStandableSurfaceTriangles(tri, pushGreen, pushRed, pushBlue, pushYellow, pushCyan, colCtx = null, polyIdx = null, groundClipEnabled = true) {
     const vtxs = tri.vtxs;
     const normals = tri.normals;
     const D = f32(tri.d);
@@ -1043,6 +1073,7 @@ function buildStandableSurfaceTriangles(tri, pushGreen, pushRed, pushBlue, pushY
     pushRed    = wrapCut(pushRed);
     pushBlue   = wrapCut(pushBlue);
     pushYellow = wrapCut(pushYellow);
+    pushCyan   = wrapCut(pushCyan);
 
     // Clips [a,b,c] against minY, sending the above-minY portion to pushRed
     // and (if belowEnabled) the below-minY portion to pushBlue.
@@ -1058,34 +1089,51 @@ function buildStandableSurfaceTriangles(tri, pushGreen, pushRed, pushBlue, pushY
     const liftSurf = (x, z) => ({ x: f32(x), y: computeYFromPlaneLocal(Nx, Ny, Nz, D, x, z), z: f32(z) });
 
     const pushClippedTriSplit = (a, b, c) => {
-        const above = clipPolygonAboveMaxY([a, b, c], maxY);
-        if (above.length >= 3) {
-            // The region above the highest vertex is ground-clippable wherever
-            // planeDist (the exact f32 CollisionPoly_LineVsPoly value at the
-            // floor-snapped surface point) rounds strictly < 0. That clippable
-            // set is a fine periodic stripe pattern (~0.07u wide) — far finer
-            // than a pixel and impossible to tessellate (a single region can be
-            // tens of millions of cells). So rather than resolve the stripes as
-            // geometry, we classify the whole region with one boolean: if ANY
-            // sampled point clips, the entire above-region is emitted as yellow;
-            // otherwise it's red. TRI-200/TRI-198-style seam-straddling regions
-            // therefore read yellow (they do contain clip stripes), while a
-            // region that rounds uniformly >= 0 reads red.
-            const anyClip = regionHasGroundClip(above, groundClipSide);
-            const target = anyClip ? pushYellow : pushRed;
-            for (let i = 1; i < above.length - 1; i++) {
-                target(above[0], above[i], above[i + 1]);
+        // Ground-clip rendering only applies to STANDABLE FLOORS (|ny| > 0.5).
+        // On steeper polys you can't actually stand on the body of the surface —
+        // the same poly acting as a wall pushes you off everywhere except the top
+        // edge — so ground-clip leniency there is moot and we skip the banding,
+        // leaving the region flat red. 0.5 matches the game's floor/wall split.
+        const isStandableFloor = Math.abs(Ny) > 0.5;
+
+        // On a standable floor, each region (above the highest vertex, and the
+        // middle band) is banded along iso-Y contours: the clip pattern is sampled
+        // by height and contiguous same-state runs are merged, so a large
+        // contiguous clip region becomes one thick yellow band (reads as solid
+        // yellow) while sparse clip shows as thin yellow stripes among red. The
+        // strips follow the slope at constant height (the "y=40 to y=40" bands).
+        const emitByClip = (poly) => {
+            if (poly.length < 3) return;
+            // groundClipEnabled off: skip the ground-clip band sampling
+            // entirely (also a nice load-time win, since bandRegionByGroundClip
+            // does real per-triangle sampling/clipping work) and just render
+            // the whole region plain red, same as the non-standable-floor
+            // case below. No yellow bands, no cyan fully-clippable fill.
+            if (!isStandableFloor || !groundClipEnabled) {
+                for (let i = 1; i < poly.length - 1; i++) pushRed(poly[0], poly[i], poly[i + 1]);
+                return;
             }
-        }
+            bandRegionByGroundClip(poly, groundClipSide, liftSurf, pushYellow, pushRed, pushCyan);
+        };
+
+        // ABOVE the highest vertex.
+        const above = clipPolygonAboveMaxY([a, b, c], maxY);
+        emitByClip(above);
+
+        // MIDDLE BAND (between lowest and highest vertex).
         let mid = clipPolygonByMinY([a, b, c], minY);
         mid = clipPolygonByMaxY(mid, maxY);
-        for (let i = 1; i < mid.length - 1; i++) {
-            pushRed(mid[0], mid[i], mid[i + 1]);
-        }
-        const below = clipPolygonBelowMinY([a, b, c], minY);
-        const keptBelow = cutoffY === null ? below : clipPolygonByMinY(below, cutoffY);
-        for (let i = 1; i < keptBelow.length - 1; i++) {
-            pushBlue(keptBelow[0], keptBelow[i], keptBelow[i + 1]);
+        emitByClip(mid);
+
+        // BELOW the lowest vertex (blue) — only for standable floors, same
+        // reasoning as the clip banding: on steep polys the body isn't standable
+        // (wall-push), so this region is meaningless there and is skipped.
+        if (isStandableFloor) {
+            const below = clipPolygonBelowMinY([a, b, c], minY);
+            const keptBelow = cutoffY === null ? below : clipPolygonByMinY(below, cutoffY);
+            for (let i = 1; i < keptBelow.length - 1; i++) {
+                pushBlue(keptBelow[0], keptBelow[i], keptBelow[i + 1]);
+            }
         }
     };
 
@@ -1155,11 +1203,18 @@ function buildStandableSurfaceTriangles(tri, pushGreen, pushRed, pushBlue, pushY
 // was built with (falls back to array position if absent). Omit colCtx to
 // fall back to the old unfiltered behavior.
 //
+// groundClipEnabled (default true): when false, standable floors render as
+// a plain red/blue split only - the yellow ground-clippable bands and cyan
+// fully-clippable fill are skipped entirely (and the per-triangle band
+// sampling that computes them is never run, which is also a load-time
+// win). Doesn't affect the vertex-bulge (green) geometry or blue (below the
+// lowest vertex) - both render the same either way.
+//
 // Returns { main, vertexBulge } - two separate Groups instead of one
 // combined one, so the vertex-bulge (green) geometry can be given its own
 // model entry/checkbox distinct from the red/blue/yellow main surface.
 // Either can be null if that bucket produced no geometry.
-export function renderStandableSurfaceXZ(allTriangleData, colCtx = null) {
+export function renderStandableSurfaceXZ(allTriangleData, colCtx = null, groundClipEnabled = true) {
     function makeBucket() {
         const positions = [];
         const indices = [];
@@ -1172,10 +1227,11 @@ export function renderStandableSurfaceXZ(allTriangleData, colCtx = null) {
         return { positions, indices, push };
     }
 
-    const green = makeBucket(); // vertex bulges
-    const red = makeBucket();   // above minVertexY
-    const blue = makeBucket();  // below minVertexY
-    const yellow = makeBucket(); // at minVertexY
+    const green = makeBucket();  // vertex bulges
+    const red = makeBucket();    // not ground-clippable (per band)
+    const blue = makeBucket();   // below lowest vertex
+    const yellow = makeBucket(); // ground-clippable (per band)
+    const cyan = makeBucket();   // entire flat poly clippable
 
     // Expose an id->poly map so the top-cut gather (gatherTopCutters) can read a
     // candidate cutter poly's plane and footprint. Keyed the same way polyIdx is
@@ -1191,7 +1247,7 @@ export function renderStandableSurfaceXZ(allTriangleData, colCtx = null) {
 
     allTriangleData.forEach((tri, arrayIdx) => {
         const polyIdx = (tri.id !== undefined && tri.id !== null) ? tri.id : arrayIdx;
-        buildStandableSurfaceTriangles(tri, green.push, red.push, blue.push, yellow.push, colCtx, polyIdx);
+        buildStandableSurfaceTriangles(tri, green.push, red.push, blue.push, yellow.push, cyan.push, colCtx, polyIdx, groundClipEnabled);
     });
 
     function buildMesh(bucket, color, edgeColor = 0x000000) {
@@ -1254,6 +1310,7 @@ export function renderStandableSurfaceXZ(allTriangleData, colCtx = null) {
         { data: red, color: 0xff0000, edgeColor: 0x000000 },
         { data: blue, color: 0x0000ff, edgeColor: 0x000000 },
         { data: yellow, color: 0xffff00, edgeColor: 0x000000 },
+        { data: cyan, color: 0x00e5e5, edgeColor: 0x000000 },
     ]);
 
     return { main, vertexBulge };
