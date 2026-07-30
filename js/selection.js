@@ -317,7 +317,13 @@ export function performSelection(ev, renderer, camera, scene) {
 
     for (const m of loadedModels) {
         if (!m.edges || !m.edges.visible) continue;
-        if(m.name != "Seams Model") continue; // only allow edge selection on the seams model
+        // Only allow edge selection on edge-only models (built via
+        // buildGeometryEdges - m.mesh is null there), e.g. "Seams Model" and
+        // "Subdivision Grid". Everything else's m.edges is just the
+        // wireframe overlay of its triangle mesh, and triangle selection
+        // already covers those (edge-picking every wireframe line on top of
+        // that would make triangle clicks unreliable).
+        if (m.mesh !== null) continue;
 
         const pos = m.edges.geometry.attributes.position;
 
