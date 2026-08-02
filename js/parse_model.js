@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { addModelCheckbox, buildGeometry, buildGeometry_fwc, buildGeometryFromTriangles, buildGeometryEdges } from './render.js';
 import { buildGeometry2, buildGeometry3, buildGeometry4 } from './gap.js';
-import { initColCtx, initializeSubdivisions } from './subdivisions.js';
+import { initColCtx, initializeSubdivisions, BGCHECK_SUBDIV_OVERLAP } from './subdivisions.js';
 import { renderStandableSurfaceXZ, renderStandableSurfaceXZ_old, renderCollisionWallsXY, renderCollisionWallsYZ } from './standable_surfaces.js';
 import { scanAndBuildFlatGroundMarkers, buildSurfaceTypeMarkers, scanAndBuildSubdivision } from './poly_markers.js'
 import { buildWaterBoxModel } from './waterboxes.js';
@@ -294,6 +294,153 @@ function buildSubdivisionGridEdges(colCtx) {
     }
 
     return { verts, edges };
+}
+
+
+// DIAGNOSTIC: BgCheck_GetStaticLookupIndicesFromPos (the real game's static
+// subdivision lookup) computes sector.y as
+// (s32)((checkPos.y - minBounds.y) * subdivLengthInv.y), and
+// BgCheck_RaycastFloorImpl's floor raycast starts checkPos.y at
+// pos.y + BGCHECK_SUBDIV_OVERLAP, then repeatedly SUBTRACTS subdivLength.y
+// from checkPos.y until it drops below minBounds.y. Because subdivLengthInv.y
+// is itself a rounded f32 (1/subdivLength.y is essentially never exactly
+// representable), a checkPos.y landing close enough to a row boundary can
+// round down and have the (s32) cast truncate it into the row BELOW where it
+// belongs - silently skipping that row's collision entirely for this
+// raycast.
+//
+// Returns the f32 value `steps` ULPs away from `v` (negative steps = down).
+// Standard "biased key" bit trick: reinterpret the IEEE754 bit pattern as a
+// monotonically-increasing unsigned integer (flip all bits if negative, else
+// just set the sign bit), so integer +/-1 on that key is exactly +/-1 ULP in
+// the real value, for either sign. Used to scan the representable floats
+// around each candidate position, since real gameplay Y values are
+// essentially never exactly the "clean" boundary-checkHeight value - see
+// logSubdivisionYSkips below.
+function f32Step(v, steps) {
+    const buf = new ArrayBuffer(4);
+    const fv = new Float32Array(buf);
+    const iv = new Uint32Array(buf);
+    fv[0] = Math.fround(v);
+    const bits = iv[0];
+    let key = (bits & 0x80000000) !== 0 ? (~bits >>> 0) : ((bits | 0x80000000) >>> 0);
+    key = (key + steps) >>> 0;
+    iv[0] = (key & 0x80000000) !== 0 ? (key & 0x7fffffff) >>> 0 : (~key >>> 0);
+    return fv[0];
+}
+
+// For every internal Y row j, this checks heights roughly at that row's
+// boundary minus checkHeight (50) - the natural resting position after a
+// floor raycast steps down through boundary j - to see if starting a raycast
+// there lets it skip any row on its way down to minBounds. It scans an ULP
+// neighborhood around the "clean" boundary_j - checkHeight point (real
+// gameplay Y is essentially never that exact float) and, for each candidate,
+// walks the FULL checkPos.y sequence, recording the row the game ACTUALLY
+// computes at every step: trunc(f32((checkY-minY) * invY)), using the
+// rounded f32 reciprocal exactly like the real C code (the buggy path).
+//
+// The loop structure guarantees checkY drops by exactly one row height
+// (lenY) every step, so in a bug-free walk the computed row must decrease by
+// EXACTLY 1 each step. That invariant is the ground truth here - not an
+// externally computed "true row" for each checkY in isolation. A step's own
+// computed row can individually look locally consistent (matching a naive
+// floor of that specific checkY) while STILL silently skipping a row,
+// because accumulated f32 rounding across earlier steps can shift where
+// checkY lands just enough that consecutive computed rows jump by 2 instead
+// of 1 - each step "agrees with itself" but disagrees with its neighbor.
+// (Two earlier versions of this check got this wrong in complementary ways:
+// one asked "did the walk ever visit row N", which flagged rows the raycast
+// legitimately never reached as false positives; the other compared each
+// checkY against its own double-precision floor in isolation, which missed
+// exactly this jump-by-2-between-steps case, since each step passed its own
+// isolated check.)
+//
+// Results are grouped by (row skipped, which boundary j the candidate scan
+// was centered on) rather than merged across all j: a given row can be
+// skipped by candidates clustered near several different boundaries (its own
+// boundary directly, or a higher boundary whose multi-step walk passes over
+// it), and those clusters sit at completely different pos.y values, so
+// merging their min/max would produce a fake "range" spanning the gap
+// between clusters instead of the real (tight) neighborhoods around each.
+function logSubdivisionYSkips(colCtx) {
+    const f32 = Math.fround;
+    const minY = colCtx.minBounds.y;
+    const lenY = colCtx.subdivLength.y;
+    const invY = colCtx.subdivLengthInv.y;
+    const amountY = colCtx.subdivAmount.y;
+    const checkHeight = BGCHECK_SUBDIV_OVERLAP;
+
+    // How many representable floats on either side of the clean
+    // (boundary - checkHeight) candidate to scan. Cheap (a few thousand
+    // candidates per boundary, each a walk of amountY+4 steps, trivial at
+    // load time) so there's no real cost to being generous here.
+    const ULP_RADIUS = 8192;
+    // Safety cap on walk steps (real loop always terminates within
+    // amountY+1 steps since checkPos.y drops by a full row each time) - just
+    // here so a malformed colCtx can't spin forever.
+    const MAX_STEPS = amountY + 4;
+
+    // "row,sourceBoundary" -> { row, sourceBoundary, min, max, minS, maxS }
+    // range of STARTING pos.y values (not checkPos.y at the failing step)
+    // found to skip that row from that boundary's candidate cluster. minS/
+    // maxS are the ULP offsets that produced each edge, kept so the log can
+    // self-report whether the scan window was actually wide enough.
+    const rowRanges = new Map();
+
+    for (let j = 1; j < amountY; j++) {
+        const boundaryY = f32(minY + f32(lenY * j));
+        const cleanPosY = f32(boundaryY - checkHeight);
+
+        for (let s = -ULP_RADIUS; s <= ULP_RADIUS; s++) {
+            const posY = f32Step(cleanPosY, s);
+
+            let checkY = f32(posY + checkHeight);
+            let prevComputedRow = null;
+            for (let step = 0; step < MAX_STEPS && checkY >= minY; step++) {
+                const diff = f32(checkY - minY);
+                const computedRow = Math.trunc(f32(diff * invY)); // matches C's float -> s32 cast, using the rounded f32 reciprocal (the buggy path)
+                checkY = f32(checkY - lenY);
+
+                if (prevComputedRow !== null && prevComputedRow - computedRow > 1) {
+                    // Consecutive steps should only ever move down by exactly
+                    // one row - a bigger jump means every row strictly
+                    // between them was silently never tested.
+                    for (let r = computedRow + 1; r < prevComputedRow; r++) {
+                        if (r < 1 || r >= amountY) continue; // outside the internal rows we care about
+
+                        const key = `${r},${j}`;
+                        const range = rowRanges.get(key);
+                        if (!range) {
+                            rowRanges.set(key, { row: r, sourceBoundary: j, min: posY, max: posY, minS: s, maxS: s, jumpFrom: prevComputedRow, jumpTo: computedRow });
+                        } else {
+                            if (posY < range.min) { range.min = posY; range.minS = s; }
+                            if (posY > range.max) { range.max = posY; range.maxS = s; }
+                        }
+                    }
+                }
+
+                prevComputedRow = computedRow;
+            }
+        }
+    }
+
+    const clusters = [...rowRanges.values()].sort((a, b) => (b.row - a.row) || (a.sourceBoundary - b.sourceBoundary));
+
+    if (clusters.length > 0) {
+        const rowCount = new Set(clusters.map(c => c.row)).size;
+        console.log(`[Subdivision Grid] ${rowCount} row(s) of this map's Y subdivision can be silently skipped by floor raycasts due to float32 rounding:`);
+        for (const { row, sourceBoundary, min, max, minS, maxS, jumpFrom, jumpTo } of clusters) {
+            const rangeDesc = min === max ? `pos.y = ${min}` : `pos.y in [${min}, ${max}]`;
+            // If either edge came from an `s` value at the very edge of the
+            // scanned window, the true danger zone likely extends further
+            // and ULP_RADIUS needs to be widened again.
+            const clipped = minS === -ULP_RADIUS || maxS === ULP_RADIUS;
+            const clipNote = clipped ? `  [WARNING: hit edge of +/-${ULP_RADIUS} ULP scan window - range may be wider, increase ULP_RADIUS]` : '';
+            console.log(`  ${rangeDesc}  skips subdivision row ${row} (computed row jumps ${jumpFrom} -> ${jumpTo})  (via raycast walking down from row ${sourceBoundary})${clipNote}`);
+        }
+    } else {
+        console.log(`[Subdivision Grid] No subdivision-skipping Y values detected for this map's grid.`);
+    }
 }
 
 export function parseZeldaModelBinary(scene, buffer, fresh, mapName){
@@ -671,6 +818,7 @@ export function parseZeldaModelBinary(scene, buffer, fresh, mapName){
     {
         const { verts: gridVerts, edges: gridEdges } = buildSubdivisionGridEdges(colCtx);
         buildGeometryEdges(scene, gridVerts, gridEdges, "Subdivision Grid", false, false);
+        logSubdivisionYSkips(colCtx);
     }
 
     // groundClipBandsCheckbox: when unchecked, standable surfaces render as
