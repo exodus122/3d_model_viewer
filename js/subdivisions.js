@@ -711,6 +711,87 @@ export function initializeSubdivisions(game, colCtx, allTriangleData) {
     return;
 }
 
+// Returns the f32 value `steps` ULPs away from `v` (negative steps = down).
+// Standard "biased key" bit trick: reinterpret the IEEE754 bit pattern as a
+// monotonically-increasing unsigned integer (flip all bits if negative, else
+// just set the sign bit), so integer +/-1 on that key is exactly +/-1 ULP in
+// the real value, for either sign.
+function f32Step(v, steps) {
+    const buf = new ArrayBuffer(4);
+    const fv = new Float32Array(buf);
+    const iv = new Uint32Array(buf);
+    fv[0] = f32(v);
+    const bits = iv[0];
+    let key = (bits & 0x80000000) !== 0 ? (~bits >>> 0) : ((bits | 0x80000000) >>> 0);
+    key = (key + steps) >>> 0;
+    iv[0] = (key & 0x80000000) !== 0 ? (key & 0x7fffffff) >>> 0 : (~key >>> 0);
+    return fv[0];
+}
+
+// Returns the Set of Y subdivision row indices (0..subdivAmount.y-1) that can
+// be silently skipped by a real floor raycast (BgCheck_RaycastFloorImpl) due
+// to float32 rounding in sector.y = (s32)((checkPos.y - minBounds.y) *
+// subdivLengthInv.y) - see the much longer write-up above logSubdivisionYSkips
+// in parse_model.js for the full derivation. Two independent failure modes
+// are checked, both walking the full checkPos.y sequence (starting near each
+// internal boundary minus BGCHECK_SUBDIV_OVERLAP, scanned across a wide ULP
+// neighborhood since real gameplay Y is essentially never the "clean" value):
+//   1. Mid-walk jump: the computed row drops by more than 1 between
+//      consecutive steps (each step individually looks locally consistent,
+//      but a row in between never got tested at all).
+//   2. Row-0 early exit: the raycast's own `while (checkPos.y >= minBounds.y)`
+//      loop guard evaluates false one iteration too early, so the lowest
+//      row(s) never get tested at all - sector.y itself can never go
+//      negative for a value the loop actually tests (see chat discussion),
+//      so this is the only way the very bottom row can be skipped.
+export function computeVulnerableYRows(colCtx, ULP_RADIUS = 8192) {
+    const minY = colCtx.minBounds.y;
+    const lenY = colCtx.subdivLength.y;
+    const invY = colCtx.subdivLengthInv.y;
+    const amountY = colCtx.subdivAmount.y;
+    const checkHeight = BGCHECK_SUBDIV_OVERLAP;
+    const MAX_STEPS = amountY + 4;
+
+    const vulnerable = new Set();
+
+    for (let j = 1; j < amountY; j++) {
+        const boundaryY = f32(minY + f32(lenY * j));
+        const cleanPosY = f32(boundaryY - checkHeight);
+
+        for (let s = -ULP_RADIUS; s <= ULP_RADIUS; s++) {
+            const posY = f32Step(cleanPosY, s);
+
+            let checkY = f32(posY + checkHeight);
+            let prev = null;
+            let steps = 0;
+            while (steps < MAX_STEPS && checkY >= minY) {
+                const diff = f32(checkY - minY);
+                const computedRow = Math.trunc(f32(diff * invY));
+                checkY = f32(checkY - lenY);
+
+                if (prev !== null && prev - computedRow > 1) {
+                    for (let r = computedRow + 1; r < prev; r++) {
+                        if (r >= 0 && r < amountY) vulnerable.add(r);
+                    }
+                }
+                prev = computedRow;
+                steps++;
+            }
+
+            // Loop exited because checkY < minY. If the last row actually
+            // tested (prev) was above 0, every row from 0 up to prev-1 never
+            // got a chance at all - the loop bailed out too early.
+            if (prev !== null && prev > 0) {
+                for (let r = 0; r < prev; r++) {
+                    if (r < amountY) vulnerable.add(r);
+                }
+            }
+        }
+    }
+
+    return vulnerable;
+}
+
 /*
 // Usage
 const tri = [

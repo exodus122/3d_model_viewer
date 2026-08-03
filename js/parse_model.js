@@ -3,7 +3,7 @@ import { addModelCheckbox, buildGeometry, buildGeometry_fwc, buildGeometryFromTr
 import { buildGeometry2, buildGeometry3, buildGeometry4 } from './gap.js';
 import { initColCtx, initializeSubdivisions, BGCHECK_SUBDIV_OVERLAP } from './subdivisions.js';
 import { renderStandableSurfaceXZ, renderStandableSurfaceXZ_old, renderCollisionWallsXY, renderCollisionWallsYZ } from './standable_surfaces.js';
-import { scanAndBuildFlatGroundMarkers, buildSurfaceTypeMarkers, scanAndBuildSubdivision } from './poly_markers.js'
+import { scanAndBuildFlatGroundMarkers, buildSurfaceTypeMarkers, scanAndBuildSubdivision, scanAndBuildSectorSortingErrorMarkers, scanAndBuildSubdivisionSkipMarkers } from './poly_markers.js'
 import { buildWaterBoxModel } from './waterboxes.js';
 
 const wireframeCheckbox = document.getElementById('wireframe');
@@ -421,6 +421,32 @@ function logSubdivisionYSkips(colCtx) {
 
                 prevComputedRow = computedRow;
             }
+
+            // Loop exited because checkY < minY. If the last row actually
+            // tested was above 0, every row from 0 up to prevComputedRow-1
+            // never got a chance at all - the raycast's own
+            // `while (checkPos.y >= minBounds.y)` guard bailed out one
+            // iteration too early. This is a DIFFERENT mechanism from the
+            // mid-walk jump above (and won't show up as one - there's no
+            // "next" computed row to compare against, the walk just stops
+            // silently short), so it needs its own check. Since sector.y can
+            // never go negative for a checkY the loop actually tests (see
+            // the f32-subtraction-can't-go-negative argument discussed
+            // elsewhere), this is the only way row 0 itself can be skipped.
+            if (prevComputedRow !== null && prevComputedRow > 0) {
+                for (let r = 0; r < prevComputedRow; r++) {
+                    if (r >= amountY) continue;
+
+                    const key = `${r},${j}`;
+                    const range = rowRanges.get(key);
+                    if (!range) {
+                        rowRanges.set(key, { row: r, sourceBoundary: j, min: posY, max: posY, minS: s, maxS: s, earlyExit: true, lastTested: prevComputedRow });
+                    } else {
+                        if (posY < range.min) { range.min = posY; range.minS = s; }
+                        if (posY > range.max) { range.max = posY; range.maxS = s; }
+                    }
+                }
+            }
         }
     }
 
@@ -429,14 +455,17 @@ function logSubdivisionYSkips(colCtx) {
     if (clusters.length > 0) {
         const rowCount = new Set(clusters.map(c => c.row)).size;
         console.log(`[Subdivision Grid] ${rowCount} row(s) of this map's Y subdivision can be silently skipped by floor raycasts due to float32 rounding:`);
-        for (const { row, sourceBoundary, min, max, minS, maxS, jumpFrom, jumpTo } of clusters) {
+        for (const { row, sourceBoundary, min, max, minS, maxS, jumpFrom, jumpTo, earlyExit, lastTested } of clusters) {
             const rangeDesc = min === max ? `pos.y = ${min}` : `pos.y in [${min}, ${max}]`;
             // If either edge came from an `s` value at the very edge of the
             // scanned window, the true danger zone likely extends further
             // and ULP_RADIUS needs to be widened again.
             const clipped = minS === -ULP_RADIUS || maxS === ULP_RADIUS;
             const clipNote = clipped ? `  [WARNING: hit edge of +/-${ULP_RADIUS} ULP scan window - range may be wider, increase ULP_RADIUS]` : '';
-            console.log(`  ${rangeDesc}  skips subdivision row ${row} (computed row jumps ${jumpFrom} -> ${jumpTo})  (via raycast walking down from row ${sourceBoundary})${clipNote}`);
+            const mechanism = earlyExit
+                ? `raycast loop exits one iteration early after testing row ${lastTested}`
+                : `computed row jumps ${jumpFrom} -> ${jumpTo}`;
+            console.log(`  ${rangeDesc}  skips subdivision row ${row} (${mechanism})  (via raycast walking down from row ${sourceBoundary})${clipNote}`);
         }
     } else {
         console.log(`[Subdivision Grid] No subdivision-skipping Y values detected for this map's grid.`);
@@ -1015,6 +1044,43 @@ export function parseZeldaModelBinary(scene, buffer, fresh, mapName){
         loadedModels.push({ name: "Waterboxes", mesh: waterMesh, edges: waterEdges });
         addModelCheckbox(scene, "Waterboxes", waterMesh, waterEdges, false, false, "#00FFFF");
     });
+
+    // "Sector Sorting Error Polygons": polygons affected by the
+    // CollisionPoly_GetMinY quantised-normal fast-path bug (see the
+    // detailed comment above scanAndBuildSectorSortingErrorMarkers in
+    // poly_markers.js) - a poly whose quantised y-normal rounds to exactly
+    // +/-32767 but whose vertices aren't actually all the same Y. Off by
+    // default, same as the other dev/debug overlays - only meaningful for
+    // the real N64/3DS BgCheck collision system, so restricted to
+    // OOT/MM/OOT3D/MM3D.
+    if (game == "OOT" || game == "MM" || game == "OOT3D" || game == "MM3D") {
+        const sectorSortingErrorGroup = scanAndBuildSectorSortingErrorMarkers();
+        if (sectorSortingErrorGroup) {
+            scene.add(sectorSortingErrorGroup);
+            loadedModels.push({ name: "Sector Sorting Error", mesh: sectorSortingErrorGroup, edges: sectorSortingErrorGroup.children[1] });
+            addModelCheckbox(scene, "Sector Sorting Error", sectorSortingErrorGroup, null, false, false, "#ff00ff");
+        }
+    }
+
+    // "Subdivision Skip": standable/floor polygons that can genuinely be
+    // missed entirely by a floor raycast because every Y subdivision row
+    // they're registered in is vulnerable to the
+    // BgCheck_GetStaticLookupIndicesFromPos f32-rounding skip bug (see
+    // computeVulnerableYRows in subdivisions.js, and the derivation above
+    // logSubdivisionYSkips further up this file). A completely different
+    // mechanism from Sector Sorting Error Polygons above - this is about
+    // which Y subdivision CELL a checkPos.y resolves to, not about
+    // CollisionPoly_GetMinY's sort key. Off by default, only meaningful for
+    // the real N64/3DS BgCheck collision system, so restricted to
+    // OOT/MM/OOT3D/MM3D.
+    if (game == "OOT" || game == "MM" || game == "OOT3D" || game == "MM3D") {
+        const subdivisionSkipGroup = scanAndBuildSubdivisionSkipMarkers();
+        if (subdivisionSkipGroup) {
+            scene.add(subdivisionSkipGroup);
+            loadedModels.push({ name: "Subdivision Skip", mesh: subdivisionSkipGroup, edges: subdivisionSkipGroup.children[1] });
+            addModelCheckbox(scene, "Subdivision Skip", subdivisionSkipGroup, null, false, false, "#ff6600");
+        }
+    }
 
 }
 
