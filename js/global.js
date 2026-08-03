@@ -11,4 +11,5 @@ let EPS = 0.008; // used for zelda collision
 let samplePointsEnabled = false;
 
 const f32 = Math.fround;
+const COLPOLY_NORMAL_FRAC = f32(1.0 / 32767.0);
 function isZero(f) { return Math.abs(f) < EPS; }
