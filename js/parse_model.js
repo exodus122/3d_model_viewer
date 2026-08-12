@@ -30,7 +30,8 @@ export let currentColCtx = null;
 ////////////////////////////////////////
 
 // Detect binary vs text simple heuristic
-export function parseModel(scene, buffer){
+export function parseModel(scene, buffer, filename){
+    console.log("parseModel called with filename: " + filename);
     if(typeof buffer === 'string') { parseInvisibleSeams1D(scene, buffer); return; }
     const uint8 = new Uint8Array(buffer);
     let isText = true;
@@ -44,8 +45,14 @@ export function parseModel(scene, buffer){
     else {
         if(game == "BK" || game == "BT")
                 parseBKModelBinary(scene, buffer, true);
-        else if (game == "OOT" || game == "MM" || game == "OOT3D" || game == "MM3D")
-                parseZeldaModelBinary(scene, buffer, true, "");
+        else if (game == "OOT" || game == "MM" || game == "OOT3D" || game == "MM3D") {
+                if (filename.includes("object_") || filename.includes("gameplay_")) {
+                    parseZeldaObjectBinary(scene, buffer, true, filename, 0x4E98);
+                }
+                else {
+                    parseZeldaSceneBinary(scene, buffer, true, filename);
+                }
+        }
         else
                 parseModelBinary(scene, buffer);
     }
@@ -473,209 +480,56 @@ function logSubdivisionYSkips(colCtx) {
     }
 }
 
-export function parseZeldaModelBinary(scene, buffer, fresh, mapName){
-
-    const dv = new DataView(buffer);
-    if (dv.byteLength < 4) {
-        alert('binary too small');
-        return;
-    }
-    
-    let endianness = false;
-    let current_addr = 0x0;
-    let address_offset = -0x02000000;
-    let poly_length = 0x10;
-    if (game == "OOT3D" || game == "MM3D") {
-        endianness = true;
-        current_addr = 0x10;
-        address_offset = 0x10;
-        poly_length = 0x14;
+function parseCollisionHeader(dv, addr, address_offset, colHeader, endianness) {
+    if (game == "OOT" || game == "MM" || game == "OOT3D") {
+        colHeader.minBounds.x = dv.getInt16(addr+address_offset+0x00, endianness);
+        colHeader.minBounds.y = dv.getInt16(addr+address_offset+0x02, endianness);
+        colHeader.minBounds.z = dv.getInt16(addr+address_offset+0x04, endianness);
+        colHeader.maxBounds.x = dv.getInt16(addr+address_offset+0x06, endianness);
+        colHeader.maxBounds.y = dv.getInt16(addr+address_offset+0x08, endianness);
+        colHeader.maxBounds.z = dv.getInt16(addr+address_offset+0x0A, endianness);
+        colHeader.numVtxs = dv.getUint16(addr+address_offset+0x0C, endianness);
         
-        if (mapName == "Termina Field (Credits Cutscene 2)")
-            current_addr = 0x60;
+        if (game == "OOT" || game == "MM") {
+            colHeader.vtxListStart = dv.getUint32(addr+address_offset+0x10, endianness);
+            colHeader.numPolygons = dv.getUint16(addr+address_offset+0x14, endianness);
+            colHeader.polygonListStart = dv.getUint32(addr+address_offset+0x18, endianness);
+            colHeader.surfaceTypeListStart = dv.getUint32(addr+address_offset+0x1C, endianness);
+            colHeader.numWaterboxes = dv.getUint16(addr+address_offset+0x24, endianness);
+            colHeader.waterboxListStart = dv.getUint32(addr+address_offset+0x28, endianness);
+            colHeader.numSurfaceTypes = 200; // there is no numSurfaceTypes in these games, so just get 200 I guess...
+        }
+        else if (game == "OOT3D") {
+            colHeader.numPolygons = dv.getUint16(addr+address_offset+0x0E, endianness);
+            colHeader.numSurfaceTypes = dv.getUint16(addr+address_offset+0x10, endianness);
+            colHeader.numWaterboxes = dv.getUint16(addr+address_offset+0x14, endianness);
+            colHeader.vtxListStart = dv.getUint32(addr+address_offset+0x18, endianness);
+            colHeader.polygonListStart = dv.getUint32(addr+address_offset+0x1C, endianness);
+            colHeader.surfaceTypeListStart = dv.getUint32(addr+address_offset+0x20, endianness);
+            colHeader.waterboxListStart = dv.getUint32(addr+address_offset+0x28, endianness);
+        }
     }
-    
-    // Initialize scene data
-    let sceneData = {
-        rooms: []
-    };
-    
-    // Initialize colHeader
-    let colHeader = {
-        numVtxs: 0, 
-        vtxListStart: 0, 
-        numPolygons: 0, 
-        polygonListStart: 0,
-        minBounds: { x: null, y: null, z: null },
-        maxBounds: { x: null, y: null, z: null },
-        camType: null
-    };
-    
-    let allTriangleData = [];
-    
-    let cmd1 = dv.getUint8(current_addr);
-    let cmd2 = dv.getUint32(current_addr+0x4, endianness);
-    
-    while (cmd1 != 0x14) {
-        /*if (cmd1 == 0x04) { // rooms
-            sceneData.numRooms = dv.getUint8(current_addr+0x1);
-            sceneData.roomListStart = dv.getUint32(current_addr+0x4, endianness);
-            
-            let current_addr2 = sceneData.roomListStart & 0x00FFFFFF;
-            
-            for(let i = 0; i < sceneData.numRooms; i++) {
-                let roomSegmentStart = dv.getUint32(current_addr2 + i*0x8, endianness);
-                let roomSegmentEnd = dv.getUint32(current_addr2 + (i+1)*0x8, endianness);
-                
-                let current_addr3 = roomSegmentStart & 0x00FFFFFF;
-                
-                let roomCmd1 = dv.getUint8(current_addr3);
-                let roomParam1 = dv.getUint8(current_addr3+0x1);
-                let roomParam2 = dv.getUint32(current_addr3+0x4, endianness) & 0x00FFFFFF;
-                
-                while (roomCmd1 != 0x14) {
-                    if (roomCmd1 == 0x01) { // actorList
-                        sceneData.rooms[i] = {
-                            numActors: dv.getUint8(current_addr3+0x1),
-                            actorListStart: dv.getUint32(current_addr3+0x4, endianness),
-                            actorList: []
-                        }
-                        
-                        // Get ActorList
-                        let offset = sceneData.actorListStart & 0x00FFFFFF;
-                        for(let i = 0; i < sceneData.numActors; i++){
-                            if (offset + i*8 < dv.byteLength - 8) {
-                                let actorEntry = {
-                                    id: dv.getInt16(offset + i*16 + 0x0, endianness),
-                                    pos: [
-                                        dv.getInt16(offset + i*16 + 0x2, endianness),
-                                        dv.getInt16(offset + i*16 + 0x4, endianness),
-                                        dv.getInt16(offset + i*16 + 0x6, endianness)
-                                    ],
-                                    rot: [
-                                        dv.getInt16(offset + i*16 + 0x8, endianness),
-                                        dv.getInt16(offset + i*16 + 0xA, endianness),
-                                        dv.getInt16(offset + i*16 + 0xC, endianness)
-                                    ],
-                                    params: dv.getInt16(offset + i*16 + 0xE, endianness)
-                                }
+    else if (game == "MM3D") {
+        colHeader.minBounds.x = dv.getInt16(addr+address_offset+0x02, endianness);
+        colHeader.minBounds.y = dv.getInt16(addr+address_offset+0x04, endianness);
+        colHeader.minBounds.z = dv.getInt16(addr+address_offset+0x06, endianness);
+        colHeader.maxBounds.x = dv.getInt16(addr+address_offset+0x08, endianness);
+        colHeader.maxBounds.y = dv.getInt16(addr+address_offset+0x0A, endianness);
+        colHeader.maxBounds.z = dv.getInt16(addr+address_offset+0x0C, endianness);
+        colHeader.numVtxs = dv.getUint16(addr+address_offset+0x0E, endianness);
+        colHeader.numPolygons = dv.getUint16(addr+address_offset+0x10, endianness);
+        colHeader.numSurfaceTypes = dv.getUint16(addr+address_offset+0x12, endianness);
+        colHeader.numWaterboxes = dv.getUint16(addr+address_offset+0x16, endianness);
+        colHeader.vtxListStart = dv.getUint32(addr+address_offset+0x18, endianness);
+        colHeader.polygonListStart = dv.getUint32(addr+address_offset+0x1C, endianness);
+        colHeader.surfaceTypeListStart = dv.getUint32(addr+address_offset+0x20, endianness);
+        colHeader.waterboxListStart = dv.getUint32(addr+address_offset+0x28, endianness);
+    }
+}
 
-                                sceneData.rooms[i].actorList.push(actorEntry);
-                            }
-                            else {
-                                break;
-                            }
-                        }
-                    }
-                    
-                    current_addr2 = current_addr2 + 0x8;
-                    roomCmd1 = dv.getUint8(current_addr2);
-                    roomParam1 = dv.getUint8(current_addr2+0x1);
-                    roomParam2 = dv.getUint32(current_addr2+0x4, endianness);
-                }
-            }
-        }
-        else*/ if (cmd1 == 0x19 && (game == "OOT" || game == "OOT3D")) { // misc_settings
-            colHeader.camType = dv.getUint8(current_addr+0x1);
-        }
-        else if (cmd1 == 0x03) { // collision_header
-            //console.log("current_addr: "+current_addr+", "+cmd1+", "+cmd2);
-            if (game == "OOT" || game == "MM" || game == "OOT3D") {
-                colHeader.minBounds.x = dv.getInt16(cmd2+address_offset+0x00, endianness);
-                colHeader.minBounds.y = dv.getInt16(cmd2+address_offset+0x02, endianness);
-                colHeader.minBounds.z = dv.getInt16(cmd2+address_offset+0x04, endianness);
-                colHeader.maxBounds.x = dv.getInt16(cmd2+address_offset+0x06, endianness);
-                colHeader.maxBounds.y = dv.getInt16(cmd2+address_offset+0x08, endianness);
-                colHeader.maxBounds.z = dv.getInt16(cmd2+address_offset+0x0A, endianness);
-                colHeader.numVtxs = dv.getUint16(cmd2+address_offset+0x0C, endianness);
-                
-                if (game == "OOT" || game == "MM") {
-                    colHeader.vtxListStart = dv.getUint32(cmd2+address_offset+0x10, endianness);
-                    colHeader.numPolygons = dv.getUint16(cmd2+address_offset+0x14, endianness);
-                    colHeader.polygonListStart = dv.getUint32(cmd2+address_offset+0x18, endianness);
-                    colHeader.surfaceTypeListStart = dv.getUint32(cmd2+address_offset+0x1C, endianness);
-                    colHeader.numWaterboxes = dv.getUint16(cmd2+address_offset+0x24, endianness);
-                    colHeader.waterboxListStart = dv.getUint32(cmd2+address_offset+0x28, endianness);
-                    colHeader.numSurfaceTypes = 200; // there is no numSurfaceTypes in these games, so just get 200 I guess...
-                }
-                else if (game == "OOT3D") {
-                    colHeader.numPolygons = dv.getUint16(cmd2+address_offset+0x0E, endianness);
-                    colHeader.numSurfaceTypes = dv.getUint16(cmd2+address_offset+0x10, endianness);
-                    colHeader.numWaterboxes = dv.getUint16(cmd2+address_offset+0x14, endianness);
-                    colHeader.vtxListStart = dv.getUint32(cmd2+address_offset+0x18, endianness);
-                    colHeader.polygonListStart = dv.getUint32(cmd2+address_offset+0x1C, endianness);
-                    colHeader.surfaceTypeListStart = dv.getUint32(cmd2+address_offset+0x20, endianness);
-                    colHeader.waterboxListStart = dv.getUint32(cmd2+address_offset+0x28, endianness);
-                }
-            }
-            else if (game == "MM3D") {
-                colHeader.minBounds.x = dv.getInt16(cmd2+address_offset+0x02, endianness);
-                colHeader.minBounds.y = dv.getInt16(cmd2+address_offset+0x04, endianness);
-                colHeader.minBounds.z = dv.getInt16(cmd2+address_offset+0x06, endianness);
-                colHeader.maxBounds.x = dv.getInt16(cmd2+address_offset+0x08, endianness);
-                colHeader.maxBounds.y = dv.getInt16(cmd2+address_offset+0x0A, endianness);
-                colHeader.maxBounds.z = dv.getInt16(cmd2+address_offset+0x0C, endianness);
-                colHeader.numVtxs = dv.getUint16(cmd2+address_offset+0x0E, endianness);
-                colHeader.numPolygons = dv.getUint16(cmd2+address_offset+0x10, endianness);
-                colHeader.numSurfaceTypes = dv.getUint16(cmd2+address_offset+0x12, endianness);
-                colHeader.numWaterboxes = dv.getUint16(cmd2+address_offset+0x16, endianness);
-                colHeader.vtxListStart = dv.getUint32(cmd2+address_offset+0x18, endianness);
-                colHeader.polygonListStart = dv.getUint32(cmd2+address_offset+0x1C, endianness);
-                colHeader.surfaceTypeListStart = dv.getUint32(cmd2+address_offset+0x20, endianness);
-                colHeader.waterboxListStart = dv.getUint32(cmd2+address_offset+0x28, endianness);
-            }
-            break;
-        }
-        
-        current_addr = current_addr + 0x8;
-        cmd1 = dv.getUint8(current_addr);
-        cmd2 = dv.getUint32(current_addr+0x4, endianness);
-    }
-    
-    
-    let colCtx = initColCtx(game, mapName, colHeader);
-    
-    console.log(game+" - "+mapName+" - numVtxs: "+colHeader.numVtxs+", numPolygons: "+colHeader.numPolygons);
-    //console.log("vtxListStart: "+colHeader.vtxListStart);
-    //console.log("polygonListStart: "+colHeader.polygonListStart);
-    
-    // Get SurfaceTypes
-    let offset = colHeader.surfaceTypeListStart + address_offset;
-    for(let i = 0; i < colHeader.numSurfaceTypes; i++){
-        if (offset + i*8 < dv.byteLength - 8) {
-            const word1 = dv.getUint32(offset + i*8 + 0x0, endianness);
-            const word2 = dv.getUint32(offset + i*8 + 0x4, endianness);
-            
-            let surfaceObject = {
-                horseBlocked:      (word1 >>> 31) & 0x1,
-                isSoft:            (word1 >>> 30) & 0x1,
-                floorProperty:     (word1 >>> 26) & 0xF,
-                wallType:          (word1 >>> 21) & 0x1F,
-                unk18:             (word1 >>> 18) & 0x7,
-                floorType:         (word1 >>> 13) & 0x1F,
-                loadingZone:       (word1 >>> 8)  & 0x1F, // surfaceExitIndex
-                bgCamIndex:        (word1 >>> 0)  & 0xFF,
-                
-                wallDamage:        (word2 >>> 27) & 0x1,
-                conveyorDirection: (word2 >>> 21) & 0x3F,
-                conveyorSpeed:     (word2 >>> 18) & 0x7,
-                canHookshot:       (word2 >>> 17) & 0x1,
-                echo:              (word2 >>> 11) & 0x3F,
-                lightSetting:      (word2 >>> 6)  & 0x1F,
-                floorEffect:       (word2 >>> 4)  & 0x3,
-                material:          (word2 >>> 0)  & 0xF
-            };
-            
-            colCtx.surfaceTypes.push(surfaceObject);
-        }
-        else {
-            break;
-        }
-    }
-    
+function parseVerticesAndPolygons(dv, colHeader, address_offset, endianness, poly_length, verts, tris, intangibleTris, intangibleTriangleData, allTriangleData) {
     // Get Vertices
-    const verts = [];
-    offset = colHeader.vtxListStart + address_offset;
+    let offset = colHeader.vtxListStart + address_offset;
     for(let i = 0; i < colHeader.numVtxs; i++){
         const x = dv.getInt16(offset + i*6 + 0x0, endianness);
         const y = dv.getInt16(offset + i*6 + 0x2, endianness);
@@ -686,9 +540,6 @@ export function parseZeldaModelBinary(scene, buffer, fresh, mapName){
     //console.log(verts);
     
     // Get Triangles
-    const tris = [];
-    const intangibleTris = [];
-    const intangibleTriangleData = [];
     offset = colHeader.polygonListStart + address_offset;
     for(let i = 0; i < colHeader.numPolygons; i++){
         if(offset+poly_length > dv.byteLength) break;
@@ -768,6 +619,169 @@ export function parseZeldaModelBinary(scene, buffer, fresh, mapName){
         });
     }
     //console.log(tris)
+}
+
+export function parseZeldaSceneBinary(scene, buffer, fresh, mapName){
+
+    const dv = new DataView(buffer);
+    if (dv.byteLength < 4) {
+        alert('binary too small');
+        return;
+    }
+    
+    let endianness = false;
+    let current_addr = 0x0;
+    let address_offset = -0x02000000;
+    let poly_length = 0x10;
+    if (game == "OOT3D" || game == "MM3D") {
+        endianness = true;
+        current_addr = 0x10;
+        address_offset = 0x10;
+        poly_length = 0x14;
+        
+        if (mapName == "Termina Field (Credits Cutscene 2)")
+            current_addr = 0x60;
+    }
+    
+    // Initialize scene data
+    let sceneData = {
+        rooms: []
+    };
+    
+    // Initialize colHeader
+    let colHeader = {
+        numVtxs: 0, 
+        vtxListStart: 0, 
+        numPolygons: 0, 
+        polygonListStart: 0,
+        minBounds: { x: null, y: null, z: null },
+        maxBounds: { x: null, y: null, z: null },
+        camType: null
+    };
+    
+    let cmd1 = dv.getUint8(current_addr);
+    let cmd2 = dv.getUint32(current_addr+0x4, endianness);
+    
+    while (cmd1 != 0x14) {
+        /*if (cmd1 == 0x04) { // rooms
+            sceneData.numRooms = dv.getUint8(current_addr+0x1);
+            sceneData.roomListStart = dv.getUint32(current_addr+0x4, endianness);
+            
+            let current_addr2 = sceneData.roomListStart & 0x00FFFFFF;
+            
+            for(let i = 0; i < sceneData.numRooms; i++) {
+                let roomSegmentStart = dv.getUint32(current_addr2 + i*0x8, endianness);
+                let roomSegmentEnd = dv.getUint32(current_addr2 + (i+1)*0x8, endianness);
+                
+                let current_addr3 = roomSegmentStart & 0x00FFFFFF;
+                
+                let roomCmd1 = dv.getUint8(current_addr3);
+                let roomParam1 = dv.getUint8(current_addr3+0x1);
+                let roomParam2 = dv.getUint32(current_addr3+0x4, endianness) & 0x00FFFFFF;
+                
+                while (roomCmd1 != 0x14) {
+                    if (roomCmd1 == 0x01) { // actorList
+                        sceneData.rooms[i] = {
+                            numActors: dv.getUint8(current_addr3+0x1),
+                            actorListStart: dv.getUint32(current_addr3+0x4, endianness),
+                            actorList: []
+                        }
+                        
+                        // Get ActorList
+                        let offset = sceneData.actorListStart & 0x00FFFFFF;
+                        for(let i = 0; i < sceneData.numActors; i++){
+                            if (offset + i*8 < dv.byteLength - 8) {
+                                let actorEntry = {
+                                    id: dv.getInt16(offset + i*16 + 0x0, endianness),
+                                    pos: [
+                                        dv.getInt16(offset + i*16 + 0x2, endianness),
+                                        dv.getInt16(offset + i*16 + 0x4, endianness),
+                                        dv.getInt16(offset + i*16 + 0x6, endianness)
+                                    ],
+                                    rot: [
+                                        dv.getInt16(offset + i*16 + 0x8, endianness),
+                                        dv.getInt16(offset + i*16 + 0xA, endianness),
+                                        dv.getInt16(offset + i*16 + 0xC, endianness)
+                                    ],
+                                    params: dv.getInt16(offset + i*16 + 0xE, endianness)
+                                }
+
+                                sceneData.rooms[i].actorList.push(actorEntry);
+                            }
+                            else {
+                                break;
+                            }
+                        }
+                    }
+                    
+                    current_addr2 = current_addr2 + 0x8;
+                    roomCmd1 = dv.getUint8(current_addr2);
+                    roomParam1 = dv.getUint8(current_addr2+0x1);
+                    roomParam2 = dv.getUint32(current_addr2+0x4, endianness);
+                }
+            }
+        }
+        else*/ if (cmd1 == 0x19 && (game == "OOT" || game == "OOT3D")) { // misc_settings
+            colHeader.camType = dv.getUint8(current_addr+0x1);
+        }
+        else if (cmd1 == 0x03) { // collision_header
+            //console.log("current_addr: "+current_addr+", "+cmd1+", "+cmd2);
+            parseCollisionHeader(dv, cmd2, address_offset, colHeader, endianness);
+            break;
+        }
+        
+        current_addr = current_addr + 0x8;
+        cmd1 = dv.getUint8(current_addr);
+        cmd2 = dv.getUint32(current_addr+0x4, endianness);
+    }
+    
+    
+    let colCtx = initColCtx(game, mapName, colHeader);
+    
+    console.log(game+" - "+mapName+" - numVtxs: "+colHeader.numVtxs+", numPolygons: "+colHeader.numPolygons);
+    //console.log("vtxListStart: "+colHeader.vtxListStart);
+    //console.log("polygonListStart: "+colHeader.polygonListStart);
+    
+    // Get SurfaceTypes
+    let offset = colHeader.surfaceTypeListStart + address_offset;
+    for(let i = 0; i < colHeader.numSurfaceTypes; i++){
+        if (offset + i*8 < dv.byteLength - 8) {
+            const word1 = dv.getUint32(offset + i*8 + 0x0, endianness);
+            const word2 = dv.getUint32(offset + i*8 + 0x4, endianness);
+            
+            let surfaceObject = {
+                horseBlocked:      (word1 >>> 31) & 0x1,
+                isSoft:            (word1 >>> 30) & 0x1,
+                floorProperty:     (word1 >>> 26) & 0xF,
+                wallType:          (word1 >>> 21) & 0x1F,
+                unk18:             (word1 >>> 18) & 0x7,
+                floorType:         (word1 >>> 13) & 0x1F,
+                loadingZone:       (word1 >>> 8)  & 0x1F, // surfaceExitIndex
+                bgCamIndex:        (word1 >>> 0)  & 0xFF,
+                
+                wallDamage:        (word2 >>> 27) & 0x1,
+                conveyorDirection: (word2 >>> 21) & 0x3F,
+                conveyorSpeed:     (word2 >>> 18) & 0x7,
+                canHookshot:       (word2 >>> 17) & 0x1,
+                echo:              (word2 >>> 11) & 0x3F,
+                lightSetting:      (word2 >>> 6)  & 0x1F,
+                floorEffect:       (word2 >>> 4)  & 0x3,
+                material:          (word2 >>> 0)  & 0xF
+            };
+            
+            colCtx.surfaceTypes.push(surfaceObject);
+        }
+        else {
+            break;
+        }
+    }
+    
+    let verts = [];
+    let tris = [];
+    let allTriangleData = [];
+    let intangibleTris = [];
+    let intangibleTriangleData = [];
+    parseVerticesAndPolygons(dv, colHeader, address_offset, endianness, poly_length, verts, tris, intangibleTris, intangibleTriangleData, allTriangleData);
     
     initializeSubdivisions(game, colCtx, allTriangleData);
     currentColCtx = colCtx;
@@ -1083,6 +1097,132 @@ export function parseZeldaModelBinary(scene, buffer, fresh, mapName){
         }
     }
 
+}
+
+export function parseZeldaObjectBinary(scene, buffer, fresh, objectName, colHeaderAddr){
+
+    const dv = new DataView(buffer);
+    if (dv.byteLength < 4) {
+        alert('binary too small');
+        return;
+    }
+    
+    let endianness = false;
+    let current_addr = 0x0;
+    let address_offset = 0x0;
+    let poly_length = 0x10;
+    if (game == "OOT3D" || game == "MM3D") {
+        endianness = true;
+        current_addr = 0x10;
+        address_offset = 0x10;
+        poly_length = 0x14;
+        
+        if (mapName == "Termina Field (Credits Cutscene 2)")
+            current_addr = 0x60;
+    }
+
+    // Initialize colHeader
+    let colHeader = {
+        numVtxs: 0, 
+        vtxListStart: 0, 
+        numPolygons: 0, 
+        polygonListStart: 0,
+        minBounds: { x: null, y: null, z: null },
+        maxBounds: { x: null, y: null, z: null },
+        camType: null
+    };
+    colHeader.surfaceTypes = [];
+
+    parseCollisionHeader(dv, colHeaderAddr, address_offset, colHeader, endianness);
+    address_offset = -0x5000000; // for object collision headers, the address offset is different than for scene collision headers
+    console.log(game+" - "+objectName+" - numVtxs: "+colHeader.numVtxs+", numPolygons: "+colHeader.numPolygons);
+
+    // Get SurfaceTypes
+    let offset = colHeader.surfaceTypeListStart + address_offset;
+    for(let i = 0; i < colHeader.numSurfaceTypes; i++){
+        if (offset + i*8 < dv.byteLength - 8) {
+            const word1 = dv.getUint32(offset + i*8 + 0x0, endianness);
+            const word2 = dv.getUint32(offset + i*8 + 0x4, endianness);
+            
+            let surfaceObject = {
+                horseBlocked:      (word1 >>> 31) & 0x1,
+                isSoft:            (word1 >>> 30) & 0x1,
+                floorProperty:     (word1 >>> 26) & 0xF,
+                wallType:          (word1 >>> 21) & 0x1F,
+                unk18:             (word1 >>> 18) & 0x7,
+                floorType:         (word1 >>> 13) & 0x1F,
+                loadingZone:       (word1 >>> 8)  & 0x1F, // surfaceExitIndex
+                bgCamIndex:        (word1 >>> 0)  & 0xFF,
+                
+                wallDamage:        (word2 >>> 27) & 0x1,
+                conveyorDirection: (word2 >>> 21) & 0x3F,
+                conveyorSpeed:     (word2 >>> 18) & 0x7,
+                canHookshot:       (word2 >>> 17) & 0x1,
+                echo:              (word2 >>> 11) & 0x3F,
+                lightSetting:      (word2 >>> 6)  & 0x1F,
+                floorEffect:       (word2 >>> 4)  & 0x3,
+                material:          (word2 >>> 0)  & 0xF
+            };
+            
+            colHeader.surfaceTypes.push(surfaceObject);
+        }
+        else {
+            break;
+        }
+    }
+
+    //console.log("colHeader.surfaceTypes:", colHeader.surfaceTypes);
+
+    let verts = [];
+    let tris = [];
+    let allTriangleData = [];
+    let intangibleTris = [];
+    let intangibleTriangleData = [];
+    parseVerticesAndPolygons(dv, colHeader, address_offset, endianness, poly_length, verts, tris, intangibleTris, intangibleTriangleData, allTriangleData);
+
+    const allIdx = [].concat(...tris);
+    const maxIdx = Math.max(...allIdx);
+    const minIdx = Math.min(...allIdx);
+    if(minIdx >= 1 && maxIdx <= verts.length) {
+        for(let i = 0; i < tris.length; i++) tris[i]=tris[i].map(x=>x-1);
+    }
+    
+    if (intangibleTris.length > 0) {
+        const allIntangibleIdx = [].concat(...intangibleTris);
+        const maxIntangibleIdx = Math.max(...allIntangibleIdx);
+        const minIntangibleIdx = Math.min(...allIntangibleIdx);
+        if(minIntangibleIdx >= 1 && maxIntangibleIdx <= verts.length) {
+            for(let i = 0; i < intangibleTris.length; i++) intangibleTris[i]=intangibleTris[i].map(x=>x-1);
+        }
+    }
+    
+    for (let i = 0; i < tris.length; i++) {
+        const [a,b,c] = tris[i];
+        if (a < 0 || b < 0 || c < 0 ||
+            a >= verts.length || b >= verts.length || c >= verts.length) {
+            console.warn("Invalid triangle index", i, a,b,c, "verts:", verts.length);
+        }
+    }
+    
+    let modelName = "Main Model";
+    if(!fresh)
+        modelName = `Model ${loadedModels.length+1}`;
+    
+    if (display_fwc.checked)
+        buildGeometry_fwc(scene, verts, tris, modelName, fresh);
+    else
+        buildGeometry(scene, verts, tris, allTriangleData, null, modelName, fresh);
+
+    // Intangible collision (xpFlags & 2) as its own separate model - these
+    // polygons have no real collision in-game, so they're deliberately
+    // excluded from allTriangleData/colCtx above (not registered in the
+    // subdivision system, not considered for sample points or standable
+    // surfaces), but are still worth being able to see. Always additive
+    // (fresh=false) since the main model above already handled clearing
+    // the scene for a fresh load.
+    if (intangibleTris.length > 0) {
+        buildGeometry(scene, verts, intangibleTris, intangibleTriangleData, null, "Intangible Collision", false);
+    }
 }
 
 export function parseInvisibleSeams1D(scene, text) {

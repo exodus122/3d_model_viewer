@@ -11,7 +11,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
 import { performSelection, clearSelection } from './selection.js';
-import { parseModel, parseModelText, parseModelBinary, parseBKModelBinary, parseZeldaModelBinary, parseInvisibleSeams1D } from './parse_model.js';
+import { parseModel, parseModelText, parseModelBinary, parseBKModelBinary, parseZeldaSceneBinary, parseInvisibleSeams1D } from './parse_model.js';
 import { addModelCheckbox, buildTest } from './render.js';
 
 ////////////////////////////////////////
@@ -260,7 +260,7 @@ loadMap.addEventListener('click', async (e) => {
             const res1 = await fetch('./models/' + game + '/' + mapFilename);
             const buffer1 = await res1.arrayBuffer();
             console.log(mapFilename+": Binary file length:", buffer1.byteLength);
-            parseZeldaModelBinary(scene, buffer1, true, mapName);
+            parseZeldaSceneBinary(scene, buffer1, true, mapName);
             
             /* if (game == "OOT" || game == "MM" || game == "OOT3D" || game == "MM3D") {
                 let mapFilename2 = getMapProperty(game, mapName, "seams");
@@ -296,7 +296,7 @@ fileInput.addEventListener('change', async (ev)=>{
     const f = ev.target.files[0];
     if(!f) return;
     const buf = await f.arrayBuffer();
-    parseModel(scene, buf);
+    parseModel(scene, buf, f.name);
 });
 
 ////////////////////////////////////////
