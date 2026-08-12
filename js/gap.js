@@ -4,7 +4,7 @@ import { updateSamplePointsUIVisibility, drawSampledTriangles } from './sample_p
 import { addModelCheckbox, removeAllModelCheckboxes } from './render.js';
 
 /*
-This file contains untested/incomplete gap finders between polygons.
+This file contains gap finders between polygons. Not currently working properly.
 
 buildGeometry2 - this ony checks every edge of each polygon, then highlights all that do not have a "partner edge" in another triangle
 buildGeometry3 - same as above but don't render line on polys with normal < 0

@@ -1,9 +1,6 @@
 ////////////////////////////////////////
 // Known Issues:
-// - subdivisions are not considered for seams, so points or standable surfaces may be produced which are not actually standable
-// - poly exclusion flags (xpflags) were not accounted for when generating the green line seams, 
-// so some are fake in lost woods and kokiri
-// - Some OoT3D Death mountain crater polys are showing as red standable surfances instead of blue
+// - none
 ////////////////////////////////////////
 
 ////////////////////////////////////////

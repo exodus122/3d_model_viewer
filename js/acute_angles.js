@@ -2,6 +2,10 @@
 // System: Concave Acute Angle Seams
 ////////////////////////////////////////
 
+/*
+This file contains gap finders between polygons. Not currently working properly.
+*/
+
 let acuteAngleEnabled = false;
 let acuteAngleMarkers = [];
 let acuteAngleFaceMarkers = [];
