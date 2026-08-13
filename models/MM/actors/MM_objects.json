@@ -1,0 +1,1931 @@
+[
+	{
+		"name": ""
+	},
+	{
+		"name": "gameplay_keep"
+	},
+	{
+		"name": "gameplay_field_keep"
+	},
+	{
+		"name": "gameplay_dangeon_keep"
+	},
+	{
+		"name": "object_nb"
+	},
+	{
+		"name": "object_okuta"
+	},
+	{
+		"name": "object_crow"
+	},
+	{
+		"name": "object_ah"
+	},
+	{
+		"name": "object_dy_obj"
+	},
+	{
+		"name": "object_wallmaster"
+	},
+	{
+		"name": "object_dodongo"
+	},
+	{
+		"name": "object_firefly"
+	},
+	{
+		"name": "object_box"
+	},
+	{
+		"name": "object_al"
+	},
+	{
+		"name": "object_bubble"
+	},
+	{
+		"name": "object_niw"
+	},
+	{
+		"name": "object_link_boy"
+	},
+	{
+		"name": "object_link_child"
+	},
+	{
+		"name": "object_tite"
+	},
+	{
+		"name": "object_tab"
+	},
+	{
+		"name": "object_ph"
+	},
+	{
+		"name": "object_and"
+	},
+	{
+		"name": "object_msmo"
+	},
+	{
+		"name": "object_dinofos"
+	},
+	{
+		"name": "object_drs"
+	},
+	{
+		"name": "object_zl1"
+	},
+	{
+		"name": "object_an4"
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": "object_test3"
+	},
+	{
+		"name": "object_famos"
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": "object_st"
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": "object_thiefbird"
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": "object_bombf"
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": "object_am"
+	},
+	{
+		"name": "object_dekubaba"
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": "object_warp1"
+	},
+	{
+		"name": "object_b_heart"
+	},
+	{
+		"name": "object_dekunuts"
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": "object_bb"
+	},
+	{
+		"name": "object_death"
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": "object_f40_obj"
+	},
+	{
+		"name": "object_po_composer"
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": "object_hata"
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": "object_wood02"
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": "object_trap"
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": "object_vm"
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": "object_efc_star_field"
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": "object_rd"
+	},
+	{
+		"name": "object_yukimura_obj"
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": "object_horse_link_child"
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": "object_syokudai"
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": "object_efc_tw"
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": "object_gi_key"
+	},
+	{
+		"name": "object_mir_ray"
+	},
+	{
+		"name": "object_ctower_rot"
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": "object_bdoor"
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": "object_sb"
+	},
+	{
+		"name": "object_gi_melody"
+	},
+	{
+		"name": "object_gi_heart"
+	},
+	{
+		"name": "object_gi_compass"
+	},
+	{
+		"name": "object_gi_bosskey"
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": "object_gi_nuts"
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": "object_gi_hearts"
+	},
+	{
+		"name": "object_gi_arrowcase"
+	},
+	{
+		"name": "object_gi_bombpouch"
+	},
+	{
+		"name": "object_in"
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": "object_os_anime"
+	},
+	{
+		"name": "object_gi_bottle"
+	},
+	{
+		"name": "object_gi_stick"
+	},
+	{
+		"name": "object_gi_map"
+	},
+	{
+		"name": "object_oF1d_map"
+	},
+	{
+		"name": "object_ru2"
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": "object_gi_magicpot"
+	},
+	{
+		"name": "object_gi_bomb_1"
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": "object_ma2"
+	},
+	{
+		"name": "object_gi_purse"
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": "object_rr"
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": "object_gi_arrow"
+	},
+	{
+		"name": "object_gi_bomb_2"
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": "object_gi_shield_2"
+	},
+	{
+		"name": "object_gi_hookshot"
+	},
+	{
+		"name": "object_gi_ocarina"
+	},
+	{
+		"name": "object_gi_milk"
+	},
+	{
+		"name": "object_ma1"
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": "object_ny"
+	},
+	{
+		"name": "object_fr"
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": "object_gi_bow"
+	},
+	{
+		"name": "object_gi_glasses"
+	},
+	{
+		"name": "object_gi_liquid"
+	},
+	{
+		"name": "object_ani"
+	},
+	{
+		"name": "object_gi_shield_3"
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": "object_gi_bean"
+	},
+	{
+		"name": "object_gi_fish"
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": "object_gi_longsword"
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": "object_zo"
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": "object_umajump"
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": "object_mastergolon"
+	},
+	{
+		"name": "object_masterzoora"
+	},
+	{
+		"name": "object_aob"
+	},
+	{
+		"name": "object_ik"
+	},
+	{
+		"name": "object_ahg"
+	},
+	{
+		"name": "object_cne"
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": "object_an3"
+	},
+	{
+		"name": "object_bji"
+	},
+	{
+		"name": "object_bba"
+	},
+	{
+		"name": "object_an2"
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": "object_an1"
+	},
+	{
+		"name": "object_boj"
+	},
+	{
+		"name": "object_fz"
+	},
+	{
+		"name": "object_bob"
+	},
+	{
+		"name": "object_ge1"
+	},
+	{
+		"name": "object_yabusame_point"
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": "object_d_hsblock"
+	},
+	{
+		"name": "object_d_lift"
+	},
+	{
+		"name": "object_mamenoki"
+	},
+	{
+		"name": "object_goroiwa"
+	},
+	{
+		"name": "object_toryo"
+	},
+	{
+		"name": "object_daiku"
+	},
+	{
+		"name": "object_nwc"
+	},
+	{
+		"name": "object_gm"
+	},
+	{
+		"name": "object_ms"
+	},
+	{
+		"name": "object_hs"
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": "object_lightswitch"
+	},
+	{
+		"name": "object_kusa"
+	},
+	{
+		"name": "object_tsubo"
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": "object_kanban"
+	},
+	{
+		"name": "object_owl"
+	},
+	{
+		"name": "object_mk"
+	},
+	{
+		"name": "object_fu"
+	},
+	{
+		"name": "object_gi_ki_tan_mask"
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": "object_gi_mask18"
+	},
+	{
+		"name": "object_gi_rabit_mask"
+	},
+	{
+		"name": "object_gi_truth_mask"
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": "object_stream"
+	},
+	{
+		"name": "object_mm"
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": "object_js"
+	},
+	{
+		"name": "object_cs"
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": "object_gi_soldout"
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": "object_mag"
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": "object_gi_golonmask"
+	},
+	{
+		"name": "object_gi_zoramask"
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": "object_ka"
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": "object_zg"
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": "object_gi_m_arrow"
+	},
+	{
+		"name": "object_ds2"
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": "object_fish"
+	},
+	{
+		"name": "object_gi_sutaru"
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": "object_ssh"
+	},
+	{
+		"name": "object_bigslime"
+	},
+	{
+		"name": "object_bg"
+	},
+	{
+		"name": "object_bombiwa"
+	},
+	{
+		"name": "object_hintnuts"
+	},
+	{
+		"name": "object_rsn"
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": "object_gla"
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": "object_geldb"
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": "object_dog"
+	},
+	{
+		"name": "object_kibako2"
+	},
+	{
+		"name": "object_dns"
+	},
+	{
+		"name": "object_dnk"
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": "object_gi_insect"
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": "object_gi_ghost"
+	},
+	{
+		"name": "object_gi_soul"
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": "object_gi_rupy"
+	},
+	{
+		"name": "object_mu"
+	},
+	{
+		"name": "object_wf"
+	},
+	{
+		"name": "object_skb"
+	},
+	{
+		"name": "object_gs"
+	},
+	{
+		"name": "object_ps"
+	},
+	{
+		"name": "object_omoya_obj"
+	},
+	{
+		"name": "object_cow"
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": "object_gi_sword_1"
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": "object_zl4"
+	},
+	{
+		"name": "object_link_goron"
+	},
+	{
+		"name": "object_link_zora"
+	},
+	{
+		"name": "object_grasshopper"
+	},
+	{
+		"name": "object_boyo"
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": "object_fwall"
+	},
+	{
+		"name": "object_link_nuts"
+	},
+	{
+		"name": "object_jso"
+	},
+	{
+		"name": "object_knight"
+	},
+	{
+		"name": "object_icicle"
+	},
+	{
+		"name": "object_spdweb"
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": "object_boss01"
+	},
+	{
+		"name": "object_boss02"
+	},
+	{
+		"name": "object_boss03"
+	},
+	{
+		"name": "object_boss04"
+	},
+	{
+		"name": "object_boss05"
+	},
+	{
+		"name": "object_boss07"
+	},
+	{
+		"name": "object_boss07"
+	},
+	{
+		"name": "object_raf"
+	},
+	{
+		"name": "object_funen"
+	},
+	{
+		"name": "object_raillift"
+	},
+	{
+		"name": "object_numa_obj"
+	},
+	{
+		"name": "object_flowerpot"
+	},
+	{
+		"name": "object_spinyroll"
+	},
+	{
+		"name": "object_ice_block"
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": "object_keikoku_demo"
+	},
+	{
+		"name": "object_slime"
+	},
+	{
+		"name": "object_pr"
+	},
+	{
+		"name": "object_f52_obj"
+	},
+	{
+		"name": "object_f53_obj"
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": "object_kibako"
+	},
+	{
+		"name": "object_sek"
+	},
+	{
+		"name": "object_gmo"
+	},
+	{
+		"name": "object_bat"
+	},
+	{
+		"name": "object_sekihil"
+	},
+	{
+		"name": "object_sekihig"
+	},
+	{
+		"name": "object_sekihin"
+	},
+	{
+		"name": "object_sekihiz"
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": "object_wiz"
+	},
+	{
+		"name": "object_ladder"
+	},
+	{
+		"name": "object_mkk"
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": "object_keikoku_obj"
+	},
+	{
+		"name": "object_sichitai_obj"
+	},
+	{
+		"name": "object_dekucity_ana_obj"
+	},
+	{
+		"name": "object_rat"
+	},
+	{
+		"name": "object_water_effect"
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": "object_dblue_object"
+	},
+	{
+		"name": "object_bal"
+	},
+	{
+		"name": "object_warp_uzu"
+	},
+	{
+		"name": "object_driftice"
+	},
+	{
+		"name": "object_fall"
+	},
+	{
+		"name": "object_hanareyama_obj"
+	},
+	{
+		"name": "object_crace_object"
+	},
+	{
+		"name": "object_dno"
+	},
+	{
+		"name": "object_obj_tokeidai"
+	},
+	{
+		"name": "object_eg"
+	},
+	{
+		"name": "object_tru"
+	},
+	{
+		"name": "object_trt"
+	},
+	{
+		"name": "object_hakugin_obj"
+	},
+	{
+		"name": "object_horse_game_check"
+	},
+	{
+		"name": "object_stk"
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": "object_mnk"
+	},
+	{
+		"name": "object_gi_bottle_red"
+	},
+	{
+		"name": "object_tokei_tobira"
+	},
+	{
+		"name": "object_az"
+	},
+	{
+		"name": "object_twig"
+	},
+	{
+		"name": "object_dekucity_obj"
+	},
+	{
+		"name": "object_po_fusen"
+	},
+	{
+		"name": "object_racetsubo"
+	},
+	{
+		"name": "object_ha"
+	},
+	{
+		"name": "object_bigokuta"
+	},
+	{
+		"name": "object_open_obj"
+	},
+	{
+		"name": "object_fu_kaiten"
+	},
+	{
+		"name": "object_fu_mato"
+	},
+	{
+		"name": "object_mtoride"
+	},
+	{
+		"name": "object_osn"
+	},
+	{
+		"name": "object_tokei_step"
+	},
+	{
+		"name": "object_lotus"
+	},
+	{
+		"name": "object_tl"
+	},
+	{
+		"name": "object_dkjail_obj"
+	},
+	{
+		"name": "object_visiblock"
+	},
+	{
+		"name": "object_tsn"
+	},
+	{
+		"name": "object_ds2n"
+	},
+	{
+		"name": "object_fsn"
+	},
+	{
+		"name": "object_shn"
+	},
+	{
+		"name": "object_bigicicle"
+	},
+	{
+		"name": "object_gi_bottle_15"
+	},
+	{
+		"name": "object_tk"
+	},
+	{
+		"name": "object_market_obj"
+	},
+	{
+		"name": "object_gi_reserve00"
+	},
+	{
+		"name": "object_gi_reserve01"
+	},
+	{
+		"name": "object_lightblock"
+	},
+	{
+		"name": "object_takaraya_objects"
+	},
+	{
+		"name": "object_wdhand"
+	},
+	{
+		"name": "object_sdn"
+	},
+	{
+		"name": "object_snowwd"
+	},
+	{
+		"name": "object_giant"
+	},
+	{
+		"name": "object_comb"
+	},
+	{
+		"name": "object_hana"
+	},
+	{
+		"name": "object_boss_hakugin"
+	},
+	{
+		"name": "object_meganeana_obj"
+	},
+	{
+		"name": "object_gi_nutsmask"
+	},
+	{
+		"name": "object_stk2"
+	},
+	{
+		"name": "object_spot11_obj"
+	},
+	{
+		"name": "object_danpei_object"
+	},
+	{
+		"name": "object_dhouse"
+	},
+	{
+		"name": "object_hakaisi"
+	},
+	{
+		"name": "object_po"
+	},
+	{
+		"name": "object_snowman"
+	},
+	{
+		"name": "object_po_sisters"
+	},
+	{
+		"name": "object_pp"
+	},
+	{
+		"name": "object_goronswitch"
+	},
+	{
+		"name": "object_delf"
+	},
+	{
+		"name": "object_botihasira"
+	},
+	{
+		"name": "object_gi_bigbomb"
+	},
+	{
+		"name": "object_pst"
+	},
+	{
+		"name": "object_bsmask"
+	},
+	{
+		"name": "object_spidertent"
+	},
+	{
+		"name": "object_zoraegg"
+	},
+	{
+		"name": "object_kbt"
+	},
+	{
+		"name": "object_gg"
+	},
+	{
+		"name": "object_maruta"
+	},
+	{
+		"name": "object_ghaka"
+	},
+	{
+		"name": "object_oyu"
+	},
+	{
+		"name": "object_dnq"
+	},
+	{
+		"name": "object_dai"
+	},
+	{
+		"name": "object_kgy"
+	},
+	{
+		"name": "object_fb"
+	},
+	{
+		"name": "object_taisou"
+	},
+	{
+		"name": "object_mask_bu_san"
+	},
+	{
+		"name": "object_mask_ki_tan"
+	},
+	{
+		"name": "object_mask_rabit"
+	},
+	{
+		"name": "object_mask_skj"
+	},
+	{
+		"name": "object_mask_bakuretu"
+	},
+	{
+		"name": "object_mask_truth"
+	},
+	{
+		"name": "object_gk"
+	},
+	{
+		"name": "object_haka_obj"
+	},
+	{
+		"name": "object_mask_goron"
+	},
+	{
+		"name": "object_mask_zora"
+	},
+	{
+		"name": "object_mask_nuts"
+	},
+	{
+		"name": "object_mask_boy"
+	},
+	{
+		"name": "object_dnt"
+	},
+	{
+		"name": "object_yukiyama"
+	},
+	{
+		"name": "object_icefloe"
+	},
+	{
+		"name": "object_gi_gold_dust"
+	},
+	{
+		"name": "object_gi_bottle_16"
+	},
+	{
+		"name": "object_gi_bottle_22"
+	},
+	{
+		"name": "object_bee"
+	},
+	{
+		"name": "object_ot"
+	},
+	{
+		"name": "object_utubo"
+	},
+	{
+		"name": "object_dora"
+	},
+	{
+		"name": "object_gi_loach"
+	},
+	{
+		"name": "object_gi_seahorse"
+	},
+	{
+		"name": "object_bigpo"
+	},
+	{
+		"name": "object_hariko"
+	},
+	{
+		"name": "object_dnj"
+	},
+	{
+		"name": "object_sinkai_kabe"
+	},
+	{
+		"name": "object_kin2_obj"
+	},
+	{
+		"name": "object_ishi"
+	},
+	{
+		"name": "object_hakugin_demo"
+	},
+	{
+		"name": "object_jg"
+	},
+	{
+		"name": "object_gi_sword_2"
+	},
+	{
+		"name": "object_gi_sword_3"
+	},
+	{
+		"name": "object_gi_sword_4"
+	},
+	{
+		"name": "object_um"
+	},
+	{
+		"name": "object_mask_gibudo"
+	},
+	{
+		"name": "object_mask_json"
+	},
+	{
+		"name": "object_mask_kerfay"
+	},
+	{
+		"name": "object_mask_bigelf"
+	},
+	{
+		"name": "object_rb"
+	},
+	{
+		"name": "object_mbar_obj"
+	},
+	{
+		"name": "object_ikana_obj"
+	},
+	{
+		"name": "object_kz"
+	},
+	{
+		"name": "object_tokei_turret"
+	},
+	{
+		"name": "object_zog"
+	},
+	{
+		"name": "object_rotlift"
+	},
+	{
+		"name": "object_posthouse_obj"
+	},
+	{
+		"name": "object_gi_mask09"
+	},
+	{
+		"name": "object_gi_mask14"
+	},
+	{
+		"name": "object_gi_mask15"
+	},
+	{
+		"name": "object_inibs_object"
+	},
+	{
+		"name": "object_tree"
+	},
+	{
+		"name": "object_kaizoku_obj"
+	},
+	{
+		"name": "object_gi_reserve_b_00"
+	},
+	{
+		"name": "object_gi_reserve_c_00"
+	},
+	{
+		"name": "object_zob"
+	},
+	{
+		"name": "object_milkbar"
+	},
+	{
+		"name": "object_dmask"
+	},
+	{
+		"name": "object_mask_kyojin"
+	},
+	{
+		"name": "object_gi_reserve_c_01"
+	},
+	{
+		"name": "object_zod"
+	},
+	{
+		"name": "object_kumo30"
+	},
+	{
+		"name": "object_obj_yasi"
+	},
+	{
+		"name": "object_mask_romerny"
+	},
+	{
+		"name": "object_tanron1"
+	},
+	{
+		"name": "object_tanron2"
+	},
+	{
+		"name": "object_tanron3"
+	},
+	{
+		"name": "object_gi_magicmushroom"
+	},
+	{
+		"name": "object_obj_chan"
+	},
+	{
+		"name": "object_gi_mask10"
+	},
+	{
+		"name": "object_zos"
+	},
+	{
+		"name": "object_mask_posthat"
+	},
+	{
+		"name": "object_f40_switch"
+	},
+	{
+		"name": "object_lodmoon"
+	},
+	{
+		"name": "object_tro"
+	},
+	{
+		"name": "object_gi_mask12"
+	},
+	{
+		"name": "object_gi_mask23"
+	},
+	{
+		"name": "object_gi_bottle_21"
+	},
+	{
+		"name": "object_gi_camera"
+	},
+	{
+		"name": "object_kamejima"
+	},
+	{
+		"name": "object_harfgibud"
+	},
+	{
+		"name": "object_zov"
+	},
+	{
+		"name": "object_hgdoor"
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": "object_dor01"
+	},
+	{
+		"name": "object_dor02"
+	},
+	{
+		"name": "object_dor03"
+	},
+	{
+		"name": "object_dor04"
+	},
+	{
+		"name": "object_last_obj"
+	},
+	{
+		"name": "object_redead_obj"
+	},
+	{
+		"name": "object_ikninside_obj"
+	},
+	{
+		"name": "object_iknv_obj"
+	},
+	{
+		"name": "object_pamera"
+	},
+	{
+		"name": "object_hsstump"
+	},
+	{
+		"name": "object_zm"
+	},
+	{
+		"name": "object_big_fwall"
+	},
+	{
+		"name": "object_secom_obj"
+	},
+	{
+		"name": "object_hunsui"
+	},
+	{
+		"name": "object_uch"
+	},
+	{
+		"name": "object_tanron4"
+	},
+	{
+		"name": "object_tanron5"
+	},
+	{
+		"name": "object_dt"
+	},
+	{
+		"name": "object_gi_mask03"
+	},
+	{
+		"name": "object_cha"
+	},
+	{
+		"name": "object_obj_dinner"
+	},
+	{
+		"name": "object_gi_reserve_b_01"
+	},
+	{
+		"name": "object_lastday"
+	},
+	{
+		"name": "object_bai"
+	},
+	{
+		"name": "object_in2"
+	},
+	{
+		"name": "object_ikn_demo"
+	},
+	{
+		"name": "object_yb"
+	},
+	{
+		"name": "object_rz"
+	},
+	{
+		"name": "object_mask_zacho"
+	},
+	{
+		"name": "object_gi_fieldmap"
+	},
+	{
+		"name": "object_mask_stone"
+	},
+	{
+		"name": "object_bjt"
+	},
+	{
+		"name": "object_taru"
+	},
+	{
+		"name": "object_moonston"
+	},
+	{
+		"name": "object_mask_bree"
+	},
+	{
+		"name": "object_gi_schedule"
+	},
+	{
+		"name": "object_gi_stonemask"
+	},
+	{
+		"name": "object_zoraband"
+	},
+	{
+		"name": "object_kepn_koya"
+	},
+	{
+		"name": "object_obj_usiyane"
+	},
+	{
+		"name": "object_gi_mask05"
+	},
+	{
+		"name": "object_gi_mask11"
+	},
+	{
+		"name": "object_gi_mask20"
+	},
+	{
+		"name": "object_nnh"
+	},
+	{
+		"name": "object_mask_gero"
+	},
+	{
+		"name": "object_mask_yofukasi"
+	},
+	{
+		"name": "object_mask_meoto"
+	},
+	{
+		"name": "object_mask_dancer"
+	},
+	{
+		"name": "object_kzsaku"
+	},
+	{
+		"name": "object_obj_milk_bin"
+	},
+	{
+		"name": "object_random_obj"
+	},
+	{
+		"name": "object_kujiya"
+	},
+	{
+		"name": "object_kitan"
+	},
+	{
+		"name": "object_gi_mask06"
+	},
+	{
+		"name": "object_gi_mask16"
+	},
+	{
+		"name": "object_astr_obj"
+	},
+	{
+		"name": "object_bsb"
+	},
+	{
+		"name": "object_fall2"
+	},
+	{
+		"name": "object_sth"
+	},
+	{
+		"name": "object_gi_mssa"
+	},
+	{
+		"name": "object_smtower"
+	},
+	{
+		"name": "object_gi_mask21"
+	},
+	{
+		"name": "object_yado_obj"
+	},
+	{
+		"name": "object_syoten"
+	},
+	{
+		"name": "object_moonend"
+	},
+	{
+		"name": "object_ob"
+	},
+	{
+		"name": "object_gi_bottle_04"
+	},
+	{
+		"name": "object_obj_danpeilift"
+	},
+	{
+		"name": "object_wdor01"
+	},
+	{
+		"name": "object_wdor02"
+	},
+	{
+		"name": "object_wdor03"
+	},
+	{
+		"name": "object_stk3"
+	},
+	{
+		"name": "object_kinsta1_obj"
+	},
+	{
+		"name": "object_kinsta2_obj"
+	},
+	{
+		"name": "object_bh"
+	},
+	{
+		"name": "object_wdor04"
+	},
+	{
+		"name": "object_wdor05"
+	},
+	{
+		"name": "object_gi_mask17"
+	},
+	{
+		"name": "object_gi_mask22"
+	},
+	{
+		"name": "object_lbfshot"
+	},
+	{
+		"name": "object_fusen"
+	},
+	{
+		"name": "object_ending_obj"
+	},
+	{
+		"name": "object_gi_mask13"
+	}
+]

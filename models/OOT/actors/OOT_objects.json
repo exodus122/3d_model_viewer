@@ -1,0 +1,1208 @@
+[
+	{
+		"name": ""
+	},
+	{
+		"name": "gameplay_keep"
+	},
+	{
+		"name": "gameplay_field_keep"
+	},
+	{
+		"name": "gameplay_dangeon_keep"
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": "object_human"
+	},
+	{
+		"name": "object_okuta"
+	},
+	{
+		"name": "object_crow"
+	},
+	{
+		"name": "object_poh"
+	},
+	{
+		"name": "object_dy_obj"
+	},
+	{
+		"name": "object_wallmaster"
+	},
+	{
+		"name": "object_dodongo"
+	},
+	{
+		"name": "object_firefly"
+	},
+	{
+		"name": "object_box"
+	},
+	{
+		"name": "object_fire"
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": "object_bubble"
+	},
+	{
+		"name": "object_niw"
+	},
+	{
+		"name": "object_link_boy"
+	},
+	{
+		"name": "object_link_child"
+	},
+	{
+		"name": "object_tite"
+	},
+	{
+		"name": "object_reeba"
+	},
+	{
+		"name": "object_peehat"
+	},
+	{
+		"name": "object_kingdodongo"
+	},
+	{
+		"name": "object_horse"
+	},
+	{
+		"name": "object_zf"
+	},
+	{
+		"name": "object_goma"
+	},
+	{
+		"name": "object_zl1"
+	},
+	{
+		"name": "object_gol"
+	},
+	{
+		"name": "object_dodojr"
+	},
+	{
+		"name": "object_torch2"
+	},
+	{
+		"name": "object_bl"
+	},
+	{
+		"name": "object_tp"
+	},
+	{
+		"name": "object_oA1"
+	},
+	{
+		"name": "object_st"
+	},
+	{
+		"name": "object_bw"
+	},
+	{
+		"name": "object_ei"
+	},
+	{
+		"name": "object_horse_normal"
+	},
+	{
+		"name": "object_oB1"
+	},
+	{
+		"name": "object_o_anime"
+	},
+	{
+		"name": "object_spot04_objects"
+	},
+	{
+		"name": "object_ddan_objects"
+	},
+	{
+		"name": "object_hidan_objects"
+	},
+	{
+		"name": "object_horse_ganon"
+	},
+	{
+		"name": "object_oA2"
+	},
+	{
+		"name": "object_spot00_objects"
+	},
+	{
+		"name": "object_mb"
+	},
+	{
+		"name": "object_bombf"
+	},
+	{
+		"name": "object_sk2"
+	},
+	{
+		"name": "object_oE1"
+	},
+	{
+		"name": "object_oE_anime"
+	},
+	{
+		"name": "object_oE2"
+	},
+	{
+		"name": "object_ydan_objects"
+	},
+	{
+		"name": "object_gnd"
+	},
+	{
+		"name": "object_am"
+	},
+	{
+		"name": "object_dekubaba"
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": "object_oA3"
+	},
+	{
+		"name": "object_oA4"
+	},
+	{
+		"name": "object_oA5"
+	},
+	{
+		"name": "object_oA6"
+	},
+	{
+		"name": "object_oA7"
+	},
+	{
+		"name": "object_jj"
+	},
+	{
+		"name": "object_oA8"
+	},
+	{
+		"name": "object_oA9"
+	},
+	{
+		"name": "object_oB2"
+	},
+	{
+		"name": "object_oB3"
+	},
+	{
+		"name": "object_oB4"
+	},
+	{
+		"name": "object_horse_zelda"
+	},
+	{
+		"name": "object_opening_demo1"
+	},
+	{
+		"name": "object_warp1"
+	},
+	{
+		"name": "object_b_heart"
+	},
+	{
+		"name": "object_dekunuts"
+	},
+	{
+		"name": "object_oE3"
+	},
+	{
+		"name": "object_oE4"
+	},
+	{
+		"name": "object_menkuri_objects"
+	},
+	{
+		"name": "object_oE5"
+	},
+	{
+		"name": "object_oE6"
+	},
+	{
+		"name": "object_oE7"
+	},
+	{
+		"name": "object_oE8"
+	},
+	{
+		"name": "object_oE9"
+	},
+	{
+		"name": "object_oE10"
+	},
+	{
+		"name": "object_oE11"
+	},
+	{
+		"name": "object_oE12"
+	},
+	{
+		"name": "object_vali"
+	},
+	{
+		"name": "object_oA10"
+	},
+	{
+		"name": "object_oA11"
+	},
+	{
+		"name": "object_mizu_objects"
+	},
+	{
+		"name": "object_fhg"
+	},
+	{
+		"name": "object_ossan"
+	},
+	{
+		"name": "object_mori_hineri1"
+	},
+	{
+		"name": "object_Bb"
+	},
+	{
+		"name": "object_toki_objects"
+	},
+	{
+		"name": "object_yukabyun"
+	},
+	{
+		"name": "object_zl2"
+	},
+	{
+		"name": "object_mjin"
+	},
+	{
+		"name": "object_mjin_flash"
+	},
+	{
+		"name": "object_mjin_dark"
+	},
+	{
+		"name": "object_mjin_flame"
+	},
+	{
+		"name": "object_mjin_ice"
+	},
+	{
+		"name": "object_mjin_soul"
+	},
+	{
+		"name": "object_mjin_wind"
+	},
+	{
+		"name": "object_mjin_oka"
+	},
+	{
+		"name": "object_haka_objects"
+	},
+	{
+		"name": "object_spot06_objects"
+	},
+	{
+		"name": "object_ice_objects"
+	},
+	{
+		"name": "object_relay_objects"
+	},
+	{
+		"name": "object_po_field"
+	},
+	{
+		"name": "object_po_composer"
+	},
+	{
+		"name": "object_mori_hineri1a"
+	},
+	{
+		"name": "object_mori_hineri2"
+	},
+	{
+		"name": "object_mori_hineri2a"
+	},
+	{
+		"name": "object_mori_objects"
+	},
+	{
+		"name": "object_mori_tex"
+	},
+	{
+		"name": "object_spot08_obj"
+	},
+	{
+		"name": "object_warp2"
+	},
+	{
+		"name": "object_hata"
+	},
+	{
+		"name": "object_bird"
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": "object_wood02"
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": "object_lightbox"
+	},
+	{
+		"name": "object_pu_box"
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": "object_trap"
+	},
+	{
+		"name": "object_vase"
+	},
+	{
+		"name": "object_im"
+	},
+	{
+		"name": "object_ta"
+	},
+	{
+		"name": "object_tk"
+	},
+	{
+		"name": "object_xc"
+	},
+	{
+		"name": "object_vm"
+	},
+	{
+		"name": "object_bv"
+	},
+	{
+		"name": "object_hakach_objects"
+	},
+	{
+		"name": "object_efc_crystal_light"
+	},
+	{
+		"name": "object_efc_fire_ball"
+	},
+	{
+		"name": "object_efc_flash"
+	},
+	{
+		"name": "object_efc_lgt_shower"
+	},
+	{
+		"name": "object_efc_star_field"
+	},
+	{
+		"name": "object_god_lgt"
+	},
+	{
+		"name": "object_light_ring"
+	},
+	{
+		"name": "object_triforce_spot"
+	},
+	{
+		"name": "object_bdan_objects"
+	},
+	{
+		"name": "object_sd"
+	},
+	{
+		"name": "object_rd"
+	},
+	{
+		"name": "object_po_sisters"
+	},
+	{
+		"name": "object_heavy_object"
+	},
+	{
+		"name": "object_gndd"
+	},
+	{
+		"name": "object_fd"
+	},
+	{
+		"name": "object_du"
+	},
+	{
+		"name": "object_fw"
+	},
+	{
+		"name": "object_medal"
+	},
+	{
+		"name": "object_horse_link_child"
+	},
+	{
+		"name": "object_spot02_objects"
+	},
+	{
+		"name": "object_haka"
+	},
+	{
+		"name": "object_ru1"
+	},
+	{
+		"name": "object_syokudai"
+	},
+	{
+		"name": "object_fd2"
+	},
+	{
+		"name": "object_dh"
+	},
+	{
+		"name": "object_rl"
+	},
+	{
+		"name": "object_efc_tw"
+	},
+	{
+		"name": "object_demo_tre_lgt"
+	},
+	{
+		"name": "object_gi_key"
+	},
+	{
+		"name": "object_mir_ray"
+	},
+	{
+		"name": "object_brob"
+	},
+	{
+		"name": "object_gi_jewel"
+	},
+	{
+		"name": "object_spot09_obj"
+	},
+	{
+		"name": "object_spot18_obj"
+	},
+	{
+		"name": "object_bdoor"
+	},
+	{
+		"name": "object_spot17_obj"
+	},
+	{
+		"name": "object_shop_dungen"
+	},
+	{
+		"name": "object_nb"
+	},
+	{
+		"name": "object_mo"
+	},
+	{
+		"name": "object_sb"
+	},
+	{
+		"name": "object_gi_melody"
+	},
+	{
+		"name": "object_gi_heart"
+	},
+	{
+		"name": "object_gi_compass"
+	},
+	{
+		"name": "object_gi_bosskey"
+	},
+	{
+		"name": "object_gi_medal"
+	},
+	{
+		"name": "object_gi_nuts"
+	},
+	{
+		"name": "object_sa"
+	},
+	{
+		"name": "object_gi_hearts"
+	},
+	{
+		"name": "object_gi_arrowcase"
+	},
+	{
+		"name": "object_gi_bombpouch"
+	},
+	{
+		"name": "object_in"
+	},
+	{
+		"name": "object_tr"
+	},
+	{
+		"name": "object_spot16_obj"
+	},
+	{
+		"name": "object_oE1s"
+	},
+	{
+		"name": "object_oE4s"
+	},
+	{
+		"name": "object_os_anime"
+	},
+	{
+		"name": "object_gi_bottle"
+	},
+	{
+		"name": "object_gi_stick"
+	},
+	{
+		"name": "object_gi_map"
+	},
+	{
+		"name": "object_oF1d_map"
+	},
+	{
+		"name": "object_ru2"
+	},
+	{
+		"name": "object_gi_shield_1"
+	},
+	{
+		"name": "object_dekujr"
+	},
+	{
+		"name": "object_gi_magicpot"
+	},
+	{
+		"name": "object_gi_bomb_1"
+	},
+	{
+		"name": "object_oF1s"
+	},
+	{
+		"name": "object_ma2"
+	},
+	{
+		"name": "object_gi_purse"
+	},
+	{
+		"name": "object_hni"
+	},
+	{
+		"name": "object_tw"
+	},
+	{
+		"name": "object_rr"
+	},
+	{
+		"name": "object_bxa"
+	},
+	{
+		"name": "object_anubice"
+	},
+	{
+		"name": "object_gi_gerudo"
+	},
+	{
+		"name": "object_gi_arrow"
+	},
+	{
+		"name": "object_gi_bomb_2"
+	},
+	{
+		"name": "object_gi_egg"
+	},
+	{
+		"name": "object_gi_scale"
+	},
+	{
+		"name": "object_gi_shield_2"
+	},
+	{
+		"name": "object_gi_hookshot"
+	},
+	{
+		"name": "object_gi_ocarina"
+	},
+	{
+		"name": "object_gi_milk"
+	},
+	{
+		"name": "object_ma1"
+	},
+	{
+		"name": "object_ganon"
+	},
+	{
+		"name": "object_sst"
+	},
+	{
+		"name": "DEFINE_OBJECT_EMPTY(object_ny"
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": "object_ny"
+	},
+	{
+		"name": "object_fr"
+	},
+	{
+		"name": "object_gi_pachinko"
+	},
+	{
+		"name": "object_gi_boomerang"
+	},
+	{
+		"name": "object_gi_bow"
+	},
+	{
+		"name": "object_gi_glasses"
+	},
+	{
+		"name": "object_gi_liquid"
+	},
+	{
+		"name": "object_ani"
+	},
+	{
+		"name": "object_demo_6k"
+	},
+	{
+		"name": "object_gi_shield_3"
+	},
+	{
+		"name": "object_gi_letter"
+	},
+	{
+		"name": "object_spot15_obj"
+	},
+	{
+		"name": "object_jya_obj"
+	},
+	{
+		"name": "object_gi_clothes"
+	},
+	{
+		"name": "object_gi_bean"
+	},
+	{
+		"name": "object_gi_fish"
+	},
+	{
+		"name": "object_gi_saw"
+	},
+	{
+		"name": "object_gi_hammer"
+	},
+	{
+		"name": "object_gi_grass"
+	},
+	{
+		"name": "object_gi_longsword"
+	},
+	{
+		"name": "object_spot01_objects"
+	},
+	{
+		"name": "DEFINE_OBJECT_EMPTY(object_md"
+	},
+	{
+		"name": "object_md"
+	},
+	{
+		"name": "object_km1"
+	},
+	{
+		"name": "object_kw1"
+	},
+	{
+		"name": "object_zo"
+	},
+	{
+		"name": "object_kz"
+	},
+	{
+		"name": "object_umajump"
+	},
+	{
+		"name": "object_masterkokiri"
+	},
+	{
+		"name": "object_masterkokirihead"
+	},
+	{
+		"name": "object_mastergolon"
+	},
+	{
+		"name": "object_masterzoora"
+	},
+	{
+		"name": "object_aob"
+	},
+	{
+		"name": "object_ik"
+	},
+	{
+		"name": "object_ahg"
+	},
+	{
+		"name": "object_cne"
+	},
+	{
+		"name": "object_gi_niwatori"
+	},
+	{
+		"name": "object_skj"
+	},
+	{
+		"name": "object_gi_bottle_letter"
+	},
+	{
+		"name": "object_bji"
+	},
+	{
+		"name": "object_bba"
+	},
+	{
+		"name": "object_gi_ocarina_0"
+	},
+	{
+		"name": "object_ds"
+	},
+	{
+		"name": "object_ane"
+	},
+	{
+		"name": "object_boj"
+	},
+	{
+		"name": "object_spot03_object"
+	},
+	{
+		"name": "object_spot07_object"
+	},
+	{
+		"name": "object_fz"
+	},
+	{
+		"name": "object_bob"
+	},
+	{
+		"name": "object_ge1"
+	},
+	{
+		"name": "object_yabusame_point"
+	},
+	{
+		"name": "object_gi_boots_2"
+	},
+	{
+		"name": "object_gi_seed"
+	},
+	{
+		"name": "object_gnd_magic"
+	},
+	{
+		"name": "object_d_elevator"
+	},
+	{
+		"name": "object_d_hsblock"
+	},
+	{
+		"name": "object_d_lift"
+	},
+	{
+		"name": "object_mamenoki"
+	},
+	{
+		"name": "object_goroiwa"
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": "object_toryo"
+	},
+	{
+		"name": "object_daiku"
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": "object_nwc"
+	},
+	{
+		"name": "object_blkobj"
+	},
+	{
+		"name": "object_gm"
+	},
+	{
+		"name": "object_ms"
+	},
+	{
+		"name": "object_hs"
+	},
+	{
+		"name": "object_ingate"
+	},
+	{
+		"name": "object_lightswitch"
+	},
+	{
+		"name": "object_kusa"
+	},
+	{
+		"name": "object_tsubo"
+	},
+	{
+		"name": "object_gi_gloves"
+	},
+	{
+		"name": "object_gi_coin"
+	},
+	{
+		"name": "object_kanban"
+	},
+	{
+		"name": "object_gjyo_objects"
+	},
+	{
+		"name": "object_owl"
+	},
+	{
+		"name": "object_mk"
+	},
+	{
+		"name": "object_fu"
+	},
+	{
+		"name": "object_gi_ki_tan_mask"
+	},
+	{
+		"name": "object_gi_redead_mask"
+	},
+	{
+		"name": "object_gi_skj_mask"
+	},
+	{
+		"name": "object_gi_rabit_mask"
+	},
+	{
+		"name": "object_gi_truth_mask"
+	},
+	{
+		"name": "object_ganon_objects"
+	},
+	{
+		"name": "object_siofuki"
+	},
+	{
+		"name": "object_stream"
+	},
+	{
+		"name": "object_mm"
+	},
+	{
+		"name": "object_fa"
+	},
+	{
+		"name": "object_os"
+	},
+	{
+		"name": "object_gi_eye_lotion"
+	},
+	{
+		"name": "object_gi_powder"
+	},
+	{
+		"name": "object_gi_mushroom"
+	},
+	{
+		"name": "object_gi_ticketstone"
+	},
+	{
+		"name": "object_gi_brokensword"
+	},
+	{
+		"name": "object_js"
+	},
+	{
+		"name": "object_cs"
+	},
+	{
+		"name": "object_gi_prescription"
+	},
+	{
+		"name": "object_gi_bracelet"
+	},
+	{
+		"name": "object_gi_soldout"
+	},
+	{
+		"name": "object_gi_frog"
+	},
+	{
+		"name": "object_mag"
+	},
+	{
+		"name": "object_door_gerudo"
+	},
+	{
+		"name": "object_gt"
+	},
+	{
+		"name": "object_efc_erupc"
+	},
+	{
+		"name": "object_zl2_anime1"
+	},
+	{
+		"name": "object_zl2_anime2"
+	},
+	{
+		"name": "object_gi_golonmask"
+	},
+	{
+		"name": "object_gi_zoramask"
+	},
+	{
+		"name": "object_gi_gerudomask"
+	},
+	{
+		"name": "object_ganon2"
+	},
+	{
+		"name": "object_ka"
+	},
+	{
+		"name": "object_ts"
+	},
+	{
+		"name": "object_zg"
+	},
+	{
+		"name": "object_gi_hoverboots"
+	},
+	{
+		"name": "object_gi_m_arrow"
+	},
+	{
+		"name": "object_ds2"
+	},
+	{
+		"name": "object_ec"
+	},
+	{
+		"name": "object_fish"
+	},
+	{
+		"name": "object_gi_sutaru"
+	},
+	{
+		"name": "object_gi_goddess"
+	},
+	{
+		"name": "object_ssh"
+	},
+	{
+		"name": "object_bigokuta"
+	},
+	{
+		"name": "object_bg"
+	},
+	{
+		"name": "object_spot05_objects"
+	},
+	{
+		"name": "object_spot12_obj"
+	},
+	{
+		"name": "object_bombiwa"
+	},
+	{
+		"name": "object_hintnuts"
+	},
+	{
+		"name": "object_rs"
+	},
+	{
+		"name": "object_spot00_break"
+	},
+	{
+		"name": "object_gla"
+	},
+	{
+		"name": "object_shopnuts"
+	},
+	{
+		"name": "object_geldb"
+	},
+	{
+		"name": "object_gr"
+	},
+	{
+		"name": "object_dog"
+	},
+	{
+		"name": "object_jya_iron"
+	},
+	{
+		"name": "object_jya_door"
+	},
+	{
+		"name": ""
+	},
+	{
+		"name": "object_spot11_obj"
+	},
+	{
+		"name": "object_kibako2"
+	},
+	{
+		"name": "object_dns"
+	},
+	{
+		"name": "object_dnk"
+	},
+	{
+		"name": "object_gi_fire"
+	},
+	{
+		"name": "object_gi_insect"
+	},
+	{
+		"name": "object_gi_butterfly"
+	},
+	{
+		"name": "object_gi_ghost"
+	},
+	{
+		"name": "object_gi_soul"
+	},
+	{
+		"name": "object_bowl"
+	},
+	{
+		"name": "object_demo_kekkai"
+	},
+	{
+		"name": "object_efc_doughnut"
+	},
+	{
+		"name": "object_gi_dekupouch"
+	},
+	{
+		"name": "object_ganon_anime1"
+	},
+	{
+		"name": "object_ganon_anime2"
+	},
+	{
+		"name": "object_ganon_anime3"
+	},
+	{
+		"name": "object_gi_rupy"
+	},
+	{
+		"name": "object_spot01_matoya"
+	},
+	{
+		"name": "object_spot01_matoyab"
+	},
+	{
+		"name": "object_mu"
+	},
+	{
+		"name": "object_wf"
+	},
+	{
+		"name": "object_skb"
+	},
+	{
+		"name": "object_gj"
+	},
+	{
+		"name": "object_geff"
+	},
+	{
+		"name": "object_haka_door"
+	},
+	{
+		"name": "object_gs"
+	},
+	{
+		"name": "object_ps"
+	},
+	{
+		"name": "object_bwall"
+	},
+	{
+		"name": "object_cow"
+	},
+	{
+		"name": "object_cob"
+	},
+	{
+		"name": "object_gi_sword_1"
+	},
+	{
+		"name": "object_door_killer"
+	},
+	{
+		"name": "object_ouke_haka"
+	},
+	{
+		"name": "object_timeblock"
+	},
+	{
+		"name": "object_zl4"
+	}
+]
