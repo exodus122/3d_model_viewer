@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { clearSelection } from './selection.js';
 import { updateSamplePointsUIVisibility, drawSampledTriangles } from './sample_points.js';
-import { addModelCheckbox, removeAllModelCheckboxes } from './render.js';
+import { addModelCheckbox, removeAllModelCheckboxes, clearAllModels } from './render.js';
 
 /*
 This file contains gap finders between polygons. Not currently working properly.
@@ -26,22 +26,7 @@ export function buildGeometry2(scene, verts, tris, allTriangleData, colCtx, name
 
     // Clear existing
     if (clearFirst) {
-        loadedModels.forEach(m => {
-            scene.remove(m.mesh);
-            scene.remove(m.edges);
-            if (m.edgesUnmatched) scene.remove(m.edgesUnmatched); // === NEW ===
-        });
-        loadedModels = [];
-        
-        loadedModelsNotSelectable.forEach(m => {
-            scene.remove(m.mesh);
-            scene.remove(m.edges);
-            if (m.edgesUnmatched) scene.remove(m.edgesUnmatched); // === NEW ===
-        });
-        loadedModelsNotSelectable = [];
-
-        removeAllModelCheckboxes();
-        clearSelection(scene);
+        clearAllModels(scene);
     }
 
     // vertex buffer
@@ -188,20 +173,7 @@ export function buildGeometry3(scene, verts, tris, allTriangleData, colCtx, name
 
     // Clear previous models
     if (clearFirst) {
-        loadedModels.forEach(m => {
-            scene.remove(m.mesh);
-            scene.remove(m.edges);
-            if (m.edgesUnmatched) scene.remove(m.edgesUnmatched);
-        });
-        loadedModels = [];
-        loadedModelsNotSelectable.forEach(m => {
-            scene.remove(m.mesh);
-            scene.remove(m.edges);
-            if (m.edgesUnmatched) scene.remove(m.edgesUnmatched);
-        });
-        loadedModelsNotSelectable = [];
-        removeAllModelCheckboxes();
-        clearSelection(scene);
+        clearAllModels(scene);
     }
 
     // Vertex buffer
@@ -341,20 +313,7 @@ export function buildGeometry4(scene, verts, tris, allTriangleData, colCtx, name
 
     // --- Clear previous models ---
     if (clearFirst) {
-        loadedModels.forEach(m => {
-            scene.remove(m.mesh);
-            scene.remove(m.edges);
-            if (m.edgesUnmatched) scene.remove(m.edgesUnmatched);
-        });
-        loadedModels = [];
-        loadedModelsNotSelectable.forEach(m => {
-            scene.remove(m.mesh);
-            scene.remove(m.edges);
-            if (m.edgesUnmatched) scene.remove(m.edgesUnmatched);
-        });
-        loadedModelsNotSelectable = [];
-        removeAllModelCheckboxes();
-        clearSelection(scene);
+        clearAllModels(scene);
     }
 
     // --- Vertex buffer ---

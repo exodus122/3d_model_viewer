@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { addModelCheckbox, buildGeometry, buildGeometry_fwc, buildGeometryFromTriangles, buildGeometryEdges } from './render.js';
+import { addModelCheckbox, buildGeometry, buildGeometry_fwc, buildGeometryFromTriangles, buildGeometryEdges, clearAllModels } from './render.js';
 import { buildGeometry2, buildGeometry3, buildGeometry4 } from './gap.js';
 import { initColCtx, initializeSubdivisions, BGCHECK_SUBDIV_OVERLAP } from './subdivisions.js';
 import { renderStandableSurfaceXZ, renderStandableSurfaceXZ_old } from './standable_surfaces.js';
@@ -527,6 +527,81 @@ function parseCollisionHeader(dv, addr, address_offset, colHeader, endianness) {
     }
 }
 
+const waterboxCheckbox = document.getElementById('showFullWaterboxDepth');
+    
+waterboxCheckbox.addEventListener('change', () => {
+    // --- Remove old waterbox mesh & edges ---
+    const oldMeshIndex = loadedModels.findIndex(m => m.name === "Waterboxes");
+    if (oldMeshIndex >= 0) {
+        const old = loadedModels[oldMeshIndex];
+        if (old.mesh) {
+            scene.remove(old.mesh);
+            if (old.mesh.geometry) old.mesh.geometry.dispose();
+            if (old.mesh.material) old.mesh.material.dispose();
+        }
+        if (old.edges) {
+            scene.remove(old.edges);
+            if (old.edges.geometry) old.edges.geometry.dispose();
+            if (old.edges.material) old.edges.material.dispose();
+        }
+        loadedModels.splice(oldMeshIndex, 1);
+    }
+
+    // --- Remove old model checkbox from UI ---
+    const container = document.querySelector('.controls'); // adjust if your container is different
+    if (container) {
+        const oldCheckbox = Array.from(container.children).find(
+            child => child.dataset && child.dataset.modelName === "Waterboxes"
+        );
+        if (oldCheckbox) container.removeChild(oldCheckbox);
+    }
+    
+    // Remove old waterbox mesh & edges
+    const oldMesh = loadedModels.find(m => m.name === "WaterboxesMesh");
+    if (oldMesh) {
+        scene.remove(oldMesh.mesh);
+        if (oldMesh.mesh.geometry) oldMesh.mesh.geometry.dispose();
+        if (oldMesh.mesh.material) oldMesh.mesh.material.dispose();
+        loadedModels.splice(loadedModels.indexOf(oldMesh), 1);
+    }
+
+    const oldEdges = loadedModels.find(m => m.name === "WaterboxesEdges");
+    if (oldEdges) {
+        scene.remove(oldEdges.mesh);
+        if (oldEdges.mesh.geometry) oldEdges.mesh.geometry.dispose();
+        if (oldEdges.mesh.material) oldEdges.mesh.material.dispose();
+        loadedModels.splice(loadedModels.indexOf(oldEdges), 1);
+    }
+
+    // Rebuild waterbox model with updated depth
+    const { mesh: waterMesh, edges: waterEdges } = buildWaterBoxModel(waterBoxes, waterboxCheckbox.checked);
+
+    // Add both to scene
+    scene.add(waterMesh);
+    scene.add(waterEdges);
+
+    // Add both to loadedModels for selection, toggles, etc.
+    loadedModels.push({ name: "Waterboxes", mesh: waterMesh, edges: waterEdges });
+    addModelCheckbox(scene, "Waterboxes", waterMesh, waterEdges, false, false, "#00FFFF");
+});
+
+function parseWaterboxes(dv, colHeader, address_offset, endianness, waterBoxes) {
+    if (colHeader.waterboxListStart != 0) {
+        let offset = colHeader.waterboxListStart + address_offset;
+        for(let i = 0; i < colHeader.numWaterboxes; i++){
+            const xMin = dv.getInt16(offset + i*0x10 + 0x0, endianness);
+            const ySurface = dv.getInt16(offset + i*0x10 + 0x2, endianness);
+            const zMin = dv.getInt16(offset + i*0x10 + 0x4, endianness); 
+            const xLength = dv.getInt16(offset + i*0x10 + 0x6, endianness); 
+            const zLength = dv.getInt16(offset + i*0x10 + 0x8, endianness); 
+            const properties = dv.getUint32(offset + i*0x10 + 0xC, endianness); 
+
+            waterBoxes.push({xMin: xMin, ySurface: ySurface, zMin: zMin, xLength: xLength, zLength: zLength, properties: properties});
+        }
+        //console.log(waterBoxes);
+    }
+}
+
 function parseVerticesAndPolygons(dv, colHeader, address_offset, endianness, poly_length, verts, tris, intangibleTris, intangibleTriangleData, allTriangleData) {
     // Get Vertices
     let offset = colHeader.vtxListStart + address_offset;
@@ -850,19 +925,20 @@ export function parseZeldaSceneBinary(scene, buffer, fresh, mapName){
         buildGeometry(scene, verts, intangibleTris, intangibleTriangleData, null, "Intangible Collision", false);
     }
 
-    // "Subdivision Grid": a wireframe box grid of the subdivision cells
-    // themselves (their raw, non-overlap-padded boundaries - see
-    // buildSubdivisionGridEdges above), as its own extra toggleable model.
-    // Always additive (fresh=false, same reasoning as Intangible Collision
-    // above - the main model build already cleared the scene for a fresh
-    // load, and this has to run after that clear or it'd get wiped out
-    // immediately by it). Off by default (checked=false), same as the
-    // single-cell "Subdivision" highlight further down - it's a dev/debug
-    // aid, not something you want cluttering every load.
-    {
-        const { verts: gridVerts, edges: gridEdges } = buildSubdivisionGridEdges(colCtx);
-        buildGeometryEdges(scene, gridVerts, gridEdges, "Subdivision Grid", false, false);
-        logSubdivisionYSkips(colCtx);
+    // Parse and Render Waterboxes
+    /*const waterBoxes = [
+        { xMin: 0,   ySurface: 50, zMin: 0,   xLength: 200, zLength: 150, properties: 0 },
+        { xMin: 300, ySurface: 40, zMin: -50, xLength: 100, zLength: 80,  properties: 0 },
+    ];*/
+    
+    const waterBoxes = [];
+    parseWaterboxes(dv, colHeader, address_offset, endianness, waterBoxes);
+    if (waterBoxes.length > 0) {
+        const { mesh: waterMesh, edges: waterEdges } = buildWaterBoxModel(waterBoxes, waterboxCheckbox.checked);
+        scene.add(waterMesh);
+        scene.add(waterEdges);
+        loadedModels.push({ name: "Waterboxes", mesh: waterMesh, edges: waterEdges });
+        addModelCheckbox(scene, "Waterboxes", waterMesh, waterEdges, false, false, "#00FFFF");
     }
 
     // groundClipBandsCheckbox: when unchecked, standable surfaces render as
@@ -876,17 +952,6 @@ export function parseZeldaSceneBinary(scene, buffer, fresh, mapName){
     if (standableSurfaceResult) {
         const { main: standableSurfaceMain, vertexBulge: standableSurfaceVertexBulge } = standableSurfaceResult;
 
-        if (standableSurfaceMain) {
-            scene.add(standableSurfaceMain);
-
-            if (standableSurfaceMain.children[1])
-                standableSurfaceMain.children[1].visible = wireframeCheckbox.checked;
-
-            loadedModels.push({ name: "Standable Surface", mesh: standableSurfaceMain, edges: standableSurfaceMain.children[1] });
-
-            addModelCheckbox(scene, "Standable Surface", standableSurfaceMain, null, false, true, "#ff0000");
-        }
-
         if (standableSurfaceVertexBulge) {
             scene.add(standableSurfaceVertexBulge);
 
@@ -896,6 +961,17 @@ export function parseZeldaSceneBinary(scene, buffer, fresh, mapName){
             loadedModels.push({ name: "Seams Model", mesh: standableSurfaceVertexBulge, edges: standableSurfaceVertexBulge.children[1] });
 
             addModelCheckbox(scene, "Seams Model", standableSurfaceVertexBulge, null, false, true, "#00cc44");
+        }
+
+        if (standableSurfaceMain) {
+            scene.add(standableSurfaceMain);
+
+            if (standableSurfaceMain.children[1])
+                standableSurfaceMain.children[1].visible = wireframeCheckbox.checked;
+
+            loadedModels.push({ name: "Standable Surface", mesh: standableSurfaceMain, edges: standableSurfaceMain.children[1] });
+
+            addModelCheckbox(scene, "Standable Surface", standableSurfaceMain, null, false, true, "#ff0000");
         }
     }
     
@@ -914,12 +990,20 @@ export function parseZeldaSceneBinary(scene, buffer, fresh, mapName){
         loadedModels.push({ name: "Wall Collision (YZ)", mesh: wallSurfaceMeshYZ, edges: wallSurfaceMeshYZ.children[1] });
         addModelCheckbox(scene, "Wall Collision (YZ)", wallSurfaceMeshYZ, null, false, false, "#ff0000");
     }
-    
-    const flatGroup = scanAndBuildFlatGroundMarkers();
-    if (flatGroup) {
-        scene.add(flatGroup);
-        loadedModels.push({ name: "Flat Ground Clips", mesh: flatGroup, edges: null });
-        addModelCheckbox(scene, "Flat Ground Clips", flatGroup, null, false, false, "#00FFFF");
+
+    // "Subdivision Grid": a wireframe box grid of the subdivision cells
+    // themselves (their raw, non-overlap-padded boundaries - see
+    // buildSubdivisionGridEdges above), as its own extra toggleable model.
+    // Always additive (fresh=false, same reasoning as Intangible Collision
+    // above - the main model build already cleared the scene for a fresh
+    // load, and this has to run after that clear or it'd get wiped out
+    // immediately by it). Off by default (checked=false), same as the
+    // single-cell "Subdivision" highlight further down - it's a dev/debug
+    // aid, not something you want cluttering every load.
+    {
+        const { verts: gridVerts, edges: gridEdges } = buildSubdivisionGridEdges(colCtx);
+        buildGeometryEdges(scene, gridVerts, gridEdges, "Subdivision Grid", false, false);
+        logSubdivisionYSkips(colCtx);
     }
     
     function rebuildSubdivisionVisualization() {
@@ -970,113 +1054,6 @@ export function parseZeldaSceneBinary(scene, buffer, fresh, mapName){
 
     rebuildSubdivisionVisualization();
     
-    buildSurfaceTypeMarkers(scene);
-    
-    
-    // Parse and Render Waterboxes
-    /*const waterBoxes = [
-        { xMin: 0,   ySurface: 50, zMin: 0,   xLength: 200, zLength: 150, properties: 0 },
-        { xMin: 300, ySurface: 40, zMin: -50, xLength: 100, zLength: 80,  properties: 0 },
-    ];*/
-
-    const waterboxCheckbox = document.getElementById('showFullWaterboxDepth');
-    
-    const waterBoxes = [];
-    if (colHeader.waterboxListStart != 0) {
-        offset = colHeader.waterboxListStart + address_offset;
-        for(let i = 0; i < colHeader.numWaterboxes; i++){
-            const xMin = dv.getInt16(offset + i*0x10 + 0x0, endianness);
-            const ySurface = dv.getInt16(offset + i*0x10 + 0x2, endianness);
-            const zMin = dv.getInt16(offset + i*0x10 + 0x4, endianness); 
-            const xLength = dv.getInt16(offset + i*0x10 + 0x6, endianness); 
-            const zLength = dv.getInt16(offset + i*0x10 + 0x8, endianness); 
-            const properties = dv.getUint32(offset + i*0x10 + 0xC, endianness); 
-
-            waterBoxes.push({xMin: xMin, ySurface: ySurface, zMin: zMin, xLength: xLength, zLength: zLength, properties: properties});
-        }
-        //console.log(waterBoxes);
-        
-        const { mesh: waterMesh, edges: waterEdges } = buildWaterBoxModel(waterBoxes, waterboxCheckbox.checked);
-        scene.add(waterMesh);
-        scene.add(waterEdges);
-
-        loadedModels.push({ name: "Waterboxes", mesh: waterMesh, edges: waterEdges });
-        addModelCheckbox(scene, "Waterboxes", waterMesh, waterEdges, false, false, "#00FFFF");
-    }
-
-    waterboxCheckbox.addEventListener('change', () => {
-        // --- Remove old waterbox mesh & edges ---
-        const oldMeshIndex = loadedModels.findIndex(m => m.name === "Waterboxes");
-        if (oldMeshIndex >= 0) {
-            const old = loadedModels[oldMeshIndex];
-            if (old.mesh) {
-                scene.remove(old.mesh);
-                if (old.mesh.geometry) old.mesh.geometry.dispose();
-                if (old.mesh.material) old.mesh.material.dispose();
-            }
-            if (old.edges) {
-                scene.remove(old.edges);
-                if (old.edges.geometry) old.edges.geometry.dispose();
-                if (old.edges.material) old.edges.material.dispose();
-            }
-            loadedModels.splice(oldMeshIndex, 1);
-        }
-
-        // --- Remove old model checkbox from UI ---
-        const container = document.querySelector('.controls'); // adjust if your container is different
-        if (container) {
-            const oldCheckbox = Array.from(container.children).find(
-                child => child.dataset && child.dataset.modelName === "Waterboxes"
-            );
-            if (oldCheckbox) container.removeChild(oldCheckbox);
-        }
-        
-        // Remove old waterbox mesh & edges
-        const oldMesh = loadedModels.find(m => m.name === "WaterboxesMesh");
-        if (oldMesh) {
-            scene.remove(oldMesh.mesh);
-            if (oldMesh.mesh.geometry) oldMesh.mesh.geometry.dispose();
-            if (oldMesh.mesh.material) oldMesh.mesh.material.dispose();
-            loadedModels.splice(loadedModels.indexOf(oldMesh), 1);
-        }
-
-        const oldEdges = loadedModels.find(m => m.name === "WaterboxesEdges");
-        if (oldEdges) {
-            scene.remove(oldEdges.mesh);
-            if (oldEdges.mesh.geometry) oldEdges.mesh.geometry.dispose();
-            if (oldEdges.mesh.material) oldEdges.mesh.material.dispose();
-            loadedModels.splice(loadedModels.indexOf(oldEdges), 1);
-        }
-
-        // Rebuild waterbox model with updated depth
-        const { mesh: waterMesh, edges: waterEdges } = buildWaterBoxModel(waterBoxes, waterboxCheckbox.checked);
-
-        // Add both to scene
-        scene.add(waterMesh);
-        scene.add(waterEdges);
-
-        // Add both to loadedModels for selection, toggles, etc.
-        loadedModels.push({ name: "Waterboxes", mesh: waterMesh, edges: waterEdges });
-        addModelCheckbox(scene, "Waterboxes", waterMesh, waterEdges, false, false, "#00FFFF");
-    });
-
-    // "Sector Sorting Error Polygons": polygons affected by the
-    // CollisionPoly_GetMinY quantised-normal fast-path bug (see the
-    // detailed comment above scanAndBuildSectorSortingErrorMarkers in
-    // poly_markers.js) - a poly whose quantised y-normal rounds to exactly
-    // +/-32767 but whose vertices aren't actually all the same Y. Off by
-    // default, same as the other dev/debug overlays - only meaningful for
-    // the real N64/3DS BgCheck collision system, so restricted to
-    // OOT/MM/OOT3D/MM3D.
-    if (game == "OOT" || game == "MM" || game == "OOT3D" || game == "MM3D") {
-        const sectorSortingErrorGroup = scanAndBuildSectorSortingErrorMarkers();
-        if (sectorSortingErrorGroup) {
-            scene.add(sectorSortingErrorGroup);
-            loadedModels.push({ name: "Sector Sorting Error", mesh: sectorSortingErrorGroup, edges: sectorSortingErrorGroup.children[1] });
-            addModelCheckbox(scene, "Sector Sorting Error", sectorSortingErrorGroup, null, false, false, "#ff00ff");
-        }
-    }
-
     // "Subdivision Skip": standable/floor polygons that can genuinely be
     // missed entirely by a floor raycast because every Y subdivision row
     // they're registered in is vulnerable to the
@@ -1095,6 +1072,32 @@ export function parseZeldaSceneBinary(scene, buffer, fresh, mapName){
             loadedModels.push({ name: "Subdivision Skip", mesh: subdivisionSkipGroup, edges: subdivisionSkipGroup.children[1] });
             addModelCheckbox(scene, "Subdivision Skip", subdivisionSkipGroup, null, false, false, "#ff6600");
         }
+    }
+
+    buildSurfaceTypeMarkers(scene);
+
+    // "Sector Sorting Error Polygons": polygons affected by the
+    // CollisionPoly_GetMinY quantised-normal fast-path bug (see the
+    // detailed comment above scanAndBuildSectorSortingErrorMarkers in
+    // poly_markers.js) - a poly whose quantised y-normal rounds to exactly
+    // +/-32767 but whose vertices aren't actually all the same Y. Off by
+    // default, same as the other dev/debug overlays - only meaningful for
+    // the real N64/3DS BgCheck collision system, so restricted to
+    // OOT/MM/OOT3D/MM3D.
+    if (game == "OOT" || game == "MM" || game == "OOT3D" || game == "MM3D") {
+        const sectorSortingErrorGroup = scanAndBuildSectorSortingErrorMarkers();
+        if (sectorSortingErrorGroup) {
+            scene.add(sectorSortingErrorGroup);
+            loadedModels.push({ name: "Sector Sorting Error", mesh: sectorSortingErrorGroup, edges: sectorSortingErrorGroup.children[1] });
+            addModelCheckbox(scene, "Sector Sorting Error", sectorSortingErrorGroup, null, false, false, "#ff00ff");
+        }
+    }
+    
+    const flatGroup = scanAndBuildFlatGroundMarkers();
+    if (flatGroup) {
+        scene.add(flatGroup);
+        loadedModels.push({ name: "Flat Ground Clips", mesh: flatGroup, edges: null });
+        addModelCheckbox(scene, "Flat Ground Clips", flatGroup, null, false, false, "#00FFFF");
     }
 
 }
@@ -1214,24 +1217,38 @@ export function parseZeldaObjectBinary(scene, buffer, fresh, actorName, objectNa
     let modelName = "Main Model";
     if(!fresh)
         modelName = `Model ${loadedModels.length+1}`;
+
+    const waterBoxes = [];
+    parseWaterboxes(dv, colHeader, address_offset, endianness, waterBoxes);
+    
+    let hasCollision = false;
     
     if (tris.length > 0) {
         if (display_fwc.checked)
             buildGeometry_fwc(scene, verts, tris, modelName, fresh);
         else
             buildGeometry(scene, verts, tris, allTriangleData, null, modelName, fresh);
-
-        if (intangibleTris.length > 0) {
-            buildGeometry(scene, verts, intangibleTris, intangibleTriangleData, null, "Intangible Collision", false);
+        hasCollision = true;
+    }
+    if (intangibleTris.length > 0) {
+        buildGeometry(scene, verts, intangibleTris, intangibleTriangleData, null, "Intangible Collision", !hasCollision, !hasCollision, 0x3aff78);
+        hasCollision = true;
+    }
+    if (waterBoxes.length > 0) {
+        if(!hasCollision) {
+            clearAllModels(scene);
         }
-    }
-    else if (intangibleTris.length > 0) {
-        buildGeometry(scene, verts, intangibleTris, intangibleTriangleData, null, "Intangible Collision", true, true);
-    }
 
-    if ((!verts || !tris || verts.length === 0 || (tris.length === 0 && intangibleTris.length === 0)) && clearFirst) { 
-        alert('No valid vertices or triangles found'); 
-        return; 
+        const { mesh: waterMesh, edges: waterEdges } = buildWaterBoxModel(waterBoxes, waterboxCheckbox.checked);
+        scene.add(waterMesh);
+        scene.add(waterEdges);
+        loadedModels.push({ name: "Waterboxes", mesh: waterMesh, edges: waterEdges });
+        addModelCheckbox(scene, "Waterboxes", waterMesh, waterEdges, false, true, "#00FFFF");
+        hasCollision = true;
+    }
+    if(!hasCollision) {
+        clearAllModels(scene);
+        alert('No valid vertices, triangles, or waterboxes found'); 
     }
 }
 

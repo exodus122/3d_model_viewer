@@ -207,7 +207,27 @@ const material = new THREE.MeshLambertMaterial({color:0x3aa6ff,side:THREE.FrontS
 const material_red_wall = new THREE.MeshLambertMaterial({color:0xf56342,side:THREE.FrontSide,transparent:false,opacity:1.0,flatShading:true});
 const material_yellow_ceiling = new THREE.MeshLambertMaterial({color:0xe1eb34,side:THREE.FrontSide,transparent:false,opacity:1.0,flatShading:true});
 
-export function buildGeometry(scene, verts, tris, allTriangleData, colCtx, name = "Main Model", clearFirst = true, noPrimaryModel = false) {
+export function clearAllModels(scene) {
+    loadedModels.forEach(m => {
+        scene.remove(m.mesh);
+        scene.remove(m.edges);
+    });
+    loadedModels = [];
+    
+    loadedModelsNotSelectable.forEach(m => {
+        scene.remove(m.mesh);
+        scene.remove(m.edges);
+    });
+    loadedModelsNotSelectable = [];
+
+    // Remove all model checkboxes
+    removeAllModelCheckboxes();
+    
+    // Clear selection
+    clearSelection(scene);
+}
+
+export function buildGeometry(scene, verts, tris, allTriangleData, colCtx, name = "Main Model", clearFirst = true, noPrimaryModel = false, color = 0x3aa6ff) {
     
     if ((!verts || !tris || verts.length === 0 || tris.length === 0) && clearFirst) { 
         alert('No valid vertices or triangles found'); 
@@ -216,23 +236,7 @@ export function buildGeometry(scene, verts, tris, allTriangleData, colCtx, name 
 
     // Optionally clear all existing models
     if (clearFirst) {
-        loadedModels.forEach(m => {
-            scene.remove(m.mesh);
-            scene.remove(m.edges);
-        });
-        loadedModels = [];
-        
-        loadedModelsNotSelectable.forEach(m => {
-            scene.remove(m.mesh);
-            scene.remove(m.edges);
-        });
-        loadedModelsNotSelectable = [];
-
-        // Remove all model checkboxes
-        removeAllModelCheckboxes();
-        
-        // Clear selection
-        clearSelection(scene);
+        clearAllModels(scene);
     }
 
     // Create vertex positions
@@ -303,20 +307,7 @@ export function buildGeometry_fwc(scene, verts, tris, name = "Main Model", clear
 
     // Clear existing models
     if (clearFirst) {
-        loadedModels.forEach(m => {
-            scene.remove(m.mesh);
-            scene.remove(m.edges);
-        });
-        loadedModels = [];
-
-        loadedModelsNotSelectable.forEach(m => {
-            scene.remove(m.mesh);
-            scene.remove(m.edges);
-        });
-        loadedModelsNotSelectable = [];
-
-        removeAllModelCheckboxes();
-        clearSelection(scene);
+        clearAllModels(scene);
     }
 
     // Build vertex buffer
@@ -458,20 +449,7 @@ export function buildGeometryFromTriangles(scene, allTriangleData, colCtx, name 
     // Optional: Clear scene
     // ---------------------
     if (clearFirst) {
-        loadedModels.forEach(m => {
-            scene.remove(m.mesh);
-            scene.remove(m.edges);
-        });
-        loadedModels = [];
-
-        loadedModelsNotSelectable.forEach(m => {
-            scene.remove(m.mesh);
-            scene.remove(m.edges);
-        });
-        loadedModelsNotSelectable = [];
-
-        removeAllModelCheckboxes();
-        clearSelection(scene);
+        clearAllModels(scene);
     }
 
     // ---------------------
@@ -572,13 +550,7 @@ export function buildGeometryEdges(scene, verts, edges, name = "Edge Model", cle
 
     // Clear existing models
     if (clearFirst) {
-        loadedModels.forEach(m => {
-            if(m.mesh) scene.remove(m.mesh);
-            if(m.edges) scene.remove(m.edges);
-        });
-        loadedModels = [];
-        removeAllModelCheckboxes();
-        clearSelection(scene);
+        clearAllModels(scene);
     }
 
     // Flatten edge positions (original logic)

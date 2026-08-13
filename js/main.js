@@ -210,12 +210,14 @@ gameSel.addEventListener('change',(e)=>{
         option.textContent = map.name; // This is what’s shown to the user
         mapDropdown.appendChild(option);
     });
-    actors.forEach(actor => {
-        const option = document.createElement("option");
-        option.value = actor.collision_name; // This will be the value when selected
-        option.textContent = actor.collision_name; // This is what’s shown to the user
-        actorDropdown.appendChild(option);
-    });
+    if(actors.length > 0) {
+        actors.forEach(actor => {
+            const option = document.createElement("option");
+            option.value = actor.collision_name; // This will be the value when selected
+            option.textContent = actor.collision_name; // This is what’s shown to the user
+            actorDropdown.appendChild(option);
+        });
+    }
     
     if (game == "BK" || game == "BT") {
         display_fwc_label.style.display = "none";
