@@ -46,15 +46,15 @@ export function parseModel(scene, buffer, filename){
         if(game == "BK" || game == "BT")
                 parseBKModelBinary(scene, buffer, true);
         else if (game == "OOT" || game == "MM" || game == "OOT3D" || game == "MM3D") {
-                if (filename.includes("object_") || filename.includes("gameplay_")) {
-                    parseZeldaObjectBinary(scene, buffer, true, filename, 0x4E98);
-                }
-                else {
-                    parseZeldaSceneBinary(scene, buffer, true, filename);
-                }
+            if (filename.includes("object_") || filename.includes("gameplay_")) {
+                //parseZeldaObjectBinary(scene, buffer, true, filename, 0x4E98);
+            }
+            else {
+                parseZeldaSceneBinary(scene, buffer, true, filename);
+            }
         }
         else
-                parseModelBinary(scene, buffer);
+            parseModelBinary(scene, buffer);
     }
 }
 
@@ -1099,7 +1099,7 @@ export function parseZeldaSceneBinary(scene, buffer, fresh, mapName){
 
 }
 
-export function parseZeldaObjectBinary(scene, buffer, fresh, objectName, colHeaderAddr){
+export function parseZeldaObjectBinary(scene, buffer, fresh, actorName, objectName, colHeaderAddr){
 
     const dv = new DataView(buffer);
     if (dv.byteLength < 4) {
@@ -1132,13 +1132,18 @@ export function parseZeldaObjectBinary(scene, buffer, fresh, objectName, colHead
         camType: null
     };
     colHeader.surfaceTypes = [];
-
+    
+    colHeaderAddr = colHeaderAddr & 0x00FFFFFF;
     parseCollisionHeader(dv, colHeaderAddr, address_offset, colHeader, endianness);
-    address_offset = -0x5000000; // for object collision headers, the address offset is different than for scene collision headers
+    colHeader.vtxListStart &= 0x00FFFFFF;
+    colHeader.polygonListStart &= 0x00FFFFFF;
+    colHeader.surfaceTypeListStart &= 0x00FFFFFF;
+    colHeader.waterboxListStart &= 0x00FFFFFF;
+    
     console.log(game+" - "+objectName+" - numVtxs: "+colHeader.numVtxs+", numPolygons: "+colHeader.numPolygons);
 
     // Get SurfaceTypes
-    let offset = colHeader.surfaceTypeListStart + address_offset;
+    /*let offset = colHeader.surfaceTypeListStart + address_offset;
     for(let i = 0; i < colHeader.numSurfaceTypes; i++){
         if (offset + i*8 < dv.byteLength - 8) {
             const word1 = dv.getUint32(offset + i*8 + 0x0, endianness);
@@ -1169,7 +1174,7 @@ export function parseZeldaObjectBinary(scene, buffer, fresh, objectName, colHead
         else {
             break;
         }
-    }
+    }*/
 
     //console.log("colHeader.surfaceTypes:", colHeader.surfaceTypes);
 
@@ -1179,6 +1184,8 @@ export function parseZeldaObjectBinary(scene, buffer, fresh, objectName, colHead
     let intangibleTris = [];
     let intangibleTriangleData = [];
     parseVerticesAndPolygons(dv, colHeader, address_offset, endianness, poly_length, verts, tris, intangibleTris, intangibleTriangleData, allTriangleData);
+    console.log("numTangible: "+tris.length+", numIntangible: "+intangibleTris.length);
+
 
     const allIdx = [].concat(...tris);
     const maxIdx = Math.max(...allIdx);
@@ -1208,20 +1215,23 @@ export function parseZeldaObjectBinary(scene, buffer, fresh, objectName, colHead
     if(!fresh)
         modelName = `Model ${loadedModels.length+1}`;
     
-    if (display_fwc.checked)
-        buildGeometry_fwc(scene, verts, tris, modelName, fresh);
-    else
-        buildGeometry(scene, verts, tris, allTriangleData, null, modelName, fresh);
+    if (tris.length > 0) {
+        if (display_fwc.checked)
+            buildGeometry_fwc(scene, verts, tris, modelName, fresh);
+        else
+            buildGeometry(scene, verts, tris, allTriangleData, null, modelName, fresh);
 
-    // Intangible collision (xpFlags & 2) as its own separate model - these
-    // polygons have no real collision in-game, so they're deliberately
-    // excluded from allTriangleData/colCtx above (not registered in the
-    // subdivision system, not considered for sample points or standable
-    // surfaces), but are still worth being able to see. Always additive
-    // (fresh=false) since the main model above already handled clearing
-    // the scene for a fresh load.
-    if (intangibleTris.length > 0) {
-        buildGeometry(scene, verts, intangibleTris, intangibleTriangleData, null, "Intangible Collision", false);
+        if (intangibleTris.length > 0) {
+            buildGeometry(scene, verts, intangibleTris, intangibleTriangleData, null, "Intangible Collision", false);
+        }
+    }
+    else if (intangibleTris.length > 0) {
+        buildGeometry(scene, verts, intangibleTris, intangibleTriangleData, null, "Intangible Collision", true, true);
+    }
+
+    if ((!verts || !tris || verts.length === 0 || (tris.length === 0 && intangibleTris.length === 0)) && clearFirst) { 
+        alert('No valid vertices or triangles found'); 
+        return; 
     }
 }
 

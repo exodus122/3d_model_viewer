@@ -11,7 +11,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
 import { performSelection, clearSelection } from './selection.js';
-import { parseModel, parseModelText, parseModelBinary, parseBKModelBinary, parseZeldaSceneBinary, parseInvisibleSeams1D } from './parse_model.js';
+import { parseModel, parseModelText, parseModelBinary, parseBKModelBinary, parseZeldaSceneBinary, parseZeldaObjectBinary, parseInvisibleSeams1D } from './parse_model.js';
 import { addModelCheckbox, buildTest } from './render.js';
 
 ////////////////////////////////////////
@@ -19,8 +19,10 @@ import { addModelCheckbox, buildTest } from './render.js';
 ////////////////////////////////////////
 
 const mapDropdown = document.getElementById("mapDropdown");
+const actorDropdown = document.getElementById("actorDropdown");
 const fileInput = document.getElementById('file');
 const loadMapButton = document.getElementById('loadMap');
+const loadActorButton = document.getElementById('loadActor');
 const gridCheckbox = document.getElementById('grid');
 const translucentCheckbox = document.getElementById('translucent');
 const opacitySlider = document.getElementById('opacity');
@@ -177,11 +179,23 @@ const GAME_MAPS = {
     MM3D: MM3D_Maps,
 };
 
+// Map each game to its data array
+const GAME_ACTORS = {
+    BK: null,
+    BT: null,
+    OOT: OOT_Actors,
+    MM: MM_Actors,
+    OOT3D: null,
+    MM3D: null,
+};
+
 gameSel.addEventListener('change',(e)=>{
     game = e.target.value;
     mapDropdown.options.length = 0;
+    actorDropdown.options.length = 0;
     
     let maps = GAME_MAPS[game]
+    let actors = GAME_ACTORS[game]
     
     if(game == "OOT" || game == "MM") {
         EPS = 0.008;
@@ -195,6 +209,12 @@ gameSel.addEventListener('change',(e)=>{
         option.value = map.name; // This will be the value when selected
         option.textContent = map.name; // This is what’s shown to the user
         mapDropdown.appendChild(option);
+    });
+    actors.forEach(actor => {
+        const option = document.createElement("option");
+        option.value = actor.collision_name; // This will be the value when selected
+        option.textContent = actor.collision_name; // This is what’s shown to the user
+        actorDropdown.appendChild(option);
     });
     
     if (game == "BK" || game == "BT") {
@@ -210,6 +230,15 @@ gameSel.addEventListener('change',(e)=>{
         waterboxCheckboxElement.style.display = "block";
         subdivisionSelectorContainer.style.display = "block";
         groundClipBandsLabel.style.display = "block";
+    }
+
+    if (["OOT","MM"].includes(game)) {
+        actorDropdown.style.display = "block";
+        loadActor.style.display = "block";
+    }
+    else {
+        actorDropdown.style.display = "none";
+        loadActor.style.display = "none";
     }
         
 });
@@ -281,6 +310,35 @@ loadMap.addEventListener('click', async (e) => {
                     parseInvisibleSeams1D(scene, new TextDecoder().decode(buffer2));
                 }
             } */
+        } catch (err) {
+            console.error(err);
+        }
+    }
+});
+
+// Get actor property
+function getActorProperty(game, actorName, prop) {
+    const actors = GAME_ACTORS[game];
+    if (!actors) return null;
+
+    const found = actors.find(actor => actor.collision_name === actorName);
+    return found ? found[prop] ?? null : null;
+}
+
+// Load selected actor
+loadActor.addEventListener('click', async (e) => {
+    const game = document.getElementById("selected-game").value;
+    
+    if (game == "OOT" || game == "MM"){
+        const actorName = document.getElementById("actorDropdown").value;
+        let objectName = getActorProperty(game, actorName, "file_name");
+        let actorOffset = getActorProperty(game, actorName, "offset");
+
+        try {
+            const res1 = await fetch('./models/' + game + '/actors/objects/' + objectName);
+            const buffer1 = await res1.arrayBuffer();
+            console.log(objectName+": Binary file length:", buffer1.byteLength);
+            parseZeldaObjectBinary(scene, buffer1, true, actorName, objectName, actorOffset);
         } catch (err) {
             console.error(err);
         }

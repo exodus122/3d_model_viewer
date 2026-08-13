@@ -201,6 +201,12 @@ a.download-link {
     box-sizing: border-box;
 }
 
+#actorDropdown {
+    min-width: 200px;
+    max-width: 250px;
+    box-sizing: border-box;
+}
+
 #file {
     border-radius: 6px;
     padding-top: 8px;

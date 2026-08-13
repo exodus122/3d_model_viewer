@@ -207,7 +207,7 @@ const material = new THREE.MeshLambertMaterial({color:0x3aa6ff,side:THREE.FrontS
 const material_red_wall = new THREE.MeshLambertMaterial({color:0xf56342,side:THREE.FrontSide,transparent:false,opacity:1.0,flatShading:true});
 const material_yellow_ceiling = new THREE.MeshLambertMaterial({color:0xe1eb34,side:THREE.FrontSide,transparent:false,opacity:1.0,flatShading:true});
 
-export function buildGeometry(scene, verts, tris, allTriangleData, colCtx, name = "Main Model", clearFirst = true) {
+export function buildGeometry(scene, verts, tris, allTriangleData, colCtx, name = "Main Model", clearFirst = true, noPrimaryModel = false) {
     
     if ((!verts || !tris || verts.length === 0 || tris.length === 0) && clearFirst) { 
         alert('No valid vertices or triangles found'); 
@@ -262,7 +262,7 @@ export function buildGeometry(scene, verts, tris, allTriangleData, colCtx, name 
     meshObj.material.polygonOffsetUnits = 1;
     meshObj.userData.triangles = allTriangleData;  // Store metadata
     meshObj.userData.colCtx = colCtx;  // Store metadata
-    if(!clearFirst)
+    if(!clearFirst || noPrimaryModel)
         meshObj.material.color.set(0x3aff78);
     scene.add(meshObj);
 
@@ -289,7 +289,7 @@ export function buildGeometry(scene, verts, tris, allTriangleData, colCtx, name 
     // Store and register in UI
     loadedModels.push({ name, mesh: meshObj, edges: edgesObj });
     //console.log(loadedModels);
-    addModelCheckbox(scene, name, meshObj, edgesObj, clearFirst, true);
+    addModelCheckbox(scene, name, meshObj, edgesObj, clearFirst, true, noPrimaryModel ? '#3aff78' : null);
     
     updateSamplePointsUIVisibility(game);
 }
