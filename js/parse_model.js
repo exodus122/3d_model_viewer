@@ -119,7 +119,23 @@ export function parseModelBinary(scene, buffer){
     buildGeometry(scene, verts, tris, null, null, "Main Model", true);
 }
 
-async function fetchActorsByAreaJSON(path) {
+async function fetchActorsByAreaJSON(path, sceneName) {
+    try {
+        const response = await fetch(path);
+        let data = await response.json();
+
+        const areaActors = data[sceneName];
+
+        data = null;
+
+        return areaActors;
+    } catch (error) {
+        console.error('Failed to fetch or parse JSON:', error);
+        return null;
+    }
+}
+
+async function fetchJSON(path) {
   try {
     // 1. Request the file path from your server
     const response = await fetch(path);
@@ -710,6 +726,40 @@ function parseVerticesAndPolygons(dv, colHeader, address_offset, endianness, pol
     //console.log(tris)
 }
 
+async function parseAndRenderActors(scene, game, sceneName){
+    // Fetch the actors_by_scene JSON for this game, then look up the
+    // current scene's actor list in it. This is a separate file from
+    let json_path = null;
+
+    json_path = '../models/' + game + '/actors/' + game + '_actors_by_scene.json';
+    const areaActors = await fetchActorsByAreaJSON(json_path, sceneName);
+    if (!areaActors) {
+        console.log("Failed to parse 'actors by scene' json: " + sceneName);
+        return;
+    }
+    //console.log(areaActors);
+
+    json_path = '../models/' + game + '/actors/' + game + '_actors.json';
+    const actors = await fetchJSON(json_path, sceneName);
+    if(!areaActors) {
+        console.log("Failed to parse 'actors' json in game: " + game);
+        return;
+    }
+    //console.log(actors);
+
+    json_path = '../models/' + game + '/actors/' + game + '_objects.json';
+    const objects = await fetchJSON(json_path, sceneName);
+    if(!areaActors) {
+        console.log("Failed to parse 'objects' json in game: " + game);
+        return;
+    }
+    //console.log(objects);
+
+    //console.log("Successfully parsed json's for actors in scene: " + sceneName);
+
+    
+}
+
 export function parseZeldaSceneBinary(scene, buffer, fresh, mapName, sceneName){
 
     const dv = new DataView(buffer);
@@ -958,27 +1008,10 @@ export function parseZeldaSceneBinary(scene, buffer, fresh, mapName, sceneName){
     // RENDER ACTORS (OOT/MM ONLY)
 
     // Get actor data for this scene, if available. This is only done for OOT/MM, since the other games 
-    // don't have a known actors_by_scene JSON file to reference. The actor data is used for the "Actor List" 
-    // sidebar, which shows all actors in the scene and allows toggling their visibility.
+    // don't have a known actors_by_scene JSON file to reference.
     if (game == "OOT" || game == "MM") {
-        // Fetch the actors_by_scene JSON for this game, then look up the
-        // current scene's actor list in it. This is a separate file from
-        let json_path = null;
-        json_path = '../models/' + game + '/actors/' + game + '_actors_by_scene.json';
-        fetchActorsByAreaJSON(json_path).then(actorsByArea => {
-            if (actorsByArea) {
-                const areaActors = actorsByArea[sceneName];
-                console.log("Finished parsing actor data for " + sceneName);
-                // console.log(areaActors);
-            }
-            else {
-                console.warn("No actor data found for " + sceneName);
-            }
-        });
+        parseAndRenderActors(scene, game, sceneName);
     }
-
-    // TO-DO: RENDER ACTORS (OOT/MM ONLY) - addModelCheckbox for actors, toggle visibility, etc.
-
 
     // ADDITIONAL SURFACE RENDERING OPTIONS
 

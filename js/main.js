@@ -210,7 +210,7 @@ gameSel.addEventListener('change',(e)=>{
         option.textContent = map.name; // This is what’s shown to the user
         mapDropdown.appendChild(option);
     });
-    if(actors.length > 0) {
+    if(actors) {
         actors.forEach(actor => {
             const option = document.createElement("option");
             option.value = actor.collision_name; // This will be the value when selected
