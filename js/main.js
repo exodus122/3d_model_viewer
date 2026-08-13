@@ -291,7 +291,7 @@ loadMap.addEventListener('click', async (e) => {
             const res1 = await fetch('./models/' + game + '/' + mapFilename);
             const buffer1 = await res1.arrayBuffer();
             console.log(mapFilename+": Binary file length:", buffer1.byteLength);
-            parseZeldaSceneBinary(scene, buffer1, true, mapName);
+            parseZeldaSceneBinary(scene, buffer1, true, mapName, mapFilename);
             
             /* if (game == "OOT" || game == "MM" || game == "OOT3D" || game == "MM3D") {
                 let mapFilename2 = getMapProperty(game, mapName, "seams");

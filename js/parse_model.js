@@ -119,6 +119,20 @@ export function parseModelBinary(scene, buffer){
     buildGeometry(scene, verts, tris, null, null, "Main Model", true);
 }
 
+async function fetchActorsByAreaJSON(path) {
+  try {
+    // 1. Request the file path from your server
+    const response = await fetch(path);
+    
+    // 2. Read the stream and automatically parse it as JSON
+    const parsedObject = await response.json();
+
+    return parsedObject;
+  } catch (error) {
+    console.error('Failed to fetch or parse JSON:', error);
+  }
+}
+
 export function parseBKModelBinary(scene, buffer, fresh){
     const dv = new DataView(buffer);
     if (dv.byteLength < 4) {
@@ -696,7 +710,7 @@ function parseVerticesAndPolygons(dv, colHeader, address_offset, endianness, pol
     //console.log(tris)
 }
 
-export function parseZeldaSceneBinary(scene, buffer, fresh, mapName){
+export function parseZeldaSceneBinary(scene, buffer, fresh, mapName, sceneName){
 
     const dv = new DataView(buffer);
     if (dv.byteLength < 4) {
@@ -940,6 +954,33 @@ export function parseZeldaSceneBinary(scene, buffer, fresh, mapName){
         loadedModels.push({ name: "Waterboxes", mesh: waterMesh, edges: waterEdges });
         addModelCheckbox(scene, "Waterboxes", waterMesh, waterEdges, false, false, "#00FFFF");
     }
+
+    // RENDER ACTORS (OOT/MM ONLY)
+
+    // Get actor data for this scene, if available. This is only done for OOT/MM, since the other games 
+    // don't have a known actors_by_scene JSON file to reference. The actor data is used for the "Actor List" 
+    // sidebar, which shows all actors in the scene and allows toggling their visibility.
+    if (game == "OOT" || game == "MM") {
+        // Fetch the actors_by_scene JSON for this game, then look up the
+        // current scene's actor list in it. This is a separate file from
+        let json_path = null;
+        json_path = '../models/' + game + '/actors/' + game + '_actors_by_scene.json';
+        fetchActorsByAreaJSON(json_path).then(actorsByArea => {
+            if (actorsByArea) {
+                const areaActors = actorsByArea[sceneName];
+                console.log("Finished parsing actor data for " + sceneName);
+                // console.log(areaActors);
+            }
+            else {
+                console.warn("No actor data found for " + sceneName);
+            }
+        });
+    }
+
+    // TO-DO: RENDER ACTORS (OOT/MM ONLY) - addModelCheckbox for actors, toggle visibility, etc.
+
+
+    // ADDITIONAL SURFACE RENDERING OPTIONS
 
     // groundClipBandsCheckbox: when unchecked, standable surfaces render as
     // just the plain red/blue split (no yellow ground-clippable banding, no

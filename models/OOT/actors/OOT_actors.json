@@ -1,0 +1,2273 @@
+[
+	{
+		"actorId": 0,
+		"name": "Player",
+		"objectId": 1
+	},
+	{
+		"name": "_filler_En_Skeleton_filler_"
+	},
+	{
+		"actorId": 2,
+		"name": "En_Test",
+		"objectId": 50
+	},
+	{
+		"name": "_filler_En_Iron_filler_"
+	},
+	{
+		"actorId": 4,
+		"name": "En_GirlA",
+		"objectId": 1
+	},
+	{
+		"name": "_filler_En_Slim_filler_"
+	},
+	{
+		"name": "_filler_En_Bskel_filler_"
+	},
+	{
+		"actorId": 7,
+		"name": "En_Part",
+		"objectId": 1
+	},
+	{
+		"actorId": 8,
+		"name": "En_Light",
+		"objectId": 1
+	},
+	{
+		"actorId": 9,
+		"name": "En_Door",
+		"objectId": 1
+	},
+	{
+		"actorId": 10,
+		"name": "En_Box",
+		"objectId": 14
+	},
+	{
+		"actorId": 11,
+		"name": "Bg_Dy_Yoseizo",
+		"objectId": 10
+	},
+	{
+		"actorId": 12,
+		"name": "Bg_Hidan_Firewall",
+		"objectId": 44
+	},
+	{
+		"actorId": 13,
+		"name": "En_Poh",
+		"objectId": 1
+	},
+	{
+		"actorId": 14,
+		"name": "En_Okuta",
+		"objectId": 7
+	},
+	{
+		"actorId": 15,
+		"name": "Bg_Ydan_Sp",
+		"objectId": 54
+	},
+	{
+		"actorId": 16,
+		"name": "En_Bom",
+		"objectId": 1
+	},
+	{
+		"actorId": 17,
+		"name": "En_Wallmas",
+		"objectId": 11
+	},
+	{
+		"actorId": 18,
+		"name": "En_Dodongo",
+		"objectId": 12
+	},
+	{
+		"actorId": 19,
+		"name": "En_Firefly",
+		"objectId": 13
+	},
+	{
+		"actorId": 20,
+		"name": "En_Horse",
+		"objectId": 26
+	},
+	{
+		"actorId": 21,
+		"name": "En_Item00",
+		"objectId": 1
+	},
+	{
+		"actorId": 22,
+		"name": "En_Arrow",
+		"objectId": 1
+	},
+	{
+		"name": "_filler_Dummy_player_filler_"
+	},
+	{
+		"actorId": 24,
+		"name": "En_Elf",
+		"objectId": 1
+	},
+	{
+		"actorId": 25,
+		"name": "En_Niw",
+		"objectId": 19
+	},
+	{
+		"name": "_filler_En_Bee_filler_"
+	},
+	{
+		"actorId": 27,
+		"name": "En_Tite",
+		"objectId": 22
+	},
+	{
+		"actorId": 28,
+		"name": "En_Reeba",
+		"objectId": 23
+	},
+	{
+		"actorId": 29,
+		"name": "En_Peehat",
+		"objectId": 24
+	},
+	{
+		"actorId": 30,
+		"name": "En_Butte",
+		"objectId": 2
+	},
+	{
+		"name": "_filler_En_F_Obj_filler_"
+	},
+	{
+		"actorId": 32,
+		"name": "En_Insect",
+		"objectId": 1
+	},
+	{
+		"actorId": 33,
+		"name": "En_Fish",
+		"objectId": 1
+	},
+	{
+		"name": "_filler_En_D_Obj_filler_"
+	},
+	{
+		"actorId": 35,
+		"name": "En_Holl",
+		"objectId": 1
+	},
+	{
+		"actorId": 36,
+		"name": "En_Scene_Change",
+		"objectId": 64
+	},
+	{
+		"actorId": 37,
+		"name": "En_Zf",
+		"objectId": 27
+	},
+	{
+		"actorId": 38,
+		"name": "En_Hata",
+		"objectId": 118
+	},
+	{
+		"actorId": 39,
+		"name": "Boss_Dodongo",
+		"objectId": 25
+	},
+	{
+		"actorId": 40,
+		"name": "Boss_Goma",
+		"objectId": 28
+	},
+	{
+		"actorId": 41,
+		"name": "En_Zl1",
+		"objectId": 29
+	},
+	{
+		"actorId": 42,
+		"name": "En_Viewer",
+		"objectId": 1
+	},
+	{
+		"actorId": 43,
+		"name": "En_Goma",
+		"objectId": 30
+	},
+	{
+		"actorId": 44,
+		"name": "Bg_Pushbox",
+		"objectId": 3
+	},
+	{
+		"actorId": 45,
+		"name": "En_Bubble",
+		"objectId": 18
+	},
+	{
+		"actorId": 46,
+		"name": "Door_Shutter",
+		"objectId": 1
+	},
+	{
+		"actorId": 47,
+		"name": "En_Dodojr",
+		"objectId": 31
+	},
+	{
+		"actorId": 48,
+		"name": "En_Bdfire",
+		"objectId": 25
+	},
+	{
+		"name": "_filler_Magic_filler_"
+	},
+	{
+		"actorId": 50,
+		"name": "En_Boom",
+		"objectId": 1
+	},
+	{
+		"actorId": 51,
+		"name": "En_Torch2",
+		"objectId": 32
+	},
+	{
+		"actorId": 52,
+		"name": "En_Bili",
+		"objectId": 33
+	},
+	{
+		"actorId": 53,
+		"name": "En_Tp",
+		"objectId": 34
+	},
+	{
+		"name": "_filler_En_OA1_filler_"
+	},
+	{
+		"actorId": 55,
+		"name": "En_St",
+		"objectId": 36
+	},
+	{
+		"actorId": 56,
+		"name": "En_Bw",
+		"objectId": 37
+	},
+	{
+		"actorId": 57,
+		"name": "En_A_Obj",
+		"objectId": 1
+	},
+	{
+		"actorId": 58,
+		"name": "En_Eiyer",
+		"objectId": 38
+	},
+	{
+		"actorId": 59,
+		"name": "En_River_Sound",
+		"objectId": 1
+	},
+	{
+		"actorId": 60,
+		"name": "En_Horse_Normal",
+		"objectId": 39
+	},
+	{
+		"actorId": 61,
+		"name": "En_Ossan",
+		"objectId": 1
+	},
+	{
+		"actorId": 62,
+		"name": "Bg_Treemouth",
+		"objectId": 42
+	},
+	{
+		"actorId": 63,
+		"name": "Bg_Dodoago",
+		"objectId": 43
+	},
+	{
+		"actorId": 64,
+		"name": "Bg_Hidan_Dalm",
+		"objectId": 44
+	},
+	{
+		"actorId": 65,
+		"name": "Bg_Hidan_Hrock",
+		"objectId": 44
+	},
+	{
+		"actorId": 66,
+		"name": "En_Horse_Ganon",
+		"objectId": 45
+	},
+	{
+		"actorId": 67,
+		"name": "Bg_Hidan_Rock",
+		"objectId": 44
+	},
+	{
+		"actorId": 68,
+		"name": "Bg_Hidan_Rsekizou",
+		"objectId": 44
+	},
+	{
+		"actorId": 69,
+		"name": "Bg_Hidan_Sekizou",
+		"objectId": 44
+	},
+	{
+		"actorId": 70,
+		"name": "Bg_Hidan_Sima",
+		"objectId": 44
+	},
+	{
+		"actorId": 71,
+		"name": "Bg_Hidan_Syoku",
+		"objectId": 44
+	},
+	{
+		"actorId": 72,
+		"name": "En_Xc",
+		"objectId": 138
+	},
+	{
+		"actorId": 73,
+		"name": "Bg_Hidan_Curtain",
+		"objectId": 1
+	},
+	{
+		"actorId": 74,
+		"name": "Bg_Spot00_Hanebasi",
+		"objectId": 47
+	},
+	{
+		"actorId": 75,
+		"name": "En_Mb",
+		"objectId": 48
+	},
+	{
+		"actorId": 76,
+		"name": "En_Bombf",
+		"objectId": 49
+	},
+	{
+		"actorId": 77,
+		"name": "En_Zl2",
+		"objectId": 96
+	},
+	{
+		"actorId": 78,
+		"name": "Bg_Hidan_Fslift",
+		"objectId": 44
+	},
+	{
+		"actorId": 79,
+		"name": "En_OE2",
+		"objectId": 53
+	},
+	{
+		"actorId": 80,
+		"name": "Bg_Ydan_Hasi",
+		"objectId": 54
+	},
+	{
+		"actorId": 81,
+		"name": "Bg_Ydan_Maruta",
+		"objectId": 54
+	},
+	{
+		"actorId": 82,
+		"name": "Boss_Ganondrof",
+		"objectId": 55
+	},
+	{
+		"name": "_filler_En_Npc_filler_"
+	},
+	{
+		"actorId": 84,
+		"name": "En_Am",
+		"objectId": 56
+	},
+	{
+		"actorId": 85,
+		"name": "En_Dekubaba",
+		"objectId": 57
+	},
+	{
+		"actorId": 86,
+		"name": "En_M_Fire1",
+		"objectId": 1
+	},
+	{
+		"actorId": 87,
+		"name": "En_M_Thunder",
+		"objectId": 1
+	},
+	{
+		"actorId": 88,
+		"name": "Bg_Ddan_Jd",
+		"objectId": 43
+	},
+	{
+		"actorId": 89,
+		"name": "Bg_Breakwall",
+		"objectId": 1
+	},
+	{
+		"actorId": 90,
+		"name": "En_Jj",
+		"objectId": 64
+	},
+	{
+		"actorId": 91,
+		"name": "En_Horse_Zelda",
+		"objectId": 70
+	},
+	{
+		"actorId": 92,
+		"name": "Bg_Ddan_Kd",
+		"objectId": 43
+	},
+	{
+		"actorId": 93,
+		"name": "Door_Warp1",
+		"objectId": 72
+	},
+	{
+		"actorId": 94,
+		"name": "Obj_Syokudai",
+		"objectId": 164
+	},
+	{
+		"actorId": 95,
+		"name": "Item_B_Heart",
+		"objectId": 189
+	},
+	{
+		"actorId": 96,
+		"name": "En_Dekunuts",
+		"objectId": 74
+	},
+	{
+		"actorId": 97,
+		"name": "Bg_Menkuri_Kaiten",
+		"objectId": 77
+	},
+	{
+		"actorId": 98,
+		"name": "Bg_Menkuri_Eye",
+		"objectId": 77
+	},
+	{
+		"actorId": 99,
+		"name": "En_Vali",
+		"objectId": 86
+	},
+	{
+		"actorId": 100,
+		"name": "Bg_Mizu_Movebg",
+		"objectId": 89
+	},
+	{
+		"actorId": 101,
+		"name": "Bg_Mizu_Water",
+		"objectId": 89
+	},
+	{
+		"actorId": 102,
+		"name": "Arms_Hook",
+		"objectId": 20
+	},
+	{
+		"actorId": 103,
+		"name": "En_fHG",
+		"objectId": 90
+	},
+	{
+		"actorId": 104,
+		"name": "Bg_Mori_Hineri",
+		"objectId": 1
+	},
+	{
+		"actorId": 105,
+		"name": "En_Bb",
+		"objectId": 93
+	},
+	{
+		"actorId": 106,
+		"name": "Bg_Toki_Hikari",
+		"objectId": 94
+	},
+	{
+		"actorId": 107,
+		"name": "En_Yukabyun",
+		"objectId": 95
+	},
+	{
+		"actorId": 108,
+		"name": "Bg_Toki_Swd",
+		"objectId": 94
+	},
+	{
+		"actorId": 109,
+		"name": "En_Fhg_Fire",
+		"objectId": 90
+	},
+	{
+		"actorId": 110,
+		"name": "Bg_Mjin",
+		"objectId": 1
+	},
+	{
+		"actorId": 111,
+		"name": "Bg_Hidan_Kousi",
+		"objectId": 44
+	},
+	{
+		"actorId": 112,
+		"name": "Door_Toki",
+		"objectId": 94
+	},
+	{
+		"actorId": 113,
+		"name": "Bg_Hidan_Hamstep",
+		"objectId": 44
+	},
+	{
+		"actorId": 114,
+		"name": "En_Bird",
+		"objectId": 119
+	},
+	{
+		"name": "_filler_En_Stree_filler_"
+	},
+	{
+		"name": "_filler_En_Kui_filler_"
+	},
+	{
+		"name": "_filler_En_Maruta_filler_"
+	},
+	{
+		"name": "_filler_En_Saku_filler_"
+	},
+	{
+		"actorId": 119,
+		"name": "En_Wood02",
+		"objectId": 124
+	},
+	{
+		"name": "_filler_En_Twood01_filler_"
+	},
+	{
+		"name": "_filler_En_Kabu02_filler_"
+	},
+	{
+		"name": "_filler_En_Board_filler_"
+	},
+	{
+		"name": "_filler_En_Floater_filler_"
+	},
+	{
+		"actorId": 124,
+		"name": "En_Lightbox",
+		"objectId": 129
+	},
+	{
+		"actorId": 125,
+		"name": "En_Pu_box",
+		"objectId": 130
+	},
+	{
+		"name": "_filler_En_Spia_filler_"
+	},
+	{
+		"name": "_filler_En_Stoneb_filler_"
+	},
+	{
+		"actorId": 128,
+		"name": "En_Trap",
+		"objectId": 133
+	},
+	{
+		"actorId": 129,
+		"name": "En_Arow_Trap",
+		"objectId": 1
+	},
+	{
+		"actorId": 130,
+		"name": "En_Vase",
+		"objectId": 134
+	},
+	{
+		"name": "_filler_Bg_Hidan_Pompfly_filler_"
+	},
+	{
+		"actorId": 132,
+		"name": "En_Ta",
+		"objectId": 136
+	},
+	{
+		"actorId": 133,
+		"name": "En_Tk",
+		"objectId": 137
+	},
+	{
+		"actorId": 134,
+		"name": "Bg_Mori_Bigst",
+		"objectId": 114
+	},
+	{
+		"actorId": 135,
+		"name": "Bg_Mori_Elevator",
+		"objectId": 114
+	},
+	{
+		"actorId": 136,
+		"name": "Bg_Mori_Kaitenkabe",
+		"objectId": 114
+	},
+	{
+		"actorId": 137,
+		"name": "Bg_Mori_Rakkatenjo",
+		"objectId": 114
+	},
+	{
+		"actorId": 138,
+		"name": "En_Vm",
+		"objectId": 139
+	},
+	{
+		"actorId": 139,
+		"name": "Demo_Effect",
+		"objectId": 1
+	},
+	{
+		"actorId": 140,
+		"name": "Demo_Kankyo",
+		"objectId": 1
+	},
+	{
+		"actorId": 141,
+		"name": "Bg_Hidan_Fwbig",
+		"objectId": 44
+	},
+	{
+		"actorId": 142,
+		"name": "En_Floormas",
+		"objectId": 11
+	},
+	{
+		"actorId": 143,
+		"name": "En_Heishi1",
+		"objectId": 151
+	},
+	{
+		"actorId": 144,
+		"name": "En_Rd",
+		"objectId": 152
+	},
+	{
+		"actorId": 145,
+		"name": "En_Po_Sisters",
+		"objectId": 153
+	},
+	{
+		"actorId": 146,
+		"name": "Bg_Heavy_Block",
+		"objectId": 154
+	},
+	{
+		"actorId": 147,
+		"name": "Bg_Po_Event",
+		"objectId": 153
+	},
+	{
+		"actorId": 148,
+		"name": "Obj_Mure",
+		"objectId": 1
+	},
+	{
+		"actorId": 149,
+		"name": "En_Sw",
+		"objectId": 36
+	},
+	{
+		"actorId": 150,
+		"name": "Boss_Fd",
+		"objectId": 156
+	},
+	{
+		"actorId": 151,
+		"name": "Object_Kankyo",
+		"objectId": 1
+	},
+	{
+		"actorId": 152,
+		"name": "En_Du",
+		"objectId": 157
+	},
+	{
+		"actorId": 153,
+		"name": "En_Fd",
+		"objectId": 158
+	},
+	{
+		"actorId": 154,
+		"name": "En_Horse_Link_Child",
+		"objectId": 160
+	},
+	{
+		"actorId": 155,
+		"name": "Door_Ana",
+		"objectId": 2
+	},
+	{
+		"actorId": 156,
+		"name": "Bg_Spot02_Objects",
+		"objectId": 161
+	},
+	{
+		"actorId": 157,
+		"name": "Bg_Haka",
+		"objectId": 162
+	},
+	{
+		"actorId": 158,
+		"name": "Magic_Wind",
+		"objectId": 1
+	},
+	{
+		"actorId": 159,
+		"name": "Magic_Fire",
+		"objectId": 1
+	},
+	{
+		"name": "_filler_Magic_Ice_filler_"
+	},
+	{
+		"actorId": 161,
+		"name": "En_Ru1",
+		"objectId": 163
+	},
+	{
+		"actorId": 162,
+		"name": "Boss_Fd2",
+		"objectId": 165
+	},
+	{
+		"actorId": 163,
+		"name": "En_Fd_Fire",
+		"objectId": 3
+	},
+	{
+		"actorId": 164,
+		"name": "En_Dh",
+		"objectId": 166
+	},
+	{
+		"actorId": 165,
+		"name": "En_Dha",
+		"objectId": 166
+	},
+	{
+		"actorId": 166,
+		"name": "En_Rl",
+		"objectId": 167
+	},
+	{
+		"actorId": 167,
+		"name": "En_Encount1",
+		"objectId": 1
+	},
+	{
+		"actorId": 168,
+		"name": "Demo_Du",
+		"objectId": 157
+	},
+	{
+		"actorId": 169,
+		"name": "Demo_Im",
+		"objectId": 135
+	},
+	{
+		"actorId": 170,
+		"name": "Demo_Tre_Lgt",
+		"objectId": 14
+	},
+	{
+		"actorId": 171,
+		"name": "En_Fw",
+		"objectId": 158
+	},
+	{
+		"actorId": 172,
+		"name": "Bg_Vb_Sima",
+		"objectId": 156
+	},
+	{
+		"actorId": 173,
+		"name": "En_Vb_Ball",
+		"objectId": 156
+	},
+	{
+		"actorId": 174,
+		"name": "Bg_Haka_Megane",
+		"objectId": 1
+	},
+	{
+		"actorId": 175,
+		"name": "Bg_Haka_MeganeBG",
+		"objectId": 105
+	},
+	{
+		"actorId": 176,
+		"name": "Bg_Haka_Ship",
+		"objectId": 105
+	},
+	{
+		"actorId": 177,
+		"name": "Bg_Haka_Sgami",
+		"objectId": 1
+	},
+	{
+		"name": "_filler_Bg_Haka_Kumo_filler_"
+	},
+	{
+		"actorId": 179,
+		"name": "En_Heishi2",
+		"objectId": 151
+	},
+	{
+		"actorId": 180,
+		"name": "En_Encount2",
+		"objectId": 146
+	},
+	{
+		"actorId": 181,
+		"name": "En_Fire_Rock",
+		"objectId": 146
+	},
+	{
+		"actorId": 182,
+		"name": "En_Brob",
+		"objectId": 172
+	},
+	{
+		"actorId": 183,
+		"name": "Mir_Ray",
+		"objectId": 171
+	},
+	{
+		"actorId": 184,
+		"name": "Bg_Spot09_Obj",
+		"objectId": 174
+	},
+	{
+		"actorId": 185,
+		"name": "Bg_Spot18_Obj",
+		"objectId": 175
+	},
+	{
+		"actorId": 186,
+		"name": "Boss_Va",
+		"objectId": 140
+	},
+	{
+		"actorId": 187,
+		"name": "Bg_Haka_Tubo",
+		"objectId": 105
+	},
+	{
+		"actorId": 188,
+		"name": "Bg_Haka_Trap",
+		"objectId": 105
+	},
+	{
+		"actorId": 189,
+		"name": "Bg_Haka_Huta",
+		"objectId": 141
+	},
+	{
+		"actorId": 190,
+		"name": "Bg_Haka_Zou",
+		"objectId": 1
+	},
+	{
+		"actorId": 191,
+		"name": "Bg_Spot17_Funen",
+		"objectId": 177
+	},
+	{
+		"actorId": 192,
+		"name": "En_Syateki_Itm",
+		"objectId": 1
+	},
+	{
+		"actorId": 193,
+		"name": "En_Syateki_Man",
+		"objectId": 91
+	},
+	{
+		"actorId": 194,
+		"name": "En_Tana",
+		"objectId": 178
+	},
+	{
+		"actorId": 195,
+		"name": "En_Nb",
+		"objectId": 179
+	},
+	{
+		"actorId": 196,
+		"name": "Boss_Mo",
+		"objectId": 180
+	},
+	{
+		"actorId": 197,
+		"name": "En_Sb",
+		"objectId": 181
+	},
+	{
+		"actorId": 198,
+		"name": "En_Bigokuta",
+		"objectId": 351
+	},
+	{
+		"actorId": 199,
+		"name": "En_Karebaba",
+		"objectId": 57
+	},
+	{
+		"actorId": 200,
+		"name": "Bg_Bdan_Objects",
+		"objectId": 150
+	},
+	{
+		"actorId": 201,
+		"name": "Demo_Sa",
+		"objectId": 188
+	},
+	{
+		"actorId": 202,
+		"name": "Demo_Go",
+		"objectId": 201
+	},
+	{
+		"actorId": 203,
+		"name": "En_In",
+		"objectId": 192
+	},
+	{
+		"actorId": 204,
+		"name": "En_Tr",
+		"objectId": 193
+	},
+	{
+		"actorId": 205,
+		"name": "Bg_Spot16_Bombstone",
+		"objectId": 194
+	},
+	{
+		"name": "_filler_En_Npc2_filler_"
+	},
+	{
+		"actorId": 207,
+		"name": "Bg_Hidan_Kowarerukabe",
+		"objectId": 44
+	},
+	{
+		"actorId": 208,
+		"name": "Bg_Bombwall",
+		"objectId": 2
+	},
+	{
+		"actorId": 209,
+		"name": "Bg_Spot08_Iceblock",
+		"objectId": 116
+	},
+	{
+		"actorId": 210,
+		"name": "En_Ru2",
+		"objectId": 202
+	},
+	{
+		"actorId": 211,
+		"name": "Obj_Dekujr",
+		"objectId": 204
+	},
+	{
+		"actorId": 212,
+		"name": "Bg_Mizu_Uzu",
+		"objectId": 89
+	},
+	{
+		"actorId": 213,
+		"name": "Bg_Spot06_Objects",
+		"objectId": 106
+	},
+	{
+		"actorId": 214,
+		"name": "Bg_Ice_Objects",
+		"objectId": 107
+	},
+	{
+		"actorId": 215,
+		"name": "Bg_Haka_Water",
+		"objectId": 141
+	},
+	{
+		"name": "_filler_En_Npc3_filler_"
+	},
+	{
+		"actorId": 217,
+		"name": "En_Ma2",
+		"objectId": 208
+	},
+	{
+		"actorId": 218,
+		"name": "En_Bom_Chu",
+		"objectId": 1
+	},
+	{
+		"actorId": 219,
+		"name": "En_Horse_Game_Check",
+		"objectId": 1
+	},
+	{
+		"actorId": 220,
+		"name": "Boss_Tw",
+		"objectId": 211
+	},
+	{
+		"actorId": 221,
+		"name": "En_Rr",
+		"objectId": 212
+	},
+	{
+		"actorId": 222,
+		"name": "En_Ba",
+		"objectId": 213
+	},
+	{
+		"actorId": 223,
+		"name": "En_Bx",
+		"objectId": 213
+	},
+	{
+		"actorId": 224,
+		"name": "En_Anubice",
+		"objectId": 214
+	},
+	{
+		"actorId": 225,
+		"name": "En_Anubice_Fire",
+		"objectId": 214
+	},
+	{
+		"actorId": 226,
+		"name": "Bg_Mori_Hashigo",
+		"objectId": 114
+	},
+	{
+		"actorId": 227,
+		"name": "Bg_Mori_Hashira4",
+		"objectId": 114
+	},
+	{
+		"actorId": 228,
+		"name": "Bg_Mori_Idomizu",
+		"objectId": 114
+	},
+	{
+		"actorId": 229,
+		"name": "Bg_Spot16_Doughnut",
+		"objectId": 378
+	},
+	{
+		"actorId": 230,
+		"name": "Bg_Bdan_Switch",
+		"objectId": 150
+	},
+	{
+		"actorId": 231,
+		"name": "En_Ma1",
+		"objectId": 224
+	},
+	{
+		"actorId": 232,
+		"name": "Boss_Ganon",
+		"objectId": 225
+	},
+	{
+		"actorId": 233,
+		"name": "Boss_Sst",
+		"objectId": 226
+	},
+	{
+		"name": "_filler_Boss_Goma2_filler_"
+	},
+	{
+		"name": "_filler_En_Stk_filler_"
+	},
+	{
+		"actorId": 236,
+		"name": "En_Ny",
+		"objectId": 229
+	},
+	{
+		"actorId": 237,
+		"name": "En_Fr",
+		"objectId": 230
+	},
+	{
+		"actorId": 238,
+		"name": "Item_Shield",
+		"objectId": 21
+	},
+	{
+		"actorId": 239,
+		"name": "Bg_Ice_Shelter",
+		"objectId": 107
+	},
+	{
+		"actorId": 240,
+		"name": "En_Ice_Hono",
+		"objectId": 1
+	},
+	{
+		"actorId": 241,
+		"name": "Item_Ocarina",
+		"objectId": 222
+	},
+	{
+		"name": "_filler_Magic_Light_filler_"
+	},
+	{
+		"name": "_filler_Magic_Soul_filler_"
+	},
+	{
+		"actorId": 244,
+		"name": "Magic_Dark",
+		"objectId": 1
+	},
+	{
+		"actorId": 245,
+		"name": "Demo_6K",
+		"objectId": 1
+	},
+	{
+		"actorId": 246,
+		"name": "En_Anubice_Tag",
+		"objectId": 1
+	},
+	{
+		"actorId": 247,
+		"name": "Bg_Haka_Gate",
+		"objectId": 105
+	},
+	{
+		"actorId": 248,
+		"name": "Bg_Spot15_Saku",
+		"objectId": 240
+	},
+	{
+		"actorId": 249,
+		"name": "Bg_Jya_Goroiwa",
+		"objectId": 287
+	},
+	{
+		"actorId": 250,
+		"name": "Bg_Jya_Zurerukabe",
+		"objectId": 241
+	},
+	{
+		"name": "_filler_Bg_Jya_Sutarukage_filler_"
+	},
+	{
+		"actorId": 252,
+		"name": "Bg_Jya_Cobra",
+		"objectId": 241
+	},
+	{
+		"actorId": 253,
+		"name": "Bg_Jya_Kanaami",
+		"objectId": 241
+	},
+	{
+		"actorId": 254,
+		"name": "Fishing",
+		"objectId": 347
+	},
+	{
+		"actorId": 255,
+		"name": "Obj_Oshihiki",
+		"objectId": 3
+	},
+	{
+		"actorId": 256,
+		"name": "Bg_Gate_Shutter",
+		"objectId": 385
+	},
+	{
+		"actorId": 257,
+		"name": "Eff_Dust",
+		"objectId": 1
+	},
+	{
+		"actorId": 258,
+		"name": "Bg_Spot01_Fusya",
+		"objectId": 249
+	},
+	{
+		"actorId": 259,
+		"name": "Bg_Spot01_Idohashira",
+		"objectId": 249
+	},
+	{
+		"actorId": 260,
+		"name": "Bg_Spot01_Idomizu",
+		"objectId": 249
+	},
+	{
+		"actorId": 261,
+		"name": "Bg_Po_Syokudai",
+		"objectId": 164
+	},
+	{
+		"actorId": 262,
+		"name": "Bg_Ganon_Otyuka",
+		"objectId": 225
+	},
+	{
+		"actorId": 263,
+		"name": "Bg_Spot15_Rrbox",
+		"objectId": 240
+	},
+	{
+		"actorId": 264,
+		"name": "Bg_Umajump",
+		"objectId": 256
+	},
+	{
+		"name": "_filler_Arrow_Dark_filler_"
+	},
+	{
+		"actorId": 266,
+		"name": "Arrow_Fire",
+		"objectId": 1
+	},
+	{
+		"actorId": 267,
+		"name": "Arrow_Ice",
+		"objectId": 1
+	},
+	{
+		"actorId": 268,
+		"name": "Arrow_Light",
+		"objectId": 1
+	},
+	{
+		"name": "_filler_Arrow_Soul_filler_"
+	},
+	{
+		"name": "_filler_Arrow_Wind_filler_"
+	},
+	{
+		"actorId": 271,
+		"name": "Item_Etcetera",
+		"objectId": 1
+	},
+	{
+		"actorId": 272,
+		"name": "Obj_Kibako",
+		"objectId": 3
+	},
+	{
+		"actorId": 273,
+		"name": "Obj_Tsubo",
+		"objectId": 1
+	},
+	{
+		"actorId": 274,
+		"name": "En_Wonder_Item",
+		"objectId": 1
+	},
+	{
+		"actorId": 275,
+		"name": "En_Ik",
+		"objectId": 262
+	},
+	{
+		"actorId": 276,
+		"name": "Demo_Ik",
+		"objectId": 262
+	},
+	{
+		"actorId": 277,
+		"name": "En_Skj",
+		"objectId": 266
+	},
+	{
+		"actorId": 278,
+		"name": "En_Skjneedle",
+		"objectId": 266
+	},
+	{
+		"actorId": 279,
+		"name": "En_G_Switch",
+		"objectId": 1
+	},
+	{
+		"actorId": 280,
+		"name": "Demo_Ext",
+		"objectId": 90
+	},
+	{
+		"actorId": 281,
+		"name": "Demo_Shd",
+		"objectId": 1
+	},
+	{
+		"actorId": 282,
+		"name": "En_Dns",
+		"objectId": 360
+	},
+	{
+		"actorId": 283,
+		"name": "Elf_Msg",
+		"objectId": 1
+	},
+	{
+		"actorId": 284,
+		"name": "En_Honotrap",
+		"objectId": 3
+	},
+	{
+		"actorId": 285,
+		"name": "En_Tubo_Trap",
+		"objectId": 3
+	},
+	{
+		"actorId": 286,
+		"name": "Obj_Ice_Poly",
+		"objectId": 1
+	},
+	{
+		"actorId": 287,
+		"name": "Bg_Spot03_Taki",
+		"objectId": 274
+	},
+	{
+		"actorId": 288,
+		"name": "Bg_Spot07_Taki",
+		"objectId": 275
+	},
+	{
+		"actorId": 289,
+		"name": "En_Fz",
+		"objectId": 276
+	},
+	{
+		"actorId": 290,
+		"name": "En_Po_Relay",
+		"objectId": 137
+	},
+	{
+		"actorId": 291,
+		"name": "Bg_Relay_Objects",
+		"objectId": 108
+	},
+	{
+		"actorId": 292,
+		"name": "En_Diving_Game",
+		"objectId": 254
+	},
+	{
+		"actorId": 293,
+		"name": "En_Kusa",
+		"objectId": 1
+	},
+	{
+		"actorId": 294,
+		"name": "Obj_Bean",
+		"objectId": 286
+	},
+	{
+		"actorId": 295,
+		"name": "Obj_Bombiwa",
+		"objectId": 355
+	},
+	{
+		"name": "_filler_Obj_Breakbox_filler_"
+	},
+	{
+		"name": "_filler_Obj_Hahen_filler_"
+	},
+	{
+		"actorId": 298,
+		"name": "Obj_Switch",
+		"objectId": 3
+	},
+	{
+		"actorId": 299,
+		"name": "Obj_Elevator",
+		"objectId": 283
+	},
+	{
+		"actorId": 300,
+		"name": "Obj_Lift",
+		"objectId": 285
+	},
+	{
+		"actorId": 301,
+		"name": "Obj_Hsblock",
+		"objectId": 284
+	},
+	{
+		"actorId": 302,
+		"name": "En_Okarina_Tag",
+		"objectId": 1
+	},
+	{
+		"actorId": 303,
+		"name": "En_Yabusame_Mark",
+		"objectId": 1
+	},
+	{
+		"actorId": 304,
+		"name": "En_Goroiwa",
+		"objectId": 287
+	},
+	{
+		"actorId": 305,
+		"name": "En_Ex_Ruppy",
+		"objectId": 1
+	},
+	{
+		"actorId": 306,
+		"name": "En_Toryo",
+		"objectId": 289
+	},
+	{
+		"actorId": 307,
+		"name": "En_Daiku",
+		"objectId": 290
+	},
+	{
+		"name": "_filler_En_Stopge_filler_"
+	},
+	{
+		"actorId": 309,
+		"name": "En_Nwc",
+		"objectId": 292
+	},
+	{
+		"actorId": 310,
+		"name": "En_Blkobj",
+		"objectId": 293
+	},
+	{
+		"actorId": 311,
+		"name": "Item_Inbox",
+		"objectId": 1
+	},
+	{
+		"actorId": 312,
+		"name": "En_Ge1",
+		"objectId": 278
+	},
+	{
+		"actorId": 313,
+		"name": "Obj_Blockstop",
+		"objectId": 1
+	},
+	{
+		"actorId": 314,
+		"name": "En_Sda",
+		"objectId": 1
+	},
+	{
+		"actorId": 315,
+		"name": "En_Clear_Tag",
+		"objectId": 1
+	},
+	{
+		"actorId": 316,
+		"name": "En_Niw_Lady",
+		"objectId": 272
+	},
+	{
+		"actorId": 317,
+		"name": "En_Gm",
+		"objectId": 201
+	},
+	{
+		"actorId": 318,
+		"name": "En_Ms",
+		"objectId": 295
+	},
+	{
+		"actorId": 319,
+		"name": "En_Hs",
+		"objectId": 296
+	},
+	{
+		"actorId": 320,
+		"name": "Bg_Ingate",
+		"objectId": 297
+	},
+	{
+		"actorId": 321,
+		"name": "En_Kanban",
+		"objectId": 303
+	},
+	{
+		"actorId": 322,
+		"name": "En_Heishi3",
+		"objectId": 151
+	},
+	{
+		"actorId": 323,
+		"name": "En_Syateki_Niw",
+		"objectId": 19
+	},
+	{
+		"actorId": 324,
+		"name": "En_Attack_Niw",
+		"objectId": 19
+	},
+	{
+		"actorId": 325,
+		"name": "Bg_Spot01_Idosoko",
+		"objectId": 384
+	},
+	{
+		"actorId": 326,
+		"name": "En_Sa",
+		"objectId": 188
+	},
+	{
+		"actorId": 327,
+		"name": "En_Wonder_Talk",
+		"objectId": 1
+	},
+	{
+		"actorId": 328,
+		"name": "Bg_Gjyo_Bridge",
+		"objectId": 304
+	},
+	{
+		"actorId": 329,
+		"name": "En_Ds",
+		"objectId": 271
+	},
+	{
+		"actorId": 330,
+		"name": "En_Mk",
+		"objectId": 306
+	},
+	{
+		"actorId": 331,
+		"name": "En_Bom_Bowl_Man",
+		"objectId": 352
+	},
+	{
+		"actorId": 332,
+		"name": "En_Bom_Bowl_Pit",
+		"objectId": 1
+	},
+	{
+		"actorId": 333,
+		"name": "En_Owl",
+		"objectId": 305
+	},
+	{
+		"actorId": 334,
+		"name": "En_Ishi",
+		"objectId": 2
+	},
+	{
+		"actorId": 335,
+		"name": "Obj_Hana",
+		"objectId": 2
+	},
+	{
+		"actorId": 336,
+		"name": "Obj_Lightswitch",
+		"objectId": 298
+	},
+	{
+		"actorId": 337,
+		"name": "Obj_Mure2",
+		"objectId": 1
+	},
+	{
+		"actorId": 338,
+		"name": "En_Go",
+		"objectId": 201
+	},
+	{
+		"actorId": 339,
+		"name": "En_Fu",
+		"objectId": 307
+	},
+	{
+		"name": "_filler_En_Nc_filler_"
+	},
+	{
+		"actorId": 341,
+		"name": "En_Changer",
+		"objectId": 1
+	},
+	{
+		"actorId": 342,
+		"name": "Bg_Jya_Megami",
+		"objectId": 241
+	},
+	{
+		"actorId": 343,
+		"name": "Bg_Jya_Lift",
+		"objectId": 241
+	},
+	{
+		"actorId": 344,
+		"name": "Bg_Jya_Bigmirror",
+		"objectId": 241
+	},
+	{
+		"actorId": 345,
+		"name": "Bg_Jya_Bombchuiwa",
+		"objectId": 241
+	},
+	{
+		"actorId": 346,
+		"name": "Bg_Jya_Amishutter",
+		"objectId": 241
+	},
+	{
+		"actorId": 347,
+		"name": "Bg_Jya_Bombiwa",
+		"objectId": 241
+	},
+	{
+		"actorId": 348,
+		"name": "Bg_Spot18_Basket",
+		"objectId": 175
+	},
+	{
+		"name": "_filler_En_Warp_Box_filler_"
+	},
+	{
+		"actorId": 350,
+		"name": "En_Ganon_Organ",
+		"objectId": 225
+	},
+	{
+		"actorId": 351,
+		"name": "En_Siofuki",
+		"objectId": 314
+	},
+	{
+		"actorId": 352,
+		"name": "En_Stream",
+		"objectId": 315
+	},
+	{
+		"name": "_filler_En_Zl22_filler_"
+	},
+	{
+		"actorId": 354,
+		"name": "En_Mm",
+		"objectId": 316
+	},
+	{
+		"actorId": 355,
+		"name": "En_Ko",
+		"objectId": 1
+	},
+	{
+		"actorId": 356,
+		"name": "En_Kz",
+		"objectId": 255
+	},
+	{
+		"actorId": 357,
+		"name": "En_Weather_Tag",
+		"objectId": 1
+	},
+	{
+		"actorId": 358,
+		"name": "Bg_Sst_Floor",
+		"objectId": 226
+	},
+	{
+		"actorId": 359,
+		"name": "En_Ani",
+		"objectId": 236
+	},
+	{
+		"actorId": 360,
+		"name": "En_Ex_Item",
+		"objectId": 1
+	},
+	{
+		"actorId": 361,
+		"name": "Bg_Jya_Ironobj",
+		"objectId": 364
+	},
+	{
+		"actorId": 362,
+		"name": "En_Js",
+		"objectId": 324
+	},
+	{
+		"actorId": 363,
+		"name": "En_Jsjutan",
+		"objectId": 1
+	},
+	{
+		"actorId": 364,
+		"name": "En_Cs",
+		"objectId": 325
+	},
+	{
+		"actorId": 365,
+		"name": "En_Md",
+		"objectId": 251
+	},
+	{
+		"actorId": 366,
+		"name": "En_Hy",
+		"objectId": 1
+	},
+	{
+		"actorId": 367,
+		"name": "En_Ganon_Mant",
+		"objectId": 1
+	},
+	{
+		"actorId": 368,
+		"name": "En_Okarina_Effect",
+		"objectId": 1
+	},
+	{
+		"actorId": 369,
+		"name": "En_Mag",
+		"objectId": 330
+	},
+	{
+		"actorId": 370,
+		"name": "Door_Gerudo",
+		"objectId": 331
+	},
+	{
+		"actorId": 371,
+		"name": "Elf_Msg2",
+		"objectId": 1
+	},
+	{
+		"actorId": 372,
+		"name": "Demo_Gt",
+		"objectId": 332
+	},
+	{
+		"actorId": 373,
+		"name": "En_Po_Field",
+		"objectId": 109
+	},
+	{
+		"actorId": 374,
+		"name": "Efc_Erupc",
+		"objectId": 333
+	},
+	{
+		"actorId": 375,
+		"name": "Bg_Zg",
+		"objectId": 342
+	},
+	{
+		"actorId": 376,
+		"name": "En_Heishi4",
+		"objectId": 151
+	},
+	{
+		"actorId": 377,
+		"name": "En_Zl3",
+		"objectId": 96
+	},
+	{
+		"actorId": 378,
+		"name": "Boss_Ganon2",
+		"objectId": 339
+	},
+	{
+		"actorId": 379,
+		"name": "En_Kakasi",
+		"objectId": 340
+	},
+	{
+		"actorId": 380,
+		"name": "En_Takara_Man",
+		"objectId": 341
+	},
+	{
+		"actorId": 381,
+		"name": "Obj_Makeoshihiki",
+		"objectId": 3
+	},
+	{
+		"actorId": 382,
+		"name": "Oceff_Spot",
+		"objectId": 1
+	},
+	{
+		"actorId": 383,
+		"name": "End_Title",
+		"objectId": 1
+	},
+	{
+		"name": "_filler_En_Mother_filler_"
+	},
+	{
+		"actorId": 385,
+		"name": "En_Torch",
+		"objectId": 1
+	},
+	{
+		"actorId": 386,
+		"name": "Demo_Ec",
+		"objectId": 346
+	},
+	{
+		"actorId": 387,
+		"name": "Shot_Sun",
+		"objectId": 1
+	},
+	{
+		"actorId": 388,
+		"name": "En_Dy_Extra",
+		"objectId": 10
+	},
+	{
+		"actorId": 389,
+		"name": "En_Wonder_Talk2",
+		"objectId": 1
+	},
+	{
+		"actorId": 390,
+		"name": "En_Ge2",
+		"objectId": 359
+	},
+	{
+		"actorId": 391,
+		"name": "Obj_Roomtimer",
+		"objectId": 1
+	},
+	{
+		"actorId": 392,
+		"name": "En_Ssh",
+		"objectId": 350
+	},
+	{
+		"actorId": 393,
+		"name": "En_Sth",
+		"objectId": 1
+	},
+	{
+		"actorId": 394,
+		"name": "Oceff_Wipe",
+		"objectId": 1
+	},
+	{
+		"actorId": 395,
+		"name": "Oceff_Storm",
+		"objectId": 1
+	},
+	{
+		"actorId": 396,
+		"name": "En_Weiyer",
+		"objectId": 38
+	},
+	{
+		"actorId": 397,
+		"name": "Bg_Spot05_Soko",
+		"objectId": 353
+	},
+	{
+		"actorId": 398,
+		"name": "Bg_Jya_1flift",
+		"objectId": 241
+	},
+	{
+		"actorId": 399,
+		"name": "Bg_Jya_Haheniron",
+		"objectId": 364
+	},
+	{
+		"actorId": 400,
+		"name": "Bg_Spot12_Gate",
+		"objectId": 354
+	},
+	{
+		"actorId": 401,
+		"name": "Bg_Spot12_Saku",
+		"objectId": 354
+	},
+	{
+		"actorId": 402,
+		"name": "En_Hintnuts",
+		"objectId": 356
+	},
+	{
+		"actorId": 403,
+		"name": "En_Nutsball",
+		"objectId": 1
+	},
+	{
+		"actorId": 404,
+		"name": "Bg_Spot00_Break",
+		"objectId": 358
+	},
+	{
+		"actorId": 405,
+		"name": "En_Shopnuts",
+		"objectId": 360
+	},
+	{
+		"actorId": 406,
+		"name": "En_It",
+		"objectId": 1
+	},
+	{
+		"actorId": 407,
+		"name": "En_GeldB",
+		"objectId": 361
+	},
+	{
+		"actorId": 408,
+		"name": "Oceff_Wipe2",
+		"objectId": 1
+	},
+	{
+		"actorId": 409,
+		"name": "Oceff_Wipe3",
+		"objectId": 1
+	},
+	{
+		"actorId": 410,
+		"name": "En_Niw_Girl",
+		"objectId": 362
+	},
+	{
+		"actorId": 411,
+		"name": "En_Dog",
+		"objectId": 363
+	},
+	{
+		"actorId": 412,
+		"name": "En_Si",
+		"objectId": 36
+	},
+	{
+		"actorId": 413,
+		"name": "Bg_Spot01_Objects2",
+		"objectId": 1
+	},
+	{
+		"actorId": 414,
+		"name": "Obj_Comb",
+		"objectId": 2
+	},
+	{
+		"actorId": 415,
+		"name": "Bg_Spot11_Bakudankabe",
+		"objectId": 367
+	},
+	{
+		"actorId": 416,
+		"name": "Obj_Kibako2",
+		"objectId": 368
+	},
+	{
+		"actorId": 417,
+		"name": "En_Dnt_Demo",
+		"objectId": 1
+	},
+	{
+		"actorId": 418,
+		"name": "En_Dnt_Jiji",
+		"objectId": 369
+	},
+	{
+		"actorId": 419,
+		"name": "En_Dnt_Nomal",
+		"objectId": 1
+	},
+	{
+		"actorId": 420,
+		"name": "En_Guest",
+		"objectId": 273
+	},
+	{
+		"actorId": 421,
+		"name": "Bg_Bom_Guard",
+		"objectId": 376
+	},
+	{
+		"actorId": 422,
+		"name": "En_Hs2",
+		"objectId": 296
+	},
+	{
+		"actorId": 423,
+		"name": "Demo_Kekkai",
+		"objectId": 377
+	},
+	{
+		"actorId": 424,
+		"name": "Bg_Spot08_Bakudankabe",
+		"objectId": 116
+	},
+	{
+		"actorId": 425,
+		"name": "Bg_Spot17_Bakudankabe",
+		"objectId": 177
+	},
+	{
+		"name": "_filler_Bg_Mizu_Switch_filler_"
+	},
+	{
+		"actorId": 427,
+		"name": "Obj_Mure3",
+		"objectId": 1
+	},
+	{
+		"actorId": 428,
+		"name": "En_Tg",
+		"objectId": 386
+	},
+	{
+		"actorId": 429,
+		"name": "En_Mu",
+		"objectId": 386
+	},
+	{
+		"actorId": 430,
+		"name": "En_Go2",
+		"objectId": 201
+	},
+	{
+		"actorId": 431,
+		"name": "En_Wf",
+		"objectId": 387
+	},
+	{
+		"actorId": 432,
+		"name": "En_Skb",
+		"objectId": 388
+	},
+	{
+		"actorId": 433,
+		"name": "Demo_Gj",
+		"objectId": 389
+	},
+	{
+		"actorId": 434,
+		"name": "Demo_Geff",
+		"objectId": 390
+	},
+	{
+		"actorId": 435,
+		"name": "Bg_Gnd_Firemeiro",
+		"objectId": 377
+	},
+	{
+		"actorId": 436,
+		"name": "Bg_Gnd_Darkmeiro",
+		"objectId": 377
+	},
+	{
+		"actorId": 437,
+		"name": "Bg_Gnd_Soulmeiro",
+		"objectId": 377
+	},
+	{
+		"actorId": 438,
+		"name": "Bg_Gnd_Nisekabe",
+		"objectId": 377
+	},
+	{
+		"actorId": 439,
+		"name": "Bg_Gnd_Iceblock",
+		"objectId": 377
+	},
+	{
+		"actorId": 440,
+		"name": "En_Gb",
+		"objectId": 393
+	},
+	{
+		"actorId": 441,
+		"name": "En_Gs",
+		"objectId": 392
+	},
+	{
+		"actorId": 442,
+		"name": "Bg_Mizu_Bwall",
+		"objectId": 89
+	},
+	{
+		"actorId": 443,
+		"name": "Bg_Mizu_Shutter",
+		"objectId": 89
+	},
+	{
+		"actorId": 444,
+		"name": "En_Daiku_Kakariko",
+		"objectId": 290
+	},
+	{
+		"actorId": 445,
+		"name": "Bg_Bowl_Wall",
+		"objectId": 376
+	},
+	{
+		"actorId": 446,
+		"name": "En_Wall_Tubo",
+		"objectId": 1
+	},
+	{
+		"actorId": 447,
+		"name": "En_Po_Desert",
+		"objectId": 109
+	},
+	{
+		"actorId": 448,
+		"name": "En_Crow",
+		"objectId": 8
+	},
+	{
+		"actorId": 449,
+		"name": "Door_Killer",
+		"objectId": 398
+	},
+	{
+		"actorId": 450,
+		"name": "Bg_Spot11_Oasis",
+		"objectId": 367
+	},
+	{
+		"actorId": 451,
+		"name": "Bg_Spot18_Futa",
+		"objectId": 175
+	},
+	{
+		"actorId": 452,
+		"name": "Bg_Spot18_Shutter",
+		"objectId": 175
+	},
+	{
+		"actorId": 453,
+		"name": "En_Ma3",
+		"objectId": 208
+	},
+	{
+		"actorId": 454,
+		"name": "En_Cow",
+		"objectId": 395
+	},
+	{
+		"actorId": 455,
+		"name": "Bg_Ice_Turara",
+		"objectId": 107
+	},
+	{
+		"actorId": 456,
+		"name": "Bg_Ice_Shutter",
+		"objectId": 107
+	},
+	{
+		"actorId": 457,
+		"name": "En_Kakasi2",
+		"objectId": 340
+	},
+	{
+		"actorId": 458,
+		"name": "En_Kakasi3",
+		"objectId": 340
+	},
+	{
+		"actorId": 459,
+		"name": "Oceff_Wipe4",
+		"objectId": 1
+	},
+	{
+		"actorId": 460,
+		"name": "En_Eg",
+		"objectId": 96
+	},
+	{
+		"actorId": 461,
+		"name": "Bg_Menkuri_Nisekabe",
+		"objectId": 77
+	},
+	{
+		"actorId": 462,
+		"name": "En_Zo",
+		"objectId": 254
+	},
+	{
+		"actorId": 463,
+		"name": "Obj_Makekinsuta",
+		"objectId": 1
+	},
+	{
+		"actorId": 464,
+		"name": "En_Ge3",
+		"objectId": 361
+	},
+	{
+		"actorId": 465,
+		"name": "Obj_Timeblock",
+		"objectId": 400
+	},
+	{
+		"actorId": 466,
+		"name": "Obj_Hamishi",
+		"objectId": 2
+	},
+	{
+		"actorId": 467,
+		"name": "En_Zl4",
+		"objectId": 401
+	},
+	{
+		"actorId": 468,
+		"name": "En_Mm2",
+		"objectId": 316
+	},
+	{
+		"actorId": 469,
+		"name": "Bg_Jya_Block",
+		"objectId": 3
+	},
+	{
+		"actorId": 470,
+		"name": "Obj_Warp2block",
+		"objectId": 400
+	}
+]
