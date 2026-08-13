@@ -731,7 +731,7 @@ async function parseAndRenderActors(scene, game, sceneName){
     // current scene's actor list in it. This is a separate file from
     let json_path = null;
 
-    json_path = '../models/' + game + '/actors/' + game + '_actors_by_scene.json';
+    json_path = '/models/' + game + '/actors/' + game + '_actors_by_scene.json';
     const areaActors = await fetchActorsByAreaJSON(json_path, sceneName);
     if (!areaActors) {
         console.log("Failed to parse 'actors by scene' json: " + sceneName);
@@ -739,7 +739,7 @@ async function parseAndRenderActors(scene, game, sceneName){
     }
     //console.log(areaActors);
 
-    json_path = '../models/' + game + '/actors/' + game + '_actors.json';
+    json_path = '/models/' + game + '/actors/' + game + '_actors.json';
     const actors = await fetchJSON(json_path, sceneName);
     if(!areaActors) {
         console.log("Failed to parse 'actors' json in game: " + game);
@@ -747,7 +747,7 @@ async function parseAndRenderActors(scene, game, sceneName){
     }
     //console.log(actors);
 
-    json_path = '../models/' + game + '/actors/' + game + '_objects.json';
+    json_path = '/models/' + game + '/actors/' + game + '_objects.json';
     const objects = await fetchJSON(json_path, sceneName);
     if(!areaActors) {
         console.log("Failed to parse 'objects' json in game: " + game);
@@ -757,7 +757,7 @@ async function parseAndRenderActors(scene, game, sceneName){
 
     //console.log("Successfully parsed json's for actors in scene: " + sceneName);
 
-    
+
 }
 
 export function parseZeldaSceneBinary(scene, buffer, fresh, mapName, sceneName){
