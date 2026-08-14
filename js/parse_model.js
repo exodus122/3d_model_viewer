@@ -1183,12 +1183,13 @@ function parseZeldaObjectBinary(scene, buffer, fresh, actorName, objectName, col
     colHeader.surfaceTypeListStart &= 0x00FFFFFF;
     colHeader.waterboxListStart &= 0x00FFFFFF;
     
-    //console.log(game+" - "+objectName+" - numVtxs: "+colHeader.numVtxs+", numPolygons: "+colHeader.numPolygons);
-
     parseVerticesAndPolygons(dv, colHeader, address_offset, endianness, poly_length, verts, tris, intangibleTris, intangibleTriangleData, allTriangleData);
-    //console.log("numTangible: "+tris.length+", numIntangible: "+intangibleTris.length);
 
     parseWaterboxes(dv, colHeader, address_offset, endianness, waterBoxes);
+
+    console.log(game+" - "+objectName+" - numVtxs: "+colHeader.numVtxs+", numPolygons: "+colHeader.numPolygons
+        +", numTangible: "+tris.length+", numIntangible: "+intangibleTris.length+", numWaterBoxes: "+waterBoxes.length);
+
 }
 
 export function renderZeldaObjectBinary(scene, buffer, fresh, actorName, objectName, colHeaderAddr){
@@ -1401,6 +1402,17 @@ async function renderZeldaObjectsInScene(scene, game, sceneName) {
             // ----------------------------------------------------
             // Check if this is a dynapoly actor
             // ----------------------------------------------------
+            function getMaskShift(mask) {
+                let shift = 0;
+
+                while ((mask & 1) === 0) {
+                    mask >>= 1;
+                    shift++;
+                }
+
+                return shift;
+            }
+
             const dynaPolyActor = OOT_Dynapoly_Actors.find(i => {
                 if (i.actor_name !== actorName)
                     return false;
@@ -1410,12 +1422,21 @@ async function renderZeldaObjectsInScene(scene, game, sceneName) {
 
                 const maskedParams = actorParams & i.params_mask;
 
-                const paramValue =
-                    i.params_mask === 0xFFFF
-                        ? maskedParams
-                        : i.params_mask == 0xF000
-                            ? maskedParams >> 12
-                            : maskedParams;
+                let paramValue;
+
+                if (i.params_mask === 0xFFFF) {
+                    // Full 16-bit params value
+                    paramValue = maskedParams;
+                }
+                else if (i.params_mask >= 0x1000) {
+                    // Shift upper-bit field down based on where the mask starts.
+                    const shift = getMaskShift(i.params_mask);
+                    paramValue = maskedParams >> shift;
+                }
+                else {
+                    // Normal low-bit mask.
+                    paramValue = maskedParams;
+                }
 
                 return i.params_values?.includes(paramValue);
             });
@@ -1423,6 +1444,7 @@ async function renderZeldaObjectsInScene(scene, game, sceneName) {
             if (!dynaPolyActor) {
                 continue;
             }
+
             const scale = dynaPolyActor.scale;
 
             // ----------------------------------------------------
