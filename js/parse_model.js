@@ -1187,8 +1187,8 @@ function parseZeldaObjectBinary(scene, buffer, fresh, actorName, objectName, col
 
     parseWaterboxes(dv, colHeader, address_offset, endianness, waterBoxes);
 
-    console.log(game+" - "+objectName+" - numVtxs: "+colHeader.numVtxs+", numPolygons: "+colHeader.numPolygons
-        +", numTangible: "+tris.length+", numIntangible: "+intangibleTris.length+", numWaterBoxes: "+waterBoxes.length);
+    //console.log(game+" - "+objectName+" - numVtxs: "+colHeader.numVtxs+", numPolygons: "+colHeader.numPolygons
+    //    +", numTangible: "+tris.length+", numIntangible: "+intangibleTris.length+", numWaterBoxes: "+waterBoxes.length);
 
 }
 
@@ -1353,7 +1353,7 @@ async function renderZeldaObjectsInScene(scene, game, sceneName) {
         console.log("Failed to parse 'actors by scene' json: " + sceneName);
         return;
     }
-    console.log(areaActors);
+    //console.log(areaActors);
 
     // ------------------------------------------------------------
     // Load actors JSON
@@ -1425,17 +1425,16 @@ async function renderZeldaObjectsInScene(scene, game, sceneName) {
                 let paramValue;
 
                 if (i.params_mask === 0xFFFF) {
-                    // Full 16-bit params value
+                    // Special case: full 16-bit params.
+                    // Do NOT shift, because values like 0xFFFF
+                    // represent the entire params field.
                     paramValue = maskedParams;
-                }
-                else if (i.params_mask >= 0x1000) {
-                    // Shift upper-bit field down based on where the mask starts.
-                    const shift = getMaskShift(i.params_mask);
-                    paramValue = maskedParams >> shift;
                 }
                 else {
-                    // Normal low-bit mask.
-                    paramValue = maskedParams;
+                    // Extract the masked field and shift it down
+                    // so params_values contains the natural value.
+                    const shift = getMaskShift(i.params_mask);
+                    paramValue = maskedParams >> shift;
                 }
 
                 return i.params_values?.includes(paramValue);
