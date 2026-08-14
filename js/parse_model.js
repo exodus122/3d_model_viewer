@@ -976,7 +976,7 @@ export function parseZeldaSceneBinary(scene, buffer, fresh, mapName, sceneName){
     // Get actor data for this scene, if available. This is only done for OOT/MM, since the other games 
     // don't have a known actors_by_scene JSON file to reference.
     if (game == "OOT" || game == "MM") {
-        //renderZeldaObjectsInScene(scene, game, sceneName)
+        renderZeldaObjectsInScene(scene, game, sceneName)
     }
 
     // ADDITIONAL SURFACE RENDERING OPTIONS
@@ -1183,10 +1183,10 @@ function parseZeldaObjectBinary(scene, buffer, fresh, actorName, objectName, col
     colHeader.surfaceTypeListStart &= 0x00FFFFFF;
     colHeader.waterboxListStart &= 0x00FFFFFF;
     
-    console.log(game+" - "+objectName+" - numVtxs: "+colHeader.numVtxs+", numPolygons: "+colHeader.numPolygons);
+    //console.log(game+" - "+objectName+" - numVtxs: "+colHeader.numVtxs+", numPolygons: "+colHeader.numPolygons);
 
     parseVerticesAndPolygons(dv, colHeader, address_offset, endianness, poly_length, verts, tris, intangibleTris, intangibleTriangleData, allTriangleData);
-    console.log("numTangible: "+tris.length+", numIntangible: "+intangibleTris.length);
+    //console.log("numTangible: "+tris.length+", numIntangible: "+intangibleTris.length);
 
     parseWaterboxes(dv, colHeader, address_offset, endianness, waterBoxes);
 }
@@ -1317,6 +1317,30 @@ export function renderZeldaObjectBinary(scene, buffer, fresh, actorName, objectN
 }
 
 async function renderZeldaObjectsInScene(scene, game, sceneName) {
+    function normalizeTriangleIndices(tris, vertexCount) {
+        if (!tris || tris.length === 0) {
+            return tris;
+        }
+
+        const allIdx = [].concat(...tris);
+
+        const maxIdx = Math.max(...allIdx);
+        const minIdx = Math.min(...allIdx);
+
+        if (
+            minIdx >= 1 &&
+            maxIdx <= vertexCount
+        ) {
+            return tris.map(tri =>
+                tri.map(x => x - 1)
+            );
+        }
+
+        return tris;
+    }
+
+    const objectCache = new Map();
+
     let json_path = null;
 
     // ------------------------------------------------------------
@@ -1377,7 +1401,25 @@ async function renderZeldaObjectsInScene(scene, game, sceneName) {
             // ----------------------------------------------------
             // Check if this is a dynapoly actor
             // ----------------------------------------------------
-            const dynaPolyActor = OOT_Dynapoly_Actors.find(i => i.actor_name === actorName);
+            const dynaPolyActor = OOT_Dynapoly_Actors.find(i => {
+                if (i.actor_name !== actorName)
+                    return false;
+
+                if (i.params_mask == null)
+                    return true;
+
+                const maskedParams = actorParams & i.params_mask;
+
+                const paramValue =
+                    i.params_mask === 0xFFFF
+                        ? maskedParams
+                        : i.params_mask == 0xF000
+                            ? maskedParams >> 12
+                            : maskedParams;
+
+                return i.params_values?.includes(paramValue);
+            });
+
             if (!dynaPolyActor) {
                 continue;
             }
@@ -1393,34 +1435,88 @@ async function renderZeldaObjectsInScene(scene, game, sceneName) {
                 continue;
             }
             const objectName = actorCollision["file_name"];
-            console.log(actorName + ": " + objectName);
-            console.log(dynaPolyActor);
-            console.log(actorCollision);
-
-            // ----------------------------------------------------
-            // Create separate geometry arrays for THIS actor
-            // ----------------------------------------------------
-            const actorVerts = [];
-            const actorTris = [];
-            const actorTriangleData = [];
-            const actorIntangibleTris = [];
-            const actorIntangibleTriangleData = [];
-            const actorWaterBoxes = [];
+            const cacheKey = `${objectName}:${actorCollision.offset}`;
+            //console.log(actorName + ": " + objectName);
+            //console.log(dynaPolyActor);
+            //console.log(actorCollision);
 
             // ----------------------------------------------------
             // Load object binary
             // ----------------------------------------------------
             try {
-                const res = await fetch('./models/' + game + '/actors/objects/' + objectName);
-                const buffer = await res.arrayBuffer();
-                console.log(objectName + ": Binary file length:", buffer.byteLength);
+                let cachedObject = objectCache.get(cacheKey);
 
-                // ------------------------------------------------
-                // Parse collision
-                // ------------------------------------------------
-                parseZeldaObjectBinary(scene, buffer, false, actorName, objectName, 
-                    actorCollision.offset, actorVerts, actorTris, actorTriangleData, 
-                    actorIntangibleTris, actorIntangibleTriangleData, actorWaterBoxes);
+                if (!cachedObject) {
+                    const res = await fetch(
+                        './models/' +
+                        game +
+                        '/actors/objects/' +
+                        objectName
+                    );
+
+                    const buffer = await res.arrayBuffer();
+
+                    const verts = [];
+                    const tris = [];
+                    const triangleData = [];
+
+                    const intangibleTris = [];
+                    const intangibleTriangleData = [];
+
+                    const waterBoxes = [];
+
+                    parseZeldaObjectBinary(
+                        scene,
+                        buffer,
+                        false,
+                        actorName,
+                        objectName,
+                        actorCollision.offset,
+                        verts,
+                        tris,
+                        triangleData,
+                        intangibleTris,
+                        intangibleTriangleData,
+                        waterBoxes
+                    );
+
+                    // Normalize indices ONCE before caching
+                    const normalizedTris =
+                        normalizeTriangleIndices(tris, verts.length);
+
+                    const normalizedIntangibleTris =
+                        normalizeTriangleIndices(
+                            intangibleTris,
+                            verts.length
+                        );
+
+                    cachedObject = {
+                        verts,
+                        tris: normalizedTris,
+                        triangleData,
+
+                        intangibleTris: normalizedIntangibleTris,
+                        intangibleTriangleData,
+
+                        waterBoxes
+                    };
+
+                    objectCache.set(cacheKey, cachedObject);
+                    //console.log(objectName + ": Binary file length:", buffer.byteLength);
+                }
+                
+                const actorVerts = cachedObject.verts;
+                const actorTris = cachedObject.tris;
+                const actorTriangleData = cachedObject.triangleData;
+
+                const actorIntangibleTris =
+                    cachedObject.intangibleTris;
+
+                const actorIntangibleTriangleData =
+                    cachedObject.intangibleTriangleData;
+
+                const actorWaterBoxes =
+                    cachedObject.waterBoxes;
                 
                 // ------------------------------------------------
                 // Convert tangible triangle indices from 1-based
@@ -1500,7 +1596,7 @@ async function renderZeldaObjectsInScene(scene, game, sceneName) {
                 // ------------------------------------------------
                 // Build actor group
                 // ------------------------------------------------
-                const modelName = actorName;
+                const modelName = actorName + ": " + dynaPolyActor.collision_name;
                 const actorGroup = new THREE.Object3D();
                 actorGroup.name = modelName;
 
@@ -1624,7 +1720,7 @@ async function renderZeldaObjectsInScene(scene, game, sceneName) {
                 actorGroup.userData.scale = scale;
                 actorGroup.userData.collisionName = dynaPolyActor.collision_name;
                 console.log("Rendered dynapoly:", actorName, "position:", posXYZ, "rotation:", 
-                    rotXYZ, "scale:", scale);
+                    rotXYZ, "scale:", scale, "params:", `0x${actorParams.toString(16).toUpperCase()}`);
             } catch (err) {
                 console.error("Failed to load dynapoly object:", objectName, err);
             }
