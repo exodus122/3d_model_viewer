@@ -1768,137 +1768,104 @@ async function renderZeldaObjectsInScene(scene, game, sceneName) {
                 actorGroup.userData.collisionName = dynaPolyActor.collision_name;
                 console.log("Rendered dynapoly:", actorName, "position:", posXYZ, "rotation:", 
                     rotXYZ, "scale:", scale, "params:", `0x${actorParams.toString(16).toUpperCase()}`);
+                
+                function transformTriangleDataToWorld(triangleData, object) {
+                    object.updateMatrixWorld(true);
+
+                    const normalMatrix = new THREE.Matrix3()
+                        .getNormalMatrix(object.matrixWorld);
+
+                    return triangleData.map(tri => {
+                        const copy = {
+                            ...tri,
+
+                            // Copy arrays so we don't modify the original data
+                            vtxs: tri.vtxs.map(v => ({ ...v })),
+                            normals: [...tri.normals]
+                        };
+
+                        // --------------------------------------------
+                        // Transform vertices
+                        // --------------------------------------------
+                        for (const v of copy.vtxs) {
+                            const worldV = new THREE.Vector3(v.x, v.y, v.z)
+                                .applyMatrix4(object.matrixWorld);
+
+                            v.x = worldV.x;
+                            v.y = worldV.y;
+                            v.z = worldV.z;
+                        }
+
+                        // --------------------------------------------
+                        // Transform normal
+                        // --------------------------------------------
+                        const normal = new THREE.Vector3(
+                            tri.normals[0],
+                            tri.normals[1],
+                            tri.normals[2]
+                        ).divideScalar(32767);
+
+                        normal.applyNormalMatrix(normalMatrix);
+                        normal.normalize();
+
+                        copy.normals = [
+                            normal.x * 32767,
+                            normal.y * 32767,
+                            normal.z * 32767
+                        ];
+
+                        // --------------------------------------------
+                        // Recalculate d
+                        // --------------------------------------------
+                        const v = copy.vtxs[0];
+
+                        copy.d = -(
+                            normal.x * v.x +
+                            normal.y * v.y +
+                            normal.z * v.z
+                        );
+
+                        return copy;
+                    });
+                }
+
+                actorGroup.updateMatrixWorld(true);
+
+                const worldTriangleData =
+                    transformTriangleDataToWorld(actorTriangleData, actorGroup);
+                
+                const standableSurfaceResult = renderStandableSurfaceXZ(worldTriangleData, null, groundClipBandsCheckbox?.checked ?? true);
+                if (standableSurfaceResult) {
+                    const { main: standableSurfaceMain, vertexBulge: standableSurfaceVertexBulge } = standableSurfaceResult;
+
+                    if (standableSurfaceVertexBulge) {
+                        scene.add(standableSurfaceVertexBulge);
+
+                        if (standableSurfaceVertexBulge.children[1])
+                            standableSurfaceVertexBulge.children[1].visible = wireframeCheckbox.checked;
+
+                        loadedModels.push({ name: modelName+" Seams Model", mesh: standableSurfaceVertexBulge, edges: standableSurfaceVertexBulge.children[1] });
+
+                        addModelCheckbox(scene, modelName+" Seams Model", standableSurfaceVertexBulge, null, false, true, "#00cc44");
+                    }
+
+                    if (standableSurfaceMain) {
+                        scene.add(standableSurfaceMain);
+
+                        if (standableSurfaceMain.children[1])
+                            standableSurfaceMain.children[1].visible = wireframeCheckbox.checked;
+
+                        loadedModels.push({ name: modelName+" Standable Surface", mesh: standableSurfaceMain, edges: standableSurfaceMain.children[1] });
+
+                        addModelCheckbox(scene, modelName+" Standable Surface", standableSurfaceMain, null, false, true, "#ff0000");
+                    }
+                }
             } catch (err) {
                 console.error("Failed to load dynapoly object:", objectName, err);
             }
         }
     }
 }
-
-async function renderZeldaObjectsInScene_old(scene, game, sceneName){
-    let json_path = null;
-
-    json_path = '/models/' + game + '/actors/' + game + '_actors_by_scene.json';
-    const areaActors = await fetchActorsByAreaJSON(json_path, sceneName);
-    if (!areaActors) {
-        console.log("Failed to parse 'actors by scene' json: " + sceneName);
-        return;
-    }
-    console.log(areaActors);
-
-    json_path = '/models/' + game + '/actors/' + game + '_actors.json';
-    const actors = await fetchJSON(json_path, sceneName);
-    if(!actors) {
-        console.log("Failed to parse 'actors' json in game: " + game);
-        return;
-    }
-    console.log(actors);
-
-    json_path = '/models/' + game + '/actors/' + game + '_objects.json';
-    const objects = await fetchJSON(json_path, sceneName);
-    if(!objects) {
-        console.log("Failed to parse 'objects' json in game: " + game);
-        return;
-    }
-    console.log(objects);
-
-    //console.log("Successfully parsed json's for actors in scene: " + sceneName);
-
-
-    let verts = [];
-    let tris = [];
-    let allTriangleData = [];
-    let intangibleTris = [];
-    let intangibleTriangleData = [];
-    let waterBoxes = [];
-
-    // actorName, objectName, colHeaderAddr, buffer, fresh,  
-    // parseZeldaObjectBinary(scene, buffer, fresh, actorName, objectName, colHeaderAddr, verts, tris, allTriangleData, intangibleTris, intangibleTriangleData, waterBoxes)
-    
-    for (let i = 0; i < areaActors[0]["rooms"].length; i++) {
-        let room = areaActors[0]["rooms"][i];
-        for (let j = 0; j < room["actors"].length; j++) {
-            let actor = room["actors"][j];
-            let actorParams = actor.params;
-            let posXYZ = actor.position; // an xyz list: [74, 56, 78] for example
-            let rotXYZ = actor.rotation; // an xyz list: [74, 56, 78] for example
-            //console.log(actor);
-            let actorName = actors[actor.actorId]["name"];
-            let actorObjectId = actors[actor.actorId]["objectId"];
-            let objectName = objects[actorObjectId]["name"];
-            
-            let dynaPolyActor = OOT_Dynapoly_Actors.find(i => i.actor_name === actorName);
-            if (!dynaPolyActor)
-                continue; // not a dynapoly actor
-            let scale = dynaPolyActor["scale"]; // a float, 0.1 means it should be 10% of the size
-            console.log(actorName + ": " + actorObjectId + ": " + objectName);
-            console.log(dynaPolyActor);
-
-            let actorCollision = OOT_Dynapoly_Collisions.find(i => i.collision_name === dynaPolyActor.collision_name);
-            if (!actorCollision)
-                alert('No collision found for dynapoly actor: '+dynaPolyActor.actor_name); 
-            console.log(actorCollision);
-
-            try {
-                const res1 = await fetch('./models/' + game + '/actors/objects/' + objectName);
-                const buffer = await res1.arrayBuffer();
-                console.log(objectName+": Binary file length:", buffer.byteLength);
-                //renderZeldaObjectBinary(scene, buffer, true, actorName, objectName, actorOffset);
-                parseZeldaObjectBinary(scene, buffer, false, actorName, objectName, actorCollision.offset, verts, tris, allTriangleData, intangibleTris, intangibleTriangleData, waterBoxes)
-            } catch (err) {
-                console.error(err);
-            }
-        }
-    }
-
-    const allIdx = [].concat(...tris);
-    const maxIdx = Math.max(...allIdx);
-    const minIdx = Math.min(...allIdx);
-    if(minIdx >= 1 && maxIdx <= verts.length) {
-        for(let i = 0; i < tris.length; i++) tris[i]=tris[i].map(x=>x-1);
-    }
-    
-    if (intangibleTris.length > 0) {
-        const allIntangibleIdx = [].concat(...intangibleTris);
-        const maxIntangibleIdx = Math.max(...allIntangibleIdx);
-        const minIntangibleIdx = Math.min(...allIntangibleIdx);
-        if(minIntangibleIdx >= 1 && maxIntangibleIdx <= verts.length) {
-            for(let i = 0; i < intangibleTris.length; i++) intangibleTris[i]=intangibleTris[i].map(x=>x-1);
-        }
-    }
-    
-    for (let i = 0; i < tris.length; i++) {
-        const [a,b,c] = tris[i];
-        if (a < 0 || b < 0 || c < 0 ||
-            a >= verts.length || b >= verts.length || c >= verts.length) {
-            console.warn("Invalid triangle index", i, a,b,c, "verts:", verts.length);
-        }
-    }
-
-    let hasCollision = false;
-
-    let modelName = "Dynapoly";
-    if (tris.length > 0) {
-        if (display_fwc.checked)
-            buildGeometry_fwc(scene, verts, tris, modelName, false);
-        else
-            buildGeometry(scene, verts, tris, allTriangleData, null, modelName, false);
-        hasCollision = true;
-    }
-    if (intangibleTris.length > 0) {
-        buildGeometry(scene, verts, intangibleTris, intangibleTriangleData, null, "Dynapoly Intangible", false, !hasCollision, 0x3aff78);
-        hasCollision = true;
-    }
-    if (waterBoxes.length > 0) {
-        const { mesh: waterMesh, edges: waterEdges } = buildWaterBoxModel(waterBoxes, waterboxCheckbox.checked);
-        scene.add(waterMesh);
-        scene.add(waterEdges);
-        loadedModels.push({ name: "Dynapoly Waterboxes", mesh: waterMesh, edges: waterEdges });
-        addModelCheckbox(scene, "Dynapoly Waterboxes", waterMesh, waterEdges, false, true, "#00FFFF");
-        hasCollision = true;
-    }
-}
-
 
 export function parseInvisibleSeams1D(scene, text) {
     const lines = text.split(/\r?\n/).map(s => s.trim()).filter(s => s && s[0] !== "#");
