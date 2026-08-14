@@ -7,6 +7,26 @@ import { updateSamplePointsUIVisibility } from './sample_points.js';
 ////////////////////////////////////////
 
 export function addModelCheckbox(scene, name, meshObj, edgesObj, clearFirst, checked, color = null, deleteButton = false) {
+    const getMaterials = (object) => {
+        const materials = [];
+
+        if (!object) {
+            return materials;
+        }
+
+        object.traverse((child) => {
+            if (child.material) {
+                if (Array.isArray(child.material)) {
+                    materials.push(...child.material);
+                } else {
+                    materials.push(child.material);
+                }
+            }
+        });
+
+        return materials;
+    };
+
     const section = document.querySelector('.controls');
 
     // Container
@@ -101,29 +121,34 @@ export function addModelCheckbox(scene, name, meshObj, edgesObj, clearFirst, che
         colorInput.value = savedColor ??
             (color ?? (clearFirst ? '#3aa6ff' : '#3aff78'));
 
-        if (meshObj?.material) {
-            meshObj.material.color.set(colorInput.value);
+        const materials = getMaterials(meshObj);
+
+        if (materials.length > 0) {
+            materials[0].color.set(colorInput.value);
         }
-        else if (meshObj?.children) {
-            meshObj.children[0].material.color.set(colorInput.value);
-        }
-        else if (edgesObj?.material) {
-            edgesObj.material.color.set(colorInput.value);
+        else {
+            const edgeMaterials = getMaterials(edgesObj);
+
+            if (edgeMaterials.length > 0) {
+                edgeMaterials[0].color.set(colorInput.value);
+            }
         }
 
         colorInput.addEventListener('input', () => {
 
-            if (meshObj?.material) {
-                meshObj.material.color.set(colorInput.value);
-                meshObj.material.needsUpdate = true;
+            const materials = getMaterials(meshObj);
+
+            if (materials.length > 0) {
+                materials[0].color.set(colorInput.value);
+                materials[0].needsUpdate = true;
             }
-            else if (meshObj?.children) {
-                meshObj.children[0].material.color.set(colorInput.value);
-                meshObj.children[0].material.needsUpdate = true;
-            }
-            else if (edgesObj?.material) {
-                edgesObj.material.color.set(colorInput.value);
-                edgesObj.material.needsUpdate = true;
+            else {
+                const edgeMaterials = getMaterials(edgesObj);
+
+                if (edgeMaterials.length > 0) {
+                    edgeMaterials[0].color.set(colorInput.value);
+                    edgeMaterials[0].needsUpdate = true;
+                }
             }
 
             // Ensure entry exists

@@ -1423,16 +1423,54 @@ async function renderZeldaObjectsInScene(scene, game, sceneName) {
                     actorIntangibleTris, actorIntangibleTriangleData, actorWaterBoxes);
                 
                 // ------------------------------------------------
-                // Convert triangle indices from 1-based to
-                // 0-based if necessary
+                // Convert tangible triangle indices from 1-based
+                // to 0-based if necessary
                 // ------------------------------------------------
+
                 if (actorTris.length > 0) {
                     const allIdx = [].concat(...actorTris);
+
                     const maxIdx = Math.max(...allIdx);
                     const minIdx = Math.min(...allIdx);
-                    if (minIdx >= 1 && maxIdx <= actorVerts.length) {
+
+                    if (
+                        minIdx >= 1 &&
+                        maxIdx <= actorVerts.length
+                    ) {
                         for (let k = 0; k < actorTris.length; k++) {
-                            actorTris[k] = actorTris[k].map(x => x - 1);
+                            actorTris[k] =
+                                actorTris[k].map(x => x - 1);
+                        }
+                    }
+                }
+
+
+                // ------------------------------------------------
+                // Convert intangible triangle indices from 1-based
+                // to 0-based if necessary
+                // ------------------------------------------------
+
+                if (actorIntangibleTris.length > 0) {
+                    const allIntangibleIdx =
+                        [].concat(...actorIntangibleTris);
+
+                    const maxIntangibleIdx =
+                        Math.max(...allIntangibleIdx);
+
+                    const minIntangibleIdx =
+                        Math.min(...allIntangibleIdx);
+
+                    if (
+                        minIntangibleIdx >= 1 &&
+                        maxIntangibleIdx <= actorVerts.length
+                    ) {
+                        for (
+                            let k = 0;
+                            k < actorIntangibleTris.length;
+                            k++
+                        ) {
+                            actorIntangibleTris[k] =
+                                actorIntangibleTris[k].map(x => x - 1);
                         }
                     }
                 }
@@ -1451,74 +1489,127 @@ async function renderZeldaObjectsInScene(scene, game, sceneName) {
                 // ------------------------------------------------
                 // Nothing to render
                 // ------------------------------------------------
-                if (actorTris.length === 0) {
+                if (
+                    actorTris.length === 0 &&
+                    actorIntangibleTris.length === 0 &&
+                    actorWaterBoxes.length === 0
+                ) {
                     continue;
                 }
 
                 // ------------------------------------------------
-                // Build collision geometry
+                // Build actor group
                 // ------------------------------------------------
-                const modelName = "Dynapoly " + actorName;
-                const result = buildGeometryButDontAddToScene(scene, actorVerts, actorTris, 
-                    actorTriangleData, null, modelName, false);
-                if (!result) {
-                    continue;
-                }
-
-                // ------------------------------------------------
-                // Create parent object for the dynapoly actor
-                // ------------------------------------------------
-                //
-                // The mesh and wireframe are both children of this
-                // object, so position/rotation/scale automatically
-                // apply to both.
-                //
-                // ------------------------------------------------
+                const modelName = actorName;
                 const actorGroup = new THREE.Object3D();
                 actorGroup.name = modelName;
 
-                // ------------------------------------------------
                 // Position
-                // ------------------------------------------------
-                actorGroup.position.set(posXYZ[0], posXYZ[1], posXYZ[2]);
+                actorGroup.position.set(
+                    posXYZ[0],
+                    posXYZ[1],
+                    posXYZ[2]
+                );
 
-                // ------------------------------------------------
                 // Rotation
-                //
-                // Zelda rotations are s16 angles:
-                //
-                // 0x0000 =   0 degrees
-                // 0x4000 =  90 degrees
-                // 0x8000 = 180 degrees
-                // 0xC000 = 270 degrees
-                //
-                // ------------------------------------------------
                 const rotX = (rotXYZ[0] / 0x8000) * Math.PI;
                 const rotY = (rotXYZ[1] / 0x8000) * Math.PI;
                 const rotZ = (rotXYZ[2] / 0x8000) * Math.PI;
-                actorGroup.rotation.set(rotX, rotY, rotZ);
 
-                // ------------------------------------------------
+                actorGroup.rotation.set(
+                    rotX,
+                    rotY,
+                    rotZ
+                );
+
                 // Scale
-                // ------------------------------------------------
-                actorGroup.scale.set(scale, scale, scale);
+                actorGroup.scale.setScalar(scale);
+
 
                 // ------------------------------------------------
-                // Add mesh and wireframe to actor group
+                // Tangible collision
                 // ------------------------------------------------
-                actorGroup.add(result.mesh);
-                actorGroup.add(result.edges);
+
+                if (actorTris.length > 0) {
+                    const result = buildGeometryButDontAddToScene(
+                        scene,
+                        actorVerts,
+                        actorTris,
+                        actorTriangleData,
+                        null,
+                        modelName,
+                        false,
+                        false,
+                        0xe0ff57
+                    );
+
+                    if (result) {
+                        actorGroup.add(result.mesh);
+                        actorGroup.add(result.edges);
+                    }
+                }
+
 
                 // ------------------------------------------------
-                // Add actor to scene
+                // Intangible collision
                 // ------------------------------------------------
+
+                if (actorIntangibleTris.length > 0) {
+                    const result = buildGeometryButDontAddToScene(
+                        scene,
+                        actorVerts,
+                        actorIntangibleTris,
+                        actorIntangibleTriangleData,
+                        null,
+                        modelName + " Intangible",
+                        false,
+                        true,
+                        0xe0ff57
+                    );
+
+                    if (result) {
+                        actorGroup.add(result.mesh);
+                        actorGroup.add(result.edges);
+                    }
+                }
+
+
+                // ------------------------------------------------
+                // Waterboxes
+                // ------------------------------------------------
+
+                if (actorWaterBoxes.length > 0) {
+                    const {
+                        mesh: waterMesh,
+                        edges: waterEdges
+                    } = buildWaterBoxModel(
+                        actorWaterBoxes,
+                        waterboxCheckbox.checked
+                    );
+
+                    actorGroup.add(waterMesh);
+                    actorGroup.add(waterEdges);
+                }
+
+
+                // ------------------------------------------------
+                // Add entire actor to scene
+                // ------------------------------------------------
+
                 scene.add(actorGroup);
+
+
+                // ------------------------------------------------
+                // Register entire actor as one loaded model
+                // ------------------------------------------------
+
                 loadedModels.push({
                     name: modelName,
+                    root: actorGroup,
                     mesh: actorGroup,
                     edges: null
                 });
-                addModelCheckbox(scene, modelName, actorGroup, null, false, true, '#3aff78');
+                addModelCheckbox(scene, modelName, actorGroup, null, false, true, '#e0ff57');
 
                 // ------------------------------------------------
                 // Save useful actor information
