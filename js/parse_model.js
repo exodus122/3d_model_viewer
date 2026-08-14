@@ -119,22 +119,6 @@ export function parseModelBinary(scene, buffer){
     buildGeometry(scene, verts, tris, null, null, "Main Model", true);
 }
 
-async function fetchActorsByAreaJSON(path, sceneName) {
-    try {
-        const response = await fetch(path);
-        let data = await response.json();
-
-        const areaActors = data[sceneName];
-
-        data = null;
-
-        return areaActors;
-    } catch (error) {
-        console.error('Failed to fetch or parse JSON:', error);
-        return null;
-    }
-}
-
 async function fetchJSON(path) {
   try {
     // 1. Request the file path from your server
@@ -975,7 +959,7 @@ export function parseZeldaSceneBinary(scene, buffer, fresh, mapName, sceneName){
 
     // Get actor data for this scene, if available. This is only done for OOT/MM, since the other games 
     // don't have a known actors_by_scene JSON file to reference.
-    if (game == "OOT" || game == "MM") {
+    if ((game == "OOT" || game == "MM") && renderDynaCheckbox.checked) {
         renderZeldaObjectsInScene(scene, game, sceneName)
     }
 
@@ -1342,18 +1326,12 @@ async function renderZeldaObjectsInScene(scene, game, sceneName) {
 
     const objectCache = new Map();
 
-    let json_path = null;
+    const setupDropdown = document.getElementById("setupDropdown");
+    let setupID = 0;
+    if(setupDropdown.value)
+        setupID = setupDropdown.value;
 
-    // ------------------------------------------------------------
-    // Load actors-by-scene JSON
-    // ------------------------------------------------------------
-    json_path = './models/' + game + '/actors/' + game + '_actors_by_scene.json';
-    const areaActors = await fetchActorsByAreaJSON(json_path, sceneName);
-    if (!areaActors) {
-        console.log("Failed to parse 'actors by scene' json: " + sceneName);
-        return;
-    }
-    //console.log(areaActors);
+    let json_path = null;
 
     // ------------------------------------------------------------
     // Load actors JSON
@@ -1380,8 +1358,8 @@ async function renderZeldaObjectsInScene(scene, game, sceneName) {
     // ------------------------------------------------------------
     // Process every room
     // ------------------------------------------------------------
-    for (let i = 0; i < areaActors[0]["rooms"].length; i++) {
-        const room = areaActors[0]["rooms"][i];
+    for (let i = 0; i < areaActors[setupID]["rooms"].length; i++) {
+        const room = areaActors[setupID]["rooms"][i];
 
         // --------------------------------------------------------
         // Process every actor in room
@@ -1412,8 +1390,19 @@ async function renderZeldaObjectsInScene(scene, game, sceneName) {
 
                 return shift;
             }
+            
+            let DynaPoly_Actors = null;
+            let Dynapoly_Collisions = null;
+            if (game == "OOT") {
+                DynaPoly_Actors = OOT_Dynapoly_Actors;
+                Dynapoly_Collisions = OOT_Dynapoly_Collisions;
+            }
+            else if (game == "MM") {
+                DynaPoly_Actors = MM_Dynapoly_Actors;
+                Dynapoly_Collisions = MM_Dynapoly_Collisions;
+            }
 
-            const dynaPolyActor = OOT_Dynapoly_Actors.find(i => {
+            const dynaPolyActor = DynaPoly_Actors.find(i => {
                 if (i.actor_name !== actorName)
                     return false;
 
@@ -1449,7 +1438,7 @@ async function renderZeldaObjectsInScene(scene, game, sceneName) {
             // ----------------------------------------------------
             // Find collision information
             // ----------------------------------------------------
-            const actorCollision = OOT_Dynapoly_Collisions.find(
+            const actorCollision = Dynapoly_Collisions.find(
                 i => i.collision_name === dynaPolyActor.collision_name);
             if (!actorCollision) {
                 alert('No collision found for dynapoly actor: ' + dynaPolyActor.actor_name);
@@ -1617,7 +1606,7 @@ async function renderZeldaObjectsInScene(scene, game, sceneName) {
                 // ------------------------------------------------
                 // Build actor group
                 // ------------------------------------------------
-                const modelName = actorName + ": " + dynaPolyActor.collision_name;
+                const modelName = actorName + ": " + dynaPolyActor.actor_description;
                 const actorGroup = new THREE.Object3D();
                 actorGroup.name = modelName;
 

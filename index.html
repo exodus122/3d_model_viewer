@@ -19,7 +19,7 @@
 
       <div class="section">
         <!--<div class="muted">Game:</div>-->
-        <select id="selected-game">
+        Game: <select id="selected-game">
             <option value="BK">Banjo-Kazooie</option>
             <option value="BT">Banjo-Tooie</option>
             <option value="OOT">OOT</option>
@@ -27,11 +27,12 @@
             <option value="MM">MM</option>
             <option value="MM3D">MM3D</option>
             <!--<option value="Default">Default</option>-->
-        </select>
-        <select id="mapDropdown"></select>
+        </select><br>
+        Map: <select id="mapDropdown"></select><br>
         <!--<label>Load model file (binary or text). Supported binary format:
           <div class="muted">[uint16 vertexCount][uint16 triCount][int16 x,y,z ...][uint16 i,j,k ...]</div>
         </label>-->
+        <div id="setupDropdownDiv" style="display:none; align-items:center; gap:8px;">Setup: <select id="setupDropdown"></select><label><input id="renderDynaCheckbox" type="checkbox" checked> Render Dyna Actors</label></div>
         <button id="loadMap">Load Map</button><br>
         <select id="actorDropdown" style="display:none;"></select>
         <button id="loadActor" style="display:none;">Load Actor</button>

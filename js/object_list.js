@@ -454,9 +454,8 @@ const OOT_Dynapoly_Actors = [
     { actor_name: "Bg_Ydan_Sp", actor_description: "Web Floor", collision_name: "gDTWebFloorCol", params_mask: 0xF000, params_values: [0], scale: 0.1 },
     { actor_name: "Bg_Ydan_Maruta", actor_description: "Falling ladder in Deku Tree", collision_name: "gDTFallingLadderCol", params_mask: 0xFF00, params_values: [1], scale: 0.1 },
     { actor_name: "Bg_Zg", actor_description: "Metal bars (Ganon's Castle)", collision_name: "gTowerCollapseBarsCol", params_mask: null, params_values: null, scale: 1.0 },
-
-    { actor_name: "Bg_Ganon_Otyka", actor_description: "Falling Platform (Ganondorf Fight)", collision_name: "sCol", params_mask: null, params_values: null, scale: 0.1 },
-    { actor_name: "En_Jsjutan", actor_description: "Magic carpet man's carpet", collision_name: "sCol", params_mask: null, params_values: null, scale: 0.1 }
+    { actor_name: "Bg_Ganon_Otyka", actor_description: "Falling Platform (Ganondorf Fight)", collision_name: "sCol", params_mask: null, params_values: null, scale: 1.0 },
+    { actor_name: "En_Jsjutan", actor_description: "Magic carpet man's carpet", collision_name: "sCol", params_mask: null, params_values: null, scale: 0.02 }
 ];
 
 const MM_Dynapoly_Collisions = [

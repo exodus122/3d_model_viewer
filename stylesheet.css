@@ -197,7 +197,13 @@ a.download-link {
 
 #mapDropdown {
     min-width: 200px;
-    max-width: 250px;
+    max-width: 220px;
+    box-sizing: border-box;
+}
+
+#setupDropdown {
+    min-width: 30px;
+    max-width: 60px;
     box-sizing: border-box;
 }
 

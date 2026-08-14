@@ -19,6 +19,8 @@ import { addModelCheckbox, buildTest } from './render.js';
 ////////////////////////////////////////
 
 const mapDropdown = document.getElementById("mapDropdown");
+const setupDropdown = document.getElementById("setupDropdown");
+const setupDropdownDiv = document.getElementById("setupDropdownDiv");
 const actorDropdown = document.getElementById("actorDropdown");
 const fileInput = document.getElementById('file');
 const loadMapButton = document.getElementById('loadMap');
@@ -192,6 +194,7 @@ const GAME_ACTORS = {
 gameSel.addEventListener('change',(e)=>{
     game = e.target.value;
     mapDropdown.options.length = 0;
+    setupDropdown.options.length = 0;
     actorDropdown.options.length = 0;
     
     let maps = GAME_MAPS[game]
@@ -237,12 +240,30 @@ gameSel.addEventListener('change',(e)=>{
     if (["OOT","MM"].includes(game)) {
         actorDropdown.style.display = "block";
         loadActor.style.display = "block";
+        setupDropdownDiv.style.display = "flex";
+        
+        const game = document.getElementById("selected-game").value;
+        if (game == "OOT" || game == "MM") {
+            const mapName = document.getElementById("mapDropdown").value;
+            let mapFilename = getMapProperty(game, mapName, "file");
+            loadActorsInSceneJSON(game, mapFilename)
+        }
     }
     else {
         actorDropdown.style.display = "none";
         loadActor.style.display = "none";
+        setupDropdownDiv.style.display = "none";
     }
         
+});
+
+mapDropdown.addEventListener('change',(e)=>{
+    const game = document.getElementById("selected-game").value;
+    if (game == "OOT" || game == "MM") {
+        const mapName = document.getElementById("mapDropdown").value;
+        let mapFilename = getMapProperty(game, mapName, "file");
+        loadActorsInSceneJSON(game, mapFilename)
+    }
 });
 
 // Get map property
@@ -293,6 +314,7 @@ loadMap.addEventListener('click', async (e) => {
             console.log(mapFilename+": Binary file length:", buffer1.byteLength);
             parseZeldaSceneBinary(scene, buffer1, true, mapName, mapFilename);
             
+
             /* if (game == "OOT" || game == "MM" || game == "OOT3D" || game == "MM3D") {
                 let mapFilename2 = getMapProperty(game, mapName, "seams");
                 if (mapFilename2 === undefined) {
@@ -538,6 +560,48 @@ document.addEventListener('keyup',(e)=>{
     if(e.code==='Space') move.up=false;
     if(e.code==='KeyC') move.down=false;
 });
+
+async function fetchActorsByAreaJSON(path, sceneName) {
+    try {
+        const response = await fetch(path);
+        let data = await response.json();
+
+        const areaActors = data[sceneName];
+
+        data = null;
+
+        return areaActors;
+    } catch (error) {
+        console.error('Failed to fetch or parse JSON:', error);
+        return null;
+    }
+}
+
+async function loadActorsInSceneJSON(game, sceneName) {
+    let json_path = null;
+
+    // ------------------------------------------------------------
+    // Load actors-by-scene JSON
+    // ------------------------------------------------------------
+    json_path = './models/' + game + '/actors/' + game + '_actors_by_scene.json';
+    areaActors = await fetchActorsByAreaJSON(json_path, sceneName);
+    if (!areaActors) {
+        console.log("Failed to parse 'actors by scene' json: " + sceneName);
+        return;
+    }
+    //console.log(areaActors);
+
+    const setupDropdown = document.getElementById("setupDropdown");
+    setupDropdown.options.length = 0;
+    for (let i = 0; i < areaActors.length; i++) {
+        if(areaActors[i] != null) {
+            const option = document.createElement("option");
+            option.value = i; // This will be the value when selected
+            option.textContent = i; // This is what’s shown to the user
+            setupDropdown.appendChild(option);
+        }
+    }
+}
 
 ////////////////////////////////////////
 // System: Rendering loop
