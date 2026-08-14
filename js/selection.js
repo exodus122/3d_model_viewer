@@ -573,7 +573,14 @@ export function performSelection(ev, renderer, camera, scene) {
         // Check if the triangle faces upward (normal points up)
         if (sample_tri[0].normals && sample_tri[0].normals[1] > f32(0.0) && !isZero(sample_tri[0].normals[1])) {
             // Draw new points
-            pts = drawSampledTriangles(scene, sample_tri, Number(samplePointsResolution.value), currentColCtx);
+            const isDynaPoly = !!hit.object.userData.dynaPolyActor;
+
+            pts = drawSampledTriangles(
+                scene,
+                sample_tri,
+                Number(samplePointsResolution.value),
+                isDynaPoly ? null : currentColCtx
+            );
         }
     }
     
