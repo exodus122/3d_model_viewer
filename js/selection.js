@@ -505,6 +505,11 @@ export function performSelection(ev, renderer, camera, scene) {
     const vb = new THREE.Vector3().fromBufferAttribute(pos, b);
     const vc = new THREE.Vector3().fromBufferAttribute(pos, c);
 
+    // Convert from mesh-local space to world space
+    hit.object.localToWorld(va);
+    hit.object.localToWorld(vb);
+    hit.object.localToWorld(vc);
+
     const triIndex = Math.floor(hit.faceIndex);
 
     // Retrieve metadata stored on the mesh

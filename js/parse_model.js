@@ -1607,6 +1607,7 @@ async function renderZeldaObjectsInScene(scene, game, sceneName) {
                 // Build actor group
                 // ------------------------------------------------
                 const modelName = actorName + ": " + dynaPolyActor.actor_description;
+
                 const actorGroup = new THREE.Object3D();
                 actorGroup.name = modelName;
 
@@ -1633,9 +1634,21 @@ async function renderZeldaObjectsInScene(scene, game, sceneName) {
 
 
                 // ------------------------------------------------
+                // Store actor information on group
+                // ------------------------------------------------
+                actorGroup.userData.actorName = actorName;
+                actorGroup.userData.actorId = actor.actorId;
+                actorGroup.userData.objectName = objectName;
+                actorGroup.userData.params = actorParams;
+                actorGroup.userData.position = posXYZ;
+                actorGroup.userData.rotation = rotXYZ;
+                actorGroup.userData.scale = scale;
+                actorGroup.userData.collisionName = dynaPolyActor.collision_name;
+
+
+                // ------------------------------------------------
                 // Tangible collision
                 // ------------------------------------------------
-
                 if (actorTris.length > 0) {
                     const result = buildGeometryButDontAddToScene(
                         scene,
@@ -1646,10 +1659,17 @@ async function renderZeldaObjectsInScene(scene, game, sceneName) {
                         modelName,
                         false,
                         false,
-                        0xe0ff57
+                        0xff7b24
                     );
 
                     if (result) {
+                        // Make sure selection can identify this as a dynapoly
+                        result.mesh.userData.triangles = actorTriangleData;
+                        result.mesh.userData.dynaPolyActor = actorGroup;
+                        result.mesh.userData.collisionType = "tangible";
+
+                        result.edges.userData.dynaPolyActor = actorGroup;
+
                         actorGroup.add(result.mesh);
                         actorGroup.add(result.edges);
                     }
@@ -1659,7 +1679,6 @@ async function renderZeldaObjectsInScene(scene, game, sceneName) {
                 // ------------------------------------------------
                 // Intangible collision
                 // ------------------------------------------------
-
                 if (actorIntangibleTris.length > 0) {
                     const result = buildGeometryButDontAddToScene(
                         scene,
@@ -1670,10 +1689,17 @@ async function renderZeldaObjectsInScene(scene, game, sceneName) {
                         modelName + " Intangible",
                         false,
                         true,
-                        0xe0ff57
+                        0xff7b24
                     );
 
                     if (result) {
+                        // Make sure selection can identify this as a dynapoly
+                        result.mesh.userData.triangles = actorIntangibleTriangleData;
+                        result.mesh.userData.dynaPolyActor = actorGroup;
+                        result.mesh.userData.collisionType = "intangible";
+
+                        result.edges.userData.dynaPolyActor = actorGroup;
+
                         actorGroup.add(result.mesh);
                         actorGroup.add(result.edges);
                     }
@@ -1683,7 +1709,6 @@ async function renderZeldaObjectsInScene(scene, game, sceneName) {
                 // ------------------------------------------------
                 // Waterboxes
                 // ------------------------------------------------
-
                 if (actorWaterBoxes.length > 0) {
                     const {
                         mesh: waterMesh,
@@ -1693,6 +1718,11 @@ async function renderZeldaObjectsInScene(scene, game, sceneName) {
                         waterboxCheckbox.checked
                     );
 
+                    waterMesh.userData.dynaPolyActor = actorGroup;
+                    waterMesh.userData.collisionType = "waterbox";
+
+                    waterEdges.userData.dynaPolyActor = actorGroup;
+
                     actorGroup.add(waterMesh);
                     actorGroup.add(waterEdges);
                 }
@@ -1701,21 +1731,28 @@ async function renderZeldaObjectsInScene(scene, game, sceneName) {
                 // ------------------------------------------------
                 // Add entire actor to scene
                 // ------------------------------------------------
-
                 scene.add(actorGroup);
 
 
                 // ------------------------------------------------
                 // Register entire actor as one loaded model
                 // ------------------------------------------------
-
                 loadedModels.push({
                     name: modelName,
                     root: actorGroup,
                     mesh: actorGroup,
                     edges: null
                 });
-                addModelCheckbox(scene, modelName, actorGroup, null, false, true, '#e0ff57');
+
+                addModelCheckbox(
+                    scene,
+                    modelName,
+                    actorGroup,
+                    null,
+                    false,
+                    true,
+                    '#ff7b24'
+                );
 
                 // ------------------------------------------------
                 // Save useful actor information
