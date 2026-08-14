@@ -594,17 +594,8 @@ export function buildGeometryEdges(scene, verts, edges, name = "Edge Model", cle
     addModelCheckbox(scene, name, null, edgesObj, clearFirst, checked);
 }
 
-export function buildGeometryButDontAddToScene(
-    scene,
-    verts,
-    tris,
-    allTriangleData,
-    colCtx,
-    name = "Main Model",
-    clearFirst = true,
-    noPrimaryModel = false,
-    color = 0x3aa6ff
-) {
+export function buildGeometryButDontAddToScene(scene, verts, tris, allTriangleData, colCtx, name = "Main Model", 
+    clearFirst = true, noPrimaryModel = false, color = 0x3aa6ff) {
     if ((!verts || !tris || verts.length === 0 || tris.length === 0) && clearFirst) {
         alert('No valid vertices or triangles found');
         return;
@@ -617,45 +608,28 @@ export function buildGeometryButDontAddToScene(
 
     // Create vertex positions
     const positions = new Float32Array(verts.length * 3);
-
     for (let i = 0; i < verts.length; i++) {
-        positions[3 * i]     = verts[i][0];
+        positions[3 * i] = verts[i][0];
         positions[3 * i + 1] = verts[i][1];
         positions[3 * i + 2] = verts[i][2];
     }
 
     // Create triangle indices
-    const indices = new (
-        verts.length > 65535 ? Uint32Array : Uint16Array
-    )(tris.length * 3);
-
+    const indices = new(verts.length > 65535 ? Uint32Array : Uint16Array)(tris.length * 3);
     for (let i = 0; i < tris.length; i++) {
-        indices[3 * i]     = tris[i][0];
+        indices[3 * i] = tris[i][0];
         indices[3 * i + 1] = tris[i][1];
         indices[3 * i + 2] = tris[i][2];
     }
 
     // Build geometry and mesh
     const geom = new THREE.BufferGeometry();
-
-    geom.setAttribute(
-        'position',
-        new THREE.BufferAttribute(positions, 3)
-    );
-
-    geom.setIndex(
-        new THREE.BufferAttribute(indices, 1)
-    );
-
-    const meshObj = new THREE.Mesh(
-        geom,
-        material.clone()
-    );
-
+    geom.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    geom.setIndex(new THREE.BufferAttribute(indices, 1));
+    const meshObj = new THREE.Mesh(geom, material.clone());
     meshObj.material.polygonOffset = true;
     meshObj.material.polygonOffsetFactor = 1;
     meshObj.material.polygonOffsetUnits = 1;
-
     meshObj.userData.triangles = allTriangleData;
     meshObj.userData.colCtx = colCtx;
 
@@ -667,16 +641,13 @@ export function buildGeometryButDontAddToScene(
 
     // Build wireframe edges
     const edgePositions = [];
-
     for (let i = 0; i < indices.length; i += 3) {
         const a = indices[i];
         const b = indices[i + 1];
         const c = indices[i + 2];
-
         const va = verts[a];
         const vb = verts[b];
         const vc = verts[c];
-
         edgePositions.push(
             va[0], va[1], va[2],
             vb[0], vb[1], vb[2],
@@ -688,49 +659,26 @@ export function buildGeometryButDontAddToScene(
             va[0], va[1], va[2]
         );
     }
-
     const edgeGeom = new THREE.BufferGeometry();
-
-    edgeGeom.setAttribute(
-        'position',
-        new THREE.Float32BufferAttribute(edgePositions, 3)
-    );
-
-    const edgesObj = new THREE.LineSegments(
-        edgeGeom,
-        new THREE.LineBasicMaterial({
-            color: 0x3240a8,
-            linewidth: 1,
-            opacity: 0.8,
-            transparent: true
-        })
-    );
-
+    edgeGeom.setAttribute('position', new THREE.Float32BufferAttribute(edgePositions, 3));
+    const edgesObj = new THREE.LineSegments(edgeGeom, new THREE.LineBasicMaterial({
+        color: 0x3240a8,
+        linewidth: 1,
+        opacity: 0.8,
+        transparent: true
+    }));
     edgesObj.visible = wireframeCheckbox.checked;
 
-    // Store and register in UI
-    loadedModels.push({
-        name,
-        mesh: meshObj,
-        edges: edgesObj
-    });
-
-    addModelCheckbox(
-        scene,
-        name,
-        meshObj,
-        edgesObj,
-        clearFirst,
-        true,
-        noPrimaryModel ? '#3aff78' : null
-    );
-
-    updateSamplePointsUIVisibility(game);
-
-    // Do NOT add directly to scene here.
-    // The caller may want to put the mesh and edges
-    // inside a transformed Object3D.
-
+    // Store and register in UI only for normal standalone models
+    if (clearFirst) {
+        loadedModels.push({
+            name,
+            mesh: meshObj,
+            edges: edgesObj
+        });
+        addModelCheckbox(scene, name, meshObj, edgesObj, clearFirst, true, noPrimaryModel ? '#3aff78' : null);
+        updateSamplePointsUIVisibility(game);
+    }
     return {
         mesh: meshObj,
         edges: edgesObj

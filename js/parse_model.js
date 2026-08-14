@@ -1322,328 +1322,148 @@ async function renderZeldaObjectsInScene(scene, game, sceneName) {
     // ------------------------------------------------------------
     // Load actors-by-scene JSON
     // ------------------------------------------------------------
-
-    json_path =
-        '/models/' +
-        game +
-        '/actors/' +
-        game +
-        '_actors_by_scene.json';
-
-    const areaActors = await fetchActorsByAreaJSON(
-        json_path,
-        sceneName
-    );
-
+    json_path = '/models/' + game + '/actors/' + game + '_actors_by_scene.json';
+    const areaActors = await fetchActorsByAreaJSON(json_path, sceneName);
     if (!areaActors) {
-        console.log(
-            "Failed to parse 'actors by scene' json: " +
-            sceneName
-        );
+        console.log("Failed to parse 'actors by scene' json: " + sceneName);
         return;
     }
-
-    console.log(areaActors);
-
+    //console.log(areaActors);
 
     // ------------------------------------------------------------
     // Load actors JSON
     // ------------------------------------------------------------
-
-    json_path =
-        '/models/' +
-        game +
-        '/actors/' +
-        game +
-        '_actors.json';
-
-    const actors = await fetchJSON(
-        json_path,
-        sceneName
-    );
-
+    json_path = '/models/' + game + '/actors/' + game + '_actors.json';
+    const actors = await fetchJSON(json_path, sceneName);
     if (!actors) {
-        console.log(
-            "Failed to parse 'actors' json in game: " +
-            game
-        );
+        console.log("Failed to parse 'actors' json in game: " + game);
         return;
     }
-
-    console.log(actors);
-
+    //console.log(actors);
 
     // ------------------------------------------------------------
     // Load objects JSON
     // ------------------------------------------------------------
-
-    json_path =
-        '/models/' +
-        game +
-        '/actors/' +
-        game +
-        '_objects.json';
-
-    const objects = await fetchJSON(
-        json_path,
-        sceneName
-    );
-
+    json_path = '/models/' + game + '/actors/' + game + '_objects.json';
+    const objects = await fetchJSON(json_path, sceneName);
     if (!objects) {
-        console.log(
-            "Failed to parse 'objects' json in game: " +
-            game
-        );
+        console.log("Failed to parse 'objects' json in game: " + game);
         return;
     }
-
-    console.log(objects);
-
+    //console.log(objects);
 
     // ------------------------------------------------------------
     // Process every room
     // ------------------------------------------------------------
-
-    for (
-        let i = 0;
-        i < areaActors[0]["rooms"].length;
-        i++
-    ) {
+    for (let i = 0; i < areaActors[0]["rooms"].length; i++) {
         const room = areaActors[0]["rooms"][i];
 
         // --------------------------------------------------------
         // Process every actor in room
         // --------------------------------------------------------
-
-        for (
-            let j = 0;
-            j < room["actors"].length;
-            j++
-        ) {
+        for (let j = 0; j < room["actors"].length; j++) {
             const actor = room["actors"][j];
-
-            const actorParams = actor.params;
-
+            const actorParams = actor.actorParams;
             const posXYZ = actor.position;
             const rotXYZ = actor.rotation;
 
             // ----------------------------------------------------
             // Get actor/object information
             // ----------------------------------------------------
-
-            const actorName =
-                actors[actor.actorId]["name"];
-
-            const actorObjectId =
-                actors[actor.actorId]["objectId"];
-
-            const objectName =
-                objects[actorObjectId]["name"];
-
+            const actorName = actors[actor.actorId]["name"];
+            //const actorObjectId = actors[actor.actorId]["objectId"];
+            //const objectName = objects[actorObjectId]["name"];
 
             // ----------------------------------------------------
             // Check if this is a dynapoly actor
             // ----------------------------------------------------
-
-            const dynaPolyActor =
-                OOT_Dynapoly_Actors.find(
-                    i => i.actor_name === actorName
-                );
-
+            const dynaPolyActor = OOT_Dynapoly_Actors.find(i => i.actor_name === actorName);
             if (!dynaPolyActor) {
                 continue;
             }
-
             const scale = dynaPolyActor.scale;
-
 
             // ----------------------------------------------------
             // Find collision information
             // ----------------------------------------------------
-
-            const actorCollision =
-                OOT_Dynapoly_Collisions.find(
-                    i =>
-                        i.collision_name ===
-                        dynaPolyActor.collision_name
-                );
-
+            const actorCollision = OOT_Dynapoly_Collisions.find(
+                i => i.collision_name === dynaPolyActor.collision_name);
             if (!actorCollision) {
-                alert(
-                    'No collision found for dynapoly actor: ' +
-                    dynaPolyActor.actor_name
-                );
+                alert('No collision found for dynapoly actor: ' + dynaPolyActor.actor_name);
                 continue;
             }
-
-            console.log(
-                actorName +
-                ": " +
-                actorObjectId +
-                ": " +
-                objectName
-            );
-
+            const objectName = actorCollision["file_name"];
+            console.log(actorName + ": " + objectName);
             console.log(dynaPolyActor);
             console.log(actorCollision);
-
 
             // ----------------------------------------------------
             // Create separate geometry arrays for THIS actor
             // ----------------------------------------------------
-
             const actorVerts = [];
             const actorTris = [];
             const actorTriangleData = [];
-
             const actorIntangibleTris = [];
             const actorIntangibleTriangleData = [];
-
             const actorWaterBoxes = [];
-
 
             // ----------------------------------------------------
             // Load object binary
             // ----------------------------------------------------
-
             try {
-                const res = await fetch(
-                    './models/' +
-                    game +
-                    '/actors/objects/' +
-                    objectName
-                );
-
-                const buffer =
-                    await res.arrayBuffer();
-
-                console.log(
-                    objectName +
-                    ": Binary file length:",
-                    buffer.byteLength
-                );
-
+                const res = await fetch('./models/' + game + '/actors/objects/' + objectName);
+                const buffer = await res.arrayBuffer();
+                console.log(objectName + ": Binary file length:", buffer.byteLength);
 
                 // ------------------------------------------------
                 // Parse collision
                 // ------------------------------------------------
-
-                parseZeldaObjectBinary(
-                    scene,
-                    buffer,
-                    false,
-                    actorName,
-                    objectName,
-                    actorCollision.offset,
-
-                    actorVerts,
-                    actorTris,
-                    actorTriangleData,
-
-                    actorIntangibleTris,
-                    actorIntangibleTriangleData,
-
-                    actorWaterBoxes
-                );
-
-
+                parseZeldaObjectBinary(scene, buffer, false, actorName, objectName, 
+                    actorCollision.offset, actorVerts, actorTris, actorTriangleData, 
+                    actorIntangibleTris, actorIntangibleTriangleData, actorWaterBoxes);
+                
                 // ------------------------------------------------
                 // Convert triangle indices from 1-based to
                 // 0-based if necessary
                 // ------------------------------------------------
-
                 if (actorTris.length > 0) {
-                    const allIdx =
-                        [].concat(...actorTris);
-
-                    const maxIdx =
-                        Math.max(...allIdx);
-
-                    const minIdx =
-                        Math.min(...allIdx);
-
-                    if (
-                        minIdx >= 1 &&
-                        maxIdx <= actorVerts.length
-                    ) {
-                        for (
-                            let k = 0;
-                            k < actorTris.length;
-                            k++
-                        ) {
-                            actorTris[k] =
-                                actorTris[k].map(
-                                    x => x - 1
-                                );
+                    const allIdx = [].concat(...actorTris);
+                    const maxIdx = Math.max(...allIdx);
+                    const minIdx = Math.min(...allIdx);
+                    if (minIdx >= 1 && maxIdx <= actorVerts.length) {
+                        for (let k = 0; k < actorTris.length; k++) {
+                            actorTris[k] = actorTris[k].map(x => x - 1);
                         }
                     }
                 }
 
-
                 // ------------------------------------------------
                 // Validate triangle indices
                 // ------------------------------------------------
-
-                for (
-                    let k = 0;
-                    k < actorTris.length;
-                    k++
-                ) {
-                    const [a, b, c] =
-                        actorTris[k];
-
-                    if (
-                        a < 0 ||
-                        b < 0 ||
-                        c < 0 ||
-                        a >= actorVerts.length ||
-                        b >= actorVerts.length ||
-                        c >= actorVerts.length
-                    ) {
-                        console.warn(
-                            "Invalid triangle index",
-                            k,
-                            a,
-                            b,
-                            c,
-                            "verts:",
-                            actorVerts.length
-                        );
+                for (let k = 0; k < actorTris.length; k++) {
+                    const [a, b, c] = actorTris[k];
+                    if (a < 0 || b < 0 || c < 0 || a >= actorVerts.length || b >= actorVerts.length 
+                        || c >= actorVerts.length) {
+                        console.warn("Invalid triangle index", k, a, b, c, "verts:", actorVerts.length);
                     }
                 }
-
 
                 // ------------------------------------------------
                 // Nothing to render
                 // ------------------------------------------------
-
                 if (actorTris.length === 0) {
                     continue;
                 }
 
-
                 // ------------------------------------------------
                 // Build collision geometry
                 // ------------------------------------------------
-
-                const modelName =
-                    "Dynapoly " + actorName;
-
-                const result =
-                    buildGeometryButDontAddToScene(
-                        scene,
-                        actorVerts,
-                        actorTris,
-                        actorTriangleData,
-                        null,
-                        modelName,
-                        false
-                    );
-
+                const modelName = "Dynapoly " + actorName;
+                const result = buildGeometryButDontAddToScene(scene, actorVerts, actorTris, 
+                    actorTriangleData, null, modelName, false);
                 if (!result) {
                     continue;
                 }
-
 
                 // ------------------------------------------------
                 // Create parent object for the dynapoly actor
@@ -1654,24 +1474,13 @@ async function renderZeldaObjectsInScene(scene, game, sceneName) {
                 // apply to both.
                 //
                 // ------------------------------------------------
-
-                const actorGroup =
-                    new THREE.Object3D();
-
-                actorGroup.name =
-                    modelName;
-
+                const actorGroup = new THREE.Object3D();
+                actorGroup.name = modelName;
 
                 // ------------------------------------------------
                 // Position
                 // ------------------------------------------------
-
-                actorGroup.position.set(
-                    posXYZ[0],
-                    posXYZ[1],
-                    posXYZ[2]
-                );
-
+                actorGroup.position.set(posXYZ[0], posXYZ[1], posXYZ[2]);
 
                 // ------------------------------------------------
                 // Rotation
@@ -1684,101 +1493,49 @@ async function renderZeldaObjectsInScene(scene, game, sceneName) {
                 // 0xC000 = 270 degrees
                 //
                 // ------------------------------------------------
-
-                const rotX =
-                    (rotXYZ[0] / 0x8000) *
-                    Math.PI;
-
-                const rotY =
-                    (rotXYZ[1] / 0x8000) *
-                    Math.PI;
-
-                const rotZ =
-                    (rotXYZ[2] / 0x8000) *
-                    Math.PI;
-
-                actorGroup.rotation.set(
-                    rotX,
-                    rotY,
-                    rotZ
-                );
-
+                const rotX = (rotXYZ[0] / 0x8000) * Math.PI;
+                const rotY = (rotXYZ[1] / 0x8000) * Math.PI;
+                const rotZ = (rotXYZ[2] / 0x8000) * Math.PI;
+                actorGroup.rotation.set(rotX, rotY, rotZ);
 
                 // ------------------------------------------------
                 // Scale
                 // ------------------------------------------------
-
-                actorGroup.scale.set(
-                    scale,
-                    scale,
-                    scale
-                );
-
+                actorGroup.scale.set(scale, scale, scale);
 
                 // ------------------------------------------------
                 // Add mesh and wireframe to actor group
                 // ------------------------------------------------
-
                 actorGroup.add(result.mesh);
                 actorGroup.add(result.edges);
-
 
                 // ------------------------------------------------
                 // Add actor to scene
                 // ------------------------------------------------
-
                 scene.add(actorGroup);
-
+                loadedModels.push({
+                    name: modelName,
+                    mesh: actorGroup,
+                    edges: null
+                });
+                addModelCheckbox(scene, modelName, actorGroup, null, false, true, '#3aff78');
 
                 // ------------------------------------------------
                 // Save useful actor information
                 // ------------------------------------------------
-
-                actorGroup.userData.actorName =
-                    actorName;
-
-                actorGroup.userData.actorId =
-                    actor.actorId;
-
-                actorGroup.userData.objectName =
-                    objectName;
-
-                actorGroup.userData.objectId =
-                    actorObjectId;
-
-                actorGroup.userData.params =
-                    actorParams;
-
-                actorGroup.userData.position =
-                    posXYZ;
-
-                actorGroup.userData.rotation =
-                    rotXYZ;
-
-                actorGroup.userData.scale =
-                    scale;
-
-                actorGroup.userData.collisionName =
-                    dynaPolyActor.collision_name;
-
-
-                console.log(
-                    "Rendered dynapoly:",
-                    actorName,
-                    "position:",
-                    posXYZ,
-                    "rotation:",
-                    rotXYZ,
-                    "scale:",
-                    scale
-                );
-
+                actorGroup.userData.actorName = actorName;
+                actorGroup.userData.actorId = actor.actorId;
+                actorGroup.userData.objectName = objectName;
+                //actorGroup.userData.objectId = actorObjectId;
+                actorGroup.userData.params = actorParams;
+                actorGroup.userData.position = posXYZ;
+                actorGroup.userData.rotation = rotXYZ;
+                actorGroup.userData.scale = scale;
+                actorGroup.userData.collisionName = dynaPolyActor.collision_name;
+                console.log("Rendered dynapoly:", actorName, "position:", posXYZ, "rotation:", 
+                    rotXYZ, "scale:", scale);
             } catch (err) {
-                console.error(
-                    "Failed to load dynapoly object:",
-                    objectName,
-                    err
-                );
+                console.error("Failed to load dynapoly object:", objectName, err);
             }
         }
     }
