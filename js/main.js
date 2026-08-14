@@ -11,7 +11,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
 import { performSelection, clearSelection } from './selection.js';
-import { parseModel, parseModelText, parseModelBinary, parseBKModelBinary, parseZeldaSceneBinary, parseZeldaObjectBinary, parseInvisibleSeams1D } from './parse_model.js';
+import { parseModel, parseModelText, parseModelBinary, parseBKModelBinary, parseZeldaSceneBinary, renderZeldaObjectBinary, parseInvisibleSeams1D } from './parse_model.js';
 import { addModelCheckbox, buildTest } from './render.js';
 
 ////////////////////////////////////////
@@ -183,8 +183,8 @@ const GAME_MAPS = {
 const GAME_ACTORS = {
     BK: null,
     BT: null,
-    OOT: OOT_Actors,
-    MM: MM_Actors,
+    OOT: OOT_Dynapoly_Collisions,
+    MM: MM_Dynapoly_Collisions,
     OOT3D: null,
     MM3D: null,
 };
@@ -340,7 +340,7 @@ loadActor.addEventListener('click', async (e) => {
             const res1 = await fetch('./models/' + game + '/actors/objects/' + objectName);
             const buffer1 = await res1.arrayBuffer();
             console.log(objectName+": Binary file length:", buffer1.byteLength);
-            parseZeldaObjectBinary(scene, buffer1, true, actorName, objectName, actorOffset);
+            renderZeldaObjectBinary(scene, buffer1, true, actorName, objectName, actorOffset);
         } catch (err) {
             console.error(err);
         }

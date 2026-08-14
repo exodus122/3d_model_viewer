@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { addModelCheckbox, buildGeometry, buildGeometry_fwc, buildGeometryFromTriangles, buildGeometryEdges, clearAllModels } from './render.js';
+import { addModelCheckbox, buildGeometry, buildGeometry_fwc, buildGeometryFromTriangles, buildGeometryEdges, clearAllModels, buildGeometryButDontAddToScene } from './render.js';
 import { buildGeometry2, buildGeometry3, buildGeometry4 } from './gap.js';
 import { initColCtx, initializeSubdivisions, BGCHECK_SUBDIV_OVERLAP } from './subdivisions.js';
 import { renderStandableSurfaceXZ, renderStandableSurfaceXZ_old } from './standable_surfaces.js';
@@ -47,7 +47,7 @@ export function parseModel(scene, buffer, filename){
                 parseBKModelBinary(scene, buffer, true);
         else if (game == "OOT" || game == "MM" || game == "OOT3D" || game == "MM3D") {
             if (filename.includes("object_") || filename.includes("gameplay_")) {
-                //parseZeldaObjectBinary(scene, buffer, true, filename, 0x4E98);
+                //renderZeldaObjectBinary(scene, buffer, true, filename, 0x4E98);
             }
             else {
                 parseZeldaSceneBinary(scene, buffer, true, filename);
@@ -558,62 +558,6 @@ function parseCollisionHeader(dv, addr, address_offset, colHeader, endianness) {
 }
 
 const waterboxCheckbox = document.getElementById('showFullWaterboxDepth');
-    
-waterboxCheckbox.addEventListener('change', () => {
-    // --- Remove old waterbox mesh & edges ---
-    const oldMeshIndex = loadedModels.findIndex(m => m.name === "Waterboxes");
-    if (oldMeshIndex >= 0) {
-        const old = loadedModels[oldMeshIndex];
-        if (old.mesh) {
-            scene.remove(old.mesh);
-            if (old.mesh.geometry) old.mesh.geometry.dispose();
-            if (old.mesh.material) old.mesh.material.dispose();
-        }
-        if (old.edges) {
-            scene.remove(old.edges);
-            if (old.edges.geometry) old.edges.geometry.dispose();
-            if (old.edges.material) old.edges.material.dispose();
-        }
-        loadedModels.splice(oldMeshIndex, 1);
-    }
-
-    // --- Remove old model checkbox from UI ---
-    const container = document.querySelector('.controls'); // adjust if your container is different
-    if (container) {
-        const oldCheckbox = Array.from(container.children).find(
-            child => child.dataset && child.dataset.modelName === "Waterboxes"
-        );
-        if (oldCheckbox) container.removeChild(oldCheckbox);
-    }
-    
-    // Remove old waterbox mesh & edges
-    const oldMesh = loadedModels.find(m => m.name === "WaterboxesMesh");
-    if (oldMesh) {
-        scene.remove(oldMesh.mesh);
-        if (oldMesh.mesh.geometry) oldMesh.mesh.geometry.dispose();
-        if (oldMesh.mesh.material) oldMesh.mesh.material.dispose();
-        loadedModels.splice(loadedModels.indexOf(oldMesh), 1);
-    }
-
-    const oldEdges = loadedModels.find(m => m.name === "WaterboxesEdges");
-    if (oldEdges) {
-        scene.remove(oldEdges.mesh);
-        if (oldEdges.mesh.geometry) oldEdges.mesh.geometry.dispose();
-        if (oldEdges.mesh.material) oldEdges.mesh.material.dispose();
-        loadedModels.splice(loadedModels.indexOf(oldEdges), 1);
-    }
-
-    // Rebuild waterbox model with updated depth
-    const { mesh: waterMesh, edges: waterEdges } = buildWaterBoxModel(waterBoxes, waterboxCheckbox.checked);
-
-    // Add both to scene
-    scene.add(waterMesh);
-    scene.add(waterEdges);
-
-    // Add both to loadedModels for selection, toggles, etc.
-    loadedModels.push({ name: "Waterboxes", mesh: waterMesh, edges: waterEdges });
-    addModelCheckbox(scene, "Waterboxes", waterMesh, waterEdges, false, false, "#00FFFF");
-});
 
 function parseWaterboxes(dv, colHeader, address_offset, endianness, waterBoxes) {
     if (colHeader.waterboxListStart != 0) {
@@ -724,40 +668,6 @@ function parseVerticesAndPolygons(dv, colHeader, address_offset, endianness, pol
         });
     }
     //console.log(tris)
-}
-
-async function parseAndRenderActors(scene, game, sceneName){
-    // Fetch the actors_by_scene JSON for this game, then look up the
-    // current scene's actor list in it. This is a separate file from
-    let json_path = null;
-
-    json_path = '/models/' + game + '/actors/' + game + '_actors_by_scene.json';
-    const areaActors = await fetchActorsByAreaJSON(json_path, sceneName);
-    if (!areaActors) {
-        console.log("Failed to parse 'actors by scene' json: " + sceneName);
-        return;
-    }
-    //console.log(areaActors);
-
-    json_path = '/models/' + game + '/actors/' + game + '_actors.json';
-    const actors = await fetchJSON(json_path, sceneName);
-    if(!areaActors) {
-        console.log("Failed to parse 'actors' json in game: " + game);
-        return;
-    }
-    //console.log(actors);
-
-    json_path = '/models/' + game + '/actors/' + game + '_objects.json';
-    const objects = await fetchJSON(json_path, sceneName);
-    if(!areaActors) {
-        console.log("Failed to parse 'objects' json in game: " + game);
-        return;
-    }
-    //console.log(objects);
-
-    //console.log("Successfully parsed json's for actors in scene: " + sceneName);
-
-
 }
 
 export function parseZeldaSceneBinary(scene, buffer, fresh, mapName, sceneName){
@@ -1005,12 +915,68 @@ export function parseZeldaSceneBinary(scene, buffer, fresh, mapName, sceneName){
         addModelCheckbox(scene, "Waterboxes", waterMesh, waterEdges, false, false, "#00FFFF");
     }
 
+    waterboxCheckbox.addEventListener('change', () => {
+        // --- Remove old waterbox mesh & edges ---
+        const oldMeshIndex = loadedModels.findIndex(m => m.name === "Waterboxes");
+        if (oldMeshIndex >= 0) {
+            const old = loadedModels[oldMeshIndex];
+            if (old.mesh) {
+                scene.remove(old.mesh);
+                if (old.mesh.geometry) old.mesh.geometry.dispose();
+                if (old.mesh.material) old.mesh.material.dispose();
+            }
+            if (old.edges) {
+                scene.remove(old.edges);
+                if (old.edges.geometry) old.edges.geometry.dispose();
+                if (old.edges.material) old.edges.material.dispose();
+            }
+            loadedModels.splice(oldMeshIndex, 1);
+        }
+
+        // --- Remove old model checkbox from UI ---
+        const container = document.querySelector('.controls'); // adjust if your container is different
+        if (container) {
+            const oldCheckbox = Array.from(container.children).find(
+                child => child.dataset && child.dataset.modelName === "Waterboxes"
+            );
+            if (oldCheckbox) container.removeChild(oldCheckbox);
+        }
+        
+        // Remove old waterbox mesh & edges
+        const oldMesh = loadedModels.find(m => m.name === "WaterboxesMesh");
+        if (oldMesh) {
+            scene.remove(oldMesh.mesh);
+            if (oldMesh.mesh.geometry) oldMesh.mesh.geometry.dispose();
+            if (oldMesh.mesh.material) oldMesh.mesh.material.dispose();
+            loadedModels.splice(loadedModels.indexOf(oldMesh), 1);
+        }
+
+        const oldEdges = loadedModels.find(m => m.name === "WaterboxesEdges");
+        if (oldEdges) {
+            scene.remove(oldEdges.mesh);
+            if (oldEdges.mesh.geometry) oldEdges.mesh.geometry.dispose();
+            if (oldEdges.mesh.material) oldEdges.mesh.material.dispose();
+            loadedModels.splice(loadedModels.indexOf(oldEdges), 1);
+        }
+
+        // Rebuild waterbox model with updated depth
+        const { mesh: waterMesh, edges: waterEdges } = buildWaterBoxModel(waterBoxes, waterboxCheckbox.checked);
+
+        // Add both to scene
+        scene.add(waterMesh);
+        scene.add(waterEdges);
+
+        // Add both to loadedModels for selection, toggles, etc.
+        loadedModels.push({ name: "Waterboxes", mesh: waterMesh, edges: waterEdges });
+        addModelCheckbox(scene, "Waterboxes", waterMesh, waterEdges, false, false, "#00FFFF");
+    });
+
     // RENDER ACTORS (OOT/MM ONLY)
 
     // Get actor data for this scene, if available. This is only done for OOT/MM, since the other games 
     // don't have a known actors_by_scene JSON file to reference.
     if (game == "OOT" || game == "MM") {
-        parseAndRenderActors(scene, game, sceneName);
+        //renderZeldaObjectsInScene(scene, game, sceneName)
     }
 
     // ADDITIONAL SURFACE RENDERING OPTIONS
@@ -1176,7 +1142,7 @@ export function parseZeldaSceneBinary(scene, buffer, fresh, mapName, sceneName){
 
 }
 
-export function parseZeldaObjectBinary(scene, buffer, fresh, actorName, objectName, colHeaderAddr){
+function parseZeldaObjectBinary(scene, buffer, fresh, actorName, objectName, colHeaderAddr, verts, tris, allTriangleData, intangibleTris, intangibleTriangleData, waterBoxes){
 
     const dv = new DataView(buffer);
     if (dv.byteLength < 4) {
@@ -1219,50 +1185,21 @@ export function parseZeldaObjectBinary(scene, buffer, fresh, actorName, objectNa
     
     console.log(game+" - "+objectName+" - numVtxs: "+colHeader.numVtxs+", numPolygons: "+colHeader.numPolygons);
 
-    // Get SurfaceTypes
-    /*let offset = colHeader.surfaceTypeListStart + address_offset;
-    for(let i = 0; i < colHeader.numSurfaceTypes; i++){
-        if (offset + i*8 < dv.byteLength - 8) {
-            const word1 = dv.getUint32(offset + i*8 + 0x0, endianness);
-            const word2 = dv.getUint32(offset + i*8 + 0x4, endianness);
-            
-            let surfaceObject = {
-                horseBlocked:      (word1 >>> 31) & 0x1,
-                isSoft:            (word1 >>> 30) & 0x1,
-                floorProperty:     (word1 >>> 26) & 0xF,
-                wallType:          (word1 >>> 21) & 0x1F,
-                unk18:             (word1 >>> 18) & 0x7,
-                floorType:         (word1 >>> 13) & 0x1F,
-                loadingZone:       (word1 >>> 8)  & 0x1F, // surfaceExitIndex
-                bgCamIndex:        (word1 >>> 0)  & 0xFF,
-                
-                wallDamage:        (word2 >>> 27) & 0x1,
-                conveyorDirection: (word2 >>> 21) & 0x3F,
-                conveyorSpeed:     (word2 >>> 18) & 0x7,
-                canHookshot:       (word2 >>> 17) & 0x1,
-                echo:              (word2 >>> 11) & 0x3F,
-                lightSetting:      (word2 >>> 6)  & 0x1F,
-                floorEffect:       (word2 >>> 4)  & 0x3,
-                material:          (word2 >>> 0)  & 0xF
-            };
-            
-            colHeader.surfaceTypes.push(surfaceObject);
-        }
-        else {
-            break;
-        }
-    }*/
+    parseVerticesAndPolygons(dv, colHeader, address_offset, endianness, poly_length, verts, tris, intangibleTris, intangibleTriangleData, allTriangleData);
+    console.log("numTangible: "+tris.length+", numIntangible: "+intangibleTris.length);
 
-    //console.log("colHeader.surfaceTypes:", colHeader.surfaceTypes);
+    parseWaterboxes(dv, colHeader, address_offset, endianness, waterBoxes);
+}
 
+export function renderZeldaObjectBinary(scene, buffer, fresh, actorName, objectName, colHeaderAddr){
     let verts = [];
     let tris = [];
     let allTriangleData = [];
     let intangibleTris = [];
     let intangibleTriangleData = [];
-    parseVerticesAndPolygons(dv, colHeader, address_offset, endianness, poly_length, verts, tris, intangibleTris, intangibleTriangleData, allTriangleData);
-    console.log("numTangible: "+tris.length+", numIntangible: "+intangibleTris.length);
+    let waterBoxes = [];
 
+    parseZeldaObjectBinary(scene, buffer, fresh, actorName, objectName, colHeaderAddr, verts, tris, allTriangleData, intangibleTris, intangibleTriangleData, waterBoxes)
 
     const allIdx = [].concat(...tris);
     const maxIdx = Math.max(...allIdx);
@@ -1287,14 +1224,11 @@ export function parseZeldaObjectBinary(scene, buffer, fresh, actorName, objectNa
             console.warn("Invalid triangle index", i, a,b,c, "verts:", verts.length);
         }
     }
-    
+
     let modelName = "Main Model";
     if(!fresh)
         modelName = `Model ${loadedModels.length+1}`;
 
-    const waterBoxes = [];
-    parseWaterboxes(dv, colHeader, address_offset, endianness, waterBoxes);
-    
     let hasCollision = false;
     
     if (tris.length > 0) {
@@ -1319,12 +1253,661 @@ export function parseZeldaObjectBinary(scene, buffer, fresh, actorName, objectNa
         loadedModels.push({ name: "Waterboxes", mesh: waterMesh, edges: waterEdges });
         addModelCheckbox(scene, "Waterboxes", waterMesh, waterEdges, false, true, "#00FFFF");
         hasCollision = true;
+
+        waterboxCheckbox.addEventListener('change', () => {
+            // --- Remove old waterbox mesh & edges ---
+            const oldMeshIndex = loadedModels.findIndex(m => m.name === "Waterboxes");
+            if (oldMeshIndex >= 0) {
+                const old = loadedModels[oldMeshIndex];
+                if (old.mesh) {
+                    scene.remove(old.mesh);
+                    if (old.mesh.geometry) old.mesh.geometry.dispose();
+                    if (old.mesh.material) old.mesh.material.dispose();
+                }
+                if (old.edges) {
+                    scene.remove(old.edges);
+                    if (old.edges.geometry) old.edges.geometry.dispose();
+                    if (old.edges.material) old.edges.material.dispose();
+                }
+                loadedModels.splice(oldMeshIndex, 1);
+            }
+
+            // --- Remove old model checkbox from UI ---
+            const container = document.querySelector('.controls'); // adjust if your container is different
+            if (container) {
+                const oldCheckbox = Array.from(container.children).find(
+                    child => child.dataset && child.dataset.modelName === "Waterboxes"
+                );
+                if (oldCheckbox) container.removeChild(oldCheckbox);
+            }
+            
+            // Remove old waterbox mesh & edges
+            const oldMesh = loadedModels.find(m => m.name === "WaterboxesMesh");
+            if (oldMesh) {
+                scene.remove(oldMesh.mesh);
+                if (oldMesh.mesh.geometry) oldMesh.mesh.geometry.dispose();
+                if (oldMesh.mesh.material) oldMesh.mesh.material.dispose();
+                loadedModels.splice(loadedModels.indexOf(oldMesh), 1);
+            }
+
+            const oldEdges = loadedModels.find(m => m.name === "WaterboxesEdges");
+            if (oldEdges) {
+                scene.remove(oldEdges.mesh);
+                if (oldEdges.mesh.geometry) oldEdges.mesh.geometry.dispose();
+                if (oldEdges.mesh.material) oldEdges.mesh.material.dispose();
+                loadedModels.splice(loadedModels.indexOf(oldEdges), 1);
+            }
+
+            // Rebuild waterbox model with updated depth
+            const { mesh: waterMesh, edges: waterEdges } = buildWaterBoxModel(waterBoxes, waterboxCheckbox.checked);
+
+            // Add both to scene
+            scene.add(waterMesh);
+            scene.add(waterEdges);
+
+            // Add both to loadedModels for selection, toggles, etc.
+            loadedModels.push({ name: "Waterboxes", mesh: waterMesh, edges: waterEdges });
+            addModelCheckbox(scene, "Waterboxes", waterMesh, waterEdges, false, false, "#00FFFF");
+        });
     }
     if(!hasCollision) {
         clearAllModels(scene);
         alert('No valid vertices, triangles, or waterboxes found'); 
     }
 }
+
+async function renderZeldaObjectsInScene(scene, game, sceneName) {
+    let json_path = null;
+
+    // ------------------------------------------------------------
+    // Load actors-by-scene JSON
+    // ------------------------------------------------------------
+
+    json_path =
+        '/models/' +
+        game +
+        '/actors/' +
+        game +
+        '_actors_by_scene.json';
+
+    const areaActors = await fetchActorsByAreaJSON(
+        json_path,
+        sceneName
+    );
+
+    if (!areaActors) {
+        console.log(
+            "Failed to parse 'actors by scene' json: " +
+            sceneName
+        );
+        return;
+    }
+
+    console.log(areaActors);
+
+
+    // ------------------------------------------------------------
+    // Load actors JSON
+    // ------------------------------------------------------------
+
+    json_path =
+        '/models/' +
+        game +
+        '/actors/' +
+        game +
+        '_actors.json';
+
+    const actors = await fetchJSON(
+        json_path,
+        sceneName
+    );
+
+    if (!actors) {
+        console.log(
+            "Failed to parse 'actors' json in game: " +
+            game
+        );
+        return;
+    }
+
+    console.log(actors);
+
+
+    // ------------------------------------------------------------
+    // Load objects JSON
+    // ------------------------------------------------------------
+
+    json_path =
+        '/models/' +
+        game +
+        '/actors/' +
+        game +
+        '_objects.json';
+
+    const objects = await fetchJSON(
+        json_path,
+        sceneName
+    );
+
+    if (!objects) {
+        console.log(
+            "Failed to parse 'objects' json in game: " +
+            game
+        );
+        return;
+    }
+
+    console.log(objects);
+
+
+    // ------------------------------------------------------------
+    // Process every room
+    // ------------------------------------------------------------
+
+    for (
+        let i = 0;
+        i < areaActors[0]["rooms"].length;
+        i++
+    ) {
+        const room = areaActors[0]["rooms"][i];
+
+        // --------------------------------------------------------
+        // Process every actor in room
+        // --------------------------------------------------------
+
+        for (
+            let j = 0;
+            j < room["actors"].length;
+            j++
+        ) {
+            const actor = room["actors"][j];
+
+            const actorParams = actor.params;
+
+            const posXYZ = actor.position;
+            const rotXYZ = actor.rotation;
+
+            // ----------------------------------------------------
+            // Get actor/object information
+            // ----------------------------------------------------
+
+            const actorName =
+                actors[actor.actorId]["name"];
+
+            const actorObjectId =
+                actors[actor.actorId]["objectId"];
+
+            const objectName =
+                objects[actorObjectId]["name"];
+
+
+            // ----------------------------------------------------
+            // Check if this is a dynapoly actor
+            // ----------------------------------------------------
+
+            const dynaPolyActor =
+                OOT_Dynapoly_Actors.find(
+                    i => i.actor_name === actorName
+                );
+
+            if (!dynaPolyActor) {
+                continue;
+            }
+
+            const scale = dynaPolyActor.scale;
+
+
+            // ----------------------------------------------------
+            // Find collision information
+            // ----------------------------------------------------
+
+            const actorCollision =
+                OOT_Dynapoly_Collisions.find(
+                    i =>
+                        i.collision_name ===
+                        dynaPolyActor.collision_name
+                );
+
+            if (!actorCollision) {
+                alert(
+                    'No collision found for dynapoly actor: ' +
+                    dynaPolyActor.actor_name
+                );
+                continue;
+            }
+
+            console.log(
+                actorName +
+                ": " +
+                actorObjectId +
+                ": " +
+                objectName
+            );
+
+            console.log(dynaPolyActor);
+            console.log(actorCollision);
+
+
+            // ----------------------------------------------------
+            // Create separate geometry arrays for THIS actor
+            // ----------------------------------------------------
+
+            const actorVerts = [];
+            const actorTris = [];
+            const actorTriangleData = [];
+
+            const actorIntangibleTris = [];
+            const actorIntangibleTriangleData = [];
+
+            const actorWaterBoxes = [];
+
+
+            // ----------------------------------------------------
+            // Load object binary
+            // ----------------------------------------------------
+
+            try {
+                const res = await fetch(
+                    './models/' +
+                    game +
+                    '/actors/objects/' +
+                    objectName
+                );
+
+                const buffer =
+                    await res.arrayBuffer();
+
+                console.log(
+                    objectName +
+                    ": Binary file length:",
+                    buffer.byteLength
+                );
+
+
+                // ------------------------------------------------
+                // Parse collision
+                // ------------------------------------------------
+
+                parseZeldaObjectBinary(
+                    scene,
+                    buffer,
+                    false,
+                    actorName,
+                    objectName,
+                    actorCollision.offset,
+
+                    actorVerts,
+                    actorTris,
+                    actorTriangleData,
+
+                    actorIntangibleTris,
+                    actorIntangibleTriangleData,
+
+                    actorWaterBoxes
+                );
+
+
+                // ------------------------------------------------
+                // Convert triangle indices from 1-based to
+                // 0-based if necessary
+                // ------------------------------------------------
+
+                if (actorTris.length > 0) {
+                    const allIdx =
+                        [].concat(...actorTris);
+
+                    const maxIdx =
+                        Math.max(...allIdx);
+
+                    const minIdx =
+                        Math.min(...allIdx);
+
+                    if (
+                        minIdx >= 1 &&
+                        maxIdx <= actorVerts.length
+                    ) {
+                        for (
+                            let k = 0;
+                            k < actorTris.length;
+                            k++
+                        ) {
+                            actorTris[k] =
+                                actorTris[k].map(
+                                    x => x - 1
+                                );
+                        }
+                    }
+                }
+
+
+                // ------------------------------------------------
+                // Validate triangle indices
+                // ------------------------------------------------
+
+                for (
+                    let k = 0;
+                    k < actorTris.length;
+                    k++
+                ) {
+                    const [a, b, c] =
+                        actorTris[k];
+
+                    if (
+                        a < 0 ||
+                        b < 0 ||
+                        c < 0 ||
+                        a >= actorVerts.length ||
+                        b >= actorVerts.length ||
+                        c >= actorVerts.length
+                    ) {
+                        console.warn(
+                            "Invalid triangle index",
+                            k,
+                            a,
+                            b,
+                            c,
+                            "verts:",
+                            actorVerts.length
+                        );
+                    }
+                }
+
+
+                // ------------------------------------------------
+                // Nothing to render
+                // ------------------------------------------------
+
+                if (actorTris.length === 0) {
+                    continue;
+                }
+
+
+                // ------------------------------------------------
+                // Build collision geometry
+                // ------------------------------------------------
+
+                const modelName =
+                    "Dynapoly " + actorName;
+
+                const result =
+                    buildGeometryButDontAddToScene(
+                        scene,
+                        actorVerts,
+                        actorTris,
+                        actorTriangleData,
+                        null,
+                        modelName,
+                        false
+                    );
+
+                if (!result) {
+                    continue;
+                }
+
+
+                // ------------------------------------------------
+                // Create parent object for the dynapoly actor
+                // ------------------------------------------------
+                //
+                // The mesh and wireframe are both children of this
+                // object, so position/rotation/scale automatically
+                // apply to both.
+                //
+                // ------------------------------------------------
+
+                const actorGroup =
+                    new THREE.Object3D();
+
+                actorGroup.name =
+                    modelName;
+
+
+                // ------------------------------------------------
+                // Position
+                // ------------------------------------------------
+
+                actorGroup.position.set(
+                    posXYZ[0],
+                    posXYZ[1],
+                    posXYZ[2]
+                );
+
+
+                // ------------------------------------------------
+                // Rotation
+                //
+                // Zelda rotations are s16 angles:
+                //
+                // 0x0000 =   0 degrees
+                // 0x4000 =  90 degrees
+                // 0x8000 = 180 degrees
+                // 0xC000 = 270 degrees
+                //
+                // ------------------------------------------------
+
+                const rotX =
+                    (rotXYZ[0] / 0x8000) *
+                    Math.PI;
+
+                const rotY =
+                    (rotXYZ[1] / 0x8000) *
+                    Math.PI;
+
+                const rotZ =
+                    (rotXYZ[2] / 0x8000) *
+                    Math.PI;
+
+                actorGroup.rotation.set(
+                    rotX,
+                    rotY,
+                    rotZ
+                );
+
+
+                // ------------------------------------------------
+                // Scale
+                // ------------------------------------------------
+
+                actorGroup.scale.set(
+                    scale,
+                    scale,
+                    scale
+                );
+
+
+                // ------------------------------------------------
+                // Add mesh and wireframe to actor group
+                // ------------------------------------------------
+
+                actorGroup.add(result.mesh);
+                actorGroup.add(result.edges);
+
+
+                // ------------------------------------------------
+                // Add actor to scene
+                // ------------------------------------------------
+
+                scene.add(actorGroup);
+
+
+                // ------------------------------------------------
+                // Save useful actor information
+                // ------------------------------------------------
+
+                actorGroup.userData.actorName =
+                    actorName;
+
+                actorGroup.userData.actorId =
+                    actor.actorId;
+
+                actorGroup.userData.objectName =
+                    objectName;
+
+                actorGroup.userData.objectId =
+                    actorObjectId;
+
+                actorGroup.userData.params =
+                    actorParams;
+
+                actorGroup.userData.position =
+                    posXYZ;
+
+                actorGroup.userData.rotation =
+                    rotXYZ;
+
+                actorGroup.userData.scale =
+                    scale;
+
+                actorGroup.userData.collisionName =
+                    dynaPolyActor.collision_name;
+
+
+                console.log(
+                    "Rendered dynapoly:",
+                    actorName,
+                    "position:",
+                    posXYZ,
+                    "rotation:",
+                    rotXYZ,
+                    "scale:",
+                    scale
+                );
+
+            } catch (err) {
+                console.error(
+                    "Failed to load dynapoly object:",
+                    objectName,
+                    err
+                );
+            }
+        }
+    }
+}
+
+async function renderZeldaObjectsInScene_old(scene, game, sceneName){
+    let json_path = null;
+
+    json_path = '/models/' + game + '/actors/' + game + '_actors_by_scene.json';
+    const areaActors = await fetchActorsByAreaJSON(json_path, sceneName);
+    if (!areaActors) {
+        console.log("Failed to parse 'actors by scene' json: " + sceneName);
+        return;
+    }
+    console.log(areaActors);
+
+    json_path = '/models/' + game + '/actors/' + game + '_actors.json';
+    const actors = await fetchJSON(json_path, sceneName);
+    if(!actors) {
+        console.log("Failed to parse 'actors' json in game: " + game);
+        return;
+    }
+    console.log(actors);
+
+    json_path = '/models/' + game + '/actors/' + game + '_objects.json';
+    const objects = await fetchJSON(json_path, sceneName);
+    if(!objects) {
+        console.log("Failed to parse 'objects' json in game: " + game);
+        return;
+    }
+    console.log(objects);
+
+    //console.log("Successfully parsed json's for actors in scene: " + sceneName);
+
+
+    let verts = [];
+    let tris = [];
+    let allTriangleData = [];
+    let intangibleTris = [];
+    let intangibleTriangleData = [];
+    let waterBoxes = [];
+
+    // actorName, objectName, colHeaderAddr, buffer, fresh,  
+    // parseZeldaObjectBinary(scene, buffer, fresh, actorName, objectName, colHeaderAddr, verts, tris, allTriangleData, intangibleTris, intangibleTriangleData, waterBoxes)
+    
+    for (let i = 0; i < areaActors[0]["rooms"].length; i++) {
+        let room = areaActors[0]["rooms"][i];
+        for (let j = 0; j < room["actors"].length; j++) {
+            let actor = room["actors"][j];
+            let actorParams = actor.params;
+            let posXYZ = actor.position; // an xyz list: [74, 56, 78] for example
+            let rotXYZ = actor.rotation; // an xyz list: [74, 56, 78] for example
+            //console.log(actor);
+            let actorName = actors[actor.actorId]["name"];
+            let actorObjectId = actors[actor.actorId]["objectId"];
+            let objectName = objects[actorObjectId]["name"];
+            
+            let dynaPolyActor = OOT_Dynapoly_Actors.find(i => i.actor_name === actorName);
+            if (!dynaPolyActor)
+                continue; // not a dynapoly actor
+            let scale = dynaPolyActor["scale"]; // a float, 0.1 means it should be 10% of the size
+            console.log(actorName + ": " + actorObjectId + ": " + objectName);
+            console.log(dynaPolyActor);
+
+            let actorCollision = OOT_Dynapoly_Collisions.find(i => i.collision_name === dynaPolyActor.collision_name);
+            if (!actorCollision)
+                alert('No collision found for dynapoly actor: '+dynaPolyActor.actor_name); 
+            console.log(actorCollision);
+
+            try {
+                const res1 = await fetch('./models/' + game + '/actors/objects/' + objectName);
+                const buffer = await res1.arrayBuffer();
+                console.log(objectName+": Binary file length:", buffer.byteLength);
+                //renderZeldaObjectBinary(scene, buffer, true, actorName, objectName, actorOffset);
+                parseZeldaObjectBinary(scene, buffer, false, actorName, objectName, actorCollision.offset, verts, tris, allTriangleData, intangibleTris, intangibleTriangleData, waterBoxes)
+            } catch (err) {
+                console.error(err);
+            }
+        }
+    }
+
+    const allIdx = [].concat(...tris);
+    const maxIdx = Math.max(...allIdx);
+    const minIdx = Math.min(...allIdx);
+    if(minIdx >= 1 && maxIdx <= verts.length) {
+        for(let i = 0; i < tris.length; i++) tris[i]=tris[i].map(x=>x-1);
+    }
+    
+    if (intangibleTris.length > 0) {
+        const allIntangibleIdx = [].concat(...intangibleTris);
+        const maxIntangibleIdx = Math.max(...allIntangibleIdx);
+        const minIntangibleIdx = Math.min(...allIntangibleIdx);
+        if(minIntangibleIdx >= 1 && maxIntangibleIdx <= verts.length) {
+            for(let i = 0; i < intangibleTris.length; i++) intangibleTris[i]=intangibleTris[i].map(x=>x-1);
+        }
+    }
+    
+    for (let i = 0; i < tris.length; i++) {
+        const [a,b,c] = tris[i];
+        if (a < 0 || b < 0 || c < 0 ||
+            a >= verts.length || b >= verts.length || c >= verts.length) {
+            console.warn("Invalid triangle index", i, a,b,c, "verts:", verts.length);
+        }
+    }
+
+    let hasCollision = false;
+
+    let modelName = "Dynapoly";
+    if (tris.length > 0) {
+        if (display_fwc.checked)
+            buildGeometry_fwc(scene, verts, tris, modelName, false);
+        else
+            buildGeometry(scene, verts, tris, allTriangleData, null, modelName, false);
+        hasCollision = true;
+    }
+    if (intangibleTris.length > 0) {
+        buildGeometry(scene, verts, intangibleTris, intangibleTriangleData, null, "Dynapoly Intangible", false, !hasCollision, 0x3aff78);
+        hasCollision = true;
+    }
+    if (waterBoxes.length > 0) {
+        const { mesh: waterMesh, edges: waterEdges } = buildWaterBoxModel(waterBoxes, waterboxCheckbox.checked);
+        scene.add(waterMesh);
+        scene.add(waterEdges);
+        loadedModels.push({ name: "Dynapoly Waterboxes", mesh: waterMesh, edges: waterEdges });
+        addModelCheckbox(scene, "Dynapoly Waterboxes", waterMesh, waterEdges, false, true, "#00FFFF");
+        hasCollision = true;
+    }
+}
+
 
 export function parseInvisibleSeams1D(scene, text) {
     const lines = text.split(/\r?\n/).map(s => s.trim()).filter(s => s && s[0] !== "#");

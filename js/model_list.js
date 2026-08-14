@@ -796,7 +796,6 @@ const MM3D_Maps = [
     { name: "meganeana", file: "z2_meganeana_info.zsi" }
 ];
 
-// Table of accepted flat-ground Y values
 const flat_ground_clip_y_table = new Set([
     515, 519, 523, 527, 531, 535, 539, 543, 547, 551, 555, 559, 563, 567, 571, 575, 579, 583,
     587, 591, 595, 599, 603, 607, 611, 615, 619, 623, 627, 631, 635, 639, 643, 647, 651, 655,
