@@ -185,6 +185,15 @@ const GAME_MAPS = {
 const GAME_ACTORS = {
     BK: null,
     BT: null,
+    OOT: OOT_Dynapoly_Actors,
+    MM: MM_Dynapoly_Actors,
+    OOT3D: null,
+    MM3D: null,
+};
+
+const GAME_COLLISIONS = {
+    BK: null,
+    BT: null,
     OOT: OOT_Dynapoly_Collisions,
     MM: MM_Dynapoly_Collisions,
     OOT3D: null,
@@ -216,8 +225,8 @@ gameSel.addEventListener('change',(e)=>{
     if(actors) {
         actors.forEach(actor => {
             const option = document.createElement("option");
-            option.value = actor.collision_name; // This will be the value when selected
-            option.textContent = actor.collision_name; // This is what’s shown to the user
+            option.value = actor.list_index; // This will be the value when selected
+            option.textContent = actor.actor_name + ": " + actor.actor_description; // This is what’s shown to the user
             actorDropdown.appendChild(option);
         });
     }
@@ -341,11 +350,20 @@ loadMap.addEventListener('click', async (e) => {
 });
 
 // Get actor property
-function getActorProperty(game, actorName, prop) {
+function getActorProperty(game, id, prop) {
     const actors = GAME_ACTORS[game];
     if (!actors) return null;
 
-    const found = actors.find(actor => actor.collision_name === actorName);
+    const found = actors.find(actor => actor.list_index === id);
+    return found ? found[prop] ?? null : null;
+}
+
+// Get collision property
+function getCollisionProperty(game, collisionName, prop) {
+    const collisions = GAME_COLLISIONS[game];
+    if (!collisions) return null;
+
+    const found = collisions.find(collision => collision.collision_name === collisionName);
     return found ? found[prop] ?? null : null;
 }
 
@@ -354,9 +372,11 @@ loadActor.addEventListener('click', async (e) => {
     const game = document.getElementById("selected-game").value;
     
     if (game == "OOT" || game == "MM"){
-        const actorName = document.getElementById("actorDropdown").value;
-        let objectName = getActorProperty(game, actorName, "file_name");
-        let actorOffset = getActorProperty(game, actorName, "offset");
+        let id = parseInt(document.getElementById("actorDropdown").value, 10);
+        let actorName = getActorProperty(game, id, "actor_name");
+        let collisionName = getActorProperty(game, id, "collision_name");
+        let objectName = getCollisionProperty(game, collisionName, "file_name");
+        let actorOffset = getCollisionProperty(game, collisionName, "offset");
 
         try {
             const res1 = await fetch('./models/' + game + '/actors/objects/' + objectName);
