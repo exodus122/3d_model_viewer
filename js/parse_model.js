@@ -1769,7 +1769,7 @@ async function renderZeldaObjectsInScene(scene, game, sceneName) {
                 console.log("Rendered dynapoly:", actorName, "position:", posXYZ, "rotation:", 
                     rotXYZ, "scale:", scale, "params:", `0x${actorParams.toString(16).toUpperCase()}`);
                 
-                function transformTriangleDataToWorld(triangleData, object) {
+                /*function transformTriangleDataToWorld(triangleData, object) {
                     object.updateMatrixWorld(true);
 
                     const normalMatrix = new THREE.Matrix3()
@@ -1859,7 +1859,7 @@ async function renderZeldaObjectsInScene(scene, game, sceneName) {
 
                         addModelCheckbox(scene, modelName+" Standable Surface", standableSurfaceMain, null, false, true, "#ff0000");
                     }
-                }
+                }*/
             } catch (err) {
                 console.error("Failed to load dynapoly object:", objectName, err);
             }
