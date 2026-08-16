@@ -4,6 +4,7 @@ import { buildGeometry2, buildGeometry3, buildGeometry4 } from './gap.js';
 import { initColCtx, initializeSubdivisions, BGCHECK_SUBDIV_OVERLAP } from './subdivisions.js';
 import { renderStandableSurfaceXZ, renderStandableSurfaceXZ_old } from './standable_surfaces.js';
 import { renderCollisionWallsXY, renderCollisionWallsYZ } from './render_walls.js'
+import { dynaTransformVertices, dynaRecomputePolyData, dynaActorPos } from './dyna_transform.js';
 import { scanAndBuildFlatGroundMarkers, buildSurfaceTypeMarkers, scanAndBuildSubdivision, scanAndBuildSectorSortingErrorMarkers, scanAndBuildSubdivisionSkipMarkers } from './poly_markers.js'
 import { buildWaterBoxModel } from './waterboxes.js';
 
@@ -1515,71 +1516,61 @@ async function renderZeldaObjectsInScene(scene, game, sceneName) {
                     //console.log(objectName + ": Binary file length:", buffer.byteLength);
                 }
                 
-                const actorVerts = cachedObject.verts;
                 const actorTris = cachedObject.tris;
-                const actorTriangleData = cachedObject.triangleData;
 
                 const actorIntangibleTris =
                     cachedObject.intangibleTris;
 
-                const actorIntangibleTriangleData =
-                    cachedObject.intangibleTriangleData;
-
                 const actorWaterBoxes =
                     cachedObject.waterBoxes;
-                
-                // ------------------------------------------------
-                // Convert tangible triangle indices from 1-based
-                // to 0-based if necessary
-                // ------------------------------------------------
 
-                if (actorTris.length > 0) {
-                    const allIdx = [].concat(...actorTris);
-
-                    const maxIdx = Math.max(...allIdx);
-                    const minIdx = Math.min(...allIdx);
-
-                    if (
-                        minIdx >= 1 &&
-                        maxIdx <= actorVerts.length
-                    ) {
-                        for (let k = 0; k < actorTris.length; k++) {
-                            actorTris[k] =
-                                actorTris[k].map(x => x - 1);
-                        }
-                    }
-                }
-
+                // Note: triangle indices were already normalised to 0-based
+                // by normalizeTriangleIndices() before caching. They used to
+                // be re-normalised here per instance, which mutated the
+                // shared cached arrays and could decrement them a second
+                // time for any object that happens not to reference vertex 0.
 
                 // ------------------------------------------------
-                // Convert intangible triangle indices from 1-based
-                // to 0-based if necessary
+                // Transform collision into world space
                 // ------------------------------------------------
+                // The game does not keep dynapoly collision in object space
+                // and transform it while rendering. Once per frame
+                // DynaPoly_ExpandSRT bakes each actor's vertices into world
+                // space and stores them as Vec3s -- 16-bit INTEGERS -- then
+                // recomputes every polygon normal and plane distance from
+                // those truncated integers.
+                //
+                // So we bake here too, rather than putting the transform on
+                // the THREE group. Doing it the "clean" way with a float
+                // group transform gives subtly different geometry: vertices
+                // land on non-integer coordinates, and normals stay at their
+                // untransformed header values instead of being rederived.
+                //
+                // See dyna_transform.js for the details.
 
-                if (actorIntangibleTris.length > 0) {
-                    const allIntangibleIdx =
-                        [].concat(...actorIntangibleTris);
+                const xform = {
+                    scale: { x: scale, y: scale, z: scale },
+                    rot: { x: rotXYZ[0], y: rotXYZ[1], z: rotXYZ[2] },
+                    // shape.yOffset is 0 for most dynapoly actors; override
+                    // per-actor in the dynapoly table if one needs it.
+                    pos: dynaActorPos(posXYZ, scale, dynaPolyActor.yOffset ?? 0)
+                };
 
-                    const maxIntangibleIdx =
-                        Math.max(...allIntangibleIdx);
+                const mkVec = (x, y, z) => new THREE.Vector3(x, y, z);
 
-                    const minIntangibleIdx =
-                        Math.min(...allIntangibleIdx);
+                // Integer world-space vertices, shared by tangible and
+                // intangible polys (they index the same vertex list).
+                const actorVerts = dynaTransformVertices(
+                    cachedObject.verts, xform);
 
-                    if (
-                        minIntangibleIdx >= 1 &&
-                        maxIntangibleIdx <= actorVerts.length
-                    ) {
-                        for (
-                            let k = 0;
-                            k < actorIntangibleTris.length;
-                            k++
-                        ) {
-                            actorIntangibleTris[k] =
-                                actorIntangibleTris[k].map(x => x - 1);
-                        }
-                    }
-                }
+                // Normals/dist rederived from the truncated integer verts.
+                // Builds new objects, so the shared cache is left untouched.
+                const actorTriangleData = dynaRecomputePolyData(
+                    actorVerts, actorTris, cachedObject.triangleData, mkVec);
+
+                const actorIntangibleTriangleData = dynaRecomputePolyData(
+                    actorVerts, actorIntangibleTris,
+                    cachedObject.intangibleTriangleData, mkVec);
 
                 // ------------------------------------------------
                 // Validate triangle indices
@@ -1611,26 +1602,10 @@ async function renderZeldaObjectsInScene(scene, game, sceneName) {
                 const actorGroup = new THREE.Object3D();
                 actorGroup.name = modelName;
 
-                // Position
-                actorGroup.position.set(
-                    posXYZ[0],
-                    posXYZ[1],
-                    posXYZ[2]
-                );
-
-                // Rotation
-                const rotX = (rotXYZ[0] / 0x8000) * Math.PI;
-                const rotY = (rotXYZ[1] / 0x8000) * Math.PI;
-                const rotZ = (rotXYZ[2] / 0x8000) * Math.PI;
-
-                actorGroup.rotation.set(
-                    rotX,
-                    rotY,
-                    rotZ
-                );
-
-                // Scale
-                actorGroup.scale.setScalar(scale);
+                // The collision meshes below are already in world space (see
+                // the transform block above), so the group itself stays at
+                // identity. Anything that needs world coordinates can keep
+                // using localToWorld() and will simply get a no-op.
 
 
                 // ------------------------------------------------
@@ -1723,8 +1698,34 @@ async function renderZeldaObjectsInScene(scene, game, sceneName) {
 
                     waterEdges.userData.dynaPolyActor = actorGroup;
 
-                    actorGroup.add(waterMesh);
-                    actorGroup.add(waterEdges);
+                    // DynaPoly_ExpandSRT only bakes vertices and polygons --
+                    // it does not touch waterboxes, so there is no integer
+                    // truncation to reproduce for them. They stay in object
+                    // space under their own transformed subgroup.
+                    const waterGroup = new THREE.Object3D();
+                    waterGroup.name = modelName + " Waterboxes";
+
+                    waterGroup.position.set(
+                        xform.pos.x,
+                        xform.pos.y,
+                        xform.pos.z
+                    );
+
+                    // YXZ, matching SkinMatrix_SetRotateYXZ. The default
+                    // THREE order is XYZ, which differs for any actor
+                    // rotated about more than one axis.
+                    waterGroup.rotation.order = 'YXZ';
+                    waterGroup.rotation.set(
+                        (rotXYZ[0] / 0x8000) * Math.PI,
+                        (rotXYZ[1] / 0x8000) * Math.PI,
+                        (rotXYZ[2] / 0x8000) * Math.PI
+                    );
+
+                    waterGroup.scale.setScalar(scale);
+
+                    waterGroup.add(waterMesh);
+                    waterGroup.add(waterEdges);
+                    actorGroup.add(waterGroup);
                 }
 
 
@@ -1769,97 +1770,6 @@ async function renderZeldaObjectsInScene(scene, game, sceneName) {
                 console.log("Rendered dynapoly:", actorName, "position:", posXYZ, "rotation:", 
                     rotXYZ, "scale:", scale, "params:", `0x${actorParams.toString(16).toUpperCase()}`);
                 
-                function transformTriangleDataToWorld(triangleData, object) {
-                    object.updateMatrixWorld(true);
-
-                    const normalMatrix = new THREE.Matrix3()
-                        .getNormalMatrix(object.matrixWorld);
-
-                    return triangleData.map(tri => {
-                        const copy = {
-                            ...tri,
-
-                            // Copy arrays so we don't modify the original data
-                            vtxs: tri.vtxs.map(v => ({ ...v })),
-                            normals: [...tri.normals]
-                        };
-
-                        // --------------------------------------------
-                        // Transform vertices
-                        // --------------------------------------------
-                        for (const v of copy.vtxs) {
-                            const worldV = new THREE.Vector3(v.x, v.y, v.z)
-                                .applyMatrix4(object.matrixWorld);
-
-                            v.x = worldV.x;
-                            v.y = worldV.y;
-                            v.z = worldV.z;
-                        }
-
-                        // --------------------------------------------
-                        // Transform normal
-                        // --------------------------------------------
-                        const normal = new THREE.Vector3(
-                            tri.normals[0],
-                            tri.normals[1],
-                            tri.normals[2]
-                        ).divideScalar(32767);
-
-                        normal.applyNormalMatrix(normalMatrix);
-                        normal.normalize();
-
-                        copy.normals = [
-                            normal.x * 32767,
-                            normal.y * 32767,
-                            normal.z * 32767
-                        ];
-
-                        // --------------------------------------------
-                        // Recalculate d
-                        // --------------------------------------------
-                        const v = copy.vtxs[0];
-
-                        copy.d = -(
-                            normal.x * v.x +
-                            normal.y * v.y +
-                            normal.z * v.z
-                        );
-
-                        return copy;
-                    });
-                }
-
-                actorGroup.updateMatrixWorld(true);
-
-                const worldTriangleData =
-                    transformTriangleDataToWorld(actorTriangleData, actorGroup);
-                
-                const standableSurfaceResult = renderStandableSurfaceXZ(worldTriangleData, null, groundClipBandsCheckbox?.checked ?? true);
-                if (standableSurfaceResult) {
-                    const { main: standableSurfaceMain, vertexBulge: standableSurfaceVertexBulge } = standableSurfaceResult;
-
-                    if (standableSurfaceVertexBulge) {
-                        scene.add(standableSurfaceVertexBulge);
-
-                        if (standableSurfaceVertexBulge.children[1])
-                            standableSurfaceVertexBulge.children[1].visible = wireframeCheckbox.checked;
-
-                        loadedModels.push({ name: modelName+" Seams Model", mesh: standableSurfaceVertexBulge, edges: standableSurfaceVertexBulge.children[1] });
-
-                        addModelCheckbox(scene, modelName+" Seams Model", standableSurfaceVertexBulge, null, false, true, "#00cc44");
-                    }
-
-                    if (standableSurfaceMain) {
-                        scene.add(standableSurfaceMain);
-
-                        if (standableSurfaceMain.children[1])
-                            standableSurfaceMain.children[1].visible = wireframeCheckbox.checked;
-
-                        loadedModels.push({ name: modelName+" Standable Surface", mesh: standableSurfaceMain, edges: standableSurfaceMain.children[1] });
-
-                        addModelCheckbox(scene, modelName+" Standable Surface", standableSurfaceMain, null, false, true, "#ff0000");
-                    }
-                }
             } catch (err) {
                 console.error("Failed to load dynapoly object:", objectName, err);
             }
