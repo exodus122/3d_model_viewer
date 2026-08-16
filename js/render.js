@@ -30,20 +30,21 @@ export function addModelCheckbox(scene, name, meshObj, edgesObj, clearFirst, che
     const section = document.querySelector('.controls');
 
     // Container
+    //
+    // Layout lives in stylesheet.css (.model-row and friends) rather than in
+    // inline styles. The important part: the label is the only flexible item
+    // in the row, so the swatch and the delete button keep a fixed size and
+    // line up in a column down the panel however long the model names are.
     const container = document.createElement('div');
-    container.style.display = 'flex';
-    container.style.alignItems = 'center';
-    container.style.marginBottom = '4px';
-    container.style.gap = '8px'; // space between checkbox+label and color picker
+    container.className = 'model-row';
     container.dataset.modelName = name;
 
     // Visibility checkbox + label
     const label = document.createElement('label');
-    label.style.display = 'flex';
-    label.style.alignItems = 'center';
+    label.className = 'model-label';
     const chk = document.createElement('input');
     chk.type = 'checkbox';
-    
+
     const savedVisible = modelState[name]?.visible;
     const isChecked = savedVisible !== undefined ? savedVisible : checked;
 
@@ -68,21 +69,22 @@ export function addModelCheckbox(scene, name, meshObj, edgesObj, clearFirst, che
         clearSelection(scene);
     });
     label.appendChild(chk);
-    const labelText = document.createTextNode(` Show ${name}`);
+
+    // Wrapped in a span so it can be given its own overflow rules: long
+    // names ellipsize instead of wrapping onto a second line or pushing the
+    // swatch out of alignment. The title gives the full name back on hover.
+    const labelText = document.createElement('span');
+    labelText.className = 'model-label-text';
+    labelText.textContent = `Show ${name}`;
+    labelText.title = `Show ${name}`;
     label.appendChild(labelText);
-    
+
     // ----- DELETE BUTTON -----
     const del = document.createElement('button');
+    del.type = 'button';
     del.textContent = "×";
-    del.style.marginLeft = "4px";
-    del.style.cursor = "pointer";
-    del.style.padding = "0 4px";
-    del.style.border = "1px solid #888";
-    del.style.borderRadius = "3px";
-    del.style.background = "#333";
-    del.style.color = "#f55";
     del.title = "Remove this model";
-    del.classList.add("delete-btn");
+    del.classList.add("delete-btn", "model-delete");
     
     del.addEventListener('click', () => {
         // Remove from scene
@@ -114,6 +116,8 @@ export function addModelCheckbox(scene, name, meshObj, edgesObj, clearFirst, che
     // Color picker
     const colorInput = document.createElement('input');
     colorInput.type = 'color';
+    colorInput.className = 'model-color';
+    colorInput.title = `Colour for ${name}`;
 
     if (!isMultiMeshGroup) {
         const savedColor = modelState[name]?.color;
@@ -161,24 +165,37 @@ export function addModelCheckbox(scene, name, meshObj, edgesObj, clearFirst, che
 
     // Assemble
     container.appendChild(label);
+
     if (!isMultiMeshGroup) {
         container.appendChild(colorInput);
+    } else {
+        // A multi-mesh group has no single colour to show, but it still needs
+        // to occupy the swatch column so its label doesn't stretch further
+        // right than every other row's.
+        const spacer = document.createElement('span');
+        spacer.className = 'model-color-spacer';
+        container.appendChild(spacer);
     }
-    if(deleteButton) {
+
+    if (deleteButton) {
         container.appendChild(del);
+    } else {
+        // Same idea for the delete column, so rows with and without a delete
+        // button keep their swatches vertically aligned.
+        const spacer = document.createElement('span');
+        spacer.className = 'model-delete-spacer';
+        container.appendChild(spacer);
     }
+
     section.appendChild(container);
 }
 
 export function removeAllModelCheckboxes() {
     const section = document.querySelector('.controls');
-    // Remove all containers that hold the model checkbox + color picker
-    section.querySelectorAll('div').forEach(container => {
-        const label = container.querySelector('label');
-        if (label && label.textContent.trim().startsWith('Show ')) {
-            container.remove();
-        }
-    });
+    // Match on the row class rather than sniffing label text for a "Show "
+    // prefix, which would also have caught any other div in .controls that
+    // happened to start that way.
+    section.querySelectorAll('.model-row').forEach(container => container.remove());
     //delete modelVisibilityState[name];
 }
 
