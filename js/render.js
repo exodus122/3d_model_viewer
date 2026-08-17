@@ -6,7 +6,14 @@ import { updateSamplePointsUIVisibility } from './sample_points.js';
 // Model checkboxes
 ////////////////////////////////////////
 
-export function addModelCheckbox(scene, name, meshObj, edgesObj, clearFirst, checked, color = null, deleteButton = false) {
+// colorTarget: object whose materials the swatch edits, when that differs
+// from the object the checkbox shows/hides. A dynapoly actor is one group
+// holding tangible, intangible and waterbox parts in three different
+// meaningful colours; the checkbox toggles the whole group, but the swatch
+// should drive only the part the row's colour represents. Defaults to
+// meshObj, which is the behaviour every other caller wants.
+export function addModelCheckbox(scene, name, meshObj, edgesObj, clearFirst, checked, color = null, deleteButton = false,
+    colorTarget = null) {
     const getMaterials = (object) => {
         const materials = [];
 
@@ -111,7 +118,14 @@ export function addModelCheckbox(scene, name, meshObj, edgesObj, clearFirst, che
     // A group with more than one mesh+edges pair (e.g. our green/red/blue
     // standable-surface group) has more than one independent color, so a
     // single swatch can't represent it — skip creating/forcing that picker.
-    const isMultiMeshGroup = !!(meshObj?.children && !meshObj.material && meshObj.children.length > 2);
+    //
+    // Tested against colorSource, not meshObj: a caller that names a single
+    // mesh as its colour target has told us exactly what the swatch drives,
+    // so the enclosing group's child count is irrelevant. Without this, a
+    // dynapoly actor holding both tangible and intangible collision tripped
+    // the multi-mesh test and lost its swatch entirely.
+    const colorSource = colorTarget ?? meshObj;
+    const isMultiMeshGroup = !!(colorSource?.children && !colorSource.material && colorSource.children.length > 2);
 
     // Color picker
     const colorInput = document.createElement('input');
@@ -125,7 +139,7 @@ export function addModelCheckbox(scene, name, meshObj, edgesObj, clearFirst, che
         colorInput.value = savedColor ??
             (color ?? (clearFirst ? '#3aa6ff' : '#3aff78'));
 
-        const materials = getMaterials(meshObj);
+        const materials = getMaterials(colorSource);
 
         if (materials.length > 0) {
             materials[0].color.set(colorInput.value);
@@ -140,7 +154,7 @@ export function addModelCheckbox(scene, name, meshObj, edgesObj, clearFirst, che
 
         colorInput.addEventListener('input', () => {
 
-            const materials = getMaterials(meshObj);
+            const materials = getMaterials(colorSource);
 
             if (materials.length > 0) {
                 materials[0].color.set(colorInput.value);
@@ -636,8 +650,8 @@ export function buildGeometryEdges(scene, verts, edges, name = "Edge Model", cle
     addModelCheckbox(scene, name, null, edgesObj, clearFirst, checked);
 }
 
-export function buildGeometryButDontAddToScene(scene, verts, tris, allTriangleData, colCtx, name = "Main Model", 
-    clearFirst = true, noPrimaryModel = false, color = 0x3aa6ff) {
+export function buildGeometryButDontAddToScene(scene, verts, tris, allTriangleData, colCtx, name = "Main Model",
+    clearFirst = true, noPrimaryModel = false, color = null) {
     if ((!verts || !tris || verts.length === 0 || tris.length === 0) && clearFirst) {
         alert('No valid vertices or triangles found');
         return;
@@ -675,10 +689,23 @@ export function buildGeometryButDontAddToScene(scene, verts, tris, allTriangleDa
     meshObj.userData.triangles = allTriangleData;
     meshObj.userData.colCtx = colCtx;
 
-    if (!clearFirst || noPrimaryModel) {
+    // Colour resolution.
+    //
+    // This used to read `if (!clearFirst || noPrimaryModel)`, which silently
+    // threw away the caller's `color` for every additive model. Dynapoly
+    // actors always load additively (clearFirst === false), so their tangible
+    // and intangible collision both came out the same secondary green -- an
+    // actor with a mix of the two rendered entirely in the intangible colour.
+    //
+    // clearFirst means "reset the scene first" and has nothing to do with
+    // colour, so it no longer participates. An explicit colour always wins;
+    // otherwise noPrimaryModel picks the secondary default.
+    if (color !== null && color !== undefined) {
+        meshObj.material.color.set(color);
+    } else if (noPrimaryModel) {
         meshObj.material.color.set(0x3aff78);
     } else {
-        meshObj.material.color.set(color);
+        meshObj.material.color.set(0x3aa6ff);
     }
 
     // Build wireframe edges

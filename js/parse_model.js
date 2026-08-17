@@ -1620,6 +1620,29 @@ async function renderZeldaObjectsInScene(scene, game, sceneName) {
                 actorGroup.userData.scale = scale;
                 actorGroup.userData.collisionName = dynaPolyActor.collision_name;
 
+                // Each collision category keeps its own colour, matching the
+                // scene-level models: tangible orange, intangible green,
+                // waterboxes cyan (set inside buildWaterBoxModel). Passing
+                // the same colour for tangible and intangible is what made a
+                // mixed actor look like it was entirely one or the other.
+                const DYNA_TANGIBLE_COLOR = 0xff7b24;
+                const DYNA_INTANGIBLE_COLOR = 0x3aff78;
+
+                // All wireframe edges live under one subgroup so the global
+                // "Draw triangle/cube edges" checkbox can toggle them. That
+                // handler needs a single `edges` object per loadedModels
+                // entry, and a dynapoly actor has one edges object per part.
+                const edgesGroup = new THREE.Object3D();
+                edgesGroup.name = modelName + " Edges";
+                edgesGroup.visible = wireframeCheckbox.checked;
+                actorGroup.add(edgesGroup);
+
+                // The swatch on the actor's row drives whichever part the
+                // row's colour represents -- normally the tangible mesh.
+                // The other parts keep their fixed semantic colours.
+                let tangibleMesh = null;
+                let intangibleMesh = null;
+                let waterboxMesh = null;
 
                 // ------------------------------------------------
                 // Tangible collision
@@ -1634,7 +1657,7 @@ async function renderZeldaObjectsInScene(scene, game, sceneName) {
                         modelName,
                         false,
                         false,
-                        0xff7b24
+                        DYNA_TANGIBLE_COLOR
                     );
 
                     if (result) {
@@ -1645,8 +1668,16 @@ async function renderZeldaObjectsInScene(scene, game, sceneName) {
 
                         result.edges.userData.dynaPolyActor = actorGroup;
 
+                        tangibleMesh = result.mesh;
+
+                        // edgesGroup owns edge visibility now, so the child
+                        // stays unconditionally visible. Leaving the builder's
+                        // own wireframe-dependent flag on it would keep the
+                        // edges hidden even after the group was switched on.
+                        result.edges.visible = true;
+
                         actorGroup.add(result.mesh);
-                        actorGroup.add(result.edges);
+                        edgesGroup.add(result.edges);
                     }
                 }
 
@@ -1664,7 +1695,7 @@ async function renderZeldaObjectsInScene(scene, game, sceneName) {
                         modelName + " Intangible",
                         false,
                         true,
-                        0xff7b24
+                        DYNA_INTANGIBLE_COLOR
                     );
 
                     if (result) {
@@ -1675,8 +1706,12 @@ async function renderZeldaObjectsInScene(scene, game, sceneName) {
 
                         result.edges.userData.dynaPolyActor = actorGroup;
 
+                        intangibleMesh = result.mesh;
+
+                        result.edges.visible = true;
+
                         actorGroup.add(result.mesh);
-                        actorGroup.add(result.edges);
+                        edgesGroup.add(result.edges);
                     }
                 }
 
@@ -1697,6 +1732,8 @@ async function renderZeldaObjectsInScene(scene, game, sceneName) {
                     waterMesh.userData.collisionType = "waterbox";
 
                     waterEdges.userData.dynaPolyActor = actorGroup;
+
+                    waterboxMesh = waterMesh;
 
                     // DynaPoly_ExpandSRT only bakes vertices and polygons --
                     // it does not touch waterboxes, so there is no integer
@@ -1738,12 +1775,24 @@ async function renderZeldaObjectsInScene(scene, game, sceneName) {
                 // ------------------------------------------------
                 // Register entire actor as one loaded model
                 // ------------------------------------------------
+                // Registering edgesGroup here is what lets the global
+                // "Draw triangle/cube edges" checkbox reach a dynapoly actor;
+                // with edges: null it skipped them entirely.
                 loadedModels.push({
                     name: modelName,
                     root: actorGroup,
                     mesh: actorGroup,
-                    edges: null
+                    edges: edgesGroup
                 });
+
+                // Row colour follows whichever part the swatch will drive, so
+                // the swatch never advertises a colour belonging to a part it
+                // doesn't control. edgesObj stays null: hiding the actor hides
+                // edgesGroup along with it, and the wireframe checkbox owns
+                // edge visibility on its own.
+                const rowColorTarget = tangibleMesh ?? intangibleMesh ?? waterboxMesh;
+                const rowColor = tangibleMesh ? '#ff7b24'
+                    : (intangibleMesh ? '#3aff78' : '#00ffff');
 
                 addModelCheckbox(
                     scene,
@@ -1752,7 +1801,9 @@ async function renderZeldaObjectsInScene(scene, game, sceneName) {
                     null,
                     false,
                     true,
-                    '#ff7b24'
+                    rowColor,
+                    false,
+                    rowColorTarget
                 );
 
                 // ------------------------------------------------
