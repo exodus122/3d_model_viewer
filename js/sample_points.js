@@ -408,7 +408,26 @@ function processSingleTriangle(tri, resolution, colCtx = null, polyIdx = null, i
     // which hardcodes 1.0f and hands the same value to both paths.
     const chkDist = 1.0;
 
-    const detMax = (isDynaPoly && ny > DYNA_FLOOR_NY) ? DET_MAX_DYNAPOLY : DET_MAX_STATIC;
+    // A dynapoly poly the game files as a wall or ceiling contributes no
+    // standable ground at all, so don't sample it.
+    //
+    // Gating only the determinant tolerance wasn't enough: the vertex-proximity
+    // and edge-distance branches of triChkPointParaYImpl have no ny gate of
+    // their own, so a point up to chkDist away in XZ still passes. On a
+    // near-vertical poly that 1.0 unit of XZ slack becomes |nz/ny| = 46 units of
+    // Y, putting "standable" points well above the poly's highest vertex --
+    // e.g. a point 0.98 units from a vertex at y = -40 resolves to y = -25.5.
+    //
+    // Link cannot stand on a >=60-degree surface regardless; it pushes him off
+    // as a wall. This is the same 0.5 floor/wall split the game uses in
+    // DynaPoly_ExpandSRT and that standable_surfaces.js already applies via
+    // isStandableFloor. Static sampling is deliberately left alone -- its
+    // colCtx subdivision filtering handles this case and is known good.
+    if (isDynaPoly && !(ny > DYNA_FLOOR_NY)) {
+        return [];
+    }
+
+    const detMax = isDynaPoly ? DET_MAX_DYNAPOLY : DET_MAX_STATIC;
 
     // Triangle's own actual vertex Y range - used by isSamplePointValid's
     // vertex-Y guard to sanity-bound how far below a computed sample point

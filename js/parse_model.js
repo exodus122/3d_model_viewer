@@ -1860,7 +1860,7 @@ async function renderZeldaObjectsInScene(scene, game, sceneName) {
                             });
 
                             addModelCheckbox(
-                                scene, nm, dynaStandableMain, null, false, false,
+                                scene, nm, dynaStandableMain, null, false, true,
                                 '#ff0000', false,
                                 primaryColorTarget(dynaStandableMain),
                                 dynaGroup.body
@@ -1885,7 +1885,7 @@ async function renderZeldaObjectsInScene(scene, game, sceneName) {
                             });
 
                             addModelCheckbox(
-                                scene, nm, dynaStandableBulge, null, false, false,
+                                scene, nm, dynaStandableBulge, null, false, true,
                                 '#00cc44', false,
                                 primaryColorTarget(dynaStandableBulge),
                                 dynaGroup.body

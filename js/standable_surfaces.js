@@ -993,6 +993,14 @@ function buildStandableSurfaceTriangles(tri, pushGreen, pushRed, pushBlue, pushY
 
     if (Ny < f32(0.0) || isZero(Ny)) return;
 
+    // Dynapoly (detMax > 0) walls and ceilings contribute no standable ground.
+    // See the matching gate in sample_points.js: the chkDist expansions have no
+    // ny gate of their own, so on a near-vertical poly they turn 1 unit of XZ
+    // slack into |nz/ny| units of Y and paint surface far above the actual
+    // geometry. Static is deliberately left alone -- its colCtx subdivision
+    // filtering already handles this and is known good.
+    if (detMax > 0 && !(Ny > DYNA_FLOOR_NY)) return;
+
     // Never registered as standable ground (floor or wall) in any
     // subdivision - the game would never surface this triangle via a floor
     // check anywhere, so none of its geometry belongs here either.
@@ -1168,7 +1176,7 @@ function buildStandableSurfaceTriangles(tri, pushGreen, pushRed, pushBlue, pushY
     // Cir-Square-vs-Tri-Square gate, which rejects anything outside the XZ
     // bounding box grown by chkDist -- so we start from that box and clip it
     // down with the three offset edge lines.
-    if (detMax > 0 && Ny > DYNA_FLOOR_NY) {
+    if (detMax > 0) {
         const liftRegion = (x, z) => ({
             x: f32(x),
             y: computeYFromPlaneLocal(Nx, Ny, Nz, D, x, z),
