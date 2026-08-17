@@ -644,9 +644,9 @@ const MM_Dynapoly_Collisions = [
     { collision_name: "object_wood02_Colheader_007A70", file_name: "object_wood02", offset: 0x7A70, type: "object" },
     { collision_name: "gTowerCollapseBarsCol", file_name: "object_zg", offset: 0x11D4, type: "object" },
     { collision_name: "gMikauGraveCol", file_name: "object_zog", offset: 0x8670, type: "object" },
-    { collision_name: "sBioBabaLilypadCol ", file_name: "ovl_Boss_05", offset: 0x3620, type: "overlay" },
-    { collision_name: "sTurtleGreatBayTempleCol ", file_name: "ovl_Dm_Char08", offset: 0x2640, type: "overlay" },
-    { collision_name: "ovl_En_Horse_Game_Check_Colheader_0010C8 ", file_name: "ovl_En_Horse_Game_Check", offset: 0x10C8, type: "overlay" }
+    //{ collision_name: "sBioBabaLilypadCol ", file_name: "ovl_Boss_05", offset: 0x3620, type: "overlay" },
+    //{ collision_name: "sTurtleGreatBayTempleCol ", file_name: "ovl_Dm_Char08", offset: 0x2640, type: "overlay" },
+    //{ collision_name: "ovl_En_Horse_Game_Check_Colheader_0010C8 ", file_name: "ovl_En_Horse_Game_Check", offset: 0x10C8, type: "overlay" }
 ];
 
 const MM_Dynapoly_Actors = [
@@ -724,35 +724,43 @@ const MM_Dynapoly_Actors = [
     { list_index: 72, actor_name: "En_Encount2", actor_description: "Astral Observatory - Majora's Mask Balloon", collision_name: "object_fusen_Colheader_002420", params_mask: null, params_values: null, scale: 0.1 },
     { list_index: 73, actor_name: "(unused)", actor_description: "", collision_name: "object_ghaka_Colheader_0000E8", params_mask: null, params_values: null, scale: 0.1 },
     { list_index: 74, actor_name: "Obj_Ghaka", actor_description: "Darmani's Gravestone", collision_name: "object_ghaka_Colheader_003CD0", params_mask: null, params_values: null, scale: 0.1 },
-
-    { list_index: 75, actor_name: "Bg_Hakugin_Switch", actor_description: "Goron Link Switch", collision_name: "object_goronswitch_Colheader_0005C8", params_mask: 0x0010, params_values: [0], scale: 0.1 },
-    { list_index: 76, actor_name: "Bg_Haka_Bombwall", actor_description: "Beneath the Grave - Bombable Wall", collision_name: "object_haka_obj_Colheader_000148", params_mask: 0x0010, params_values: [1], scale: [0.07, 0.016, 0.07] },
+    { list_index: 75, actor_name: "Bg_Hakugin_Switch", actor_description: "Goron Link Switch", collision_name: "object_goronswitch_Colheader_0005C8", params_mask: 0x0010, params_values: [1], scale: 0.1 },
+    { list_index: 203, actor_name: "Bg_Hakugin_Switch", actor_description: "Goron Link Switch", collision_name: "object_goronswitch_Colheader_0005C8", params_mask: 0x0010, params_values: [0], scale: [0.07, 0.016, 0.07] },
+    { list_index: 76, actor_name: "Bg_Haka_Bombwall", actor_description: "Beneath the Grave - Bombable Wall", collision_name: "object_haka_obj_Colheader_000148", params_mask: null, params_values: null, scale: 0.1 },
     { list_index: 77, actor_name: "Bg_Haka_Tomb", actor_description: "Flat's Tomb", collision_name: "object_haka_obj_Colheader_000EE8", params_mask: null, params_values: null, scale: 0.1 },
     { list_index: 78, actor_name: "Bg_Haka_Curtain", actor_description: "Curtain That Lifts to Reveal Flat's Tomb", collision_name: "object_haka_obj_Colheader_001588", params_mask: null, params_values: null, scale: 0.1 },
-    { list_index: 79, actor_name: "Obj_Hakaisi", actor_description: "Gravestone", collision_name: "object_hakaisi_Colheader_002FC4", params_mask: null, params_values: null, scale: 0.1 },
-    { list_index: 80, actor_name: "Bg_Hakugin_Bombwall", actor_description: "Snowhead Temple - Bombable Wall", collision_name: "object_hakugin_obj_Colheader_009768", params_mask: null, params_values: null, scale: 0.1 },
-    { list_index: 81, actor_name: "Bg_Hakugin_Bombwall", actor_description: "Snowhead Temple - Bombable Wall", collision_name: "object_hakugin_obj_Colheader_009AF0", params_mask: null, params_values: null, scale: 0.1 },
+    { list_index: 79, actor_name: "Obj_Hakaisi", actor_description: "Gravestone", collision_name: "object_hakaisi_Colheader_002FC4", params_mask: null, params_values: null, scale: 1.0 },
+    { list_index: 80, actor_name: "Bg_Hakugin_Bombwall", actor_description: "Snowhead Temple - Bombable Wall", collision_name: "object_hakugin_obj_Colheader_009768", params_mask: 0x0100, params_values: [0], scale: 0.1 },
+    { list_index: 81, actor_name: "Bg_Hakugin_Bombwall", actor_description: "Snowhead Temple - Bombable Wall", collision_name: "object_hakugin_obj_Colheader_009AF0", params_mask: 0x0100, params_values: [1], scale: 0.1 },
     { list_index: 82, actor_name: "Bg_Hakugin_Elvpole", actor_description: "Raisable pillar in Snowhead Temple Map room", collision_name: "object_hakugin_obj_Colheader_00BF40", params_mask: null, params_values: null, scale: 0.1 },
-    { list_index: 83, actor_name: "Bg_Hakugin_Post", actor_description: "Snowhead Temple Central Pillar", collision_name: "object_hakugin_obj_Colheader_00D3B0", params_mask: null, params_values: null, scale: 0.1 },
-    { list_index: 84, actor_name: "En_Dnb", actor_description: "Unused invisible snowy mountain that explodes?", collision_name: "object_hanareyama_obj_Colheader_004D8C", params_mask: null, params_values: null, scale: 0.1 },
-    { list_index: 85, actor_name: "En_Hata", actor_description: "Red Flag on Post", collision_name: "gFlagpoleCol", params_mask: null, params_values: null, scale: 0.1 },
-    { list_index: 86, actor_name: "Obj_Hgdoor", actor_description: "Music Box House - Closet Door", collision_name: "object_hgdoor_Colheader_0018C0", params_mask: null, params_values: null, scale: 0.1 },
-    { list_index: 87, actor_name: "Obj_Hgdoor", actor_description: "Music Box House - Closet Door", collision_name: "object_hgdoor_Colheader_001D10", params_mask: null, params_values: null, scale: 0.1 },
-    { list_index: 88, actor_name: "En_Horse_Game_Check", actor_description: "Dirt patches you can jump over on Gorman Race Track", collision_name: "object_horse_game_check_Colheader_002FB8", params_mask: null, params_values: null, scale: 0.1 },
-    { list_index: 89, actor_name: "En_Horse_Game_Check", actor_description: "Dirt patches you can jump over on Gorman Race Track", collision_name: "object_horse_game_check_Colheader_003918", params_mask: null, params_values: null, scale: 0.1 },
-    { list_index: 90, actor_name: "Obj_HsStump", actor_description: "Ikana Canyon - Hookshotable Tree", collision_name: "object_hsstump_Colheader_0011B0", params_mask: null, params_values: null, scale: 0.1 },
-    { list_index: 91, actor_name: "Obj_Hunsui", actor_description: "Switch-Activated Geyser", collision_name: "object_hunsui_Colheader_000C74", params_mask: null, params_values: null, scale: 0.1 },
+    { list_index: 83, actor_name: "Bg_Hakugin_Post", actor_description: "Snowhead Temple Central Pillar", collision_name: "object_hakugin_obj_Colheader_00D3B0", params_mask: null, params_values: null, scale: 0.1 }, // 0x0007, [7] ?
+    { list_index: 84, actor_name: "En_Dnb", actor_description: "Unused invisible snowy mountain that explodes?", collision_name: "object_hanareyama_obj_Colheader_004D8C", params_mask: null, params_values: null, scale: 1.0 },
+    { list_index: 85, actor_name: "En_Hata", actor_description: "Red Flag on Post", collision_name: "gFlagpoleCol", params_mask: null, params_values: null, scale: 0.013 },
+    { list_index: 86, actor_name: "Obj_Hgdoor", actor_description: "Music Box House - Closet Door", collision_name: "object_hgdoor_Colheader_0018C0", params_mask: 0x8000, params_values: [0], scale: 0.1 },
+    { list_index: 87, actor_name: "Obj_Hgdoor", actor_description: "Music Box House - Closet Door", collision_name: "object_hgdoor_Colheader_001D10", params_mask: 0x8000, params_values: [1], scale: 0.1 },
+
+    // having trouble getting these to work properly...
+    //{ list_index: 88, actor_name: "En_Horse_Game_Check", actor_description: "Dirt patches you can jump over on Gorman Race Track", collision_name: "object_horse_game_check_Colheader_002FB8", params_mask: 0x00FF, params_values: [8], scale: 1.0 },
+    //{ list_index: 89, actor_name: "En_Horse_Game_Check", actor_description: "Dirt patches you can jump over on Gorman Race Track", collision_name: "object_horse_game_check_Colheader_003918", params_mask: 0xFFFF, params_values: [0x4605], scale: 0x46 * 0.01 },
+    //{ list_index: 203, actor_name: "En_Horse_Game_Check", actor_description: "Dirt patches you can jump over on Gorman Race Track", collision_name: "object_horse_game_check_Colheader_003918", params_mask: 0xFFFF, params_values: [0x3C05], scale: 0x3C * 0.01 },
+    //{ list_index: 204, actor_name: "En_Horse_Game_Check", actor_description: "Dirt patches you can jump over on Gorman Race Track", collision_name: "object_horse_game_check_Colheader_003918", params_mask: 0xFFFF, params_values: [0x9605], scale: 0x96 * 0.01 },
+    //{ list_index: 205, actor_name: "En_Horse_Game_Check", actor_description: "Dirt patches you can jump over on Gorman Race Track", collision_name: "object_horse_game_check_Colheader_003918", params_mask: 0xFFFF, params_values: [0x5005], scale: 0x50 * 0.01 },
+    //{ list_index: 206, actor_name: "En_Horse_Game_Check", actor_description: "Dirt patches you can jump over on Gorman Race Track", collision_name: "ovl_En_Horse_Game_Check_Colheader_0010C8", params_mask: 0xFFFF, params_values: [0xFF07], scale: 0xFF * 0.01 },
+
+    { list_index: 90, actor_name: "Obj_HsStump", actor_description: "Ikana Canyon - Hookshotable Tree", collision_name: "object_hsstump_Colheader_0011B0", params_mask: null, params_values: null, scale: 0.18 },
+    { list_index: 91, actor_name: "Obj_Hunsui", actor_description: "Switch-Activated Geyser", collision_name: "object_hunsui_Colheader_000C74", params_mask: 0xF000, params_values: [0,1,2,3,4], scale: 0.1 },
     { list_index: 92, actor_name: "(unused)", actor_description: "", collision_name: "object_hunsui_Colheader_00190C", params_mask: null, params_values: null, scale: 0.1 },
     { list_index: 93, actor_name: "Obj_Iceblock", actor_description: "Ice Block That Appears After Freezing Enemy", collision_name: "gIceBlockCol", params_mask: null, params_values: null, scale: 0.1 },
-    { list_index: 94, actor_name: "Bg_Icefloe", actor_description: "Ice Platform Created by Ice Arrow", collision_name: "gIcefloePlatformCol", params_mask: null, params_values: null, scale: 0.1 },
+    { list_index: 94, actor_name: "Bg_Icefloe", actor_description: "Ice Platform Created by Ice Arrow", collision_name: "gIcefloePlatformCol", params_mask: null, params_values: null, scale: 0.0 },
     { list_index: 95, actor_name: "Bg_Icicle", actor_description: "Icicles", collision_name: "gIcicleCol", params_mask: null, params_values: null, scale: 0.1 },
-    { list_index: 96, actor_name: "Bg_Ikana_Bombwall", actor_description: "Stone Tower Temple - Bombable Tan Floor Tile", collision_name: "object_ikana_obj_Colheader_000128", params_mask: null, params_values: null, scale: 0.1 },
-    { list_index: 97, actor_name: "Bg_Ikana_Bombwall", actor_description: "Stone Tower Temple - Bombable Tan Floor Tile", collision_name: "object_ikana_obj_Colheader_000488", params_mask: null, params_values: null, scale: 0.1 },
-    { list_index: 98, actor_name: "Bg_Ikana_Dharma", actor_description: "Stone Tower Temple - Punchable Pillar Segments", collision_name: "gStoneTowerTemplePunchablePillarCol", params_mask: null, params_values: null, scale: 0.1 },
+    { list_index: 96, actor_name: "Bg_Ikana_Bombwall", actor_description: "Stone Tower Temple - Bombable Tan Floor Tile", collision_name: "object_ikana_obj_Colheader_000128", params_mask: 0x0100, params_values: [1], scale: 1.0 },
+    { list_index: 97, actor_name: "Bg_Ikana_Bombwall", actor_description: "Stone Tower Temple - Bombable Tan Floor Tile", collision_name: "object_ikana_obj_Colheader_000488", params_mask: 0x0100, params_values: [0], scale: 1.0 },
+    { list_index: 98, actor_name: "Bg_Ikana_Dharma", actor_description: "Stone Tower Temple - Punchable Pillar Segments", collision_name: "gStoneTowerTemplePunchablePillarCol", params_mask: null, params_values: null, scale: [0.3, 0.1, 0.3] },
     { list_index: 99, actor_name: "Bg_Ikana_Shutter", actor_description: "Metal shutter in switch room of Stone Tower Temple", collision_name: "object_ikana_obj_Colheader_000F28", params_mask: null, params_values: null, scale: 0.1 },
     { list_index: 100, actor_name: "Bg_Ikana_Mirror", actor_description: "Stone Tower Temple - Mirror", collision_name: "gStoneTowerTempleMirrorCol", params_mask: null, params_values: null, scale: 0.1 },
-    { list_index: 101, actor_name: "Bg_Ikana_Rotaryroom", actor_description: "Stone Tower Temple - Rotating Room", collision_name: "object_ikana_obj_Colheader_006368", params_mask: null, params_values: null, scale: 0.1 },
-    { list_index: 102, actor_name: "Bg_Ikana_Rotaryroom", actor_description: "Stone Tower Temple - Rotating Room", collision_name: "object_ikana_obj_Colheader_0084F8", params_mask: null, params_values: null, scale: 0.1 },
+    { list_index: 101, actor_name: "Bg_Ikana_Rotaryroom", actor_description: "Stone Tower Temple - Rotating Room", collision_name: "object_ikana_obj_Colheader_006368", params_mask: 0x0001, params_values: [0], scale: 0.1 },
+    { list_index: 102, actor_name: "Bg_Ikana_Rotaryroom", actor_description: "Stone Tower Temple - Rotating Room", collision_name: "object_ikana_obj_Colheader_0084F8", params_mask: 0x0001, params_values: [1], scale: 0.1 },
+
     { list_index: 103, actor_name: "", actor_description: "", collision_name: "object_ikninside_obj_Colheader_00CBAC", params_mask: null, params_values: null, scale: 0.1 },
     { list_index: 104, actor_name: "", actor_description: "", collision_name: "object_ikninside_obj_Colheader_00DE48", params_mask: null, params_values: null, scale: 0.1 },
     { list_index: 105, actor_name: "", actor_description: "", collision_name: "object_iknv_obj_Colheader_0117C8", params_mask: null, params_values: null, scale: 0.1 },
@@ -851,6 +859,5 @@ const MM_Dynapoly_Actors = [
     { list_index: 198, actor_name: "", actor_description: "", collision_name: "gTowerCollapseBarsCol", params_mask: null, params_values: null, scale: 0.1 },
     { list_index: 199, actor_name: "", actor_description: "", collision_name: "gMikauGraveCol", params_mask: null, params_values: null, scale: 0.1 },
     { list_index: 200, actor_name: "", actor_description: "", collision_name: "sBioBabaLilypadCol ", params_mask: null, params_values: null, scale: 0.1 },
-    { list_index: 201, actor_name: "", actor_description: "", collision_name: "sTurtleGreatBayTempleCol ", params_mask: null, params_values: null, scale: 0.1 },
-    { list_index: 202, actor_name: "", actor_description: "", collision_name: "ovl_En_Horse_Game_Check_Colheader_0010C8 ", params_mask: null, params_values: null, scale: 0.1 }
+    { list_index: 201, actor_name: "", actor_description: "", collision_name: "sTurtleGreatBayTempleCol ", params_mask: null, params_values: null, scale: 0.1 }
 ];

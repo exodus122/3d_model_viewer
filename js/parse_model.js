@@ -1172,8 +1172,8 @@ function parseZeldaObjectBinary(scene, buffer, fresh, actorName, objectName, col
 
     parseWaterboxes(dv, colHeader, address_offset, endianness, waterBoxes);
 
-    console.log(game+" - "+objectName+" - numVtxs: "+colHeader.numVtxs+", numPolygons: "+colHeader.numPolygons
-        +", numTangible: "+tris.length+", numIntangible: "+intangibleTris.length+", numWaterBoxes: "+waterBoxes.length);
+    //console.log(game+" - "+objectName+" - numVtxs: "+colHeader.numVtxs+", numPolygons: "+colHeader.numPolygons
+    //    +", numTangible: "+tris.length+", numIntangible: "+intangibleTris.length+", numWaterBoxes: "+waterBoxes.length);
 
 }
 
@@ -1446,6 +1446,28 @@ async function renderZeldaObjectsInScene(scene, game, sceneName) {
 
             const scale = dynaPolyActor.scale;
 
+            // `scale` in the dynapoly tables is either one uniform multiplier
+            // or a per-axis [x, y, z] triple, e.g.
+            //   Bg_Hakugin_Switch  scale: 0.1
+            //   Bg_Haka_Bombwall   scale: [0.07, 0.016, 0.07]
+            //
+            // The game stores actor->scale as a Vec3f and DynaPoly_ExpandSRT
+            // passes each component separately into
+            // SkinMatrix_SetTranslateRotateYXZScale, so a non-uniform scale
+            // really does produce differently proportioned collision -- it
+            // can't be collapsed to a single number.
+            let scaleVec;
+            if (Array.isArray(scale)) {
+                scaleVec = { x: scale[0], y: scale[1], z: scale[2] };
+            } else if (typeof scale === 'number') {
+                scaleVec = { x: scale, y: scale, z: scale };
+            } else {
+                console.warn(
+                    "Dynapoly actor has no usable scale, defaulting to 1:",
+                    dynaPolyActor.actor_name, scale);
+                scaleVec = { x: 1, y: 1, z: 1 };
+            }
+
             // ----------------------------------------------------
             // Find collision information
             // ----------------------------------------------------
@@ -1559,11 +1581,11 @@ async function renderZeldaObjectsInScene(scene, game, sceneName) {
                 // See dyna_transform.js for the details.
 
                 const xform = {
-                    scale: { x: scale, y: scale, z: scale },
+                    scale: scaleVec,
                     rot: { x: rotXYZ[0], y: rotXYZ[1], z: rotXYZ[2] },
                     // shape.yOffset is 0 for most dynapoly actors; override
                     // per-actor in the dynapoly table if one needs it.
-                    pos: dynaActorPos(posXYZ, scale, dynaPolyActor.yOffset ?? 0)
+                    pos: dynaActorPos(posXYZ, scaleVec.y, dynaPolyActor.yOffset ?? 0)
                 };
 
                 const mkVec = (x, y, z) => new THREE.Vector3(x, y, z);
@@ -1628,6 +1650,7 @@ async function renderZeldaObjectsInScene(scene, game, sceneName) {
                 actorGroup.userData.position = posXYZ;
                 actorGroup.userData.rotation = rotXYZ;
                 actorGroup.userData.scale = scale;
+                actorGroup.userData.scaleVec = scaleVec;
                 actorGroup.userData.collisionName = dynaPolyActor.collision_name;
 
                 // Each collision category keeps its own colour, matching the
@@ -1768,7 +1791,7 @@ async function renderZeldaObjectsInScene(scene, game, sceneName) {
                         (rotXYZ[2] / 0x8000) * Math.PI
                     );
 
-                    waterGroup.scale.setScalar(scale);
+                    waterGroup.scale.set(scaleVec.x, scaleVec.y, scaleVec.z);
 
                     waterGroup.add(waterMesh);
                     waterGroup.add(waterEdges);
@@ -1915,6 +1938,7 @@ async function renderZeldaObjectsInScene(scene, game, sceneName) {
                 actorGroup.userData.position = posXYZ;
                 actorGroup.userData.rotation = rotXYZ;
                 actorGroup.userData.scale = scale;
+                actorGroup.userData.scaleVec = scaleVec;
                 actorGroup.userData.collisionName = dynaPolyActor.collision_name;
                 console.log("Rendered dynapoly:", actorName, "position:", posXYZ, "rotation:", 
                     rotXYZ, "scale:", scale, "params:", `0x${actorParams.toString(16).toUpperCase()}`);
