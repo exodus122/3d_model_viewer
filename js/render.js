@@ -209,6 +209,15 @@ export function addModelCheckbox(scene, name, meshObj, edgesObj, clearFirst, che
 
     section.appendChild(container);
 
+    // Remember which group box this row landed in, so a scene reload can reset
+    // just that group's saved visibility. Done after the append, since closest()
+    // needs the row to be in the document.
+    const ownerGroup = container.closest('.model-group');
+    if (ownerGroup) {
+        if (!modelState[name]) modelState[name] = {};
+        modelState[name].group = ownerGroup.dataset.groupKey;
+    }
+
     // A freshly added row changes the group's shown/total tally.
     syncGroupContaining(container);
 }
@@ -391,6 +400,28 @@ export function getModelGroup(key, label) {
     syncGroupMaster(group);
 
     return group;
+}
+
+/**
+ * Forget the saved VISIBILITY of every row belonging to a named group, so the
+ * next rows added under that key fall back to the `checked` default their
+ * caller asks for.
+ *
+ * modelState is keyed by model name and deliberately outlives a scene load --
+ * that is what lets a colour you picked survive a reload. Visibility riding
+ * along with it is the wrong behaviour across scenes though: unchecking an
+ * actor in one map left it unchecked in the next map that happened to contain
+ * an actor of the same name, with no indication why.
+ *
+ * Colours are left alone; only `visible` is dropped.
+ */
+export function resetGroupModelState(groupKey) {
+    for (const name of Object.keys(modelState)) {
+        const state = modelState[name];
+        if (state && state.group === groupKey) {
+            delete state.visible;
+        }
+    }
 }
 
 const modelState = {};

@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { addModelCheckbox, buildGeometry, buildGeometry_fwc, buildGeometryFromTriangles, buildGeometryEdges, clearAllModels, buildGeometryButDontAddToScene, getModelGroup, primaryColorTarget } from './render.js';
+import { addModelCheckbox, buildGeometry, buildGeometry_fwc, buildGeometryFromTriangles, buildGeometryEdges, clearAllModels, buildGeometryButDontAddToScene, getModelGroup, primaryColorTarget, resetGroupModelState } from './render.js';
 import { buildGeometry2, buildGeometry3, buildGeometry4 } from './gap.js';
 import { initColCtx, initializeSubdivisions, BGCHECK_SUBDIV_OVERLAP } from './subdivisions.js';
 import { renderStandableSurfaceXZ, renderStandableSurfaceXZ_old, STANDABLE_DET_MAX_DYNAPOLY } from './standable_surfaces.js';
@@ -1303,6 +1303,16 @@ export function renderZeldaObjectBinary(scene, buffer, fresh, actorName, objectN
 }
 
 async function renderZeldaObjectsInScene(scene, game, sceneName) {
+    // Start every dynapoly row at its intended default for this map: actor
+    // collision shown, standable-surface and seams overlays hidden.
+    //
+    // Saved visibility is keyed by model name and survives a scene load (which
+    // is what lets a colour you picked persist). Carrying visibility across
+    // scenes is wrong though -- unchecking an actor in one map left the same
+    // actor unchecked on entering the next map, looking like collision had
+    // failed to load. Colours are still remembered.
+    resetGroupModelState('dynapoly');
+
     function normalizeTriangleIndices(tris, vertexCount) {
         if (!tris || tris.length === 0) {
             return tris;
