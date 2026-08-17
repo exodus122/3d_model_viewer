@@ -51,7 +51,7 @@ export function parseModel(scene, buffer, filename){
                 //renderZeldaObjectBinary(scene, buffer, true, filename, 0x4E98);
             }
             else {
-                parseZeldaSceneBinary(scene, buffer, true, filename);
+                parseZeldaSceneBinary(scene, buffer, true, filename, filename);
             }
         }
         else
@@ -960,7 +960,7 @@ export function parseZeldaSceneBinary(scene, buffer, fresh, mapName, sceneName){
 
     // Get actor data for this scene, if available. This is only done for OOT/MM, since the other games 
     // don't have a known actors_by_scene JSON file to reference.
-    if ((game == "OOT" || game == "MM") && renderDynaCheckbox.checked) {
+    if ((game == "OOT" || game == "MM") && renderDynaCheckbox.checked && areaActors != undefined) {
         renderZeldaObjectsInScene(scene, game, sceneName)
     }
 
@@ -1348,7 +1348,7 @@ async function renderZeldaObjectsInScene(scene, game, sceneName) {
     // Load actors JSON
     // ------------------------------------------------------------
     json_path = './models/' + game + '/actors/' + game + '_actors.json';
-    const actors = await fetchJSON(json_path, sceneName);
+    const actors = await fetchJSON(json_path);
     if (!actors) {
         console.log("Failed to parse 'actors' json in game: " + game);
         return;
@@ -1359,7 +1359,7 @@ async function renderZeldaObjectsInScene(scene, game, sceneName) {
     // Load objects JSON
     // ------------------------------------------------------------
     json_path = './models/' + game + '/actors/' + game + '_objects.json';
-    const objects = await fetchJSON(json_path, sceneName);
+    const objects = await fetchJSON(json_path);
     if (!objects) {
         console.log("Failed to parse 'objects' json in game: " + game);
         return;

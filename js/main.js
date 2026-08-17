@@ -404,6 +404,10 @@ fileInput.addEventListener('change', async (ev)=>{
     const f = ev.target.files[0];
     if(!f) return;
     const buf = await f.arrayBuffer();
+    const game = document.getElementById("selected-game").value;
+    if (game == "OOT" || game == "MM") {
+        loadActorsInSceneJSON(game, f.name)
+    }
     parseModel(scene, buf, f.name);
 });
 
