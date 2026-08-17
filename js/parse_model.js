@@ -1172,8 +1172,8 @@ function parseZeldaObjectBinary(scene, buffer, fresh, actorName, objectName, col
 
     parseWaterboxes(dv, colHeader, address_offset, endianness, waterBoxes);
 
-    //console.log(game+" - "+objectName+" - numVtxs: "+colHeader.numVtxs+", numPolygons: "+colHeader.numPolygons
-    //    +", numTangible: "+tris.length+", numIntangible: "+intangibleTris.length+", numWaterBoxes: "+waterBoxes.length);
+    console.log(game+" - "+objectName+" - numVtxs: "+colHeader.numVtxs+", numPolygons: "+colHeader.numPolygons
+        +", numTangible: "+tris.length+", numIntangible: "+intangibleTris.length+", numWaterBoxes: "+waterBoxes.length);
 
 }
 
