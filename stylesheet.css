@@ -230,6 +230,81 @@ button {
     width: 20px;
 }
 
+/* ---- Grouped model rows (getModelGroup in render.js) ----
+   A titled box with a master checkbox and a scrolling body, so a scene with
+   dozens of dynapoly actors doesn't push the rest of the panel off-screen. */
+
+.model-group {
+    margin: 8px 0;
+    border: 1px solid #24313f;
+    border-radius: 6px;
+    background: #0b131c;
+    overflow: hidden;
+}
+
+.model-group-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 8px;
+    background: #13202c;
+    border-bottom: 1px solid #24313f;
+}
+
+.model-group-title {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex: 1 1 auto;
+    min-width: 0;
+    margin: 0;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.model-group-title > input[type="checkbox"] {
+    flex: none;
+    margin: 0;
+}
+
+.model-group-count {
+    flex: none;
+    font-size: 11px;
+    color: #9fb0c8;
+    font-variant-numeric: tabular-nums;
+}
+
+.model-group-body {
+    /* The scroll box. max-height only bites once there are enough rows to
+       exceed it, so a scene with three actors just renders three rows. */
+    max-height: 220px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 6px 8px;
+}
+
+.model-group-body .model-row:last-child {
+    margin-bottom: 0;
+}
+
+.model-group-body::-webkit-scrollbar {
+    width: 10px;
+}
+
+.model-group-body::-webkit-scrollbar-track {
+    background: #0b131c;
+}
+
+.model-group-body::-webkit-scrollbar-thumb {
+    background: #2b3a4c;
+    border-radius: 5px;
+}
+
+.model-group-body::-webkit-scrollbar-thumb:hover {
+    background: #3a4a5e;
+}
+
 .section {
     margin-bottom: 12px
 }

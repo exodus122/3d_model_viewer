@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { addModelCheckbox, buildGeometry, buildGeometry_fwc, buildGeometryFromTriangles, buildGeometryEdges, clearAllModels, buildGeometryButDontAddToScene } from './render.js';
+import { addModelCheckbox, buildGeometry, buildGeometry_fwc, buildGeometryFromTriangles, buildGeometryEdges, clearAllModels, buildGeometryButDontAddToScene, getModelGroup } from './render.js';
 import { buildGeometry2, buildGeometry3, buildGeometry4 } from './gap.js';
 import { initColCtx, initializeSubdivisions, BGCHECK_SUBDIV_OVERLAP } from './subdivisions.js';
 import { renderStandableSurfaceXZ, renderStandableSurfaceXZ_old } from './standable_surfaces.js';
@@ -1794,6 +1794,12 @@ async function renderZeldaObjectsInScene(scene, game, sceneName) {
                 const rowColor = tangibleMesh ? '#ff7b24'
                     : (intangibleMesh ? '#3aff78' : '#00ffff');
 
+                // Dynapoly rows live in their own scrollable box with a
+                // master show/hide, since a busy scene can have dozens of
+                // them and they would otherwise bury every other control.
+                // Created lazily, so scenes with no dynapoly get no box.
+                const dynaGroup = getModelGroup('dynapoly', 'DynaPoly Actors');
+
                 addModelCheckbox(
                     scene,
                     modelName,
@@ -1803,7 +1809,8 @@ async function renderZeldaObjectsInScene(scene, game, sceneName) {
                     true,
                     rowColor,
                     false,
-                    rowColorTarget
+                    rowColorTarget,
+                    dynaGroup.body
                 );
 
                 // ------------------------------------------------

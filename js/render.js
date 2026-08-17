@@ -12,8 +12,10 @@ import { updateSamplePointsUIVisibility } from './sample_points.js';
 // meaningful colours; the checkbox toggles the whole group, but the swatch
 // should drive only the part the row's colour represents. Defaults to
 // meshObj, which is the behaviour every other caller wants.
+// parentEl: container the row is appended to, for callers that want it inside
+// a group box (see getModelGroup) rather than loose in .controls.
 export function addModelCheckbox(scene, name, meshObj, edgesObj, clearFirst, checked, color = null, deleteButton = false,
-    colorTarget = null) {
+    colorTarget = null, parentEl = null) {
     const getMaterials = (object) => {
         const materials = [];
 
@@ -34,7 +36,7 @@ export function addModelCheckbox(scene, name, meshObj, edgesObj, clearFirst, che
         return materials;
     };
 
-    const section = document.querySelector('.controls');
+    const section = parentEl ?? document.querySelector('.controls');
 
     // Container
     //
@@ -109,7 +111,9 @@ export function addModelCheckbox(scene, name, meshObj, edgesObj, clearFirst, che
         if (idx !== -1) loadedModels.splice(idx, 1);
 
         // Remove UI
+        const group = container.closest('.model-group');
         container.remove();
+        syncGroupContaining(group);
 
         clearSelection(scene);
         updateSelectionUI();
@@ -202,6 +206,9 @@ export function addModelCheckbox(scene, name, meshObj, edgesObj, clearFirst, che
     }
 
     section.appendChild(container);
+
+    // A freshly added row changes the group's shown/total tally.
+    syncGroupContaining(container);
 }
 
 export function removeAllModelCheckboxes() {
@@ -210,7 +217,144 @@ export function removeAllModelCheckboxes() {
     // prefix, which would also have caught any other div in .controls that
     // happened to start that way.
     section.querySelectorAll('.model-row').forEach(container => container.remove());
+    // Collapsible groups are containers for rows, so they have to go too --
+    // otherwise an empty "DynaPoly Actors" box survives every scene change.
+    section.querySelectorAll('.model-group').forEach(group => group.remove());
+    modelGroups.clear();
     //delete modelVisibilityState[name];
+}
+
+////////////////////////////////////////
+// Model checkbox groups
+////////////////////////////////////////
+//
+// A scene can carry dozens of dynapoly actors, which is far too many loose
+// rows for the sidebar. getModelGroup() returns a titled, scrollable box to
+// put them in, with a master checkbox that drives every row inside it.
+
+const modelGroups = new Map();
+
+function groupRowBoxes(body) {
+    return [...body.querySelectorAll('.model-row .model-label > input[type="checkbox"]')];
+}
+
+/**
+ * Re-sync whichever group box (if any) contains this element. Adding and
+ * removing rows fires no change event, so the master and the count would
+ * otherwise go stale.
+ */
+function syncGroupContaining(el) {
+    const wrapper = el?.closest?.('.model-group');
+    if (!wrapper) return;
+
+    const group = modelGroups.get(wrapper.dataset.groupKey);
+    if (group) syncGroupMaster(group);
+}
+
+/**
+ * Reconcile the master checkbox with the rows underneath it: checked when
+ * all are on, unchecked when all are off, indeterminate when mixed.
+ */
+function syncGroupMaster(group) {
+    const boxes = groupRowBoxes(group.body);
+    const shown = boxes.filter(b => b.checked).length;
+
+    group.master.checked = boxes.length > 0 && shown === boxes.length;
+    group.master.indeterminate = shown > 0 && shown < boxes.length;
+    group.count.textContent = boxes.length ? `${shown}/${boxes.length}` : '0';
+}
+
+/**
+ * Get (or lazily create) a named group box inside .controls.
+ *
+ * @param {string} key stable identifier, e.g. 'dynapoly'
+ * @param {string} label heading text shown next to the master checkbox
+ * @returns {{wrapper: HTMLElement, body: HTMLElement}} body is where rows go
+ */
+export function getModelGroup(key, label) {
+    const existing = modelGroups.get(key);
+
+    // isConnected guards against a stale entry left behind if the group was
+    // removed from the DOM by something other than removeAllModelCheckboxes.
+    if (existing && existing.wrapper.isConnected) {
+        return existing;
+    }
+
+    const section = document.querySelector('.controls');
+
+    const wrapper = document.createElement('div');
+    wrapper.className = 'model-group';
+    wrapper.dataset.groupKey = key;
+
+    const header = document.createElement('div');
+    header.className = 'model-group-header';
+
+    const master = document.createElement('input');
+    master.type = 'checkbox';
+    master.checked = true;
+
+    const title = document.createElement('label');
+    title.className = 'model-group-title';
+    title.appendChild(master);
+
+    const titleText = document.createElement('span');
+    titleText.textContent = label;
+    title.appendChild(titleText);
+
+    const count = document.createElement('span');
+    count.className = 'model-group-count';
+    count.title = 'Shown / total';
+
+    header.appendChild(title);
+    header.appendChild(count);
+
+    const body = document.createElement('div');
+    body.className = 'model-group-body';
+
+    wrapper.appendChild(header);
+    wrapper.appendChild(body);
+    section.appendChild(wrapper);
+
+    const group = { wrapper, body, master, count };
+    modelGroups.set(key, group);
+
+    master.addEventListener('change', () => {
+        // Capture the target state up front. The events dispatched below
+        // bubble back to the body listener, which rewrites master.checked --
+        // reading master.checked inside the loop meant that after the first
+        // row was switched on, the master flipped to indeterminate (1 of N)
+        // and every remaining row saw a target of false. Only one row ever
+        // turned back on.
+        const target = master.checked;
+
+        // Suppress the per-row resync for the duration of the batch: it is
+        // N redundant passes over the same list, and it makes the master
+        // visibly flicker through indeterminate on the way.
+        group.syncing = true;
+
+        // Drive the rows through their own change handlers rather than
+        // poking scene objects directly, so visibility, wireframe pairing
+        // and modelState persistence all stay in one place.
+        groupRowBoxes(body).forEach(box => {
+            if (box.checked !== target) {
+                box.checked = target;
+                box.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+        });
+
+        group.syncing = false;
+        syncGroupMaster(group);
+    });
+
+    // Native change events from the rows bubble up to here, so the master
+    // stays in sync no matter how a row was toggled.
+    body.addEventListener('change', () => {
+        if (!group.syncing) syncGroupMaster(group);
+    });
+
+    syncGroupMaster(group);
+
+    return group;
 }
 
 const modelState = {};
