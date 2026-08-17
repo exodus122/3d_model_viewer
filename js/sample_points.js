@@ -116,6 +116,24 @@ function cirSquareVsTriSquare(x0,y0, x1,y1, x2,y2, cx,cy, r) {
 const DET_MAX_STATIC = 0.0;
 const DET_MAX_DYNAPOLY = 300.0;
 
+// ...but only for polys the game files in a dynapoly actor's FLOOR list.
+//
+// DynaPoly_ExpandSRT sorts each poly by its recomputed normal: floor when
+// ny > 0.5f, ceiling when ny < -0.8f, wall otherwise. Only the floor list is
+// consulted unconditionally by Link's ground check
+// (BgCheck_EntityRaycastDown5 passes CHECK_FLOORS | CHECK_WALLS_SIMPLE, and
+// the wall list is a fallback that only runs when no floor poly was found).
+//
+// Applying the 300 tolerance to a near-vertical poly produces nonsense: the
+// determinant test then admits the poly's whole XZ bounding box, and because
+// yIntersect is extrapolated along a nearly vertical plane, a sliver poly whose
+// vertices span y = -219..-40 yields "standable" heights from y = -610 to +302,
+// hundreds of units away from any actual geometry. Those points are not
+// standable in any useful sense -- an 88.8-degree surface pushes Link off as a
+// wall everywhere except its top edge, which is the same reasoning behind
+// standable_surfaces.js's existing `isStandableFloor = |Ny| > 0.5` gate.
+const DYNA_FLOOR_NY = 0.5;
+
 // z,x order matches OoT exactly
 function triChkPointParaYImpl(v0, v1, v2, z, x, detMax, chkDist, ny) {
     if (isZero(ny)) {
@@ -390,7 +408,7 @@ function processSingleTriangle(tri, resolution, colCtx = null, polyIdx = null, i
     // which hardcodes 1.0f and hands the same value to both paths.
     const chkDist = 1.0;
 
-    const detMax = isDynaPoly ? DET_MAX_DYNAPOLY : DET_MAX_STATIC;
+    const detMax = (isDynaPoly && ny > DYNA_FLOOR_NY) ? DET_MAX_DYNAPOLY : DET_MAX_STATIC;
 
     // Triangle's own actual vertex Y range - used by isSamplePointValid's
     // vertex-Y guard to sanity-bound how far below a computed sample point

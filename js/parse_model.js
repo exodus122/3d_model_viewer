@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { addModelCheckbox, buildGeometry, buildGeometry_fwc, buildGeometryFromTriangles, buildGeometryEdges, clearAllModels, buildGeometryButDontAddToScene, getModelGroup, primaryColorTarget } from './render.js';
 import { buildGeometry2, buildGeometry3, buildGeometry4 } from './gap.js';
 import { initColCtx, initializeSubdivisions, BGCHECK_SUBDIV_OVERLAP } from './subdivisions.js';
-import { renderStandableSurfaceXZ, renderStandableSurfaceXZ_old } from './standable_surfaces.js';
+import { renderStandableSurfaceXZ, renderStandableSurfaceXZ_old, STANDABLE_DET_MAX_DYNAPOLY } from './standable_surfaces.js';
 import { renderCollisionWallsXY, renderCollisionWallsYZ } from './render_walls.js'
 import { dynaTransformVertices, dynaRecomputePolyData, dynaActorPos } from './dyna_transform.js';
 import { scanAndBuildFlatGroundMarkers, buildSurfaceTypeMarkers, scanAndBuildSubdivision, scanAndBuildSectorSortingErrorMarkers, scanAndBuildSubdivisionSkipMarkers } from './poly_markers.js'
@@ -1095,7 +1095,7 @@ export function parseZeldaSceneBinary(scene, buffer, fresh, mapName, sceneName){
         if (subdivisionSkipGroup) {
             scene.add(subdivisionSkipGroup);
             loadedModels.push({ name: "Subdivision Skip", mesh: subdivisionSkipGroup, edges: subdivisionSkipGroup.children[1] });
-            addModelCheckbox(scene, "Subdivision Skip", subdivisionSkipGroup, null, false, false, "#cf0fff", false, primaryColorTarget(subdivisionSkipGroup));
+            addModelCheckbox(scene, "Subdivision Skip", subdivisionSkipGroup, null, false, false, "#ff6600", false, primaryColorTarget(subdivisionSkipGroup));
         }
     }
 
@@ -1812,6 +1812,87 @@ async function renderZeldaObjectsInScene(scene, game, sceneName) {
                     rowColorTarget,
                     dynaGroup.body
                 );
+
+                // ------------------------------------------------
+                // Standable-surface overlays for this actor
+                // ------------------------------------------------
+                // Same treatment the scene collision gets, but with the
+                // dynapoly determinant tolerance so the region reaches as far
+                // past each poly's edges as the game actually allows.
+                //
+                // colCtx is null: dynapoly polys are never registered in the
+                // static subdivision system, so there is no per-subdivision
+                // filtering to apply (this matches what selection.js passes for
+                // dynapoly sample points).
+                //
+                // Both default to hidden. A busy scene has dozens of dynapoly
+                // actors, and turning every overlay on at load would bury the
+                // scene in overlapping red.
+                if (actorTriangleData.length > 0) {
+                    const dynaStandable = renderStandableSurfaceXZ(
+                        actorTriangleData,
+                        null,
+                        groundClipBandsCheckbox?.checked ?? true,
+                        STANDABLE_DET_MAX_DYNAPOLY
+                    );
+
+                    if (dynaStandable) {
+                        const {
+                            main: dynaStandableMain,
+                            vertexBulge: dynaStandableBulge
+                        } = dynaStandable;
+
+                        if (dynaStandableMain) {
+                            const nm = actorName + " Standable Surface";
+                            scene.add(dynaStandableMain);
+
+                            if (dynaStandableMain.children[1]) {
+                                dynaStandableMain.children[1].visible =
+                                    wireframeCheckbox.checked;
+                            }
+
+                            dynaStandableMain.userData.dynaPolyActor = actorGroup;
+
+                            loadedModels.push({
+                                name: nm,
+                                mesh: dynaStandableMain,
+                                edges: dynaStandableMain.children[1]
+                            });
+
+                            addModelCheckbox(
+                                scene, nm, dynaStandableMain, null, false, false,
+                                '#ff0000', false,
+                                primaryColorTarget(dynaStandableMain),
+                                dynaGroup.body
+                            );
+                        }
+
+                        if (dynaStandableBulge) {
+                            const nm = actorName + " Seams";
+                            scene.add(dynaStandableBulge);
+
+                            if (dynaStandableBulge.children[1]) {
+                                dynaStandableBulge.children[1].visible =
+                                    wireframeCheckbox.checked;
+                            }
+
+                            dynaStandableBulge.userData.dynaPolyActor = actorGroup;
+
+                            loadedModels.push({
+                                name: nm,
+                                mesh: dynaStandableBulge,
+                                edges: dynaStandableBulge.children[1]
+                            });
+
+                            addModelCheckbox(
+                                scene, nm, dynaStandableBulge, null, false, false,
+                                '#00cc44', false,
+                                primaryColorTarget(dynaStandableBulge),
+                                dynaGroup.body
+                            );
+                        }
+                    }
+                }
 
                 // ------------------------------------------------
                 // Save useful actor information

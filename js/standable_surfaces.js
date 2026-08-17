@@ -153,6 +153,21 @@ function getClippedBelowTriangle(rawVerts, minY) {
 }
 
 const STANDABLE_CHK_DIST = 1.0; // must match sample_points.js's chkDist
+
+// Determinant tolerance of the game's floor check. Static scene collision uses
+// 0 (Math3D_TriChkPointParaYIntersectInsideTri); dynapoly uses 300
+// (Math3D_TriChkPointParaYIntersectDist). See sample_points.js for the full
+// derivation -- these two constants must agree with the ones there.
+export const STANDABLE_DET_MAX_STATIC = 0.0;
+export const STANDABLE_DET_MAX_DYNAPOLY = 300.0;
+
+// The dynapoly tolerance only applies to polys DynaPoly_ExpandSRT files in the
+// actor's FLOOR list (recomputed normal ny > 0.5f). On a near-vertical poly the
+// 300 tolerance admits the entire XZ bounding box, and yIntersect extrapolated
+// along a nearly vertical plane lands hundreds of units from the triangle -- so
+// wall- and ceiling-classified polys keep the static tolerance. Same 0.5 split
+// as isStandableFloor below. See sample_points.js for the worked example.
+const DYNA_FLOOR_NY = 0.5;
 const STANDABLE_CIRCLE_SEGMENTS = 16;
 
 function computeYFromPlaneLocal(nx, ny, nz, d, x, z) {
@@ -967,7 +982,7 @@ export function renderStandableSurfaceXZ_old(allTriangleData) {
 //     triangle, the edge buffer strips, and the vertex-bulge circles -
 //     not just the existing minY/maxY red/blue/yellow split.
 // Omit colCtx to fall back to the old unfiltered behavior.
-function buildStandableSurfaceTriangles(tri, pushGreen, pushRed, pushBlue, pushYellow, pushCyan, colCtx = null, polyIdx = null, groundClipEnabled = true) {
+function buildStandableSurfaceTriangles(tri, pushGreen, pushRed, pushBlue, pushYellow, pushCyan, colCtx = null, polyIdx = null, groundClipEnabled = true, detMax = STANDABLE_DET_MAX_STATIC) {
     const vtxs = tri.vtxs;
     const normals = tri.normals;
     const D = f32(tri.d);
@@ -1136,12 +1151,74 @@ function buildStandableSurfaceTriangles(tri, pushGreen, pushRed, pushBlue, pushY
         }
     };
 
-    // 1. Base triangle (red/blue split, though it's almost always fully red
-    // since its own vertices define minY).
-    pushClippedTriSplit(v0, v1, v2);
-
     const cx = (v0.x + v1.x + v2.x) / 3;
     const cz = (v0.z + v1.z + v2.z) / 3;
+
+    // 1. Base region (red/blue split, though it's almost always fully red
+    // since its own vertices define minY).
+    //
+    // detMax === 0 (static) is left EXACTLY as it was -- push the raw triangle,
+    // no clipping arithmetic -- so static output is bit-for-bit unchanged.
+    //
+    // detMax > 0 (dynapoly) is where the game is more permissive. The
+    // determinant of an edge against a point equals |edge| * distance-from-that
+    // -edge, and the test accepts a point when ALL THREE determinants are
+    // within detMax. That is an intersection of three half-planes: the triangle
+    // with each edge pushed outward by detMax/|edge|. It is then capped by the
+    // Cir-Square-vs-Tri-Square gate, which rejects anything outside the XZ
+    // bounding box grown by chkDist -- so we start from that box and clip it
+    // down with the three offset edge lines.
+    if (detMax > 0 && Ny > DYNA_FLOOR_NY) {
+        const liftRegion = (x, z) => ({
+            x: f32(x),
+            y: computeYFromPlaneLocal(Nx, Ny, Nz, D, x, z),
+            z: f32(z)
+        });
+
+        const rxs = [v0.x, v1.x, v2.x];
+        const rzs = [v0.z, v1.z, v2.z];
+        const bMinX = Math.min(...rxs) - STANDABLE_CHK_DIST;
+        const bMaxX = Math.max(...rxs) + STANDABLE_CHK_DIST;
+        const bMinZ = Math.min(...rzs) - STANDABLE_CHK_DIST;
+        const bMaxZ = Math.max(...rzs) + STANDABLE_CHK_DIST;
+
+        let region = [
+            liftRegion(bMinX, bMinZ),
+            liftRegion(bMaxX, bMinZ),
+            liftRegion(bMaxX, bMaxZ),
+            liftRegion(bMinX, bMaxZ)
+        ];
+
+        for (let ei = 0; ei < 3 && region.length >= 3; ei++) {
+            const a = verts[ei];
+            const b = verts[(ei + 1) % 3];
+
+            const dx = b.x - a.x;
+            const dz = b.z - a.z;
+            const len = Math.sqrt(dx * dx + dz * dz);
+            if (len < 1e-6) continue;
+
+            let nX = -dz / len;
+            let nZ = dx / len;
+
+            // Point the edge normal away from the triangle's centroid.
+            if ((nX * (cx - a.x) + nZ * (cz - a.z)) > 0) {
+                nX = -nX;
+                nZ = -nZ;
+            }
+
+            const offset = detMax / len;
+            const sideFn = (x, z) => (nX * (x - a.x) + nZ * (z - a.z)) - offset;
+
+            region = clipPolyXZByFn(region, sideFn, 'leq', liftRegion);
+        }
+
+        for (let i = 1; i + 1 < region.length; i++) {
+            pushClippedTriSplit(region[0], region[i], region[i + 1]);
+        }
+    } else {
+        pushClippedTriSplit(v0, v1, v2);
+    }
 
     // 2. Vertex bulge: full circle of radius chkDist at each vertex (green).
     for (let vi = 0; vi < 3; vi++) {
@@ -1213,7 +1290,11 @@ function buildStandableSurfaceTriangles(tri, pushGreen, pushRed, pushBlue, pushY
 // combined one, so the vertex-bulge (green) geometry can be given its own
 // model entry/checkbox distinct from the red/blue/yellow main surface.
 // Either can be null if that bucket produced no geometry.
-export function renderStandableSurfaceXZ(allTriangleData, colCtx = null, groundClipEnabled = true) {
+//
+// detMax (default 0 = static): the floor check's determinant tolerance. Pass
+// STANDABLE_DET_MAX_DYNAPOLY for a dynapoly actor's collision, whose standable
+// region extends further past each poly's edges than a static poly's does.
+export function renderStandableSurfaceXZ(allTriangleData, colCtx = null, groundClipEnabled = true, detMax = STANDABLE_DET_MAX_STATIC) {
     function makeBucket() {
         const positions = [];
         const indices = [];
@@ -1246,7 +1327,7 @@ export function renderStandableSurfaceXZ(allTriangleData, colCtx = null, groundC
 
     allTriangleData.forEach((tri, arrayIdx) => {
         const polyIdx = (tri.id !== undefined && tri.id !== null) ? tri.id : arrayIdx;
-        buildStandableSurfaceTriangles(tri, green.push, red.push, blue.push, yellow.push, cyan.push, colCtx, polyIdx, groundClipEnabled);
+        buildStandableSurfaceTriangles(tri, green.push, red.push, blue.push, yellow.push, cyan.push, colCtx, polyIdx, groundClipEnabled, detMax);
     });
 
     function buildMesh(bucket, color, edgeColor = 0x000000) {
