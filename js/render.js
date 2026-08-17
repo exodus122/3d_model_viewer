@@ -84,8 +84,10 @@ export function addModelCheckbox(scene, name, meshObj, edgesObj, clearFirst, che
     // swatch out of alignment. The title gives the full name back on hover.
     const labelText = document.createElement('span');
     labelText.className = 'model-label-text';
-    labelText.textContent = `Show ${name}`;
-    labelText.title = `Show ${name}`;
+    //labelText.textContent = `Show ${name}`;
+    //labelText.title = `Show ${name}`;
+    labelText.textContent = `${name}`;
+    labelText.title = `${name}`;
     label.appendChild(labelText);
 
     // ----- DELETE BUTTON -----
@@ -231,6 +233,40 @@ export function removeAllModelCheckboxes() {
 // A scene can carry dozens of dynapoly actors, which is far too many loose
 // rows for the sidebar. getModelGroup() returns a titled, scrollable box to
 // put them in, with a master checkbox that drives every row inside it.
+
+/**
+ * Pick the object a single colour swatch should drive for a multi-colour
+ * group -- the group's "main" mesh.
+ *
+ * Groups like the standable-surface overlay (red / blue / yellow / cyan bands)
+ * and the subdivision highlight (cyan cell mesh + black triangle outlines +
+ * the cube wireframe) hold several independently coloured objects, so
+ * isMultiMeshGroup refused them a swatch entirely. Driving the first Mesh
+ * gives a swatch over the colour the model is actually recognised by: red for
+ * standable surfaces, cyan for the subdivision cell.
+ *
+ * Meshes are preferred over LineSegments deliberately. The subdivision group's
+ * FIRST child is the cube outline, so naively taking children[0] would hand
+ * the swatch the black edge colour instead of the cyan fill.
+ */
+export function primaryColorTarget(object) {
+    if (!object) return null;
+    if (object.isMesh) return object;
+
+    let mesh = null;
+    let withMaterial = null;
+
+    object.traverse((child) => {
+        if (child === object) return;
+        if (!mesh && child.isMesh) mesh = child;
+        if (!withMaterial && child.material) withMaterial = child;
+    });
+
+    // Falling back to the object itself preserves the old behaviour for
+    // anything with no mesh at all -- e.g. an empty subdivision cell, which is
+    // nothing but a wireframe cube.
+    return mesh ?? withMaterial ?? object;
+}
 
 const modelGroups = new Map();
 

@@ -82,7 +82,13 @@ grid.material.transparent = true;
 grid.visible = gridCheckbox.checked;
 scene.add(grid);
 
+// The status bar was removed from the sidebar -- it only ever echoed
+// pointer-lock chatter. The call sites are left in place and become no-ops, so
+// dropping the #status element back into index.html is all it takes to get it
+// working again, and nothing throws in the meantime.
 function setStatus(msg, level='info'){
+    if(!statusEl) return;
+
     statusEl.textContent = `Status: ${msg}`;
     if(level==='warn') statusEl.style.background = '#40230b';
     else if(level==='error') statusEl.style.background = '#4b0b0b';

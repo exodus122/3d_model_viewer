@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { addModelCheckbox, buildGeometry, buildGeometry_fwc, buildGeometryFromTriangles, buildGeometryEdges, clearAllModels, buildGeometryButDontAddToScene, getModelGroup } from './render.js';
+import { addModelCheckbox, buildGeometry, buildGeometry_fwc, buildGeometryFromTriangles, buildGeometryEdges, clearAllModels, buildGeometryButDontAddToScene, getModelGroup, primaryColorTarget } from './render.js';
 import { buildGeometry2, buildGeometry3, buildGeometry4 } from './gap.js';
 import { initColCtx, initializeSubdivisions, BGCHECK_SUBDIV_OVERLAP } from './subdivisions.js';
 import { renderStandableSurfaceXZ, renderStandableSurfaceXZ_old } from './standable_surfaces.js';
@@ -985,7 +985,7 @@ export function parseZeldaSceneBinary(scene, buffer, fresh, mapName, sceneName){
 
             loadedModels.push({ name: "Seams Model", mesh: standableSurfaceVertexBulge, edges: standableSurfaceVertexBulge.children[1] });
 
-            addModelCheckbox(scene, "Seams Model", standableSurfaceVertexBulge, null, false, true, "#00cc44");
+            addModelCheckbox(scene, "Seams Model", standableSurfaceVertexBulge, null, false, true, "#00cc44", false, primaryColorTarget(standableSurfaceVertexBulge));
         }
 
         if (standableSurfaceMain) {
@@ -996,7 +996,7 @@ export function parseZeldaSceneBinary(scene, buffer, fresh, mapName, sceneName){
 
             loadedModels.push({ name: "Standable Surface", mesh: standableSurfaceMain, edges: standableSurfaceMain.children[1] });
 
-            addModelCheckbox(scene, "Standable Surface", standableSurfaceMain, null, false, true, "#ff0000");
+            addModelCheckbox(scene, "Standable Surface", standableSurfaceMain, null, false, true, "#ff0000", false, primaryColorTarget(standableSurfaceMain));
         }
     }
     
@@ -1005,7 +1005,7 @@ export function parseZeldaSceneBinary(scene, buffer, fresh, mapName, sceneName){
         wallSurfaceMeshXY.children[1].visible = wireframeCheckbox.checked;
         scene.add(wallSurfaceMeshXY);
         loadedModels.push({ name: "Wall Collision (XY)", mesh: wallSurfaceMeshXY, edges: wallSurfaceMeshXY.children[1] });
-        addModelCheckbox(scene, "Wall Collision (XY)", wallSurfaceMeshXY, null, false, false, "#ff0000");
+        addModelCheckbox(scene, "Wall Collision (XY)", wallSurfaceMeshXY, null, false, false, "#ff0000", false, primaryColorTarget(wallSurfaceMeshXY));
     }
     
     const wallSurfaceMeshYZ = renderCollisionWallsYZ(allTriangleData);
@@ -1013,7 +1013,7 @@ export function parseZeldaSceneBinary(scene, buffer, fresh, mapName, sceneName){
         scene.add(wallSurfaceMeshYZ);
         wallSurfaceMeshYZ.children[1].visible = wireframeCheckbox.checked;
         loadedModels.push({ name: "Wall Collision (YZ)", mesh: wallSurfaceMeshYZ, edges: wallSurfaceMeshYZ.children[1] });
-        addModelCheckbox(scene, "Wall Collision (YZ)", wallSurfaceMeshYZ, null, false, false, "#ff0000");
+        addModelCheckbox(scene, "Wall Collision (YZ)", wallSurfaceMeshYZ, null, false, false, "#ff0000", false, primaryColorTarget(wallSurfaceMeshYZ));
     }
 
     // "Subdivision Grid": a wireframe box grid of the subdivision cells
@@ -1069,7 +1069,7 @@ export function parseZeldaSceneBinary(scene, buffer, fresh, mapName, sceneName){
                 edges: subdivisionGroup.userData.cubeEdges || null,
                 edgeSelectable: true
             });
-            addModelCheckbox(scene, "Subdivision", subdivisionGroup, null, false, false, "#00FFFF");
+            addModelCheckbox(scene, "Subdivision", subdivisionGroup, null, false, false, "#00FFFF", false, primaryColorTarget(subdivisionGroup));
         }
     }
 
@@ -1095,7 +1095,7 @@ export function parseZeldaSceneBinary(scene, buffer, fresh, mapName, sceneName){
         if (subdivisionSkipGroup) {
             scene.add(subdivisionSkipGroup);
             loadedModels.push({ name: "Subdivision Skip", mesh: subdivisionSkipGroup, edges: subdivisionSkipGroup.children[1] });
-            addModelCheckbox(scene, "Subdivision Skip", subdivisionSkipGroup, null, false, false, "#ff6600");
+            addModelCheckbox(scene, "Subdivision Skip", subdivisionSkipGroup, null, false, false, "#cf0fff", false, primaryColorTarget(subdivisionSkipGroup));
         }
     }
 
@@ -1114,7 +1114,7 @@ export function parseZeldaSceneBinary(scene, buffer, fresh, mapName, sceneName){
         if (sectorSortingErrorGroup) {
             scene.add(sectorSortingErrorGroup);
             loadedModels.push({ name: "Sector Sorting Error", mesh: sectorSortingErrorGroup, edges: sectorSortingErrorGroup.children[1] });
-            addModelCheckbox(scene, "Sector Sorting Error", sectorSortingErrorGroup, null, false, false, "#ff00ff");
+            addModelCheckbox(scene, "Sector Sorting Error", sectorSortingErrorGroup, null, false, false, "#ff00ff", false, primaryColorTarget(sectorSortingErrorGroup));
         }
     }
     
@@ -1122,7 +1122,7 @@ export function parseZeldaSceneBinary(scene, buffer, fresh, mapName, sceneName){
     if (flatGroup) {
         scene.add(flatGroup);
         loadedModels.push({ name: "Flat Ground Clips", mesh: flatGroup, edges: null });
-        addModelCheckbox(scene, "Flat Ground Clips", flatGroup, null, false, false, "#00FFFF");
+        addModelCheckbox(scene, "Flat Ground Clips", flatGroup, null, false, false, "#00FFFF", false, primaryColorTarget(flatGroup));
     }
 
 }

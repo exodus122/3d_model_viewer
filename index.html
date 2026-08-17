@@ -47,7 +47,9 @@
           <option value="pointer">Fly Mode (WASD)</option>
           <option value="orbit">Orbit (mouse drag + wheel)</option>
         </select>
-        <div id="status" role="status" aria-live="polite">Status: starting...</div>
+        <!-- Status bar removed: it only reported pointer-lock state. setStatus()
+             in main.js no-ops without this element, so restoring it is just a
+             matter of putting this div back. -->
         <label>Flying Speed <input id="movementSpeedSlider" type="range" min="50" max="3050" step="200" value="850"></label>
         <label id="display_fwc_label" style="display:none;"><input id="display_fwc" type="checkbox"> Display floors/walls/ceilings on load</label>
         <label><input id="wireframe" type="checkbox" checked> Draw triangle/cube edges</label>
