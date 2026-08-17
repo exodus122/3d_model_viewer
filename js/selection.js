@@ -575,11 +575,17 @@ export function performSelection(ev, renderer, camera, scene) {
             // Draw new points
             const isDynaPoly = !!hit.object.userData.dynaPolyActor;
 
+            // isDynaPoly also selects the floor check's determinant tolerance:
+            // the game runs dynapoly floors through
+            // CollisionPoly_CheckYIntersectApprox1 (detMax 300) but static
+            // floors through CollisionPoly_CheckYIntersect (detMax 0), so a
+            // dynapoly's standable region reaches further past its edges.
             pts = drawSampledTriangles(
                 scene,
                 sample_tri,
                 Number(samplePointsResolution.value),
-                isDynaPoly ? null : currentColCtx
+                isDynaPoly ? null : currentColCtx,
+                isDynaPoly
             );
         }
     }

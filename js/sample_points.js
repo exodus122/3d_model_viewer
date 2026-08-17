@@ -88,6 +88,34 @@ function cirSquareVsTriSquare(x0,y0, x1,y1, x2,y2, cx,cy, r) {
             Math.fround(maxY + r) >= cy);
 }
 
+// Determinant tolerance for the floor check, and the ONLY thing that differs
+// between static scene collision and dynapoly collision.
+//
+// Both paths run the identical Math3D_TriChkPointParaYImpl with the identical
+// chkDist of 1.0 (BgCheck_RaycastDownImpl passes its chkDist straight through
+// to both). What differs is which wrapper calls it:
+//
+//   static  BgCheck_RaycastDownStaticList
+//             -> CollisionPoly_CheckYIntersect
+//             -> Math3D_TriChkPointParaYIntersectInsideTri   detMax = 0.0f
+//
+//   dyna    BgCheck_RaycastDownDynaList
+//             -> CollisionPoly_CheckYIntersectApprox1
+//             -> Math3D_TriChkPointParaYIntersectDist        detMax = 300.0f
+//
+// The determinant of an edge against the sample point is twice the area of the
+// triangle (point, vA, vB), i.e. |edge| * distance-from-the-edge-line. So a
+// detMax of 300 lets a point sit up to 300/|edge| units beyond an edge -- a
+// long 600-unit edge buys only 0.5 units, but a short 20-unit edge buys 15.
+// That is why Link can stand noticeably further off the side of a small
+// dynapoly poly than off a static one.
+//
+// The expansion is still hard-capped by the Cir-Square-vs-Tri-Square gate
+// below, which rejects anything outside the triangle's XZ bounding box grown
+// by chkDist -- so the region never exceeds bbox +/- 1.0 either way.
+const DET_MAX_STATIC = 0.0;
+const DET_MAX_DYNAPOLY = 300.0;
+
 // z,x order matches OoT exactly
 function triChkPointParaYImpl(v0, v1, v2, z, x, detMax, chkDist, ny) {
     if (isZero(ny)) {
@@ -349,7 +377,7 @@ export function isSamplePointValid(colCtx, polyIdx, x, y, z, triMinVertexY) {
 }
 
 // Process a single triangle and return its points
-function processSingleTriangle(tri, resolution, colCtx = null, polyIdx = null) {
+function processSingleTriangle(tri, resolution, colCtx = null, polyIdx = null, isDynaPoly = false) {
     const COLPOLY_NORMAL_FRAC = 1.0 / 32767.0;
 
     const v0 = tri.vtxs[0], v1 = tri.vtxs[1], v2 = tri.vtxs[2];
@@ -357,7 +385,12 @@ function processSingleTriangle(tri, resolution, colCtx = null, polyIdx = null) {
     const ny = tri.normals[1] * COLPOLY_NORMAL_FRAC;
     const nz = tri.normals[2] * COLPOLY_NORMAL_FRAC;
     const d = tri.d;
+
+    // Identical for static and dynapoly -- see BgCheck_EntityRaycastDown5,
+    // which hardcodes 1.0f and hands the same value to both paths.
     const chkDist = 1.0;
+
+    const detMax = isDynaPoly ? DET_MAX_DYNAPOLY : DET_MAX_STATIC;
 
     // Triangle's own actual vertex Y range - used by isSamplePointValid's
     // vertex-Y guard to sanity-bound how far below a computed sample point
@@ -395,7 +428,7 @@ function processSingleTriangle(tri, resolution, colCtx = null, polyIdx = null) {
         for (let z = minZ; z <= maxZ; z += adaptiveStep) {
             const fz = f32(z);
 
-            if (!triChkPointParaYImpl(v0, v1, v2, fz, fx, 0.0, chkDist, ny)) {
+            if (!triChkPointParaYImpl(v0, v1, v2, fz, fx, detMax, chkDist, ny)) {
                 continue;
             }
 
@@ -443,7 +476,12 @@ const SAMPLE_STEP_SLIDER_MAX = 0.03;
 // registered in as a floor, and points that fall below all of those
 // subdivisions are discarded. Omit it to fall back to the old unfiltered
 // behavior.
-export function drawSampledTriangles(scene, allTriangleData, sampleStep = 0.1, colCtx = null) {
+//
+// isDynaPoly (optional): true when the triangles come from a dynapoly actor
+// rather than static scene collision. Dynapoly floors are matched with a
+// determinant tolerance of 300 instead of 0, so their standable region extends
+// further past the poly's edges. See DET_MAX_DYNAPOLY above.
+export function drawSampledTriangles(scene, allTriangleData, sampleStep = 0.1, colCtx = null, isDynaPoly = false) {
     // Prevent multiple simultaneous sampling operations
     if (isSamplingInProgress) {
         console.warn("Sampling already in progress, please wait...");
@@ -492,7 +530,7 @@ export function drawSampledTriangles(scene, allTriangleData, sampleStep = 0.1, c
         
         for (let i = 0; i < validTriangles.length; i++) {
             const { tri, polyIdx } = validTriangles[i];
-            const points = processSingleTriangle(tri, sampleStep, colCtx, polyIdx);
+            const points = processSingleTriangle(tri, sampleStep, colCtx, polyIdx, isDynaPoly);
             allPoints.push(...points);
             
             if (validTriangles.length > 1 && i % 10 === 0) {
