@@ -1336,6 +1336,22 @@ const ACTOR_ENTRY_ROTY_IS_RAW  = 0x8000;
 const ACTOR_ENTRY_ROTX_IS_RAW  = 0x4000;
 const ACTOR_ENTRY_ROTZ_IS_RAW  = 0x2000;
 
+// MM retail scenes DO set those id flags -- ZAPD writes them out as e.g.
+//     { ACTOR_EN_BOX | 0x6000, ... }   (KAKUSIANA_room_07.c, Z2_INISIE_N_room_00.c)
+//     { ACTOR_OBJ_TSUBO | 0x2000, ... }
+// but MM_actors_by_scene.json stores the id already masked, so the flags are
+// gone by the time they reach us (all 5826 entries have bits 15-13 clear).
+//
+// The flags are a property of the actor's code, not of the individual entry
+// -- an actor that reads home.rot.x as params is flagged everywhere it is
+// placed -- so they can be restored from a per-actor table. This is a
+// stopgap: the real fix is to stop masking the id when generating the JSON,
+// and this table is only consulted when the entry carries no flags of its
+// own, so a regenerated JSON silently takes over.
+const MM_ACTOR_ENTRY_ID_FLAGS = {
+    0x006: ACTOR_ENTRY_ROTX_IS_RAW | ACTOR_ENTRY_ROTZ_IS_RAW, // En_Box (0x6000)
+};
+
 function toS16(v) {
     return (v << 16) >> 16;
 }
@@ -1395,7 +1411,8 @@ function decodeActorSpawnEntry(entry, game) {
         };
     }
 
-    const idFlags = rawId & 0xE000;
+    const actorId = rawId & ACTOR_ENTRY_ID_MASK;
+    const idFlags = (rawId & 0xE000) || (MM_ACTOR_ENTRY_ID_FLAGS[actorId] ?? 0);
 
     // halfDaysBits: 0 is spawn-on-every-half-day (HALFDAYBIT_ALL == 0x3FF),
     // matching Actor_SpawnAsChildAndCutscene / Actor_SpawnSetupActors.
@@ -1408,7 +1425,7 @@ function decodeActorSpawnEntry(entry, game) {
     const csIdRaw = rotRaw[1] & 0x7F;
 
     return {
-        actorId: rawId & ACTOR_ENTRY_ID_MASK,
+        actorId,
         rot: [
             decodeSpawnRot(rotRaw[0], idFlags & ACTOR_ENTRY_ROTX_IS_RAW),
             decodeSpawnRot(rotRaw[1], idFlags & ACTOR_ENTRY_ROTY_IS_RAW),
@@ -1420,6 +1437,76 @@ function decodeActorSpawnEntry(entry, game) {
         halfDaysBits,
         idFlags
     };
+}
+
+// ------------------------------------------------------------------
+// Actor Init overrides for dynapoly rotation
+// ------------------------------------------------------------------
+// DynaPoly does NOT use the spawn rotation. z_bgcheck.c stores
+// `actor->shape.rot` into the bg actor transform:
+//
+//     bgActor->curTransform.rot = actor->shape.rot;                (line ~2586)
+//     ScaleRotPos_SetValue(&dyna->bgActors[bgId].curTransform,
+//                          &actor->scale, &actor->shape.rot, &pos); (line ~2879)
+//
+// Actor_Init() seeds shape.rot from home.rot (Actor_SetWorldToHome then
+// Actor_SetShapeRotToWorld) and THEN calls the actor's own Init, which is
+// free to overwrite it. 31 of MM's ~118 dynapoly actors do exactly that.
+// For those, using the spawn rotation renders collision at an angle the
+// game never uses.
+//
+// Only the unconditional rewrites are encoded here -- entries whose Init
+// only touches shape.rot inside an `if` (Bg_Icicle, Bg_Dblue_Movebg,
+// Bg_Hakugin_Post, Bg_Ingate, Boss_05, Dm_Char01, Dm_Char08, Obj_Bean,
+// Obj_Boat, Obj_Hunsui, Obj_Switch, Obj_Iceblock's 90-degree yaw snap) are
+// deliberately left out rather than guessed at. Actors that only rewrite
+// world.rot/home.rot (Bg_Crace_Movebg, Bg_Lotus, Obj_Yasi) need no entry:
+// dyna never reads those.
+//
+// Each function takes the decoded spawn values and returns the shape.rot
+// that DynaPoly_ExpandSRT would actually be handed.
+const MM_ACTOR_INIT_SHAPE_ROT = {
+    // z_en_box.c EnBox_Init:
+    //     if (world.rot.x == 180) { world.rot.x = 0x7FFF; }   // upside-down chest
+    //     else { collectableFlag = world.rot.x & 0x7F; world.rot.x = 0; }
+    //     thisx->shape.rot.x = world.rot.x;
+    //     ...
+    //     shape.rot.y += 0x8000;
+    //     home.rot.z = world.rot.z = shape.rot.z = 0;
+    //
+    // rot.x is a raw param field (the id carries 0x4000), so the literal
+    // 180 really is the value in the spawn entry -- an upright chest stores
+    // its collectable flag there instead, which is why an unconverted rot.x
+    // shows up as a small bogus tilt.
+    "En_Box": (rot) => [rot[0] === 180 ? 0x7FFF : 0, toS16(rot[1] + 0x8000), 0],
+
+    "Obj_Armos":       (rot) => [0, rot[1], 0],
+    "Obj_Chikuwa":     (rot) => [rot[0], toS16(rot[1] + 0x2000), rot[2]], // home.rot.y += 0x2000, shape follows
+    "Obj_Danpeilift":  (rot) => [0, rot[1], 0],
+    "Obj_Driftice":    (rot) => [0, rot[1], 0],
+    "Obj_Iceblock":    (rot) => [0, rot[1], 0], // yaw snap to 90 deg is conditional, not applied
+    "Obj_Kibako2":     (rot) => [0, rot[1], 0],
+    "Obj_Lift":        (rot) => [rot[0], rot[1], 0],
+    "Obj_Lupygamelift":(rot) => [0, rot[1], 0],
+    "Obj_Nozoki":      (rot) => [0, rot[1], 0],
+    "Obj_Ocarinalift": (rot) => [0, rot[1], 0],
+    "Obj_Pzlblock":    (rot) => [0, rot[1], 0],
+    "Obj_Raillift":    (rot) => [0, rot[1], 0],
+    "Obj_Spinyroll":   () => [0, 0, 0],
+    "Obj_Vspinyroll":  () => [0, 0, 0],
+};
+
+/**
+ * Spawn rotation -> the shape.rot DynaPoly actually uses, applying the
+ * actor's Init override when it has one.
+ */
+function actorShapeRot(actorName, spawn, game) {
+    if (game !== "MM") {
+        return spawn.rot;
+    }
+
+    const override = MM_ACTOR_INIT_SHAPE_ROT[actorName];
+    return override ? override(spawn.rot, spawn.rotRaw, spawn.params) : spawn.rot;
 }
 
 async function renderZeldaObjectsInScene(scene, game, sceneName) {
@@ -1507,7 +1594,7 @@ async function renderZeldaObjectsInScene(scene, game, sceneName) {
             const actorId = spawn.actorId;
             const actorParams = spawn.params;
             const posXYZ = actor.position;
-            const rotXYZ = spawn.rot;
+            const rotSpawnXYZ = spawn.rot;
             const rotRawXYZ = spawn.rotRaw;
 
             // ----------------------------------------------------
@@ -1523,6 +1610,10 @@ async function renderZeldaObjectsInScene(scene, game, sceneName) {
             const actorName = actorTableEntry["name"];
             //const actorObjectId = actorTableEntry["objectId"];
             //const objectName = objects[actorObjectId]["name"];
+
+            // What DynaPoly actually rotates the collision by: shape.rot after
+            // the actor's Init has had its say, not the raw spawn rotation.
+            const rotXYZ = actorShapeRot(actorName, spawn, game);
 
             // ----------------------------------------------------
             // Check if this is a dynapoly actor
@@ -1784,8 +1875,9 @@ async function renderZeldaObjectsInScene(scene, game, sceneName) {
                 actorGroup.userData.objectName = objectName;
                 actorGroup.userData.params = actorParams;
                 actorGroup.userData.position = posXYZ;
-                actorGroup.userData.rotation = rotXYZ;
-                actorGroup.userData.rotationRaw = rotRawXYZ;
+                actorGroup.userData.rotation = rotXYZ;          // shape.rot used by dyna
+                actorGroup.userData.rotationSpawn = rotSpawnXYZ; // before Init overrides
+                actorGroup.userData.rotationRaw = rotRawXYZ;     // packed scene words
                 actorGroup.userData.csId = spawn.csId;
                 actorGroup.userData.halfDaysBits = spawn.halfDaysBits;
                 actorGroup.userData.scale = scale;
@@ -2075,15 +2167,17 @@ async function renderZeldaObjectsInScene(scene, game, sceneName) {
                 //actorGroup.userData.objectId = actorObjectId;
                 actorGroup.userData.params = actorParams;
                 actorGroup.userData.position = posXYZ;
-                actorGroup.userData.rotation = rotXYZ;
-                actorGroup.userData.rotationRaw = rotRawXYZ;
+                actorGroup.userData.rotation = rotXYZ;          // shape.rot used by dyna
+                actorGroup.userData.rotationSpawn = rotSpawnXYZ; // before Init overrides
+                actorGroup.userData.rotationRaw = rotRawXYZ;     // packed scene words
                 actorGroup.userData.csId = spawn.csId;
                 actorGroup.userData.halfDaysBits = spawn.halfDaysBits;
                 actorGroup.userData.scale = scale;
                 actorGroup.userData.scaleVec = scaleVec;
                 actorGroup.userData.collisionName = dynaPolyActor.collision_name;
                 console.log("Rendered dynapoly:", actorName, "position:", posXYZ,
-                    "rotation (binang):", rotXYZ, "rotation (raw words):", rotRawXYZ,
+                    "shape.rot (binang):", rotXYZ, "spawn rot (binang):", rotSpawnXYZ,
+                    "rot (raw words):", rotRawXYZ,
                     "scale:", scale, "params:", `0x${actorParams.toString(16).toUpperCase()}`);
                 
             } catch (err) {
