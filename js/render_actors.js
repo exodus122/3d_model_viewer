@@ -367,11 +367,6 @@ function decodeActorSpawnEntry(entry, game) {
 //
 // Each function takes the decoded spawn values and returns the shape.rot
 // that DynaPoly_ExpandSRT would actually be handed.
-//
-//
-// BgHakuginPost_Init only loads the mesh when (params & 7) == 7; every other
-// instance calls Actor_Kill. Z2_HAKUGIN room 4 spawns eight of these and only
-// one (params 0x3307) has collision -- with params_mask null all eight rendered.
 const MM_ACTOR_INIT_SHAPE_ROT = {
     // z_en_box.c EnBox_Init:
     //     if (world.rot.x == 180) { world.rot.x = 0x7FFF; }   // upside-down chest
@@ -586,18 +581,26 @@ export async function renderZeldaObjectsInScene(scene, game, sceneName) {
                 continue;
             }
 
-            const scale = dynaPolyActor.scale;
-
-            // `scale` in the dynapoly tables is either one uniform multiplier
-            // or a per-axis [x, y, z] triple, e.g.
-            //   Bg_Hakugin_Switch  scale: 0.1
-            //   Bg_Haka_Bombwall   scale: [0.07, 0.016, 0.07]
+            // `scale` in the dynapoly tables is one uniform multiplier, a
+            // per-axis [x, y, z] triple, or a function of params, e.g.
+            //   Bg_Hakugin_Switch    scale: 0.1
+            //   Bg_Haka_Bombwall     scale: [0.07, 0.016, 0.07]
+            //   En_Horse_Game_Check  scale: (params) => (((params >> 8) & 0xFF) * 0.001)
+            //
+            // The function form is needed for actors that compute their own
+            // scale in Init instead of using a constant -- listing one table
+            // row per observed params value instead silently drops any
+            // instance whose value isn't in the list.
             //
             // The game stores actor->scale as a Vec3f and DynaPoly_ExpandSRT
             // passes each component separately into
             // SkinMatrix_SetTranslateRotateYXZScale, so a non-uniform scale
             // really does produce differently proportioned collision -- it
             // can't be collapsed to a single number.
+            const scale = (typeof dynaPolyActor.scale === 'function')
+                ? dynaPolyActor.scale(actorParams)
+                : dynaPolyActor.scale;
+
             let scaleVec;
             if (Array.isArray(scale)) {
                 scaleVec = { x: scale[0], y: scale[1], z: scale[2] };
