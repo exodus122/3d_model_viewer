@@ -819,7 +819,7 @@ const MM_Dynapoly_Actors = [
     { list_index: 167, actor_name: "Obj_Raillift", actor_description: "Moving Deku Flower Platform and OoT Water Temple Waterfall Platform", collision_name: "object_raillift_Colheader_004FF8", params_mask: 0x8000, params_values: [0], scale: 0.1 },
     { list_index: 168, actor_name: "Obj_Rotlift", actor_description: "Deku Moon Dungeon - Rotating Platform", collision_name: "gDekuMoonDungeonRotatingPlatformsCol", params_mask: 0x0001, params_values: [0], scale: 0.1 },
     { list_index: 169, actor_name: "Obj_Rotlift", actor_description: "Deku Moon Dungeon - Rotating Platform Spikes", collision_name: "gDekuMoonDungeonRotatingSpikesCol", params_mask: 0x0001, params_values: [1], scale: 0.1 },
-    { list_index: 170, actor_name: "Obj_Nozoki", actor_description: "Sakon's Hideout Objects (Sun's Mask, doors, etc)", collision_name: "object_secom_obj_Colheader_0001C0", params_mask: 0x0180, params_values: [0], scale: 1.0 }, // TO-DO - fix for Curiosity shop
+    { list_index: 170, actor_name: "Obj_Nozoki", actor_description: "Sakon's Hideout Objects (Sun's Mask, doors, etc)", collision_name: "object_secom_obj_Colheader_0001C0", params_mask: 0x0180, params_values: [0], exclude_scenes: ["Z2_AYASHIISHOP"], scale: 1.0 },
     { list_index: 171, actor_name: "En_Sekihi", actor_description: "Sun's Song Grave Pedestal", collision_name: "gSunsSongGraveGoronCol", params_mask: 0x000F, params_values: [1], scale: 0.1 },
     { list_index: 172, actor_name: "En_Sekihi", actor_description: "Sun's Song Grave Pedestal", collision_name: "gSunsSongGraveTriforceCol", params_mask: 0x000F, params_values: [0], scale: 0.1 },
     { list_index: 173, actor_name: "En_Sekihi", actor_description: "Sun's Song Grave Pedestal", collision_name: "gSunsSongGraveKokiriCol", params_mask: 0x000F, params_values: [2], scale: 0.1 },
@@ -854,7 +854,7 @@ const MM_Dynapoly_Actors = [
     { list_index: 202, actor_name: "En_Wiz_Brock", actor_description: "Wizrobe Warp Platform", collision_name: "gWizrobePlatformCol", params_mask: null, params_values: null, scale: 0.01 },
     { list_index: 203, actor_name: "(unused)", actor_description: "", collision_name: "object_wood02_Colheader_007A70", params_mask: null, params_values: null, scale: 0.1 },
     { list_index: 204, actor_name: "(unused)", actor_description: "", collision_name: "gTowerCollapseBarsCol", params_mask: null, params_values: null, scale: 0.1 },
-    //{ list_index: 205, actor_name: "Dm_Char08", actor_description: "Large Great Bay Turtle", collision_name: "sTurtleGreatBayTempleCol", params_mask: null, params_values: null, scale: 0.1 },
-    //{ list_index: 206, actor_name: "En_Horse_Game_Check", actor_description: "Gorman Race Track - type 7 barrier", collision_name: "ovl_En_Horse_Game_Check_Colheader_0010C8", params_mask: 0x00FF, params_values: [7], scale: (params) => (((params >> 8) & 0xFF) * 0.01) },
-    //{ list_index: 207, actor_name: "Boss_05", actor_description: "Bio Deku Baba and its lily pad", collision_name: "sBioBabaLilypadCol", params_mask: null, params_values: null, scale: 0.1 }
+    { list_index: 205, actor_name: "Dm_Char08", actor_description: "Large Great Bay Turtle", collision_name: "sTurtleGreatBayTempleCol", params_mask: null, params_values: null, scale: 0.1 },
+    { list_index: 206, actor_name: "En_Horse_Game_Check", actor_description: "Gorman Race Track - type 7 barrier", collision_name: "ovl_En_Horse_Game_Check_Colheader_0010C8", params_mask: 0x00FF, params_values: [7], scale: (params) => (((params >> 8) & 0xFF) * 0.01) },
+    { list_index: 207, actor_name: "Boss_05", actor_description: "Bio Deku Baba and its lily pad", collision_name: "sBioBabaLilypadCol", params_mask: null, params_values: null, scale: 0.1 }
 ];

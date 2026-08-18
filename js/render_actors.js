@@ -554,6 +554,18 @@ export async function renderZeldaObjectsInScene(scene, game, sceneName) {
                 if (i.actor_name !== actorName)
                     return false;
 
+                // Some actors only become dynapoly in (or outside of) specific
+                // scenes -- ObjNozoki_Init skips DynaPolyActor_Init entirely
+                // when play->sceneId == SCENE_AYASHIISHOP, for instance. Rows
+                // can opt into an allow-list or a deny-list of scene names;
+                // both match sceneName, the map filename the actor JSON is
+                // keyed by (e.g. "Z2_AYASHIISHOP").
+                if (i.scenes && !i.scenes.includes(sceneName))
+                    return false;
+
+                if (i.exclude_scenes && i.exclude_scenes.includes(sceneName))
+                    return false;
+
                 if (i.params_mask == null)
                     return true;
 
