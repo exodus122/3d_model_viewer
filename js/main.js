@@ -11,7 +11,8 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
 import { performSelection, clearSelection } from './selection.js';
-import { parseModel, parseModelText, parseModelBinary, parseBKModelBinary, parseZeldaSceneBinary, renderZeldaObjectBinary, parseInvisibleSeams1D } from './parse_model.js';
+import { parseModel, parseModelText, parseModelBinary, parseBKModelBinary, parseZeldaSceneBinary, parseInvisibleSeams1D } from './parse_model.js';
+import { renderZeldaObjectBinary } from './render_actors.js';
 import { addModelCheckbox, buildTest } from './render.js';
 
 ////////////////////////////////////////
