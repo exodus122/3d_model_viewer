@@ -1302,6 +1302,126 @@ export function renderZeldaObjectBinary(scene, buffer, fresh, actorName, objectN
     }
 }
 
+// ------------------------------------------------------------------
+// Scene actor-entry (spawn list) decoding
+// ------------------------------------------------------------------
+// An ActorEntry is 0x10 bytes in both games:
+//     s16 id; Vec3s pos; Vec3s rot; s16 params;
+//
+// OOT passes the entry through untouched -- Actor_SpawnEntry (z_actor.c)
+// is just a forwarding call, so rot.x/y/z are plain 16-bit binangs:
+//     Actor_Spawn(..., entry->rot.x, entry->rot.y, entry->rot.z, entry->params)
+//
+// MM does NOT. Actor_SpawnEntry (z_actor.c) splits every rotation word at
+// bit 7 and packs three extra fields into the low bits:
+//
+//     rotX = (rot.x >> 7) & 0x1FF   bits 2-0 -> halfDaysBits 9..7
+//     rotY = (rot.y >> 7) & 0x1FF   bits 6-0 -> csId (0x7F == CS_ID_NONE)
+//     rotZ = (rot.z >> 7) & 0x1FF   bits 6-0 -> halfDaysBits 6..0
+//
+//     csId         =   rot.y & 0x7F
+//     halfDaysBits = ((rot.x & 7) << 7) | (rot.z & 0x7F)   // 0 means "all"
+//
+// Bits 6-3 of rot.x are unused (verified: zero for all 5826 entries in
+// MM_actors_by_scene.json). ZAPD writes the pair back out as
+// SPAWN_ROT_FLAGS(rot, flags) = (rot << 7) | flags, which is where the
+// packed words in the JSON come from.
+//
+// The surviving 9-bit rotation field is in DEGREES (0-511), not binang, so
+// it has to go through DEG_TO_BINANG before it can be fed to the
+// SkinMatrix code -- unless the matching flag in the id word says the field
+// is raw actor params rather than a rotation.
+const ACTOR_ENTRY_ID_MASK      = 0x1FFF; // MM: Actor_SpawnEntry masks the id
+const ACTOR_ENTRY_ROTY_IS_RAW  = 0x8000;
+const ACTOR_ENTRY_ROTX_IS_RAW  = 0x4000;
+const ACTOR_ENTRY_ROTZ_IS_RAW  = 0x2000;
+
+function toS16(v) {
+    return (v << 16) >> 16;
+}
+
+// z64math.h: DEG_TO_BINANG(deg) = TRUNCF_BINANG(deg * (0x8000 / 180.0f))
+//            TRUNCF_BINANG(f)   = (s16)(s32)(f)
+// The multiply is single precision on hardware, and the truncation to s32
+// happens before the wrap to s16 -- both matter, since a 9-bit degree field
+// can hold up to 511 degrees and therefore wraps past 0x7FFF.
+const DEG_TO_BINANG_SCALE = f32(0x8000 / 180.0);
+function degToBinang(deg) {
+    return toS16(Math.trunc(f32(deg * DEG_TO_BINANG_SCALE)));
+}
+
+// One rotation word -> { binang, deg, flags }, mirroring Actor_SpawnEntry.
+function decodeSpawnRot(word, isRaw) {
+    const deg = (word >> 7) & 0x1FF;
+
+    if (!isRaw) {
+        return degToBinang(deg);
+    }
+
+    // Field is actor params, not an angle. The game still stores it in
+    // home.rot, just without the degree conversion.
+    return deg > 180 ? deg - 360 : deg;
+}
+
+/**
+ * Decode one entry of a scene/room actor spawn list.
+ *
+ * @returns {{actorId:number, rot:number[], rotRaw:number[], params:number,
+ *            csId:(number|null), halfDaysBits:(number|null), idFlags:number}}
+ *          rot is binang and ready for the SkinMatrix helpers; rotRaw is the
+ *          untouched packed words as they sit in the scene file.
+ */
+function decodeActorSpawnEntry(entry, game) {
+    const rawId = entry.actorId & 0xFFFF;
+    const rotRaw = [
+        entry.rotation[0] & 0xFFFF,
+        entry.rotation[1] & 0xFFFF,
+        entry.rotation[2] & 0xFFFF
+    ];
+    const params = entry.actorParams & 0xFFFF;
+
+    if (game !== "MM") {
+        // OOT: nothing is packed. Only Actor_SpawnTransitionActors masks the
+        // id with 0x1FFF, and regular spawn entries carry no flags at all
+        // (verified: no entry in OOT_actors_by_scene.json sets bits 15-13).
+        return {
+            actorId: rawId,
+            rot: [toS16(rotRaw[0]), toS16(rotRaw[1]), toS16(rotRaw[2])],
+            rotRaw,
+            params,
+            csId: null,
+            halfDaysBits: null,
+            idFlags: 0
+        };
+    }
+
+    const idFlags = rawId & 0xE000;
+
+    // halfDaysBits: 0 is spawn-on-every-half-day (HALFDAYBIT_ALL == 0x3FF),
+    // matching Actor_SpawnAsChildAndCutscene / Actor_SpawnSetupActors.
+    let halfDaysBits = ((rotRaw[0] & 0x7) << 7) | (rotRaw[2] & 0x7F);
+    if (halfDaysBits === 0) {
+        halfDaysBits = 0x3FF;
+    }
+
+    // csId 0x7F is CS_ID_NONE.
+    const csIdRaw = rotRaw[1] & 0x7F;
+
+    return {
+        actorId: rawId & ACTOR_ENTRY_ID_MASK,
+        rot: [
+            decodeSpawnRot(rotRaw[0], idFlags & ACTOR_ENTRY_ROTX_IS_RAW),
+            decodeSpawnRot(rotRaw[1], idFlags & ACTOR_ENTRY_ROTY_IS_RAW),
+            decodeSpawnRot(rotRaw[2], idFlags & ACTOR_ENTRY_ROTZ_IS_RAW)
+        ],
+        rotRaw,
+        params,
+        csId: csIdRaw === 0x7F ? null : csIdRaw,
+        halfDaysBits,
+        idFlags
+    };
+}
+
 async function renderZeldaObjectsInScene(scene, game, sceneName) {
     // Start every dynapoly row at its intended default for this map: actor
     // collision shown, standable-surface and seams overlays hidden.
@@ -1377,15 +1497,31 @@ async function renderZeldaObjectsInScene(scene, game, sceneName) {
         // --------------------------------------------------------
         for (let j = 0; j < room["actors"].length; j++) {
             const actor = room["actors"][j];
-            const actorParams = actor.actorParams;
+
+            // The spawn list stores the id and rotations bit-packed in MM;
+            // decodeActorSpawnEntry() undoes that (and is a pass-through for
+            // OOT). Everything below wants the decoded values -- rotXYZ in
+            // particular is binang, which is what the SkinMatrix code and the
+            // THREE rotation below both expect.
+            const spawn = decodeActorSpawnEntry(actor, game);
+            const actorId = spawn.actorId;
+            const actorParams = spawn.params;
             const posXYZ = actor.position;
-            const rotXYZ = actor.rotation;
+            const rotXYZ = spawn.rot;
+            const rotRawXYZ = spawn.rotRaw;
 
             // ----------------------------------------------------
             // Get actor/object information
             // ----------------------------------------------------
-            const actorName = actors[actor.actorId]["name"];
-            //const actorObjectId = actors[actor.actorId]["objectId"];
+            const actorTableEntry = actors[actorId];
+            if (!actorTableEntry) {
+                console.warn("Unknown actor id in spawn list:",
+                    `0x${actorId.toString(16).toUpperCase()}`,
+                    "(raw id word 0x" + (actor.actorId & 0xFFFF).toString(16).toUpperCase() + ")");
+                continue;
+            }
+            const actorName = actorTableEntry["name"];
+            //const actorObjectId = actorTableEntry["objectId"];
             //const objectName = objects[actorObjectId]["name"];
 
             // ----------------------------------------------------
@@ -1644,11 +1780,14 @@ async function renderZeldaObjectsInScene(scene, game, sceneName) {
                 // Store actor information on group
                 // ------------------------------------------------
                 actorGroup.userData.actorName = actorName;
-                actorGroup.userData.actorId = actor.actorId;
+                actorGroup.userData.actorId = actorId;
                 actorGroup.userData.objectName = objectName;
                 actorGroup.userData.params = actorParams;
                 actorGroup.userData.position = posXYZ;
                 actorGroup.userData.rotation = rotXYZ;
+                actorGroup.userData.rotationRaw = rotRawXYZ;
+                actorGroup.userData.csId = spawn.csId;
+                actorGroup.userData.halfDaysBits = spawn.halfDaysBits;
                 actorGroup.userData.scale = scale;
                 actorGroup.userData.scaleVec = scaleVec;
                 actorGroup.userData.collisionName = dynaPolyActor.collision_name;
@@ -1931,17 +2070,21 @@ async function renderZeldaObjectsInScene(scene, game, sceneName) {
                 // Save useful actor information
                 // ------------------------------------------------
                 actorGroup.userData.actorName = actorName;
-                actorGroup.userData.actorId = actor.actorId;
+                actorGroup.userData.actorId = actorId;
                 actorGroup.userData.objectName = objectName;
                 //actorGroup.userData.objectId = actorObjectId;
                 actorGroup.userData.params = actorParams;
                 actorGroup.userData.position = posXYZ;
                 actorGroup.userData.rotation = rotXYZ;
+                actorGroup.userData.rotationRaw = rotRawXYZ;
+                actorGroup.userData.csId = spawn.csId;
+                actorGroup.userData.halfDaysBits = spawn.halfDaysBits;
                 actorGroup.userData.scale = scale;
                 actorGroup.userData.scaleVec = scaleVec;
                 actorGroup.userData.collisionName = dynaPolyActor.collision_name;
-                console.log("Rendered dynapoly:", actorName, "position:", posXYZ, "rotation:", 
-                    rotXYZ, "scale:", scaleVec, "params:", `0x${actorParams.toString(16).toUpperCase()}`);
+                console.log("Rendered dynapoly:", actorName, "position:", posXYZ,
+                    "rotation (binang):", rotXYZ, "rotation (raw words):", rotRawXYZ,
+                    "scale:", scale, "params:", `0x${actorParams.toString(16).toUpperCase()}`);
                 
             } catch (err) {
                 console.error("Failed to load dynapoly object:", objectName, err);
