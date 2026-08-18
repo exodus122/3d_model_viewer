@@ -733,21 +733,17 @@ const MM_Dynapoly_Actors = [
     { list_index: 80, actor_name: "Bg_Hakugin_Bombwall", actor_description: "Snowhead Temple - Bombable Wall", collision_name: "object_hakugin_obj_Colheader_009768", params_mask: 0x0100, params_values: [0], scale: 0.1 },
     { list_index: 81, actor_name: "Bg_Hakugin_Bombwall", actor_description: "Snowhead Temple - Bombable Wall", collision_name: "object_hakugin_obj_Colheader_009AF0", params_mask: 0x0100, params_values: [1], scale: 0.1 },
     { list_index: 82, actor_name: "Bg_Hakugin_Elvpole", actor_description: "Raisable pillar in Snowhead Temple Map room", collision_name: "object_hakugin_obj_Colheader_00BF40", params_mask: null, params_values: null, scale: 0.1 },
-    { list_index: 83, actor_name: "Bg_Hakugin_Post", actor_description: "Snowhead Temple Central Pillar", collision_name: "object_hakugin_obj_Colheader_00D3B0", params_mask: null, params_values: null, scale: 0.1 }, // 0x0007, [7] ?
+    { list_index: 83, actor_name: "Bg_Hakugin_Post", actor_description: "Snowhead Temple Central Pillar", collision_name: "object_hakugin_obj_Colheader_00D3B0", params_mask: 0x0007, params_values: [7], scale: 0.1 },
     { list_index: 84, actor_name: "En_Dnb", actor_description: "Unused invisible snowy mountain that explodes?", collision_name: "object_hanareyama_obj_Colheader_004D8C", params_mask: null, params_values: null, scale: 1.0 },
     { list_index: 85, actor_name: "En_Hata", actor_description: "Red Flag on Post", collision_name: "gFlagpoleCol", params_mask: null, params_values: null, scale: 0.013 },
     { list_index: 86, actor_name: "Obj_Hgdoor", actor_description: "Music Box House - Closet Door", collision_name: "object_hgdoor_Colheader_0018C0", params_mask: 0x8000, params_values: [0], scale: 0.1 },
     { list_index: 87, actor_name: "Obj_Hgdoor", actor_description: "Music Box House - Closet Door", collision_name: "object_hgdoor_Colheader_001D10", params_mask: 0x8000, params_values: [1], scale: 0.1 },
-
-    // having trouble getting these to work properly...
-    //{ list_index: 88, actor_name: "En_Horse_Game_Check", actor_description: "Dirt patches you can jump over on Gorman Race Track", collision_name: "object_horse_game_check_Colheader_002FB8", params_mask: 0x00FF, params_values: [8], scale: 1.0 },
-    //{ list_index: 89, actor_name: "En_Horse_Game_Check", actor_description: "Dirt patches you can jump over on Gorman Race Track", collision_name: "object_horse_game_check_Colheader_003918", params_mask: 0xFFFF, params_values: [0x4605], scale: 0x46 * 0.01 },
-    //{ list_index: 203, actor_name: "En_Horse_Game_Check", actor_description: "Dirt patches you can jump over on Gorman Race Track", collision_name: "object_horse_game_check_Colheader_003918", params_mask: 0xFFFF, params_values: [0x3C05], scale: 0x3C * 0.01 },
-    //{ list_index: 204, actor_name: "En_Horse_Game_Check", actor_description: "Dirt patches you can jump over on Gorman Race Track", collision_name: "object_horse_game_check_Colheader_003918", params_mask: 0xFFFF, params_values: [0x9605], scale: 0x96 * 0.01 },
-    //{ list_index: 205, actor_name: "En_Horse_Game_Check", actor_description: "Dirt patches you can jump over on Gorman Race Track", collision_name: "object_horse_game_check_Colheader_003918", params_mask: 0xFFFF, params_values: [0x5005], scale: 0x50 * 0.01 },
-    
+    { list_index: 88, actor_name: "En_Horse_Game_Check", actor_description: "Dirt patches you can jump over on Gorman Race Track", collision_name: "object_horse_game_check_Colheader_002FB8", params_mask: 0x00FF, params_values: [8], scale: 1.0 },
+    { list_index: 89, actor_name: "En_Horse_Game_Check", actor_description: "Dirt patches you can jump over on Gorman Race Track", collision_name: "object_horse_game_check_Colheader_003918", params_mask: 0xFFFF, params_values: [0x4605], scale: 0x46 * 0.01 },
+    { list_index: 203, actor_name: "En_Horse_Game_Check", actor_description: "Dirt patches you can jump over on Gorman Race Track", collision_name: "object_horse_game_check_Colheader_003918", params_mask: 0xFFFF, params_values: [0x3C05], scale: 0x3C * 0.01 },
+    { list_index: 204, actor_name: "En_Horse_Game_Check", actor_description: "Dirt patches you can jump over on Gorman Race Track", collision_name: "object_horse_game_check_Colheader_003918", params_mask: 0xFFFF, params_values: [0x9605], scale: 0x96 * 0.01 },
+    { list_index: 205, actor_name: "En_Horse_Game_Check", actor_description: "Dirt patches you can jump over on Gorman Race Track", collision_name: "object_horse_game_check_Colheader_003918", params_mask: 0xFFFF, params_values: [0x5005], scale: 0x50 * 0.01 },
     //{ list_index: 206, actor_name: "En_Horse_Game_Check", actor_description: "Dirt patches you can jump over on Gorman Race Track", collision_name: "ovl_En_Horse_Game_Check_Colheader_0010C8", params_mask: 0xFFFF, params_values: [0xFF07], scale: 0xFF * 0.01 },
-
     { list_index: 90, actor_name: "Obj_HsStump", actor_description: "Ikana Canyon - Hookshotable Tree", collision_name: "object_hsstump_Colheader_0011B0", params_mask: null, params_values: null, scale: 0.18 },
     { list_index: 91, actor_name: "Obj_Hunsui", actor_description: "Switch-Activated Geyser", collision_name: "object_hunsui_Colheader_000C74", params_mask: 0xF000, params_values: [0,1,2,3,4], scale: 0.1 },
     { list_index: 92, actor_name: "(unused)", actor_description: "", collision_name: "object_hunsui_Colheader_00190C", params_mask: null, params_values: null, scale: 0.1 },

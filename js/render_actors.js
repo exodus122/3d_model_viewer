@@ -239,14 +239,19 @@ const ACTOR_ENTRY_ROTZ_IS_RAW  = 0x2000;
 // but MM_actors_by_scene.json stores the id already masked, so the flags are
 // gone by the time they reach us (all 5826 entries have bits 15-13 clear).
 //
-// The flags are a property of the actor's code, not of the individual entry
-// -- an actor that reads home.rot.x as params is flagged everywhere it is
-// placed -- so they can be restored from a per-actor table. This is a
-// stopgap: the real fix is to stop masking the id when generating the JSON,
-// and this table is only consulted when the entry carries no flags of its
+// The flag is set PER ENTRY, not per actor type. Every En_Box happens to
+// carry 0x6000, but Bg_Hakugin_Post does not: Z2_HAKUGIN_room_04.c places
+// eight of them and only the one that uses rot.x/rot.z as switch flags is
+// written as `ACTOR_BG_HAKUGIN_POST | 0x6000` -- the other seven are bare.
+//
+// So this table is an approximation, safe only because an unflagged entry
+// of a listed actor has a zero rotation field, where the raw and degree
+// paths agree. The real fix is to stop masking the id when generating the
+// JSON; the table is only consulted when the entry carries no flags of its
 // own, so a regenerated JSON silently takes over.
 const MM_ACTOR_ENTRY_ID_FLAGS = {
     0x006: ACTOR_ENTRY_ROTX_IS_RAW | ACTOR_ENTRY_ROTZ_IS_RAW, // En_Box (0x6000)
+    0x18F: ACTOR_ENTRY_ROTX_IS_RAW | ACTOR_ENTRY_ROTZ_IS_RAW, // Bg_Hakugin_Post (0x6000)
 };
 
 function toS16(v) {
@@ -362,6 +367,11 @@ function decodeActorSpawnEntry(entry, game) {
 //
 // Each function takes the decoded spawn values and returns the shape.rot
 // that DynaPoly_ExpandSRT would actually be handed.
+//
+//
+// BgHakuginPost_Init only loads the mesh when (params & 7) == 7; every other
+// instance calls Actor_Kill. Z2_HAKUGIN room 4 spawns eight of these and only
+// one (params 0x3307) has collision -- with params_mask null all eight rendered.
 const MM_ACTOR_INIT_SHAPE_ROT = {
     // z_en_box.c EnBox_Init:
     //     if (world.rot.x == 180) { world.rot.x = 0x7FFF; }   // upside-down chest
@@ -376,6 +386,14 @@ const MM_ACTOR_INIT_SHAPE_ROT = {
     // its collectable flag there instead, which is why an unconverted rot.x
     // shows up as a small bogus tilt.
     "En_Box": (rot) => [rot[0] === 180 ? 0x7FFF : 0, toS16(rot[1] + 0x8000), 0],
+
+    // z_bg_hakugin_post.c BgHakuginPost_Init: only the instance with
+    // (params & 7) == 7 loads collision at all -- every other one calls
+    // Actor_Kill after registering itself. That instance zeroes pitch and
+    // roll, and its rot.x/rot.z are switch flags (BGHAKUGINPOST_GET_SWITCH_FLAG_2
+    // is `home.rot.x & 0x7F`), never angles.
+    "Bg_Hakugin_Post": (rot, rotRaw, params) =>
+        ((params & 7) === 7) ? [0, rot[1], 0] : rot,
 
     "Obj_Armos":       (rot) => [0, rot[1], 0],
     "Obj_Chikuwa":     (rot) => [rot[0], toS16(rot[1] + 0x2000), rot[2]], // home.rot.y += 0x2000, shape follows
