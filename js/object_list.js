@@ -215,8 +215,19 @@ const OOT_Dynapoly_Collisions = [
     { collision_name: "gDTFallingLadderCol", file_name: "object_ydan_objects", offset: 0x66A8, type: "object" },
     { collision_name: "gDTSlidingPlatformCol", file_name: "object_ydan_objects", offset: 0x7798, type: "object" },
     { collision_name: "gTowerCollapseBarsCol", file_name: "object_zg", offset: 0x11D4, type: "object" },
-    { collision_name: "sCol", file_name: "ovl_Bg_Ganon_Otyuka", offset: 0x13B0, type: "overlay" },
-    { collision_name: "sCol", file_name: "ovl_En_Jsjutan", offset: 0x3968, type: "overlay" }
+    // Overlay rows need base_address: the pointers inside an overlay are link-time
+    // VRAM addresses, so the file offset is (pointer - base_address), not the low 24
+    // bits. `offset` is a plain file offset into the overlay.
+    //
+    // The OOT decomp's assets/xml/overlays/*.xml has no BaseAddress attribute and its
+    // Offset values are relative to the overlay's data section rather than the file,
+    // so both fields here were recovered from the overlay binaries themselves and
+    // validated (vertex indices in range, polygon normals of magnitude 0x7FFF).
+    // The old offsets (0x13B0 / 0x3968) do not point at a collision header in these
+    // files. sCol in ovl_Bg_Ganon_Otyuka is 8 verts / 10 polys; ovl_En_Jsjutan's is
+    // the 4-vert / 2-poly carpet quad.
+    { collision_name: "sCol", file_name: "ovl_Bg_Ganon_Otyuka", offset: 0x24C0, base_address: 0x80A53DD0, type: "overlay" },
+    { collision_name: "sCol", file_name: "ovl_En_Jsjutan", offset: 0x4C20, base_address: 0x80ADBD20, type: "overlay" }
 ];
 
 const OOT_Dynapoly_Actors = [
@@ -454,8 +465,10 @@ const OOT_Dynapoly_Actors = [
     { list_index: 232, actor_name: "Bg_Ydan_Sp", actor_description: "Web Floor", collision_name: "gDTWebFloorCol", params_mask: 0xF000, params_values: [0], scale: 0.1 },
     { list_index: 233, actor_name: "Bg_Ydan_Maruta", actor_description: "Falling ladder in Deku Tree", collision_name: "gDTFallingLadderCol", params_mask: 0xFF00, params_values: [1], scale: 0.1 },
     { list_index: 234, actor_name: "Bg_Zg", actor_description: "Metal bars (Ganon's Castle)", collision_name: "gTowerCollapseBarsCol", params_mask: null, params_values: null, scale: 1.0 },
-    { list_index: 235, actor_name: "Bg_Ganon_Otyka", actor_description: "Falling Platform (Ganondorf Fight)", collision_name: "sCol", params_mask: null, params_values: null, scale: 1.0 },
-    { list_index: 236, actor_name: "En_Jsjutan", actor_description: "Magic carpet man's carpet", collision_name: "sCol", params_mask: null, params_values: null, scale: 0.02 }
+    // Both of these are named "sCol", so collision_file picks the right one -- a bare
+    // name lookup matched whichever came first in the collision table.
+    { list_index: 235, actor_name: "Bg_Ganon_Otyka", actor_description: "Falling Platform (Ganondorf Fight)", collision_name: "sCol", collision_file: "ovl_Bg_Ganon_Otyuka", params_mask: null, params_values: null, scale: 1.0 },
+    { list_index: 236, actor_name: "En_Jsjutan", actor_description: "Magic carpet man's carpet", collision_name: "sCol", collision_file: "ovl_En_Jsjutan", params_mask: null, params_values: null, scale: 0.02 }
 ];
 
 const MM_Dynapoly_Collisions = [
@@ -644,9 +657,13 @@ const MM_Dynapoly_Collisions = [
     { collision_name: "object_wood02_Colheader_007A70", file_name: "object_wood02", offset: 0x7A70, type: "object" },
     { collision_name: "gTowerCollapseBarsCol", file_name: "object_zg", offset: 0x11D4, type: "object" },
     { collision_name: "gMikauGraveCol", file_name: "object_zog", offset: 0x8670, type: "object" },
-    { collision_name: "sBioBabaLilypadCol", file_name: "ovl_Boss_05", offset: 0x3620, type: "overlay" },
-    { collision_name: "sTurtleGreatBayTempleCol", file_name: "ovl_Dm_Char08", offset: 0x2640, type: "overlay" },
-    { collision_name: "ovl_En_Horse_Game_Check_Colheader_0010C8", file_name: "ovl_En_Horse_Game_Check", offset: 0x10C8, type: "overlay" }
+    // base_address = the overlay's link-time VRAM start, so a pointer inside it
+    // resolves to (pointer - base_address). These match the BaseAddress attribute in
+    // the mm decomp's assets/xml/overlays/*.xml, and were confirmed against the
+    // overlay binaries here.
+    { collision_name: "sBioBabaLilypadCol", file_name: "ovl_Boss_05", offset: 0x3620, base_address: 0x809EE4E0, type: "overlay" },
+    { collision_name: "sTurtleGreatBayTempleCol", file_name: "ovl_Dm_Char08", offset: 0x2640, base_address: 0x80AAF050, type: "overlay" },
+    { collision_name: "ovl_En_Horse_Game_Check_Colheader_0010C8", file_name: "ovl_En_Horse_Game_Check", offset: 0x10C8, base_address: 0x808F8AA0, type: "overlay" }
 ];
 
 const MM_Dynapoly_Actors = [

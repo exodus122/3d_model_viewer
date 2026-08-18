@@ -10,7 +10,84 @@ const surfaceTypeDropdown = document.getElementById("surfaceTypeDropdown");
 const groundClipBandsCheckbox = document.getElementById('groundClipBandsCheckbox');
 const waterboxCheckbox = document.getElementById('showFullWaterboxDepth');
 
-function parseZeldaObjectBinary(scene, buffer, fresh, actorName, objectName, colHeaderAddr, verts, tris, allTriangleData, intangibleTris, intangibleTriangleData, waterBoxes){
+// Pointer -> file offset for a collision header's internal pointers.
+//
+// Object files are segment-addressed: everything inside them is a 0x06xxxxxx
+// address whose low 24 bits are the offset into the file, so masking works.
+//
+// Actor OVERLAYS are not. An overlay is relocatable code, and the pointers
+// baked into its data are link-time VRAM addresses -- 0x808F9B50, not
+// 0x06001234. Masking one gives 0x8F9B50, which is nowhere near the file, and
+// that is why every overlay-sourced collision rendered as garbage. The offset
+// is `vram - vramStart`, where vramStart is the overlay's link address
+// (`BaseAddress` in the decomp's assets/xml/overlays/*.xml).
+function collisionPtrToOffset(ptr, baseAddress) {
+    if (!ptr) {
+        return 0;
+    }
+
+    return (baseAddress != null) ? ((ptr - baseAddress) >>> 0) : (ptr & 0x00FFFFFF);
+}
+
+/**
+ * Recover an overlay's link-time base address from the file itself.
+ *
+ * Only used when a collision row is missing base_address. Every pointer in
+ * the header is vramStart + offset, so trying each possible offset for the
+ * vertex list yields a candidate base; the right one is the one where the
+ * polygon list also lands in the file, every polygon's vertex indices are
+ * below numVtx, and every polygon normal has magnitude ~0x7FFF. On the five
+ * overlays shipped with the viewer this picks the correct base uniquely and
+ * reproduces the decomp's documented BaseAddress exactly.
+ */
+function deriveOverlayBaseAddress(dv, headerOffset) {
+    const size = dv.byteLength;
+    const numVtx = dv.getUint16(headerOffset + 0x0C, false);
+    const vtxPtr = dv.getUint32(headerOffset + 0x10, false);
+    const numPoly = dv.getUint16(headerOffset + 0x14, false);
+    const polyPtr = dv.getUint32(headerOffset + 0x18, false);
+
+    if (!numVtx || !numPoly || !vtxPtr || !polyPtr) {
+        return null;
+    }
+
+    for (let vtxOff = 0; vtxOff + numVtx * 6 <= size; vtxOff += 4) {
+        const base = vtxPtr - vtxOff;
+        const polyOff = polyPtr - base;
+
+        if (polyOff < 0 || (polyOff % 4) !== 0 || polyOff + numPoly * 0x10 > size) {
+            continue;
+        }
+
+        let ok = true;
+        for (let i = 0; i < numPoly && ok; i++) {
+            const p = polyOff + i * 0x10;
+
+            for (let k = 1; k <= 3; k++) {
+                if ((dv.getUint16(p + 2 * k, false) & 0x1FFF) >= numVtx) {
+                    ok = false;
+                    break;
+                }
+            }
+
+            if (!ok) break;
+
+            const nx = dv.getInt16(p + 0x08, false);
+            const ny = dv.getInt16(p + 0x0A, false);
+            const nz = dv.getInt16(p + 0x0C, false);
+            const mag = Math.sqrt(nx * nx + ny * ny + nz * nz);
+
+            // CollisionPoly normals are unit vectors scaled by 0x7FFF.
+            if (mag < 30000 || mag > 35000) ok = false;
+        }
+
+        if (ok) return base;
+    }
+
+    return null;
+}
+
+function parseZeldaObjectBinary(scene, buffer, fresh, actorName, objectName, colHeaderAddr, verts, tris, allTriangleData, intangibleTris, intangibleTriangleData, waterBoxes, baseAddress = null){
 
     const dv = new DataView(buffer);
     if (dv.byteLength < 4) {
@@ -44,12 +121,19 @@ function parseZeldaObjectBinary(scene, buffer, fresh, actorName, objectName, col
     };
     colHeader.surfaceTypes = [];
     
-    colHeaderAddr = colHeaderAddr & 0x00FFFFFF;
+    // For an overlay, colHeaderAddr is already a file offset (that is what the
+    // decomp XML's Offset attribute is), so it is left alone; only the
+    // pointers inside the header need rebasing.
+    if (baseAddress == null) {
+        colHeaderAddr = colHeaderAddr & 0x00FFFFFF;
+    }
+
     parseCollisionHeader(dv, colHeaderAddr, address_offset, colHeader, endianness);
-    colHeader.vtxListStart &= 0x00FFFFFF;
-    colHeader.polygonListStart &= 0x00FFFFFF;
-    colHeader.surfaceTypeListStart &= 0x00FFFFFF;
-    colHeader.waterboxListStart &= 0x00FFFFFF;
+
+    colHeader.vtxListStart = collisionPtrToOffset(colHeader.vtxListStart, baseAddress);
+    colHeader.polygonListStart = collisionPtrToOffset(colHeader.polygonListStart, baseAddress);
+    colHeader.surfaceTypeListStart = collisionPtrToOffset(colHeader.surfaceTypeListStart, baseAddress);
+    colHeader.waterboxListStart = collisionPtrToOffset(colHeader.waterboxListStart, baseAddress);
     
     parseVerticesAndPolygons(dv, colHeader, address_offset, endianness, poly_length, verts, tris, intangibleTris, intangibleTriangleData, allTriangleData);
 
@@ -628,13 +712,20 @@ export async function renderZeldaObjectsInScene(scene, game, sceneName) {
             // ----------------------------------------------------
             // Find collision information
             // ----------------------------------------------------
+            // collision_name is not unique on its own -- OOT has an sCol in
+            // both ovl_Bg_Ganon_Otyuka and ovl_En_Jsjutan, and a bare name
+            // lookup always found the first. A row can add collision_file to
+            // say which file it means.
             const actorCollision = Dynapoly_Collisions.find(
-                i => i.collision_name === dynaPolyActor.collision_name);
+                i => i.collision_name === dynaPolyActor.collision_name &&
+                     (dynaPolyActor.collision_file == null ||
+                      i.file_name === dynaPolyActor.collision_file));
             if (!actorCollision) {
                 alert('No collision found for dynapoly actor: ' + dynaPolyActor.actor_name);
                 continue;
             }
             const objectName = actorCollision["file_name"];
+            const isOverlay = actorCollision.type === "overlay";
             const cacheKey = `${objectName}:${actorCollision.offset}`;
             //console.log(actorName + ": " + objectName);
             //console.log(dynaPolyActor);
@@ -647,14 +738,41 @@ export async function renderZeldaObjectsInScene(scene, game, sceneName) {
                 let cachedObject = objectCache.get(cacheKey);
 
                 if (!cachedObject) {
+                    // Overlays live in their own folder, not with the objects.
                     const res = await fetch(
                         './models/' +
                         game +
-                        '/actors/objects/' +
+                        (isOverlay ? '/actors/overlays/' : '/actors/objects/') +
                         objectName
                     );
 
                     const buffer = await res.arrayBuffer();
+
+                    // Overlay pointers are link-time VRAM addresses; without
+                    // the overlay's base address they cannot be turned into
+                    // file offsets. Prefer the value declared in the table and
+                    // fall back to recovering it from the file.
+                    let baseAddress = null;
+                    if (isOverlay) {
+                        baseAddress = actorCollision.base_address ?? null;
+
+                        if (baseAddress == null) {
+                            baseAddress = deriveOverlayBaseAddress(
+                                new DataView(buffer), actorCollision.offset);
+
+                            if (baseAddress == null) {
+                                console.error(
+                                    "Overlay collision has no base_address and it could not be " +
+                                    "derived; skipping:", objectName, dynaPolyActor.collision_name);
+                                continue;
+                            }
+
+                            console.warn(
+                                "Overlay", objectName, "has no base_address in the collision table;" +
+                                " derived 0x" + (baseAddress >>> 0).toString(16).toUpperCase() +
+                                " from the file. Add it to the table to skip this step.");
+                        }
+                    }
 
                     const verts = [];
                     const tris = [];
@@ -677,7 +795,8 @@ export async function renderZeldaObjectsInScene(scene, game, sceneName) {
                         triangleData,
                         intangibleTris,
                         intangibleTriangleData,
-                        waterBoxes
+                        waterBoxes,
+                        baseAddress
                     );
 
                     // Normalize indices ONCE before caching
