@@ -1941,7 +1941,7 @@ async function renderZeldaObjectsInScene(scene, game, sceneName) {
                 actorGroup.userData.scaleVec = scaleVec;
                 actorGroup.userData.collisionName = dynaPolyActor.collision_name;
                 console.log("Rendered dynapoly:", actorName, "position:", posXYZ, "rotation:", 
-                    rotXYZ, "scale:", scale, "params:", `0x${actorParams.toString(16).toUpperCase()}`);
+                    rotXYZ, "scale:", scaleVec, "params:", `0x${actorParams.toString(16).toUpperCase()}`);
                 
             } catch (err) {
                 console.error("Failed to load dynapoly object:", objectName, err);
