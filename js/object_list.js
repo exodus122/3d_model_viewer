@@ -873,5 +873,5 @@ const MM_Dynapoly_Actors = [
     { list_index: 204, actor_name: "(unused)", actor_description: "", collision_name: "gTowerCollapseBarsCol", params_mask: null, params_values: null, scale: 0.1 },
     { list_index: 205, actor_name: "Dm_Char08", actor_description: "Large Great Bay Turtle", collision_name: "sTurtleGreatBayTempleCol", params_mask: null, params_values: null, scale: 0.1 },
     { list_index: 206, actor_name: "En_Horse_Game_Check", actor_description: "Gorman Race Track - type 7 barrier", collision_name: "ovl_En_Horse_Game_Check_Colheader_0010C8", params_mask: 0x00FF, params_values: [7], scale: (params) => (((params >> 8) & 0xFF) * 0.01) },
-    { list_index: 207, actor_name: "Boss_05", actor_description: "Bio Deku Baba and its lily pad", collision_name: "sBioBabaLilypadCol", params_mask: null, params_values: null, scale: 0.1 }
+    { list_index: 207, actor_name: "Boss_05", actor_description: "Bio Deku Baba and its lily pad", collision_name: "sBioBabaLilypadCol", params_mask: 0xFFFF, params_values: [0,1,2], scale: 0.01 }
 ];
