@@ -746,7 +746,7 @@ const MM_Dynapoly_Actors = [
     { list_index: 77, actor_name: "Bg_Haka_Bombwall", actor_description: "Beneath the Grave - Bombable Wall", collision_name: "object_haka_obj_Colheader_000148", params_mask: null, params_values: null, scale: 0.1 },
     { list_index: 78, actor_name: "Bg_Haka_Tomb", actor_description: "Flat's Tomb", collision_name: "object_haka_obj_Colheader_000EE8", params_mask: null, params_values: null, scale: 0.1 },
     { list_index: 79, actor_name: "Bg_Haka_Curtain", actor_description: "Curtain That Lifts to Reveal Flat's Tomb", collision_name: "object_haka_obj_Colheader_001588", params_mask: null, params_values: null, scale: 0.1 },
-    { list_index: 80, actor_name: "Obj_Hakaisi", actor_description: "Gravestone", collision_name: "object_hakaisi_Colheader_002FC4", params_mask: null, params_values: null, scale: 1.0 },
+    { list_index: 80, actor_name: "Obj_Hakaisi", actor_description: "Gravestone", collision_name: "object_hakaisi_Colheader_002FC4", params_mask: 0x00FF, params_values: [0,1,2,0xFF], scale: 1.0 },
     { list_index: 81, actor_name: "Bg_Hakugin_Bombwall", actor_description: "Snowhead Temple - Bombable Wall", collision_name: "object_hakugin_obj_Colheader_009768", params_mask: 0x0100, params_values: [0], scale: 0.1 },
     { list_index: 82, actor_name: "Bg_Hakugin_Bombwall", actor_description: "Snowhead Temple - Bombable Wall", collision_name: "object_hakugin_obj_Colheader_009AF0", params_mask: 0x0100, params_values: [1], scale: 0.1 },
     { list_index: 83, actor_name: "Bg_Hakugin_Elvpole", actor_description: "Raisable pillar in Snowhead Temple Map room", collision_name: "object_hakugin_obj_Colheader_00BF40", params_mask: null, params_values: null, scale: 0.1 },
