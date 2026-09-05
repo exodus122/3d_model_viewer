@@ -762,7 +762,10 @@ const MM_Dynapoly_Actors = [
     { list_index: 93, actor_name: "(unused)", actor_description: "", collision_name: "object_hunsui_Colheader_00190C", params_mask: null, params_values: null, scale: 0.1 },
     { list_index: 94, actor_name: "Obj_Iceblock", actor_description: "Ice Block That Appears After Freezing Enemy", collision_name: "gIceBlockCol", params_mask: null, params_values: null, scale: 0.1 },
     { list_index: 95, actor_name: "Bg_Icefloe", actor_description: "Ice Platform Created by Ice Arrow", collision_name: "gIcefloePlatformCol", params_mask: null, params_values: null, scale: 0.0 },
-    { list_index: 96, actor_name: "Bg_Icicle", actor_description: "Icicles", collision_name: "gIcicleCol", params_mask: null, params_values: null, scale: 0.1 },
+    // BgIcicle_Init sets shape.yOffset = 1200.0f on the stalactite branch
+    // (params & 3 in {1, 2}) alongside shape.rot.x = -0x8000; stalagmites
+    // (0, 3) leave it at 0. See MM_ACTOR_INIT_SHAPE_ROT["Bg_Icicle"].
+    { list_index: 96, actor_name: "Bg_Icicle", actor_description: "Icicles", collision_name: "gIcicleCol", params_mask: null, params_values: null, scale: 0.1, yOffset: (params) => (((params & 3) === 1) || ((params & 3) === 2)) ? 1200 : 0 },
     { list_index: 97, actor_name: "Bg_Ikana_Bombwall", actor_description: "Stone Tower Temple - Bombable Tan Floor Tile", collision_name: "object_ikana_obj_Colheader_000128", params_mask: 0x0100, params_values: [1], scale: 1.0 },
     { list_index: 98, actor_name: "Bg_Ikana_Bombwall", actor_description: "Stone Tower Temple - Bombable Tan Floor Tile", collision_name: "object_ikana_obj_Colheader_000488", params_mask: 0x0100, params_values: [0], scale: 1.0 },
     { list_index: 99, actor_name: "Bg_Ikana_Dharma", actor_description: "Stone Tower Temple - Punchable Pillar Segments", collision_name: "gStoneTowerTemplePunchablePillarCol", params_mask: null, params_values: null, scale: [0.3, 0.1, 0.3] },

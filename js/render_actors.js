@@ -441,13 +441,34 @@ function decodeActorSpawnEntry(entry, game) {
 // For those, using the spawn rotation renders collision at an angle the
 // game never uses.
 //
-// Only the unconditional rewrites are encoded here -- entries whose Init
-// only touches shape.rot inside an `if` (Bg_Icicle, Bg_Dblue_Movebg,
-// Bg_Hakugin_Post, Bg_Ingate, Boss_05, Dm_Char01, Dm_Char08, Obj_Bean,
-// Obj_Boat, Obj_Hunsui, Obj_Switch, Obj_Iceblock's 90-degree yaw snap) are
-// deliberately left out rather than guessed at. Actors that only rewrite
-// world.rot/home.rot (Bg_Crace_Movebg, Bg_Lotus, Obj_Yasi) need no entry:
-// dyna never reads those.
+// Every rewrite that can be resolved from the spawn entry alone is encoded
+// here, including the ones an actor only performs on one branch. What makes
+// a branch encodable is that its condition is a function of params (or of
+// the map), not of save state:
+//
+//   * params-selected variants -- Bg_Icicle's stalactite/stalagmite split,
+//     Bg_Dblue_Movebg's twelve sub-objects, Boss_05's lily-pad types.
+//   * scene-selected variants -- Obj_Switch only zeroes roll in SCENE_SECOM.
+//
+// Branches keyed on runtime state are resolved to the state a freshly
+// entered map is in, i.e. the switch/week-event flag NOT set, which is what
+// the viewer draws everywhere else:
+//
+//   * Bg_Ikana_Rotaryroom  shape.rot.x = 0     (flipped only once its switch is on)
+//   * Bg_Dblue_Balance     shape.rot.z = +0x1C72 (seesaw tips the other way when set)
+//
+// Still deliberately left out, because they need data the viewer does not
+// load or state it cannot pick:
+//
+//   * Bg_Ingate, Obj_Boat, and path-driven Obj_Spinyroll/Obj_Vspinyroll take
+//     their yaw (and position) from a scene path list.
+//   * Dm_Char08 relocates and reorients the turtle only after the Song of
+//     Awakening; the default-state spawn values are used as-is.
+//
+// Actors that only rewrite world.rot/home.rot (Bg_Crace_Movebg, Bg_Lotus,
+// Obj_Yasi) need no entry: dyna never reads those. Obj_Hunsui zeroes roll
+// for its F000==5/6 variants, but those variants never call
+// DynaPolyActor_LoadMesh, so there is no collision to misplace.
 //
 // Each function takes the decoded spawn values and returns the shape.rot
 // that DynaPoly_ExpandSRT would actually be handed.
@@ -474,11 +495,134 @@ const MM_ACTOR_INIT_SHAPE_ROT = {
     "Bg_Hakugin_Post": (rot, rotRaw, params) =>
         ((params & 7) === 7) ? [0, rot[1], 0] : rot,
 
+    // z_bg_icicle.c BgIcicle_Init, after `thisx->params &= 3`:
+    //     if (params == ICICLE_STALAGMITE_RANDOM_DROP ||
+    //         params == ICICLE_STALAGMITE_FIXED_DROP) { ... }
+    //     else { shape.rot.x = -0x8000; shape.yOffset = 1200.0f; }
+    //
+    // The two stalactite types (1 = ICICLE_STALACTITE, 2 =
+    // ICICLE_STALACTITE_REGROW) hang from the ceiling: the shared gIcicleCol
+    // cone is flipped a full 180 degrees about X and lifted by yOffset. Both
+    // halves are needed -- the flip alone would leave the cone 1200 model
+    // units (yOffset * scale.y world units) below where the game puts it, so
+    // the Bg_Icicle row in the dynapoly table carries the matching yOffset.
+    //
+    // Types 0 and 3 are floor stalagmites and keep their spawn rotation.
+    "Bg_Icicle": (rot, rotRaw, params) => {
+        const icicleType = params & 3;
+
+        // 1 = ICICLE_STALACTITE, 2 = ICICLE_STALACTITE_REGROW
+        return ((icicleType === 1) || (icicleType === 2))
+            ? [-0x8000, rot[1], rot[2]]
+            : rot;
+    },
+
+    // z_bg_dblue_movebg.c BgDblueMovebg_Init dispatches on
+    // BGDBLUEMOVEBG_GET_F == (params & 0xF). rot.z is a switch-flag/param
+    // carrier for several of the Great Bay Temple sub-objects, so the Init
+    // stashes it and zeroes the field before dyna ever sees it:
+    //
+    //   1  two-way switch     world/shape.rot.x = 0, world/shape.rot.z = 0
+    //   6  gear shaft         world/shape.rot.z = 0   (pre-switch block)
+    //   7  one-way switch     world/shape.rot.x = 0, world/shape.rot.z = 0
+    //   8,9 waterwheel        world/shape.rot.z = 0   (pre-switch block)
+    //
+    // Cases 1 and 7 also do `shape.rot.y += DEG_TO_BINANG(unk_18C / 10.0f)`,
+    // but unk_18C is 0 unless the switch flag is already set (case 1) and is
+    // hardcoded to 0 for case 7, so the default-state yaw is the spawn yaw.
+    "Bg_Dblue_Movebg": (rot, rotRaw, params) => {
+        switch (params & 0xF) {
+            case 1:
+            case 7:
+                return [0, rot[1], 0];
+
+            case 6:
+            case 8:
+            case 9:
+                return [rot[0], rot[1], 0];
+
+            default:
+                return rot;
+        }
+    },
+
+    // z_bg_dblue_balance.c BgDblueBalance_Init, for
+    // BGDBLUEBALANCE_GET_300 == 0 (the seesaw shaft):
+    //     if (isSwitchFlagSet) { shape.rot.z = -0x1C72; }
+    //     else                 { shape.rot.z =  0x1C72; }
+    //
+    // The seesaw is *supposed* to be tilted -- 0x1C72 is ~39.8 degrees -- so
+    // this one adds a tilt the spawn entry does not have rather than
+    // removing one. Unset is the state a freshly entered map is in.
+    // The other three variants (1, 2 platforms, 3 waterwheel) are untouched.
+    "Bg_Dblue_Balance": (rot, rotRaw, params) =>
+        (((params >> 8) & 3) === 0) ? [rot[0], rot[1], 0x1C72] : rot,
+
+    // z_bg_ikana_rotaryroom.c BgIkanaRotaryroom_Init:
+    //     if (Flags_GetSwitch(play, BGIKANAROTARYROOM_GET_SWITCH_FLAG_1)) {
+    //         shape.rot.x = -0x8000;
+    //     } else {
+    //         shape.rot.x = 0;
+    //     }
+    //
+    // Either way pitch is overwritten, and rot.x in the spawn entry is only
+    // ever leftover data. The switch-off branch (upright room) is the
+    // default state. Both sub-objects (params & 1) behave the same.
+    "Bg_Ikana_Rotaryroom": (rot) => [0, rot[1], rot[2]],
+
+    // z_boss_05.c Boss05_Init: BIO_BABA_FORCE_DETACH_TIMER is world.rot.z,
+    // so for the two lily-pad-with-head types the Init reads the timer out
+    // and then zeroes roll:
+    //     shape.rot.z = 0;
+    //     world.rot.z = shape.rot.z;
+    //
+    // Type 2 (BIO_BABA_TYPE_LILY_PAD) also registers collision but leaves
+    // rot alone; types 3+ never become dynapoly.
+    "Boss_05": (rot, rotRaw, params) =>
+        ((params === 0) || (params === 1)) ? [rot[0], rot[1], 0] : rot,
+
+    // z_dm_char01.c DmChar01_Init, cases DMCHAR01_2 (Woodfall Temple) and
+    // DMCHAR01_3 (its ramp and platform):
+    //     world.rot.y += 0x8000;
+    //     shape.rot.y += 0x8000;
+    //
+    // Case 0 (the poison water damage box) loads collision without touching
+    // rot; case 1 loads none.
+    "Dm_Char01": (rot, rotRaw, params) =>
+        ((params === 2) || (params === 3))
+            ? [rot[0], toS16(rot[1] + 0x8000), rot[2]]
+            : rot,
+
+    // z_obj_bean.c ObjBean_Init: the OBJBEAN_GET_C000 == 0 branch is the
+    // only one that calls DynaPolyActor_LoadMesh, and it zeroes roll
+    // (world/home/shape) because OBJBEAN_GET_3 reads `home.rot.z & 3`.
+    // Values 1 and 2 are the carried-around bean plant, which is killed or
+    // turned into an item actor with no collision.
+    "Obj_Bean": (rot, rotRaw, params) =>
+        ((((params >> 0xE) & 3) === 0)) ? [rot[0], rot[1], 0] : rot,
+
     "Obj_Armos":       (rot) => [0, rot[1], 0],
-    "Obj_Chikuwa":     (rot) => [rot[0], toS16(rot[1] + 0x2000), rot[2]], // home.rot.y += 0x2000, shape follows
+
+    // z_obj_chikuwa.c ObjChikuwa_Init:
+    //     home.rot.y += 0x2000;
+    //     home.rot.y &= 0xC000;      // s16 store: snaps to a 90-degree step
+    //     shape.rot.y = home.rot.y;
+    // The mask is what turns "+45 degrees" into "round to the nearest 90".
+    "Obj_Chikuwa":     (rot) => [rot[0], toS16((rot[1] + 0x2000) & 0xC000), rot[2]],
+
     "Obj_Danpeilift":  (rot) => [0, rot[1], 0],
     "Obj_Driftice":    (rot) => [0, rot[1], 0],
-    "Obj_Iceblock":    (rot) => [0, rot[1], 0], // yaw snap to 90 deg is conditional, not applied
+
+    // z_obj_iceblock.c ObjIceblock_Init zeroes pitch and roll unconditionally
+    // and then, when ICEBLOCK_GET_SNAP_ROT ((params >> 1) & 1) is clear,
+    // snaps yaw the same way Obj_Chikuwa does:
+    //     shape.rot.y = (shape.rot.y + 0x2000) & 0xC000;
+    "Obj_Iceblock": (rot, rotRaw, params) => [
+        0,
+        ((params >> 1) & 1) ? rot[1] : toS16((rot[1] + 0x2000) & 0xC000),
+        0
+    ],
+
     "Obj_Kibako2":     (rot) => [0, rot[1], 0],
     "Obj_Lift":        (rot) => [rot[0], rot[1], 0],
     "Obj_Lupygamelift":(rot) => [0, rot[1], 0],
@@ -486,21 +630,54 @@ const MM_ACTOR_INIT_SHAPE_ROT = {
     "Obj_Ocarinalift": (rot) => [0, rot[1], 0],
     "Obj_Pzlblock":    (rot) => [0, rot[1], 0],
     "Obj_Raillift":    (rot) => [0, rot[1], 0],
-    "Obj_Spinyroll":   () => [0, 0, 0],
-    "Obj_Vspinyroll":  () => [0, 0, 0],
+
+    // z_obj_spinyroll.c / z_obj_vspinyroll.c: both Inits zero pitch and roll,
+    // then, only when the actor has a path
+    // (OBJSPINYROLL_GET_PATH_INDEX != OBJSPINYROLL_PATH_INDEX_NONE, i.e.
+    // (params & 0x7F) != 0x7F), move the roller onto path point 0 and set
+    //     world.rot.y = Math_Vec3f_Yaw(point0, point1);
+    //     shape.rot.y = world.rot.y;
+    //
+    // The viewer does not load scene path lists, so a path-driven roller is
+    // drawn at its spawn point with yaw 0 -- the same placeholder as before,
+    // and no worse than the spawn yaw, since its position is wrong anyway.
+    // A pathless roller keeps its spawn yaw, which used to be zeroed too.
+    "Obj_Spinyroll":   (rot, rotRaw, params) =>
+        ((params & 0x7F) === 0x7F) ? [0, rot[1], 0] : [0, 0, 0],
+    "Obj_Vspinyroll":  (rot, rotRaw, params) =>
+        ((params & 0x7F) === 0x7F) ? [0, rot[1], 0] : [0, 0, 0],
+
+    // z_obj_switch.c ObjSwitch_Init, for the two floor-switch types
+    // (OBJSWITCH_TYPE_FLOOR == 0 and OBJSWITCH_TYPE_FLOOR_LARGE == 5):
+    //     if (play->sceneId == SCENE_SECOM) { ... shape.rot.z = 0; ... }
+    //
+    // In Sakon's Hideout rot.z is not an angle at all --
+    // OBJ_SWITCH_GET_COLOR_ID is `home.rot.z & 1` -- so the field is read for
+    // the switch colour and then cleared. Everywhere else rot.z survives.
+    "Obj_Switch": (rot, rotRaw, params, sceneName) => {
+        const switchType = params & 7;
+
+        // 0 = OBJSWITCH_TYPE_FLOOR, 5 = OBJSWITCH_TYPE_FLOOR_LARGE
+        return ((sceneName === "Z2_SECOM") &&
+                ((switchType === 0) || (switchType === 5)))
+            ? [rot[0], rot[1], 0]
+            : rot;
+    },
 };
 
 /**
  * Spawn rotation -> the shape.rot DynaPoly actually uses, applying the
  * actor's Init override when it has one.
  */
-function actorShapeRot(actorName, spawn, game) {
+function actorShapeRot(actorName, spawn, game, sceneName) {
     if (game !== "MM") {
         return spawn.rot;
     }
 
     const override = MM_ACTOR_INIT_SHAPE_ROT[actorName];
-    return override ? override(spawn.rot, spawn.rotRaw, spawn.params) : spawn.rot;
+    return override
+        ? override(spawn.rot, spawn.rotRaw, spawn.params, sceneName)
+        : spawn.rot;
 }
 
 export async function renderZeldaObjectsInScene(scene, game, sceneName) {
@@ -607,7 +784,9 @@ export async function renderZeldaObjectsInScene(scene, game, sceneName) {
 
             // What DynaPoly actually rotates the collision by: shape.rot after
             // the actor's Init has had its say, not the raw spawn rotation.
-            const rotXYZ = actorShapeRot(actorName, spawn, game);
+            // sceneName is passed through because a couple of Inits branch on
+            // play->sceneId (Obj_Switch only zeroes roll in SCENE_SECOM).
+            const rotXYZ = actorShapeRot(actorName, spawn, game, sceneName);
 
             // ----------------------------------------------------
             // Check if this is a dynapoly actor
@@ -856,12 +1035,20 @@ export async function renderZeldaObjectsInScene(scene, game, sceneName) {
                 //
                 // See dyna_transform.js for the details.
 
+                // shape.yOffset is 0 for most dynapoly actors; override
+                // per-actor in the dynapoly table if one needs it. Like
+                // `scale`, it may be a plain number or a function of params,
+                // for actors that only set it on one branch of their Init --
+                // BgIcicle_Init sets yOffset = 1200 in the same branch that
+                // flips shape.rot.x, so the two have to agree.
+                const yOffset = (typeof dynaPolyActor.yOffset === 'function')
+                    ? dynaPolyActor.yOffset(actorParams)
+                    : (dynaPolyActor.yOffset ?? 0);
+
                 const xform = {
                     scale: scaleVec,
                     rot: { x: rotXYZ[0], y: rotXYZ[1], z: rotXYZ[2] },
-                    // shape.yOffset is 0 for most dynapoly actors; override
-                    // per-actor in the dynapoly table if one needs it.
-                    pos: dynaActorPos(posXYZ, scaleVec.y, dynaPolyActor.yOffset ?? 0)
+                    pos: dynaActorPos(posXYZ, scaleVec.y, yOffset)
                 };
 
                 const mkVec = (x, y, z) => new THREE.Vector3(x, y, z);
