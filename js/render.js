@@ -375,6 +375,9 @@ export function getModelGroup(key, label) {
         // turned back on.
         const target = master.checked;
 
+        // Remember the choice for the same group on the next scene load.
+        groupMasterState.set(key, target);
+
         // Suppress the per-row resync for the duration of the batch: it is
         // N redundant passes over the same list, and it makes the master
         // visibly flicker through indeterminate on the way.
@@ -418,6 +421,25 @@ export function getModelGroup(key, label) {
  *
  * Colours are left alone; only `visible` is dropped.
  */
+// Master-checkbox choice per group key, kept across scene loads. Only set by
+// a click on the master itself: the per-row visibility lives in modelState
+// and is deliberately NOT carried between scenes (see resetGroupModelState).
+const groupMasterState = new Map();
+
+/**
+ * Re-apply the last master-checkbox choice made for this group, if any, to
+ * the rows it currently holds. Call once a scene has finished adding rows to
+ * the group; a group the user never toggled keeps its rows' own defaults.
+ */
+export function applyGroupMasterState(groupKey) {
+    const group = modelGroups.get(groupKey);
+    const saved = groupMasterState.get(groupKey);
+    if (!group || !group.wrapper.isConnected || saved === undefined) return;
+    if (group.master.checked === saved && !group.master.indeterminate) return;
+    group.master.checked = saved;
+    group.master.dispatchEvent(new Event('change', { bubbles: true }));
+}
+
 export function resetGroupModelState(groupKey) {
     for (const name of Object.keys(modelState)) {
         const state = modelState[name];

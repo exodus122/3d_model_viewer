@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { addModelCheckbox, buildGeometry, buildGeometry_fwc, clearAllModels, buildGeometryButDontAddToScene, getModelGroup, primaryColorTarget, resetGroupModelState } from './render.js';
+import { addModelCheckbox, buildGeometry, buildGeometry_fwc, clearAllModels, buildGeometryButDontAddToScene, getModelGroup, primaryColorTarget, resetGroupModelState, applyGroupMasterState } from './render.js';
 import { parseCollisionHeader, parseVerticesAndPolygons, parseWaterboxes } from './parse_model.js';
 import { dynaTransformVertices, dynaRecomputePolyData, dynaActorPos } from './dyna_transform.js';
 import { buildWaterBoxModel } from './waterboxes.js';
@@ -1421,4 +1421,7 @@ export async function renderZeldaObjectsInScene(scene, game, sceneName) {
             }
         }
     }
+
+    // Carry the group's master checkbox over from the previous scene.
+    applyGroupMasterState('dynapoly');
 }

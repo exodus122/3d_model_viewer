@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { addModelCheckbox, getModelGroup, resetGroupModelState } from './render.js';
+import { addModelCheckbox, getModelGroup, resetGroupModelState, applyGroupMasterState } from './render.js';
 import { parseBKModelGeometry } from './bk_model.js';
 import { buildTexturedParts, makeTexturedMesh, attachTextured } from './bk_textured.js';
 
@@ -62,7 +62,11 @@ const PROP_SIZE = 12;
 const CUBE_SIZE = 1000;
 
 function actorName(id) {
-    return BK_Actor_Names[id] ?? `ACTOR_0x${id.toString(16).toUpperCase()}`;
+    const name = BK_Actor_Names[id];
+    if (!name) return `ACTOR_0x${id.toString(16).toUpperCase()}`;
+    // The decomp names several unidentified actors plain "UNKNOWN"; rows are
+    // keyed by name, so keep those distinguishable.
+    return name.endsWith('UNKNOWN') ? `${name} (0x${id.toString(16).toUpperCase()})` : name;
 }
 
 function modelName(modelId) {
@@ -824,6 +828,13 @@ function buildSpriteInstance(prop, material) {
  * (rows shown) and the hitbox-only group (rows shown only if hitboxChecked).
  */
 function addSplitModelGroups(scene, byType, geometries, style, nameFn, rowLabel, solidGroup, hitboxGroup, hitboxChecked = false) {
+    // Row names must be unique (visibility, colour and lookups are keyed by
+    // them); disambiguate any ids that still resolve to the same name.
+    const nameCounts = new Map();
+    for (const [id] of byType) nameCounts.set(nameFn(id), (nameCounts.get(nameFn(id)) ?? 0) + 1);
+    const uniqueName = id => nameCounts.get(nameFn(id)) > 1
+        ? `${nameFn(id)} (0x${id.toString(16).toUpperCase()})` : nameFn(id);
+
     const solid = [];
     const hitboxOnly = [];
     byType.forEach(([id, list], i) => {
@@ -833,13 +844,13 @@ function addSplitModelGroups(scene, byType, geometries, style, nameFn, rowLabel,
     if (solid.length) {
         const group = getModelGroup(solidGroup[0], solidGroup[1]);
         for (const [id, list, loaded] of solid) {
-            addLoadedModelRow(scene, group.body, rowLabel(nameFn(id), list), list, loaded, style, true);
+            addLoadedModelRow(scene, group.body, rowLabel(uniqueName(id), list), list, loaded, style, true);
         }
     }
     if (hitboxOnly.length) {
         const group = getModelGroup(hitboxGroup[0], hitboxGroup[1]);
         for (const [id, list, loaded] of hitboxOnly) {
-            addLoadedModelRow(scene, group.body, rowLabel(nameFn(id), list), list, loaded, style, hitboxChecked);
+            addLoadedModelRow(scene, group.body, rowLabel(uniqueName(id), list), list, loaded, style, hitboxChecked);
         }
     }
 }
@@ -927,6 +938,11 @@ export async function renderBKSetup(scene, buffer) {
             const name = NODE_CATEGORY_NAMES[cat] ?? `Category ${cat}`;
             addTypeRow(scene, group.body, rowLabel(name, list), list, NODE_COLOR, false, buildNodeInstance);
         }
+    }
+
+    // Carry each group's master checkbox over from the previous map.
+    for (const key of ['bk-models', 'bk-models-hitbox', 'bk-actors', 'bk-actors-hitbox', 'bk-sprites', 'bk-nodes']) {
+        applyGroupMasterState(key);
     }
 
     console.log(`BK setup: cubes ${setup.cubeMin} .. ${setup.cubeMax},`,
