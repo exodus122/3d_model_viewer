@@ -1,8 +1,7 @@
 import * as THREE from 'three';
 import { addModelCheckbox, buildGeometry, buildGeometry_fwc, buildGeometryFromTriangles, buildGeometryEdges, clearAllModels, buildGeometryButDontAddToScene, getModelGroup, primaryColorTarget, resetGroupModelState } from './render.js';
-import { buildGeometry2, buildGeometry3, buildGeometry4 } from './gap.js';
 import { initColCtx, initializeSubdivisions, BGCHECK_SUBDIV_OVERLAP } from './subdivisions.js';
-import { renderStandableSurfaceXZ, renderStandableSurfaceXZ_old, STANDABLE_DET_MAX_DYNAPOLY } from './standable_surfaces.js';
+import { renderStandableSurfaceXZ, STANDABLE_DET_MAX_DYNAPOLY } from './standable_surfaces.js';
 import { renderCollisionWallsXY, renderCollisionWallsYZ } from './render_walls.js'
 import { scanAndBuildFlatGroundMarkers, buildSurfaceTypeMarkers, scanAndBuildSubdivision, scanAndBuildSectorSortingErrorMarkers, scanAndBuildSubdivisionSkipMarkers } from './poly_markers.js'
 import { buildWaterBoxModel } from './waterboxes.js';
