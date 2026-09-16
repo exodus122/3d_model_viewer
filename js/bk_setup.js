@@ -783,7 +783,9 @@ function addSpriteRow(scene, groupBody, rowName, instances, entry, checked, styl
 
     scene.add(typeGroup);
     loadedModels.push({ name: rowName, root: typeGroup, mesh: typeGroup, edges: null });
-    addModelCheckbox(scene, rowName, typeGroup, null, false, checked, style.color, false, null, groupBody);
+    // No colour swatch: the images carry their own colours (and the game's
+    // rgbRemove tint is already baked into each material).
+    addModelCheckbox(scene, rowName, typeGroup, null, false, checked, style.color, false, false, groupBody);
 }
 
 const SPRITE_PROP_STYLE = {

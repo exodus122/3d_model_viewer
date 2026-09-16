@@ -7,7 +7,7 @@ import { updateSamplePointsUIVisibility } from './sample_points.js';
 ////////////////////////////////////////
 
 // colorTarget: object whose materials the swatch edits, when that differs
-// from the object the checkbox shows/hides. A dynapoly actor is one group
+// from the object the checkbox shows/hides; pass false for no swatch. A dynapoly actor is one group
 // holding tangible, intangible and waterbox parts in three different
 // meaningful colours; the checkbox toggles the whole group, but the swatch
 // should drive only the part the row's colour represents. Defaults to
@@ -130,8 +130,11 @@ export function addModelCheckbox(scene, name, meshObj, edgesObj, clearFirst, che
     // so the enclosing group's child count is irrelevant. Without this, a
     // dynapoly actor holding both tangible and intangible collision tripped
     // the multi-mesh test and lost its swatch entirely.
+    // colorTarget === false: the row has nothing a colour can sensibly drive
+    // (e.g. textured sprite billboards), so show no swatch at all.
     const colorSource = colorTarget ?? meshObj;
-    const isMultiMeshGroup = !!(colorSource?.children && !colorSource.material && colorSource.children.length > 2);
+    const isMultiMeshGroup = colorTarget === false ||
+        !!(colorSource?.children && !colorSource.material && colorSource.children.length > 2);
 
     // Color picker
     const colorInput = document.createElement('input');

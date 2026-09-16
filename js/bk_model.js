@@ -182,6 +182,14 @@ const G_SETTILESIZE = 0xF2;
 const G_LOADBLOCK = 0xF3;
 const G_LOADTILE = 0xF4;
 const G_SETCOMBINE = 0xFC;
+const G_ENDDL = 0xB8;
+
+// Geometry-setup commands (include/core2/model.h). The geo list is a tree of
+// these that modelRender_draw walks; it decides which display lists run, in
+// what order, and carries state like TEXWRAP.
+const GEO_UNK0 = 0x00, GEO_SORT = 0x01, GEO_BONE = 0x02, GEO_LOADDL = 0x03, GEO_SKINNING = 0x05,
+      GEO_CALL = 0x06, GEO_LOADDL2 = 0x07, GEO_LOD = 0x08, GEO_SELECTOR = 0x0C, GEO_DRAWDIST = 0x0D,
+      GEO_UNKE = 0x0E, GEO_CAMERA = 0x0F, GEO_TEXWRAP = 0x10;
 
 const G_LIGHTING = 0x00020000;
 const G_TEXTURE_GEN = 0x00040000;
@@ -406,94 +414,221 @@ export function parseBKModelTextured(buffer) {
         }
     };
 
+    // ---- display list execution
+    const gfxBase = gfxListOffset + 8;
     const cmdCount = dv.getUint32(gfxListOffset, false);
-    let o = gfxListOffset + 8;
-    for (let i = 0; i < cmdCount && o + 8 <= dv.byteLength; i++, o += 8) {
-        const w0 = dv.getUint32(o, false);
-        const w1 = dv.getUint32(o + 4, false);
-        switch (w0 >>> 24) {
+    const gfxEnd = gfxBase + cmdCount * 8;
+
+    // Run one display list from a byte offset until G_ENDDL (or, in linear
+    // mode, until the end of the whole list -- ENDDL just separates lists).
+    // RDP/RSP state persists across calls exactly as it does on hardware.
+    const runDisplayList = (startOffset, linear) => {
+        for (let o = startOffset; o + 8 <= gfxEnd; o += 8) {
+            const w0 = dv.getUint32(o, false);
+            const w1 = dv.getUint32(o + 4, false);
+            if ((w0 >>> 24) === G_ENDDL) {
+                if (linear) continue;
+                return;
+            }
+            switch (w0 >>> 24) {
             case G_VTX: {
-                const v0 = ((w0 >>> 16) & 0xFF) >>> 1;
-                const n = ((w0 >>> 10) & 0x3F) + 1;
-                if ((w1 >>> 24) !== VERTEX_SEGMENT) break;
-                const first = (w1 & 0xFFFFFF) / VTX_SIZE;
-                for (let k = 0; k < n && v0 + k < VTX_CACHE_SIZE; k++) {
-                    const idx = first + k;
-                    cache[v0 + k] = idx < vertexCount ? idx : -1;
+                    const v0 = ((w0 >>> 16) & 0xFF) >>> 1;
+                    const n = ((w0 >>> 10) & 0x3F) + 1;
+                    if ((w1 >>> 24) !== VERTEX_SEGMENT) break;
+                    const first = (w1 & 0xFFFFFF) / VTX_SIZE;
+                    for (let k = 0; k < n && v0 + k < VTX_CACHE_SIZE; k++) {
+                        const idx = first + k;
+                        cache[v0 + k] = idx < vertexCount ? idx : -1;
+                    }
+                    break;
                 }
-                break;
+                case G_TRI1:
+                    emit(cache[((w1 >>> 16) & 0xFF) >>> 1], cache[((w1 >>> 8) & 0xFF) >>> 1], cache[(w1 & 0xFF) >>> 1]);
+                    break;
+                case G_TRI2:
+                    emit(cache[((w0 >>> 16) & 0xFF) >>> 1], cache[((w0 >>> 8) & 0xFF) >>> 1], cache[(w0 & 0xFF) >>> 1]);
+                    emit(cache[((w1 >>> 16) & 0xFF) >>> 1], cache[((w1 >>> 8) & 0xFF) >>> 1], cache[(w1 & 0xFF) >>> 1]);
+                    break;
+                case G_QUAD: {
+                    const a = cache[((w1 >>> 24) & 0xFF) >>> 1], b = cache[((w1 >>> 16) & 0xFF) >>> 1];
+                    const c = cache[((w1 >>> 8) & 0xFF) >>> 1], d = cache[(w1 & 0xFF) >>> 1];
+                    emit(a, b, c);
+                    emit(a, c, d);
+                    break;
+                }
+                case G_CLEARGEOMETRYMODE: geometryMode &= ~w1; break;
+                case G_SETGEOMETRYMODE: geometryMode |= w1; break;
+                case G_TEXTURE:
+                    // w0: | op | 0 | level:3 tile:3 | on |   w1: scaleS:16 scaleT:16 (0.16 fixed)
+                    texOn = (w0 & 0xFF) !== 0;
+                    renderTile = (w0 >>> 8) & 7;
+                    texScaleS = (w1 >>> 16) / 65536;
+                    texScaleT = (w1 & 0xFFFF) / 65536;
+                    break;
+                case G_SETTIMG: timgAddr = w1; break;
+                case G_LOADBLOCK:
+                case G_LOADTILE: {
+                    // The load goes through the tile named in w1; whatever TMEM
+                    // address that tile points at now holds this texture.
+                    const loadTile = tiles[(w1 >>> 24) & 7];
+                    tmemTextures.set(loadTile.tmem, textureAt(timgAddr));
+                    break;
+                }
+                case G_SETTILE: {
+                    // w0: | op | fmt:3 siz:2 | 0 | line:9 | tmem:9 |
+                    // w1: | tile:3 | palette:4 | cmt:2 maskt:4 shiftt:4 | cms:2 masks:4 shifts:4 |
+                    const tile = tiles[(w1 >>> 24) & 7];
+                    tile.tmem = w0 & 0x1FF;
+                    tile.cmt = (w1 >>> 18) & 3;
+                    tile.maskt = (w1 >>> 14) & 0xF;
+                    tile.shiftt = (w1 >>> 10) & 0xF;
+                    tile.cms = (w1 >>> 8) & 3;
+                    tile.masks = (w1 >>> 4) & 0xF;
+                    tile.shifts = w1 & 0xF;
+                    break;
+                }
+                case G_SETTILESIZE: {
+                    // w0: | op | uls:12 ult:12 |   w1: | tile:3 | lrs:12 lrt:12 |  (10.2 fixed)
+                    const tile = tiles[(w1 >>> 24) & 7];
+                    tile.uls = ((w0 >>> 12) & 0xFFF) / 4;
+                    tile.ult = (w0 & 0xFFF) / 4;
+                    tile.lrs = ((w1 >>> 12) & 0xFFF) / 4;
+                    tile.lrt = (w1 & 0xFFF) / 4;
+                    break;
+                }
+                case G_SETCOMBINE: {
+                    // Colour = (a - b) * c + d, two cycles. BK's usual combiner is
+                    // cycle 1: (TEXEL0 - PRIM) * ENV + PRIM, cycle 2: COMBINED * SHADE,
+                    // so the shade (vertex colour / lighting) only shows up in cycle 2.
+                    //   cycle 1: a = w0[23:20]  c = w0[19:15]  b = w1[31:28]  d = w1[17:15]
+                    //   cycle 2: a = w0[8:5]    c = w0[4:0]    b = w1[27:24]  d = w1[8:6]
+                    const inputs = [
+                        (w0 >>> 20) & 0xF, (w0 >>> 15) & 0x1F, (w1 >>> 28) & 0xF, (w1 >>> 15) & 7,
+                        (w0 >>> 5) & 0xF, w0 & 0x1F, (w1 >>> 24) & 0xF, (w1 >>> 6) & 7,
+                    ];
+                    combinerUsesTexel = inputs.some(v => v === CC_TEXEL0 || v === CC_TEXEL1);
+                    combinerUsesShade = inputs.some(v => v === CC_SHADE);
+                    break;
+                }
+                default:
+                    break;
             }
-            case G_TRI1:
-                emit(cache[((w1 >>> 16) & 0xFF) >>> 1], cache[((w1 >>> 8) & 0xFF) >>> 1], cache[(w1 & 0xFF) >>> 1]);
-                break;
-            case G_TRI2:
-                emit(cache[((w0 >>> 16) & 0xFF) >>> 1], cache[((w0 >>> 8) & 0xFF) >>> 1], cache[(w0 & 0xFF) >>> 1]);
-                emit(cache[((w1 >>> 16) & 0xFF) >>> 1], cache[((w1 >>> 8) & 0xFF) >>> 1], cache[(w1 & 0xFF) >>> 1]);
-                break;
-            case G_QUAD: {
-                const a = cache[((w1 >>> 24) & 0xFF) >>> 1], b = cache[((w1 >>> 16) & 0xFF) >>> 1];
-                const c = cache[((w1 >>> 8) & 0xFF) >>> 1], d = cache[(w1 & 0xFF) >>> 1];
-                emit(a, b, c);
-                emit(a, c, d);
-                break;
-            }
-            case G_CLEARGEOMETRYMODE: geometryMode &= ~w1; break;
-            case G_SETGEOMETRYMODE: geometryMode |= w1; break;
-            case G_TEXTURE:
-                // w0: | op | 0 | level:3 tile:3 | on |   w1: scaleS:16 scaleT:16 (0.16 fixed)
-                texOn = (w0 & 0xFF) !== 0;
-                renderTile = (w0 >>> 8) & 7;
-                texScaleS = (w1 >>> 16) / 65536;
-                texScaleT = (w1 & 0xFFFF) / 65536;
-                break;
-            case G_SETTIMG: timgAddr = w1; break;
-            case G_LOADBLOCK:
-            case G_LOADTILE: {
-                // The load goes through the tile named in w1; whatever TMEM
-                // address that tile points at now holds this texture.
-                const loadTile = tiles[(w1 >>> 24) & 7];
-                tmemTextures.set(loadTile.tmem, textureAt(timgAddr));
-                break;
-            }
-            case G_SETTILE: {
-                // w0: | op | fmt:3 siz:2 | 0 | line:9 | tmem:9 |
-                // w1: | tile:3 | palette:4 | cmt:2 maskt:4 shiftt:4 | cms:2 masks:4 shifts:4 |
-                const tile = tiles[(w1 >>> 24) & 7];
-                tile.tmem = w0 & 0x1FF;
-                tile.cmt = (w1 >>> 18) & 3;
-                tile.maskt = (w1 >>> 14) & 0xF;
-                tile.shiftt = (w1 >>> 10) & 0xF;
-                tile.cms = (w1 >>> 8) & 3;
-                tile.masks = (w1 >>> 4) & 0xF;
-                tile.shifts = w1 & 0xF;
-                break;
-            }
-            case G_SETTILESIZE: {
-                // w0: | op | uls:12 ult:12 |   w1: | tile:3 | lrs:12 lrt:12 |  (10.2 fixed)
-                const tile = tiles[(w1 >>> 24) & 7];
-                tile.uls = ((w0 >>> 12) & 0xFFF) / 4;
-                tile.ult = (w0 & 0xFFF) / 4;
-                tile.lrs = ((w1 >>> 12) & 0xFFF) / 4;
-                tile.lrt = (w1 & 0xFFF) / 4;
-                break;
-            }
-            case G_SETCOMBINE: {
-                // Colour = (a - b) * c + d, two cycles. BK's usual combiner is
-                // cycle 1: (TEXEL0 - PRIM) * ENV + PRIM, cycle 2: COMBINED * SHADE,
-                // so the shade (vertex colour / lighting) only shows up in cycle 2.
-                //   cycle 1: a = w0[23:20]  c = w0[19:15]  b = w1[31:28]  d = w1[17:15]
-                //   cycle 2: a = w0[8:5]    c = w0[4:0]    b = w1[27:24]  d = w1[8:6]
-                const inputs = [
-                    (w0 >>> 20) & 0xF, (w0 >>> 15) & 0x1F, (w1 >>> 28) & 0xF, (w1 >>> 15) & 7,
-                    (w0 >>> 5) & 0xF, w0 & 0x1F, (w1 >>> 24) & 0xF, (w1 >>> 6) & 7,
-                ];
-                combinerUsesTexel = inputs.some(v => v === CC_TEXEL0 || v === CC_TEXEL1);
-                combinerUsesShade = inputs.some(v => v === CC_SHADE);
-                break;
-            }
-            default:
-                break;
         }
+    };
+
+    // ---- geometry-setup tree
+    //
+    // Branch offsets are relative to the command they appear in; a list ends
+    // when next_offset is 0. Choices the game makes at runtime are resolved
+    // statically here: nearest LOD, every SORT / CAMERA / DRAWDIST branch (they
+    // only cull), and SELECTORs as described at that case below.
+    const mipTile2 = (clamp) => Object.assign(tiles[2], clamp
+        ? { cms: 0, cmt: 0, masks: 0, maskt: 0 }
+        : { cms: 0, cmt: 0, masks: 5, maskt: 5 });
+    const runDl = (gfxIndex) => {
+        if (gfxIndex >= 0 && gfxIndex < cmdCount) runDisplayList(gfxBase + gfxIndex * 8, false);
+    };
+    let geoSteps = 0;
+    const walkGeo = (offset, depth) => {
+        if (depth > 64) return;
+        while (offset > 0 && offset + 8 <= dv.byteLength && geoSteps++ < 200000) {
+            const cmd = dv.getUint32(offset, false);
+            const next = dv.getInt32(offset + 4, false);
+            const branch16 = () => dv.getInt16(offset + 8, false);
+            switch (cmd) {
+                case GEO_UNK0:
+                case GEO_CAMERA: {
+                    // s16 branch_offset at +8
+                    const b = branch16();
+                    if (b) walkGeo(offset + b, depth + 1);
+                    break;
+                }
+                case GEO_DRAWDIST: {
+                    // s16 min[3] +8, s16 max[3] +0xE, s16 branch_offset +0x14
+                    const b = dv.getInt16(offset + 0x14, false);
+                    if (b) walkGeo(offset + b, depth + 1);
+                    break;
+                }
+                case GEO_SORT: {
+                    // s16 flags +0x20, s16 branch_offset_1 +0x22, s32 branch_offset_2 +0x24
+                    const b1 = dv.getInt16(offset + 0x22, false);
+                    const b2 = dv.getInt32(offset + 0x24, false);
+                    if (b1) walkGeo(offset + b1, depth + 1);
+                    if (b2) walkGeo(offset + b2, depth + 1);
+                    break;
+                }
+                case GEO_BONE: {
+                    // u8 branch_offset at +8
+                    const b = dv.getUint8(offset + 8);
+                    if (b) walkGeo(offset + b, depth + 1);
+                    break;
+                }
+                case GEO_LOADDL:
+                    runDl(dv.getInt16(offset + 8, false));
+                    break;
+                case GEO_LOADDL2:
+                    runDl(dv.getInt16(offset + 10, false));
+                    break;
+                case GEO_SKINNING: {
+                    // s16 gfx_index[]: first always, then until a 0 entry
+                    runDl(dv.getInt16(offset + 8, false));
+                    for (let i = 1; offset + 8 + i * 2 + 2 <= dv.byteLength; i++) {
+                        const idx = dv.getInt16(offset + 8 + i * 2, false);
+                        if (idx === 0) break;
+                        runDl(idx);
+                    }
+                    break;
+                }
+                case GEO_CALL: {
+                    const b = dv.getInt32(offset + 8, false);
+                    if (b) walkGeo(offset + b, depth + 1);
+                    break;
+                }
+                case GEO_LOD: {
+                    // f32 max +8, f32 min +12, f32 position[3], s32 branch_offset +0x1C
+                    const min = dv.getFloat32(offset + 12, false);
+                    const b = dv.getInt32(offset + 0x1C, false);
+                    if (b && min <= 0) walkGeo(offset + b, depth + 1);
+                    break;
+                }
+                case GEO_SELECTOR: {
+                    // s16 branch_offset_count +8, s16 index +10, s32 branch_offsets[] +12
+                    //
+                    // The game draws nothing here until the actor sets a
+                    // selector. A one-branch selector is an on/off toggle for an
+                    // optional part (a note door's 12 digit plates, hats, ...),
+                    // so keep it off; a multi-branch one picks between states
+                    // (eye blinks, mouth shapes), so show the first.
+                    const count = dv.getInt16(offset + 8, false);
+                    if (count > 1) {
+                        const b = dv.getInt32(offset + 12, false);
+                        if (b) walkGeo(offset + b, depth + 1);
+                    }
+                    break;
+                }
+                case GEO_UNKE: {
+                    // s16 position[3] +8, s16 distance +0xE, s16 branch_offset +0x10
+                    const b = dv.getInt16(offset + 0x10, false);
+                    if (b) walkGeo(offset + b, depth + 1);
+                    break;
+                }
+                case GEO_TEXWRAP:
+                    // s32 mode at +8: 1 = mipMapClampDL, 2 = mipMapWrapDL (modelRender_geoCmd_TEXWRAP)
+                    mipTile2(dv.getInt32(offset + 8, false) === 1);
+                    break;
+                default:
+                    break;
+            }
+            if (next === 0) break;
+            offset += next;
+        }
+    };
+
+    const geoListOffset = dv.getInt32(0x04, false);
+    if (geoListOffset) {
+        walkGeo(geoListOffset, 0);
+    } else {
+        runDisplayList(gfxBase, true);
     }
 
     return { textures, batches: [...batches.values()] };
