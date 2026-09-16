@@ -1,10 +1,10 @@
 import * as THREE from 'three';
 import { addModelCheckbox, getModelGroup, resetGroupModelState, applyGroupMasterState } from './render.js';
 import { parseBKModelGeometry } from './bk_model.js';
-import { buildTexturedParts, makeTexturedMesh, attachTextured } from './bk_textured.js';
+import { buildTexturedParts, makeTexturedMesh, attachTextured, refreshTexturedMode, isPropCollisionShown } from './bk_textured.js';
 
 const wireframeCheckbox = document.getElementById('wireframe');
-const propGeometrySelect = document.getElementById('bkPropGeometry');
+const viewModeSelect = document.getElementById('bkViewMode');
 
 ////////////////////////////////////////
 // System: Banjo-Kazooie setup file (object placement)
@@ -280,9 +280,11 @@ export function parseBKSetup(buffer) {
 //   visual    - what the game draws (decoded from the F3DEX display lists)
 //   collision - the collision list, which for many props is just a small
 //               hitbox (an icicle is 3 triangles), but is what gameplay uses
-// The "Prop geometry" selector picks which one is shown; a model missing the
-// chosen set falls back to the other, and a model that can't be loaded at all
-// falls back to the marker cube.
+// The "View" dropdown picks which one is shown (bk_textured.js); a model
+// missing the chosen set falls back to the other, and a model that can't be
+// loaded at all falls back to the marker cube. In the textured views the
+// visual set is replaced by the textured mesh, and the collision set is
+// drawn on top of it.
 
 const PROP_MODEL_DIR = './models/BK/props/';
 const propGeometryCache = new Map(); // asset id -> Promise<{visual, collision} | null>
@@ -300,14 +302,14 @@ function makeGeometrySet(positions, indices) {
 }
 
 function pickGeometry(loaded) {
-    const want = propGeometrySelect?.value === 'collision' ? 'collision' : 'visual';
+    const want = isPropCollisionShown() ? 'collision' : 'visual';
     const other = want === 'collision' ? 'visual' : 'collision';
     if (loaded[want]) return { set: loaded[want], source: want };
     if (loaded[other]) return { set: loaded[other], source: other };
     return null;
 }
 
-propGeometrySelect?.addEventListener('change', () => {
+viewModeSelect?.addEventListener('change', () => {
     for (const inst of propInstances) {
         const picked = pickGeometry(inst.loaded);
         if (!picked) continue;
@@ -316,6 +318,9 @@ propGeometrySelect?.addEventListener('change', () => {
         inst.prop.geometrySource = picked.source;
         inst.mesh.userData.bkInfo = inst.describe(inst.prop);
     }
+    // Re-apply with the new geometry in place (bk_textured.js's own listener
+    // ran before the swap).
+    refreshTexturedMode();
 });
 
 function loadPropGeometry(assetId) {

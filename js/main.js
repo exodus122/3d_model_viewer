@@ -43,8 +43,7 @@ const groundClipBandsLabel = document.getElementById("groundClipBandsLabel");
 
 const display_fwc = document.getElementById('display_fwc');
 const display_fwc_label = document.getElementById('display_fwc_label');
-const bkPropGeometryLabel = document.getElementById('bkPropGeometryLabel');
-const bkTexturedLabel = document.getElementById('bkTexturedLabel');
+const bkViewModeLabel = document.getElementById('bkViewModeLabel');
 
 ////////////////////////////////////////
 // System: Scene, Renderer, Camera, Lights
@@ -246,8 +245,7 @@ gameSel.addEventListener('change',(e)=>{
         });
     }
     
-    bkPropGeometryLabel.style.display = (game == "BK") ? "block" : "none";
-    bkTexturedLabel.style.display = (game == "BK") ? "block" : "none";
+    bkViewModeLabel.style.display = (game == "BK") ? "block" : "none";
 
     if (game == "BK" || game == "BT") {
         display_fwc_label.style.display = "none";

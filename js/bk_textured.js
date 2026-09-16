@@ -9,17 +9,36 @@ import { parseBKModelTextured } from './bk_model.js';
 // display-list) geometry in a flat colour. This module builds a second,
 // textured mesh for the same model from its display lists and textures
 // (parseBKModelTextured), attaches it as a child of the plain mesh, and lets
-// the "Textured" checkbox swap between the two. Being a child, the textured
-// mesh follows the plain mesh's transform, its row checkbox, and selection.
+// the "View" dropdown swap between the two. Being a child, the textured mesh
+// follows the plain mesh's transform, its row checkbox, and selection.
+//
+// The three views:
+//   textured            - textured meshes only
+//   textured-collision  - textured meshes, plus each prop's / actor's plain
+//                         collision mesh drawn over its textured one, since
+//                         the two differ (often a hitbox against the full
+//                         model) and seeing both is the point. It is drawn
+//                         translucent so the model shows through it, and
+//                         depth-tested like everything else, so only the
+//                         parts outside the model (and not behind the map)
+//                         are visible.
+//   collision           - plain meshes only (the flat-colour collision view)
+// The map's collision mesh is never drawn over its textured mesh: it would
+// cover the textures.
 
-const texturedCheckbox = document.getElementById('bkTextured');
+const viewModeSelect = document.getElementById('bkViewMode');
 const wireframeCheckbox = document.getElementById('wireframe');
 
 // { plain: Mesh, textured: Object3D, edges: Object3D | null }
 const texturedPairs = [];
 
 export function isTexturedMode() {
-    return !!texturedCheckbox?.checked;
+    return viewModeSelect?.value !== 'collision';
+}
+
+/** Props / actors show their collision list rather than their display-list triangles. */
+export function isPropCollisionShown() {
+    return viewModeSelect?.value !== 'textured';
 }
 
 function wrapMode(bits) {
@@ -154,27 +173,50 @@ export function clearTexturedPairs() {
     texturedPairs.length = 0;
 }
 
+// Whether the plain mesh is drawn (see the header).
+function plainShown(pair) {
+    if (!isTexturedMode()) return true;
+    return isPropCollisionShown() && pair.plain.userData.bkProp?.geometrySource === 'collision';
+}
+
+// Draw order for the collision overlay: after the XLU map (renderOrder 1), so
+// it blends over water rather than under it.
+const OVERLAY_RENDER_ORDER = 2;
+
 function applyTexturedMode(pair) {
     const on = isTexturedMode();
+    const shown = plainShown(pair);
+    const overlay = on && shown;
     // Hiding the plain mesh's material (not the mesh) keeps its children drawn.
     const plainMaterials = Array.isArray(pair.plain.material) ? pair.plain.material : [pair.plain.material];
-    for (const m of plainMaterials) if (m) m.visible = !on;
+    for (const m of plainMaterials) {
+        if (!m) continue;
+        m.visible = shown;
+        m.transparent = overlay;
+        m.opacity = overlay ? 0.5 : 1;
+    }
+    pair.plain.renderOrder = overlay ? OVERLAY_RENDER_ORDER : 0;
     pair.textured.visible = on;
     if (pair.edges) {
+        pair.edges.renderOrder = overlay ? OVERLAY_RENDER_ORDER + 1 : 0;
         // A prop instance's row visibility lives on its parent group.
         const rowVisible = pair.plain.visible && (pair.plain.parent ? pair.plain.parent.visible : true);
-        pair.edges.visible = !on && rowVisible && wireframeCheckbox.checked;
+        pair.edges.visible = shown && rowVisible && wireframeCheckbox.checked;
     }
 }
 
-texturedCheckbox?.addEventListener('change', () => {
+/** Re-apply after the view changed (bk_setup.js calls this after swapping prop geometry). */
+export function refreshTexturedMode() {
     for (const pair of texturedPairs) applyTexturedMode(pair);
-});
+}
+
+viewModeSelect?.addEventListener('change', refreshTexturedMode);
 
 // The wireframe checkbox and the row / group checkboxes turn edges back on
-// through their own handlers in render.js; keep them off while textured.
-// Both fire bubbling change events inside .controls.
+// through their own handlers in render.js; keep them off for the plain meshes
+// that are hidden while textured. Both fire bubbling change events inside
+// .controls.
 document.querySelector('.controls')?.addEventListener('change', (e) => {
-    if (e.target === texturedCheckbox || !isTexturedMode()) return;
-    for (const pair of texturedPairs) if (pair.edges) pair.edges.visible = false;
+    if (e.target === viewModeSelect || !isTexturedMode()) return;
+    for (const pair of texturedPairs) if (pair.edges && !plainShown(pair)) pair.edges.visible = false;
 });
