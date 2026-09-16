@@ -7,6 +7,7 @@ import { scanAndBuildFlatGroundMarkers, buildSurfaceTypeMarkers, scanAndBuildSub
 import { buildWaterBoxModel } from './waterboxes.js';
 import { renderZeldaObjectsInScene } from './render_actors.js';
 import { buildTexturedMesh, attachTextured, clearTexturedPairs } from './bk_textured.js';
+import { mapAppendageVisibility } from './bk_model.js';
 
 const wireframeCheckbox = document.getElementById('wireframe');
 const surfaceTypeDropdown = document.getElementById("surfaceTypeDropdown");
@@ -121,7 +122,9 @@ export function parseModelBinary(scene, buffer){
     buildGeometry(scene, verts, tris, null, null, "Main Model", true);
 }
 
-export function parseBKModelBinary(scene, buffer, fresh, name){
+// mapId: the BK map this model belongs to (BK_Maps sceneID), which decides
+// the selector-gated parts its textured mesh shows; omit for a bare model.
+export function parseBKModelBinary(scene, buffer, fresh, name, mapId){
     const dv = new DataView(buffer);
     if (dv.byteLength < 4) {
         alert('binary too small');
@@ -219,7 +222,9 @@ export function parseBKModelBinary(scene, buffer, fresh, name){
         const entry = loadedModels[loadedModels.length - 1];
         if (entry && entry.name === modelName) {
             try {
-                const textured = buildTexturedMesh(buffer, { translucent: modelName === "XLU Model" });
+                const translucent = modelName === "XLU Model";
+                const appendages = mapId === undefined ? undefined : mapAppendageVisibility(mapId, translucent);
+                const textured = buildTexturedMesh(buffer, { translucent, appendages });
                 if (textured) attachTextured(entry.mesh, textured, entry.edges);
             } catch (err) {
                 console.warn(`${modelName}: textured build failed: ${err.message}`);

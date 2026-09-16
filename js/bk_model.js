@@ -336,8 +336,14 @@ function decodeTexture(dv, dataBase, info) {
  *   texture is an index into textures or -1 for untextured; wrapS/wrapT are the
  *   tile's clamp/mirror bits (bit 1 clamp, bit 0 mirror); xlu is set for
  *   triangles drawn through an alpha-blending render mode (see G_DL below).
+ *
+ * options.appendages: the model's appendage visibility table (the game's
+ *   D_80383658, see selector resolution below) as { [index]: selection }.
+ *   When given, SELECTORs are resolved exactly as modelRender_geoCmd_SELECTOR
+ *   does and `selector` is ignored; see mapAppendageVisibility().
  */
-export function parseBKModelTextured(buffer, selector = 0) {
+export function parseBKModelTextured(buffer, selector = 0, options = {}) {
+    const appendages = options.appendages ?? null;
     const dv = new DataView(buffer);
     if (dv.byteLength < 0x38 || dv.getUint32(0, false) !== MODEL_MAGIC) return null;
 
@@ -606,8 +612,14 @@ export function parseBKModelTextured(buffer, selector = 0) {
     };
     // ---- selector resolution
     //
-    // A SELECTOR draws branch D[index] (set by the actor through
-    // modelRender_setAppendageVisibility). For per-instance variants (level
+    // A SELECTOR reads selection = D_80383658[index], a table the drawing code
+    // fills through modelRender_setAppendageVisibility: 0 draws nothing, n > 0
+    // draws branch n-1 (if the node has that many), n < 0 is a bitmask of
+    // branches (modelRender_geoCmd_SELECTOR). A caller that knows the table
+    // (map models: mapAppendageVisibility) passes it as options.appendages and
+    // gets exactly that.
+    //
+    // Without it (props) the table is guessed. For per-instance variants (level
     // entry signs, SNS eggs, world exit pads) the actor sets appendage
     // `actorTypeSpecificField` on, and that value is NodeProp.selector_or_radius
     // from the setup file -- passed in here as `selector`. For state-driven
@@ -646,10 +658,25 @@ export function parseBKModelTextured(buffer, selector = 0) {
         }
     };
     const geoListOffsetForScan = dv.getInt32(0x04, false);
-    if (geoListOffsetForScan) scanGeo(geoListOffsetForScan, 0, false);
+    if (geoListOffsetForScan && !appendages) scanGeo(geoListOffsetForScan, 0, false);
     let activeSingleIndex = -1;
     if (singleIndices.has(selector)) activeSingleIndex = selector;
     else if (!hasUnconditional && singleIndices.size) activeSingleIndex = Math.min(...singleIndices);
+
+    // Branch choices for one SELECTOR node, per the resolution above.
+    const selectorBranches = (count, index) => {
+        if (appendages) {
+            if (index === 0) return [];
+            const selection = appendages[index] ?? 0;
+            if (selection > 0) return selection <= count ? [selection - 1] : [];
+            const chosen = [];
+            for (let i = 0; i < count; i++) if ((-selection >> i) & 1) chosen.push(i);
+            return chosen;
+        }
+        if (count === 1) return index === activeSingleIndex ? [0] : [];
+        if (count > 1) return [(selector >= 1 && selector <= count) ? selector - 1 : 0];
+        return [];
+    };
 
     let geoSteps = 0;
     const walkGeo = (offset, depth) => {
@@ -716,19 +743,14 @@ export function parseBKModelTextured(buffer, selector = 0) {
                 }
                 case GEO_SELECTOR: {
                     // s16 branch_offset_count +8, s16 index +10, s32 branch_offsets[] +12
-                    // One branch: an on/off part, on only if it is the resolved
-                    // variant (see selector resolution above). Several branches:
-                    // a choice between states -- the instance's selector value
-                    // if it names one, else the first.
+                    // With a guessed table, one branch is an on/off part, on
+                    // only if it is the resolved variant (see selector
+                    // resolution above), and several are a choice between
+                    // states -- the instance's selector value if it names one,
+                    // else the first.
                     const count = dv.getInt16(offset + 8, false);
                     const index = dv.getInt16(offset + 10, false);
-                    let choice = -1;
-                    if (count === 1) {
-                        if (index === activeSingleIndex) choice = 0;
-                    } else if (count > 1) {
-                        choice = (selector >= 1 && selector <= count) ? selector - 1 : 0;
-                    }
-                    if (choice >= 0) {
+                    for (const choice of selectorBranches(count, index)) {
                         const b = dv.getInt32(offset + 12 + choice * 4, false);
                         if (b) walkGeo(offset + b, depth + 1);
                     }
@@ -760,4 +782,49 @@ export function parseBKModelTextured(buffer, selector = 0) {
     }
 
     return { textures, batches: [...batches.values()] };
+}
+
+////////////////////////////////////////
+// Map model appendage visibility
+////////////////////////////////////////
+//
+// What mapModel_opa_draw / mapModel_xlu_draw (core2/mapModel.c) put in the
+// appendage table before drawing a map model. modelRender_reset leaves 1 on
+// and 2 off after every draw and props zero the rest, so that is the base
+// state; the per-map cases override it. Runtime conditions are resolved to a
+// fresh file / nothing-happening state: GV's water pyramid down (flag 6 off,
+// jiggy 42 not collected), Sandybutt's maze not in first person, the cellar's
+// barrel-top actor still spawned, Grunty's door shut, and the SM cutscene
+// flag off.
+
+const SM_OPA_MAP_IDS = [0x01, 0x7D, 0x7E, 0x85, 0x86, 0x88, 0x94]; // maps drawn with ASSET_14CF
+const MUMBOS_SKULL_MAP_IDS = [0x0E, 0x47, 0x48, 0x30, 0x4A, 0x4B, 0x4C, 0x4D]; // variant n+1
+
+const MAP_OPA_APPENDAGES = new Map([
+    ...SM_OPA_MAP_IDS.map(id => [id, { 1: 0, 2: 1 }]),
+    ...MUMBOS_SKULL_MAP_IDS.map((id, i) => [id, { 1: i + 1, 5: i + 1 }]),
+    [0x12, { 1: 0, 2: 1, 5: 0 }],                       // GV_GOBIS_VALLEY
+    [0x14, { 5: 0 }],                                   // GV_SANDYBUTTS_MAZE
+    [0x5E, { 1: 1, 2: 0 }], [0x5F, { 1: 1, 2: 0 }], [0x60, { 1: 1, 2: 0 }], // CCW_*_NABNUTS_HOUSE
+    [0x61, { 1: 0, 2: 1 }],                             // CCW_WINTER_NABNUTS_HOUSE
+    [0x1D, { 1: 0 }],                                   // MMM_CELLAR
+    [0x7C, { 5: 1 }], [0x89, { 5: 1 }], [0x8A, { 5: 1 }], [0x8C, { 5: 1 }], [0x91, { 5: 1 }], // Banjo's house, file select
+    [0x7B, { 4: 0, 5: 0, 6: 0 }], [0x81, { 4: 0, 5: 0, 6: 0 }], // CS_INTRO_GL_DINGPOT_*
+    [0x82, { 4: 1, 5: 1, 6: 1 }], [0x83, { 4: 1, 5: 1, 6: 1 }], [0x84, { 4: 1, 5: 1, 6: 1 }], // CS_*_MACHINE_ROOM
+    [0x93, { 4: 1, 5: 1, 6: 0 }],                       // GL_DINGPOT
+]);
+
+const MAP_XLU_APPENDAGES = new Map([
+    [0x1D, { 1: 0 }],                                   // MMM_CELLAR
+]);
+
+/**
+ * Appendage table for a map's opaque or translucent model, for
+ * parseBKModelTextured's options.appendages.
+ * @param {number} mapId the map enum value (BK_Maps sceneID)
+ * @param {boolean} xlu the map's XLU model rather than its OPA one
+ */
+export function mapAppendageVisibility(mapId, xlu) {
+    const overrides = (xlu ? MAP_XLU_APPENDAGES : MAP_OPA_APPENDAGES).get(mapId);
+    return { 1: 1, 2: 0, ...overrides };
 }

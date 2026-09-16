@@ -63,7 +63,12 @@ renderer.shadowMap.enabled = false;
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x0b1220);
 
-const camera = new THREE.PerspectiveCamera(60,2,0.1,100000);
+// Depth precision goes as near / distance^2, and the meshes use polygonOffset
+// so their wireframes draw on top: with a 0.1 near plane, one depth-buffer
+// step is over 10 world units a few thousand units out, and a surface that
+// close above another (CCW winter's ice over its lake bed) shows the lower
+// one's edges through it. 2 units is well below the slowest fly speed.
+const camera = new THREE.PerspectiveCamera(60,2,2,100000);
 camera.position.set(0,100,400);
 
 // Movement state (applies only in pointer-lock / fly mode)
@@ -305,26 +310,27 @@ loadMap.addEventListener('click', async (e) => {
         // models/BK/<dir>/{opa,xlu}.model.bin, see BK_Maps in model_list.js
         const mapName = document.getElementById("mapDropdown").value;
         const mapDir = getMapProperty(game, mapName, "dir");
+        const mapId = parseInt(getMapProperty(game, mapName, "sceneID"), 16);
         const hasXlu = getMapProperty(game, mapName, "xlu") !== "";
 
         try {
             const res1 = await fetch('./models/BK/' + mapDir + '/opa.model.bin');
             const buffer1 = await res1.arrayBuffer();
             console.log(mapDir+"/opa.model.bin: Binary file length:", buffer1.byteLength);
-            parseBKModelBinary(scene, buffer1, true);
+            parseBKModelBinary(scene, buffer1, true, undefined, mapId);
 
             if (hasXlu) {
                 const res2 = await fetch('./models/BK/' + mapDir + '/xlu.model.bin');
                 const buffer2 = await res2.arrayBuffer();
                 console.log(mapDir+"/xlu.model.bin: Binary file length:", buffer2.byteLength);
-                parseBKModelBinary(scene, buffer2, false, "XLU Model");
+                parseBKModelBinary(scene, buffer2, false, "XLU Model", mapId);
             }
 
             // Object placement (actor spawns, static model / sprite props)
             const res3 = await fetch('./models/BK/' + mapDir + '/setup.bin');
             const buffer3 = await res3.arrayBuffer();
             console.log(mapDir+"/setup.bin: Binary file length:", buffer3.byteLength);
-            await renderBKSetup(scene, buffer3, parseInt(getMapProperty(game, mapName, "sceneID"), 16));
+            await renderBKSetup(scene, buffer3, mapId);
         } catch (err) {
             console.error(err);
         }

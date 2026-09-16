@@ -36,7 +36,15 @@ function wrapMode(bits) {
  */
 export function buildTexturedMesh(buffer, options = {}) {
     const parts = buildTexturedParts(buffer, 0, options);
-    return parts ? makeTexturedMesh(parts) : null;
+    if (!parts) return null;
+    const mesh = makeTexturedMesh(parts);
+    // The game draws a map's XLU model last in the frame, after the OPA model
+    // and the actors (gsworld_draw). three.js orders blended meshes by their
+    // bounding-sphere depth instead, and the OPA model's own blended parts
+    // (CCW winter's lake bed under the XLU ice) would draw over the XLU model
+    // whenever the camera brings the OPA centre nearer.
+    if (options.translucent) mesh.renderOrder = 1;
+    return mesh;
 }
 
 /**
@@ -49,10 +57,14 @@ export function buildTexturedMesh(buffer, options = {}) {
  * on texture alpha only -- except for the parts a model's own display list
  * switches to an XLU render mode (batch.xlu: shadows, glows, the dark base
  * of Clanker's teeth), which blend the same way the translucent path does.
+ *
+ * options.appendages: the model's appendage visibility table, for models
+ * whose selector-gated parts the game switches itself (map models, see
+ * mapAppendageVisibility); overrides `selector`.
  */
 export function buildTexturedParts(buffer, selector = 0, options = {}) {
     const translucent = !!options.translucent;
-    const parsed = parseBKModelTextured(buffer, selector);
+    const parsed = parseBKModelTextured(buffer, selector, { appendages: options.appendages });
     if (!parsed || parsed.batches.length === 0) return null;
 
     // One DataTexture per (texture, wrap) combination; clones share the image.
