@@ -1,0 +1,2926 @@
+[
+  {
+    "map_id": 1,
+    "map": "MAP_1_SM_SPIRAL_MOUNTAIN",
+    "dir": "01_SM_SPIRAL_MOUNTAIN",
+    "files": {
+      "setup.bin": {
+        "asset_id": 1821,
+        "asset": null,
+        "compressed": true,
+        "size": 9888
+      },
+      "opa.model.bin": {
+        "asset_id": 5327,
+        "asset": "MODEL_SM_SPIRAL_MOUNTAIN_OPA",
+        "compressed": true,
+        "size": 386580
+      },
+      "xlu.model.bin": {
+        "asset_id": 5328,
+        "asset": "MODEL_SM_SPIRAL_MOUNTAIN_XLU",
+        "compressed": true,
+        "size": 54804
+      }
+    }
+  },
+  {
+    "map_id": 2,
+    "map": "MAP_2_MM_MUMBOS_MOUNTAIN",
+    "dir": "02_MM_MUMBOS_MOUNTAIN",
+    "files": {
+      "setup.bin": {
+        "asset_id": 1822,
+        "asset": null,
+        "compressed": true,
+        "size": 14608
+      },
+      "opa.model.bin": {
+        "asset_id": 5290,
+        "asset": "MODEL_MM_MUMBOS_MOUNTAIN_OPA",
+        "compressed": true,
+        "size": 282572
+      },
+      "xlu.model.bin": {
+        "asset_id": 5291,
+        "asset": "MODEL_MM_MUMBOS_MOUNTAIN_XLU",
+        "compressed": true,
+        "size": 26948
+      }
+    }
+  },
+  {
+    "map_id": 5,
+    "map": "MAP_5_TTC_BLUBBERS_SHIP",
+    "dir": "05_TTC_BLUBBERS_SHIP",
+    "files": {
+      "setup.bin": {
+        "asset_id": 1825,
+        "asset": null,
+        "compressed": true,
+        "size": 1320
+      },
+      "opa.model.bin": {
+        "asset_id": 5231,
+        "asset": "MODEL_TTC_BLUBBERS_SHIP_OPA",
+        "compressed": true,
+        "size": 39180
+      },
+      "xlu.model.bin": {
+        "asset_id": 5232,
+        "asset": "MODEL_TTC_BLUBBERS_SHIP_XLU",
+        "compressed": true,
+        "size": 6532
+      }
+    }
+  },
+  {
+    "map_id": 6,
+    "map": "MAP_6_TTC_NIPPERS_SHELL",
+    "dir": "06_TTC_NIPPERS_SHELL",
+    "files": {
+      "setup.bin": {
+        "asset_id": 1826,
+        "asset": null,
+        "compressed": true,
+        "size": 1565
+      },
+      "opa.model.bin": {
+        "asset_id": 5229,
+        "asset": "MODEL_TTC_NIPPERS_SHELL_OPA",
+        "compressed": true,
+        "size": 36828
+      },
+      "xlu.model.bin": {
+        "asset_id": 5230,
+        "asset": "MODEL_TTC_NIPPERS_SHELL_XLU",
+        "compressed": true,
+        "size": 14956
+      }
+    }
+  },
+  {
+    "map_id": 7,
+    "map": "MAP_7_TTC_TREASURE_TROVE_COVE",
+    "dir": "07_TTC_TREASURE_TROVE_COVE",
+    "files": {
+      "setup.bin": {
+        "asset_id": 1827,
+        "asset": null,
+        "compressed": true,
+        "size": 21670
+      },
+      "opa.model.bin": {
+        "asset_id": 5227,
+        "asset": "MODEL_TTC_TREASURE_TROVE_COVE_OPA",
+        "compressed": true,
+        "size": 439404
+      },
+      "xlu.model.bin": {
+        "asset_id": 5228,
+        "asset": "MODEL_TTC_TREASURE_TROVE_COVE_XLU",
+        "compressed": true,
+        "size": 82988
+      }
+    }
+  },
+  {
+    "map_id": 143,
+    "map": "MAP_8F_TTC_SHARKFOOD_ISLAND",
+    "dir": "8F_TTC_SHARKFOOD_ISLAND",
+    "files": {
+      "setup.bin": {
+        "asset_id": 1963,
+        "asset": null,
+        "compressed": true,
+        "size": 2775
+      },
+      "opa.model.bin": {
+        "asset_id": 5235,
+        "asset": "MODEL_TTC_SHARKFOOD_ISLAND_OPA",
+        "compressed": true,
+        "size": 57868
+      }
+    }
+  },
+  {
+    "map_id": 10,
+    "map": "MAP_A_TTC_SANDCASTLE",
+    "dir": "0A_TTC_SANDCASTLE",
+    "files": {
+      "setup.bin": {
+        "asset_id": 1830,
+        "asset": null,
+        "compressed": true,
+        "size": 1175
+      },
+      "opa.model.bin": {
+        "asset_id": 5233,
+        "asset": "MODEL_TTC_SANDCASTLE_OPA",
+        "compressed": true,
+        "size": 90748
+      },
+      "xlu.model.bin": {
+        "asset_id": 5234,
+        "asset": "MODEL_TTC_SANDCASTLE_XLU",
+        "compressed": true,
+        "size": 5268
+      }
+    }
+  },
+  {
+    "map_id": 11,
+    "map": "MAP_B_CC_CLANKERS_CAVERN",
+    "dir": "0B_CC_CLANKERS_CAVERN",
+    "files": {
+      "setup.bin": {
+        "asset_id": 1831,
+        "asset": null,
+        "compressed": true,
+        "size": 15112
+      },
+      "opa.model.bin": {
+        "asset_id": 5357,
+        "asset": "MODEL_CC_CLANKERS_CAVERN_OPA",
+        "compressed": true,
+        "size": 440220
+      },
+      "xlu.model.bin": {
+        "asset_id": 5358,
+        "asset": "MODEL_CC_CLANKERS_CAVERN_XLU",
+        "compressed": true,
+        "size": 36668
+      }
+    }
+  },
+  {
+    "map_id": 12,
+    "map": "MAP_C_MM_TICKERS_TOWER",
+    "dir": "0C_MM_TICKERS_TOWER",
+    "files": {
+      "setup.bin": {
+        "asset_id": 1832,
+        "asset": null,
+        "compressed": true,
+        "size": 1943
+      },
+      "opa.model.bin": {
+        "asset_id": 5292,
+        "asset": "MODEL_SM_TICKERS_TOWER_OPA",
+        "compressed": true,
+        "size": 52804
+      },
+      "xlu.model.bin": {
+        "asset_id": 5293,
+        "asset": "MODEL_SM_TICKERS_TOWER_XLU",
+        "compressed": true,
+        "size": 8692
+      }
+    }
+  },
+  {
+    "map_id": 13,
+    "map": "MAP_D_BGS_BUBBLEGLOOP_SWAMP",
+    "dir": "0D_BGS_BUBBLEGLOOP_SWAMP",
+    "files": {
+      "setup.bin": {
+        "asset_id": 1833,
+        "asset": null,
+        "compressed": true,
+        "size": 15227
+      },
+      "opa.model.bin": {
+        "asset_id": 5329,
+        "asset": "MODEL_BGS_BUBBLEGLOOP_SWAMP_OPA",
+        "compressed": true,
+        "size": 406940
+      },
+      "xlu.model.bin": {
+        "asset_id": 5330,
+        "asset": "MODEL_BGS_BUBBLEGLOOP_SWAMP_XLU",
+        "compressed": true,
+        "size": 109388
+      }
+    }
+  },
+  {
+    "map_id": 14,
+    "map": "MAP_E_MM_MUMBOS_SKULL",
+    "dir": "0E_MM_MUMBOS_SKULL",
+    "files": {
+      "setup.bin": {
+        "asset_id": 1834,
+        "asset": null,
+        "compressed": true,
+        "size": 1051
+      },
+      "opa.model.bin": {
+        "asset_id": 5294,
+        "asset": "MODEL_MUMBOS_SKULL_OPA",
+        "compressed": true,
+        "size": 228996
+      }
+    }
+  },
+  {
+    "map_id": 16,
+    "map": "MAP_10_BGS_MR_VILE",
+    "dir": "10_BGS_MR_VILE",
+    "files": {
+      "setup.bin": {
+        "asset_id": 1836,
+        "asset": null,
+        "compressed": true,
+        "size": 2555
+      },
+      "opa.model.bin": {
+        "asset_id": 5331,
+        "asset": "MODEL_BGS_MR_VILE_OPA",
+        "compressed": true,
+        "size": 98892
+      }
+    }
+  },
+  {
+    "map_id": 17,
+    "map": "MAP_11_BGS_TIPTUP",
+    "dir": "11_BGS_TIPTUP",
+    "files": {
+      "setup.bin": {
+        "asset_id": 1837,
+        "asset": null,
+        "compressed": true,
+        "size": 1845
+      },
+      "opa.model.bin": {
+        "asset_id": 5332,
+        "asset": "MODEL_BGS_TIPTUP_OPA",
+        "compressed": true,
+        "size": 56820
+      },
+      "xlu.model.bin": {
+        "asset_id": 5333,
+        "asset": "MODEL_BGS_TIPTUP_XLU",
+        "compressed": true,
+        "size": 4716
+      }
+    }
+  },
+  {
+    "map_id": 18,
+    "map": "MAP_12_GV_GOBIS_VALLEY",
+    "dir": "12_GV_GOBIS_VALLEY",
+    "files": {
+      "setup.bin": {
+        "asset_id": 1838,
+        "asset": null,
+        "compressed": true,
+        "size": 18388
+      },
+      "opa.model.bin": {
+        "asset_id": 5236,
+        "asset": "MODEL_GV_GOBIS_VALLEY_OPA",
+        "compressed": true,
+        "size": 227908
+      },
+      "xlu.model.bin": {
+        "asset_id": 5237,
+        "asset": "MODEL_GV_GOBIS_VALLEY_XLU",
+        "compressed": true,
+        "size": 3012
+      }
+    }
+  },
+  {
+    "map_id": 146,
+    "map": "MAP_92_GV_SNS_CHAMBER",
+    "dir": "92_GV_SNS_CHAMBER",
+    "files": {
+      "setup.bin": {
+        "asset_id": 1966,
+        "asset": null,
+        "compressed": true,
+        "size": 955
+      },
+      "opa.model.bin": {
+        "asset_id": 5246,
+        "asset": "MODEL_GV_SNS_CHAMBER_OPA",
+        "compressed": true,
+        "size": 41092
+      }
+    }
+  },
+  {
+    "map_id": 19,
+    "map": "MAP_13_GV_MEMORY_GAME",
+    "dir": "13_GV_MEMORY_GAME",
+    "files": {
+      "setup.bin": {
+        "asset_id": 1839,
+        "asset": null,
+        "compressed": true,
+        "size": 1264
+      },
+      "opa.model.bin": {
+        "asset_id": 5238,
+        "asset": "MODEL_GV_MEMORY_GAME_OPA",
+        "compressed": true,
+        "size": 95196
+      }
+    }
+  },
+  {
+    "map_id": 20,
+    "map": "MAP_14_GV_SANDYBUTTS_MAZE",
+    "dir": "14_GV_SANDYBUTTS_MAZE",
+    "files": {
+      "setup.bin": {
+        "asset_id": 1840,
+        "asset": null,
+        "compressed": true,
+        "size": 6453
+      },
+      "opa.model.bin": {
+        "asset_id": 5240,
+        "asset": "MODEL_GV_SANDYBUTTS_MAZE_OPA",
+        "compressed": true,
+        "size": 151948
+      },
+      "xlu.model.bin": {
+        "asset_id": 5241,
+        "asset": "MODEL_GV_SANDYBUTTS_MAZE_XLU",
+        "compressed": true,
+        "size": 4476
+      }
+    }
+  },
+  {
+    "map_id": 21,
+    "map": "MAP_15_GV_WATER_PYRAMID",
+    "dir": "15_GV_WATER_PYRAMID",
+    "files": {
+      "setup.bin": {
+        "asset_id": 1841,
+        "asset": null,
+        "compressed": true,
+        "size": 1783
+      },
+      "opa.model.bin": {
+        "asset_id": 5242,
+        "asset": "MODEL_GV_WATER_PYRAMIDS_OPA",
+        "compressed": true,
+        "size": 40404
+      },
+      "xlu.model.bin": {
+        "asset_id": 5243,
+        "asset": "MODEL_GV_WATER_PYRAMIDS_XLU",
+        "compressed": true,
+        "size": 6148
+      }
+    }
+  },
+  {
+    "map_id": 22,
+    "map": "MAP_16_GV_RUBEES_CHAMBER",
+    "dir": "16_GV_RUBEES_CHAMBER",
+    "files": {
+      "setup.bin": {
+        "asset_id": 1842,
+        "asset": null,
+        "compressed": true,
+        "size": 2033
+      },
+      "opa.model.bin": {
+        "asset_id": 5244,
+        "asset": "MODEL_GV_RUBEES_CHAMBER_OPA",
+        "compressed": true,
+        "size": 39140
+      }
+    }
+  },
+  {
+    "map_id": 26,
+    "map": "MAP_1A_GV_INSIDE_JINXY",
+    "dir": "1A_GV_INSIDE_JINXY",
+    "files": {
+      "setup.bin": {
+        "asset_id": 1846,
+        "asset": null,
+        "compressed": true,
+        "size": 2354
+      },
+      "opa.model.bin": {
+        "asset_id": 5245,
+        "asset": "MODEL_GV_INSIDE_JINXY_OPA",
+        "compressed": true,
+        "size": 44260
+      }
+    }
+  },
+  {
+    "map_id": 27,
+    "map": "MAP_1B_MMM_MAD_MONSTER_MANSION",
+    "dir": "1B_MMM_MAD_MONSTER_MANSION",
+    "files": {
+      "setup.bin": {
+        "asset_id": 1847,
+        "asset": null,
+        "compressed": true,
+        "size": 17745
+      },
+      "opa.model.bin": {
+        "asset_id": 5247,
+        "asset": "MODEL_MMM_MAD_MONSTER_MANSION_OPA",
+        "compressed": true,
+        "size": 477636
+      },
+      "xlu.model.bin": {
+        "asset_id": 5248,
+        "asset": "MODEL_MMM_MAD_MONSTER_MANSION_XLU",
+        "compressed": true,
+        "size": 47276
+      }
+    }
+  },
+  {
+    "map_id": 28,
+    "map": "MAP_1C_MMM_CHURCH",
+    "dir": "1C_MMM_CHURCH",
+    "files": {
+      "setup.bin": {
+        "asset_id": 1848,
+        "asset": null,
+        "compressed": true,
+        "size": 5026
+      },
+      "opa.model.bin": {
+        "asset_id": 5254,
+        "asset": "MODEL_MMM_CHURCH_OPA",
+        "compressed": true,
+        "size": 205140
+      },
+      "xlu.model.bin": {
+        "asset_id": 5255,
+        "asset": "MODEL_MMM_CHURCH_XLU",
+        "compressed": true,
+        "size": 8348
+      }
+    }
+  },
+  {
+    "map_id": 29,
+    "map": "MAP_1D_MMM_CELLAR",
+    "dir": "1D_MMM_CELLAR",
+    "files": {
+      "setup.bin": {
+        "asset_id": 1849,
+        "asset": null,
+        "compressed": true,
+        "size": 2460
+      },
+      "opa.model.bin": {
+        "asset_id": 5250,
+        "asset": "MODEL_MMM_CELLAR_OPA",
+        "compressed": true,
+        "size": 130180
+      },
+      "xlu.model.bin": {
+        "asset_id": 5275,
+        "asset": "MODEL_MMM_CELLAR_XLU",
+        "compressed": true,
+        "size": 6092
+      }
+    }
+  },
+  {
+    "map_id": 30,
+    "map": "MAP_1E_CS_START_NINTENDO",
+    "dir": "1E_CS_START_NINTENDO",
+    "files": {
+      "setup.bin": {
+        "asset_id": 1850,
+        "asset": null,
+        "compressed": true,
+        "size": 6719
+      },
+      "opa.model.bin": {
+        "asset_id": 5277,
+        "asset": "MODEL_CS_START_NINTENDO_OPA",
+        "compressed": true,
+        "size": 17948
+      },
+      "xlu.model.bin": {
+        "asset_id": 5281,
+        "asset": "MODEL_CS_START_NINTENDO_XLU",
+        "compressed": true,
+        "size": 4652
+      }
+    }
+  },
+  {
+    "map_id": 31,
+    "map": "MAP_1F_CS_START_RAREWARE",
+    "dir": "1F_CS_START_RAREWARE",
+    "files": {
+      "setup.bin": {
+        "asset_id": 1851,
+        "asset": null,
+        "compressed": true,
+        "size": 1552
+      },
+      "opa.model.bin": {
+        "asset_id": 5278,
+        "asset": "MODEL_CS_START_RAREWARE_OPA",
+        "compressed": true,
+        "size": 316
+      },
+      "xlu.model.bin": {
+        "asset_id": 5280,
+        "asset": "MODEL_CS_START_RAREWARE_XLU",
+        "compressed": true,
+        "size": 4580
+      }
+    }
+  },
+  {
+    "map_id": 32,
+    "map": "MAP_20_CS_END_NOT_100",
+    "dir": "20_CS_END_NOT_100",
+    "files": {
+      "setup.bin": {
+        "asset_id": 1852,
+        "asset": null,
+        "compressed": true,
+        "size": 3485
+      },
+      "opa.model.bin": {
+        "asset_id": 5289,
+        "asset": "MODEL_CS_BEACH_OPA",
+        "compressed": true,
+        "size": 28356
+      },
+      "xlu.model.bin": {
+        "asset_id": 5285,
+        "asset": "MODEL_CS_BEACH_XLU",
+        "compressed": true,
+        "size": 5244
+      }
+    }
+  },
+  {
+    "map_id": 33,
+    "map": "MAP_21_CC_WITCH_SWITCH_ROOM",
+    "dir": "21_CC_WITCH_SWITCH_ROOM",
+    "files": {
+      "setup.bin": {
+        "asset_id": 1853,
+        "asset": null,
+        "compressed": true,
+        "size": 1994
+      },
+      "opa.model.bin": {
+        "asset_id": 5359,
+        "asset": "MODEL_CC_WITCH_SWITCH_ROOM_OPA",
+        "compressed": true,
+        "size": 104332
+      }
+    }
+  },
+  {
+    "map_id": 34,
+    "map": "MAP_22_CC_INSIDE_CLANKER",
+    "dir": "22_CC_INSIDE_CLANKER",
+    "files": {
+      "setup.bin": {
+        "asset_id": 1854,
+        "asset": null,
+        "compressed": true,
+        "size": 5843
+      },
+      "opa.model.bin": {
+        "asset_id": 5360,
+        "asset": "MODEL_CC_INSIDE_CLANKER_OPA",
+        "compressed": true,
+        "size": 146724
+      },
+      "xlu.model.bin": {
+        "asset_id": 5361,
+        "asset": "MODEL_CC_INSIDE_CLANKER_XLU",
+        "compressed": true,
+        "size": 2868
+      }
+    }
+  },
+  {
+    "map_id": 35,
+    "map": "MAP_23_CC_GOLDFEATHER_ROOM",
+    "dir": "23_CC_GOLDFEATHER_ROOM",
+    "files": {
+      "setup.bin": {
+        "asset_id": 1855,
+        "asset": null,
+        "compressed": true,
+        "size": 1207
+      },
+      "opa.model.bin": {
+        "asset_id": 5362,
+        "asset": "MODEL_CC_GOLD_FEATHER_ROOM_OPA",
+        "compressed": true,
+        "size": 67972
+      }
+    }
+  },
+  {
+    "map_id": 36,
+    "map": "MAP_24_MMM_TUMBLARS_SHED",
+    "dir": "24_MMM_TUMBLARS_SHED",
+    "files": {
+      "setup.bin": {
+        "asset_id": 1856,
+        "asset": null,
+        "compressed": true,
+        "size": 2108
+      },
+      "opa.model.bin": {
+        "asset_id": 5256,
+        "asset": "MODEL_MMM_TUMBLARS_SHED_OPA",
+        "compressed": true,
+        "size": 143500
+      }
+    }
+  },
+  {
+    "map_id": 37,
+    "map": "MAP_25_MMM_WELL",
+    "dir": "25_MMM_WELL",
+    "files": {
+      "setup.bin": {
+        "asset_id": 1857,
+        "asset": null,
+        "compressed": true,
+        "size": 1554
+      },
+      "opa.model.bin": {
+        "asset_id": 5269,
+        "asset": "MODEL_MMM_WELL_OPA",
+        "compressed": true,
+        "size": 63940
+      },
+      "xlu.model.bin": {
+        "asset_id": 5270,
+        "asset": "MODEL_MMM_WELL_XLU",
+        "compressed": true,
+        "size": 4196
+      }
+    }
+  },
+  {
+    "map_id": 38,
+    "map": "MAP_26_MMM_NAPPERS_ROOM",
+    "dir": "26_MMM_NAPPERS_ROOM",
+    "files": {
+      "setup.bin": {
+        "asset_id": 1858,
+        "asset": null,
+        "compressed": true,
+        "size": 1867
+      },
+      "opa.model.bin": {
+        "asset_id": 5253,
+        "asset": "MODEL_MMM_NAPPERS_ROOM_OPA",
+        "compressed": true,
+        "size": 206316
+      },
+      "xlu.model.bin": {
+        "asset_id": 5274,
+        "asset": "MODEL_MMM_NAPPERS_ROOM_XLU",
+        "compressed": true,
+        "size": 20068
+      }
+    }
+  },
+  {
+    "map_id": 39,
+    "map": "MAP_27_FP_FREEZEEZY_PEAK",
+    "dir": "27_FP_FREEZEEZY_PEAK",
+    "files": {
+      "setup.bin": {
+        "asset_id": 1859,
+        "asset": null,
+        "compressed": true,
+        "size": 24084
+      },
+      "opa.model.bin": {
+        "asset_id": 5320,
+        "asset": "MODEL_FP_FREEZEEZY_PEAK_OPA",
+        "compressed": true,
+        "size": 295500
+      },
+      "xlu.model.bin": {
+        "asset_id": 5321,
+        "asset": "MODEL_FP_FREEZEEZY_PEAK_XLU",
+        "compressed": true,
+        "size": 17292
+      }
+    }
+  },
+  {
+    "map_id": 40,
+    "map": "MAP_28_MMM_EGG_ROOM",
+    "dir": "28_MMM_EGG_ROOM",
+    "files": {
+      "setup.bin": {
+        "asset_id": 1860,
+        "asset": null,
+        "compressed": true,
+        "size": 780
+      },
+      "opa.model.bin": {
+        "asset_id": 5257,
+        "asset": "MODEL_MMM_EGG_ROOM_OPA",
+        "compressed": true,
+        "size": 40020
+      },
+      "xlu.model.bin": {
+        "asset_id": 5258,
+        "asset": "MODEL_MMM_EGG_ROOM_XLU",
+        "compressed": true,
+        "size": 12052
+      }
+    }
+  },
+  {
+    "map_id": 41,
+    "map": "MAP_29_MMM_NOTE_ROOM",
+    "dir": "29_MMM_NOTE_ROOM",
+    "files": {
+      "setup.bin": {
+        "asset_id": 1861,
+        "asset": null,
+        "compressed": true,
+        "size": 736
+      },
+      "opa.model.bin": {
+        "asset_id": 5259,
+        "asset": "MODEL_MMM_NOTE_ROOM_OPA",
+        "compressed": true,
+        "size": 38548
+      },
+      "xlu.model.bin": {
+        "asset_id": 5260,
+        "asset": "MODEL_MMM_NOTE_ROOM_XLU",
+        "compressed": true,
+        "size": 12092
+      }
+    }
+  },
+  {
+    "map_id": 42,
+    "map": "MAP_2A_MMM_FEATHER_ROOM",
+    "dir": "2A_MMM_FEATHER_ROOM",
+    "files": {
+      "setup.bin": {
+        "asset_id": 1862,
+        "asset": null,
+        "compressed": true,
+        "size": 1136
+      },
+      "opa.model.bin": {
+        "asset_id": 5261,
+        "asset": "MODEL_MMM_FEATHER_ROOM_OPA",
+        "compressed": true,
+        "size": 60836
+      },
+      "xlu.model.bin": {
+        "asset_id": 5262,
+        "asset": "MODEL_MMM_FEATHER_ROOM_XLU",
+        "compressed": true,
+        "size": 6876
+      }
+    }
+  },
+  {
+    "map_id": 43,
+    "map": "MAP_2B_MMM_SECRET_CHURCH_ROOM",
+    "dir": "2B_MMM_SECRET_CHURCH_ROOM",
+    "files": {
+      "setup.bin": {
+        "asset_id": 1863,
+        "asset": null,
+        "compressed": true,
+        "size": 1213
+      },
+      "opa.model.bin": {
+        "asset_id": 5251,
+        "asset": "MODEL_MMM_SECRET_CHURCH_ROOM_OPA",
+        "compressed": true,
+        "size": 41556
+      },
+      "xlu.model.bin": {
+        "asset_id": 5252,
+        "asset": "MODEL_MMM_SECRET_CHURCH_ROOM_XLU",
+        "compressed": true,
+        "size": 13796
+      }
+    }
+  },
+  {
+    "map_id": 44,
+    "map": "MAP_2C_MMM_BATHROOM",
+    "dir": "2C_MMM_BATHROOM",
+    "files": {
+      "setup.bin": {
+        "asset_id": 1864,
+        "asset": null,
+        "compressed": true,
+        "size": 982
+      },
+      "opa.model.bin": {
+        "asset_id": 5263,
+        "asset": "MODEL_MMM_BATHROOM_OPA",
+        "compressed": true,
+        "size": 56812
+      },
+      "xlu.model.bin": {
+        "asset_id": 5264,
+        "asset": "MODEL_MMM_BATHROOM_XLU",
+        "compressed": true,
+        "size": 18908
+      }
+    }
+  },
+  {
+    "map_id": 45,
+    "map": "MAP_2D_MMM_BEDROOM",
+    "dir": "2D_MMM_BEDROOM",
+    "files": {
+      "setup.bin": {
+        "asset_id": 1865,
+        "asset": null,
+        "compressed": true,
+        "size": 1639
+      },
+      "opa.model.bin": {
+        "asset_id": 5265,
+        "asset": "MODEL_MMM_BEDROOM_OPA",
+        "compressed": true,
+        "size": 93196
+      },
+      "xlu.model.bin": {
+        "asset_id": 5266,
+        "asset": "MODEL_MMM_BEDROOM_XLU",
+        "compressed": true,
+        "size": 10412
+      }
+    }
+  },
+  {
+    "map_id": 46,
+    "map": "MAP_2E_MMM_HONEYCOMB_ROOM",
+    "dir": "2E_MMM_HONEYCOMB_ROOM",
+    "files": {
+      "setup.bin": {
+        "asset_id": 1866,
+        "asset": null,
+        "compressed": true,
+        "size": 721
+      },
+      "opa.model.bin": {
+        "asset_id": 5267,
+        "asset": "MODEL_MMM_HONEYCOMB_ROOM_OPA",
+        "compressed": true,
+        "size": 47124
+      },
+      "xlu.model.bin": {
+        "asset_id": 5268,
+        "asset": "MODEL_MMM_HONEYCOMB_ROOM_XLU",
+        "compressed": true,
+        "size": 11052
+      }
+    }
+  },
+  {
+    "map_id": 47,
+    "map": "MAP_2F_MMM_WATERDRAIN_BARREL",
+    "dir": "2F_MMM_WATERDRAIN_BARREL",
+    "files": {
+      "setup.bin": {
+        "asset_id": 1867,
+        "asset": null,
+        "compressed": true,
+        "size": 481
+      },
+      "opa.model.bin": {
+        "asset_id": 5249,
+        "asset": "MODEL_MMM_RAINBARREL_OPA",
+        "compressed": true,
+        "size": 21212
+      },
+      "xlu.model.bin": {
+        "asset_id": 5271,
+        "asset": "MODEL_MMM_RAINBARREL_XLU",
+        "compressed": true,
+        "size": 4876
+      }
+    }
+  },
+  {
+    "map_id": 48,
+    "map": "MAP_30_MMM_MUMBOS_SKULL",
+    "dir": "30_MMM_MUMBOS_SKULL",
+    "files": {
+      "setup.bin": {
+        "asset_id": 1868,
+        "asset": null,
+        "compressed": true,
+        "size": 1066
+      },
+      "opa.model.bin": {
+        "asset_id": 5294,
+        "asset": "MODEL_MUMBOS_SKULL_OPA",
+        "compressed": true,
+        "size": 228996
+      }
+    }
+  },
+  {
+    "map_id": 141,
+    "map": "MAP_8D_MMM_INSIDE_LOGGO",
+    "dir": "8D_MMM_INSIDE_LOGGO",
+    "files": {
+      "setup.bin": {
+        "asset_id": 1961,
+        "asset": null,
+        "compressed": true,
+        "size": 1017
+      },
+      "opa.model.bin": {
+        "asset_id": 5272,
+        "asset": "MODEL_MMM_INSIDE_LOGGO_OPA",
+        "compressed": true,
+        "size": 45388
+      },
+      "xlu.model.bin": {
+        "asset_id": 5273,
+        "asset": "MODEL_MMM_INSIDE_LOGGO_XLU",
+        "compressed": true,
+        "size": 3852
+      }
+    }
+  },
+  {
+    "map_id": 49,
+    "map": "MAP_31_RBB_RUSTY_BUCKET_BAY",
+    "dir": "31_RBB_RUSTY_BUCKET_BAY",
+    "files": {
+      "setup.bin": {
+        "asset_id": 1869,
+        "asset": null,
+        "compressed": true,
+        "size": 15330
+      },
+      "opa.model.bin": {
+        "asset_id": 5296,
+        "asset": "MODEL_RBB_RUSTY_BUCKET_BAY_OPA",
+        "compressed": true,
+        "size": 509732
+      },
+      "xlu.model.bin": {
+        "asset_id": 5297,
+        "asset": "MODEL_RBB_RUSTY_BUCKET_BAY_XLU",
+        "compressed": true,
+        "size": 72044
+      }
+    }
+  },
+  {
+    "map_id": 139,
+    "map": "MAP_8B_RBB_ANCHOR_ROOM",
+    "dir": "8B_RBB_ANCHOR_ROOM",
+    "files": {
+      "setup.bin": {
+        "asset_id": 1959,
+        "asset": null,
+        "compressed": true,
+        "size": 1776
+      },
+      "opa.model.bin": {
+        "asset_id": 5317,
+        "asset": "MODEL_RBB_ANCHOR_ROOM_OPA",
+        "compressed": true,
+        "size": 96804
+      },
+      "xlu.model.bin": {
+        "asset_id": 5318,
+        "asset": "MODEL_RBB_ANCHOR_ROOM_XLU",
+        "compressed": true,
+        "size": 4836
+      }
+    }
+  },
+  {
+    "map_id": 52,
+    "map": "MAP_34_RBB_ENGINE_ROOM",
+    "dir": "34_RBB_ENGINE_ROOM",
+    "files": {
+      "setup.bin": {
+        "asset_id": 1872,
+        "asset": null,
+        "compressed": true,
+        "size": 5861
+      },
+      "opa.model.bin": {
+        "asset_id": 5298,
+        "asset": "MODEL_RBB_ENGINE_ROOM_OPA",
+        "compressed": true,
+        "size": 191796
+      },
+      "xlu.model.bin": {
+        "asset_id": 5299,
+        "asset": "MODEL_RBB_ENGINE_ROOM_XLU",
+        "compressed": true,
+        "size": 21612
+      }
+    }
+  },
+  {
+    "map_id": 53,
+    "map": "MAP_35_RBB_WAREHOUSE",
+    "dir": "35_RBB_WAREHOUSE",
+    "files": {
+      "setup.bin": {
+        "asset_id": 1873,
+        "asset": null,
+        "compressed": true,
+        "size": 2166
+      },
+      "opa.model.bin": {
+        "asset_id": 5300,
+        "asset": "MODEL_RBB_WAREHOUSE_OPA",
+        "compressed": true,
+        "size": 84604
+      },
+      "xlu.model.bin": {
+        "asset_id": 5301,
+        "asset": "MODEL_RBB_WAREHOUSE_XLU",
+        "compressed": true,
+        "size": 8380
+      }
+    }
+  },
+  {
+    "map_id": 54,
+    "map": "MAP_36_RBB_BOATHOUSE",
+    "dir": "36_RBB_BOATHOUSE",
+    "files": {
+      "setup.bin": {
+        "asset_id": 1874,
+        "asset": null,
+        "compressed": true,
+        "size": 1107
+      },
+      "opa.model.bin": {
+        "asset_id": 5302,
+        "asset": "MODEL_RBB_BOATHOUSE_OPA",
+        "compressed": true,
+        "size": 67596
+      },
+      "xlu.model.bin": {
+        "asset_id": 5303,
+        "asset": "MODEL_RBB_BOATHOUSE_XLU",
+        "compressed": true,
+        "size": 17812
+      }
+    }
+  },
+  {
+    "map_id": 55,
+    "map": "MAP_37_RBB_CONTAINER_1",
+    "dir": "37_RBB_CONTAINER_1",
+    "files": {
+      "setup.bin": {
+        "asset_id": 1875,
+        "asset": null,
+        "compressed": true,
+        "size": 1293
+      },
+      "opa.model.bin": {
+        "asset_id": 5304,
+        "asset": "MODEL_RBB_CONTAINER_1_OPA",
+        "compressed": true,
+        "size": 59900
+      }
+    }
+  },
+  {
+    "map_id": 56,
+    "map": "MAP_38_RBB_CONTAINER_3",
+    "dir": "38_RBB_CONTAINER_3",
+    "files": {
+      "setup.bin": {
+        "asset_id": 1876,
+        "asset": null,
+        "compressed": true,
+        "size": 1001
+      },
+      "opa.model.bin": {
+        "asset_id": 5306,
+        "asset": "MODEL_RBB_CONTAINER_3_OPA",
+        "compressed": true,
+        "size": 47172
+      }
+    }
+  },
+  {
+    "map_id": 57,
+    "map": "MAP_39_RBB_CREW_CABIN",
+    "dir": "39_RBB_CREW_CABIN",
+    "files": {
+      "setup.bin": {
+        "asset_id": 1877,
+        "asset": null,
+        "compressed": true,
+        "size": 1160
+      },
+      "opa.model.bin": {
+        "asset_id": 5309,
+        "asset": "MODEL_RBB_CREW_CABIN_OPA",
+        "compressed": true,
+        "size": 91180
+      }
+    }
+  },
+  {
+    "map_id": 58,
+    "map": "MAP_3A_RBB_BOSS_BOOM_BOX",
+    "dir": "3A_RBB_BOSS_BOOM_BOX",
+    "files": {
+      "setup.bin": {
+        "asset_id": 1878,
+        "asset": null,
+        "compressed": true,
+        "size": 1538
+      },
+      "opa.model.bin": {
+        "asset_id": 5310,
+        "asset": "MODEL_RBB_BOSS_BOOM_BOX_OPA",
+        "compressed": true,
+        "size": 40788
+      },
+      "xlu.model.bin": {
+        "asset_id": 5311,
+        "asset": "MODEL_RBB_BOSS_BOOM_BOX_XLU",
+        "compressed": true,
+        "size": 4252
+      }
+    }
+  },
+  {
+    "map_id": 59,
+    "map": "MAP_3B_RBB_STORAGE_ROOM",
+    "dir": "3B_RBB_STORAGE_ROOM",
+    "files": {
+      "setup.bin": {
+        "asset_id": 1879,
+        "asset": null,
+        "compressed": true,
+        "size": 1530
+      },
+      "opa.model.bin": {
+        "asset_id": 5313,
+        "asset": "MODEL_RBB_STORAGE_ROOM_OPA",
+        "compressed": true,
+        "size": 88732
+      },
+      "xlu.model.bin": {
+        "asset_id": 5314,
+        "asset": "MODEL_RBB_STORAGE_ROOM_XLU",
+        "compressed": true,
+        "size": 4700
+      }
+    }
+  },
+  {
+    "map_id": 60,
+    "map": "MAP_3C_RBB_KITCHEN",
+    "dir": "3C_RBB_KITCHEN",
+    "files": {
+      "setup.bin": {
+        "asset_id": 1880,
+        "asset": null,
+        "compressed": true,
+        "size": 1448
+      },
+      "opa.model.bin": {
+        "asset_id": 5315,
+        "asset": "MODEL_RBB_KITCHEN_OPA",
+        "compressed": true,
+        "size": 103100
+      },
+      "xlu.model.bin": {
+        "asset_id": 5316,
+        "asset": "MODEL_RBB_KITCHEN_XLU",
+        "compressed": true,
+        "size": 8964
+      }
+    }
+  },
+  {
+    "map_id": 61,
+    "map": "MAP_3D_RBB_NAVIGATION_ROOM",
+    "dir": "3D_RBB_NAVIGATION_ROOM",
+    "files": {
+      "setup.bin": {
+        "asset_id": 1881,
+        "asset": null,
+        "compressed": true,
+        "size": 1706
+      },
+      "opa.model.bin": {
+        "asset_id": 5312,
+        "asset": "MODEL_RBB_NAVIGATION_ROOM_OPA",
+        "compressed": true,
+        "size": 116332
+      },
+      "xlu.model.bin": {
+        "asset_id": 5319,
+        "asset": "MODEL_RBB_NAVIGATION_ROOM_XLU",
+        "compressed": true,
+        "size": 5076
+      }
+    }
+  },
+  {
+    "map_id": 62,
+    "map": "MAP_3E_RBB_CONTAINER_2",
+    "dir": "3E_RBB_CONTAINER_2",
+    "files": {
+      "setup.bin": {
+        "asset_id": 1882,
+        "asset": null,
+        "compressed": true,
+        "size": 1335
+      },
+      "opa.model.bin": {
+        "asset_id": 5305,
+        "asset": "MODEL_RBB_CONTAINER_2_OPA",
+        "compressed": true,
+        "size": 51684
+      }
+    }
+  },
+  {
+    "map_id": 63,
+    "map": "MAP_3F_RBB_CAPTAINS_CABIN",
+    "dir": "3F_RBB_CAPTAINS_CABIN",
+    "files": {
+      "setup.bin": {
+        "asset_id": 1883,
+        "asset": null,
+        "compressed": true,
+        "size": 854
+      },
+      "opa.model.bin": {
+        "asset_id": 5307,
+        "asset": "MODEL_RBB_CAPTIANS_CABIN_OPA",
+        "compressed": true,
+        "size": 58476
+      },
+      "xlu.model.bin": {
+        "asset_id": 5308,
+        "asset": "MODEL_RBB_CAPTIANS_CABIN_XLU",
+        "compressed": true,
+        "size": 7236
+      }
+    }
+  },
+  {
+    "map_id": 64,
+    "map": "MAP_40_CCW_HUB",
+    "dir": "40_CCW_HUB",
+    "files": {
+      "setup.bin": {
+        "asset_id": 1884,
+        "asset": null,
+        "compressed": true,
+        "size": 2867
+      },
+      "opa.model.bin": {
+        "asset_id": 5336,
+        "asset": "MODEL_CCW_HUB_OPA",
+        "compressed": true,
+        "size": 410820
+      },
+      "xlu.model.bin": {
+        "asset_id": 5347,
+        "asset": "MODEL_CCW_HUB_XLU",
+        "compressed": true,
+        "size": 6212
+      }
+    }
+  },
+  {
+    "map_id": 65,
+    "map": "MAP_41_FP_BOGGYS_IGLOO",
+    "dir": "41_FP_BOGGYS_IGLOO",
+    "files": {
+      "setup.bin": {
+        "asset_id": 1885,
+        "asset": null,
+        "compressed": true,
+        "size": 992
+      },
+      "opa.model.bin": {
+        "asset_id": 5322,
+        "asset": "MODEL_FP_BOGGYS_IGLOO_OPA",
+        "compressed": true,
+        "size": 60196
+      },
+      "xlu.model.bin": {
+        "asset_id": 5326,
+        "asset": "MODEL_FP_BOGGYS_IGLOO_XLU",
+        "compressed": true,
+        "size": 15164
+      }
+    }
+  },
+  {
+    "map_id": 127,
+    "map": "MAP_7F_FP_WOZZAS_CAVE",
+    "dir": "7F_FP_WOZZAS_CAVE",
+    "files": {
+      "setup.bin": {
+        "asset_id": 1947,
+        "asset": null,
+        "compressed": true,
+        "size": 2969
+      },
+      "opa.model.bin": {
+        "asset_id": 5324,
+        "asset": "MODEL_FP_WOZZAS_CAVE_OPA",
+        "compressed": true,
+        "size": 135700
+      },
+      "xlu.model.bin": {
+        "asset_id": 5325,
+        "asset": "MODEL_FP_WOZZAS_CAVE_XLU",
+        "compressed": true,
+        "size": 18724
+      }
+    }
+  },
+  {
+    "map_id": 67,
+    "map": "MAP_43_CCW_SPRING",
+    "dir": "43_CCW_SPRING",
+    "files": {
+      "setup.bin": {
+        "asset_id": 1887,
+        "asset": null,
+        "compressed": true,
+        "size": 10326
+      },
+      "opa.model.bin": {
+        "asset_id": 5337,
+        "asset": "MODEL_CCW_SPRING_OPA",
+        "compressed": true,
+        "size": 437020
+      },
+      "xlu.model.bin": {
+        "asset_id": 5348,
+        "asset": "MODEL_CCW_SPRING_XLU",
+        "compressed": true,
+        "size": 28108
+      }
+    }
+  },
+  {
+    "map_id": 68,
+    "map": "MAP_44_CCW_SUMMER",
+    "dir": "44_CCW_SUMMER",
+    "files": {
+      "setup.bin": {
+        "asset_id": 1888,
+        "asset": null,
+        "compressed": true,
+        "size": 12928
+      },
+      "opa.model.bin": {
+        "asset_id": 5338,
+        "asset": "MODEL_CCW_SUMMER_OPA",
+        "compressed": true,
+        "size": 495668
+      },
+      "xlu.model.bin": {
+        "asset_id": 5349,
+        "asset": "MODEL_CCW_SUMMER_XLU",
+        "compressed": true,
+        "size": 28612
+      }
+    }
+  },
+  {
+    "map_id": 69,
+    "map": "MAP_45_CCW_AUTUMN",
+    "dir": "45_CCW_AUTUMN",
+    "files": {
+      "setup.bin": {
+        "asset_id": 1889,
+        "asset": null,
+        "compressed": true,
+        "size": 13112
+      },
+      "opa.model.bin": {
+        "asset_id": 5339,
+        "asset": "MODEL_CCW_AUTUMN_OPA",
+        "compressed": true,
+        "size": 489956
+      },
+      "xlu.model.bin": {
+        "asset_id": 5350,
+        "asset": "MODEL_CCW_AUTUMN_XLU",
+        "compressed": true,
+        "size": 28756
+      }
+    }
+  },
+  {
+    "map_id": 70,
+    "map": "MAP_46_CCW_WINTER",
+    "dir": "46_CCW_WINTER",
+    "files": {
+      "setup.bin": {
+        "asset_id": 1890,
+        "asset": null,
+        "compressed": true,
+        "size": 10683
+      },
+      "opa.model.bin": {
+        "asset_id": 5340,
+        "asset": "MODEL_CCW_WINTER_OPA",
+        "compressed": true,
+        "size": 540468
+      },
+      "xlu.model.bin": {
+        "asset_id": 5351,
+        "asset": "MODEL_CCW_WINTER_XLU",
+        "compressed": true,
+        "size": 53916
+      }
+    }
+  },
+  {
+    "map_id": 71,
+    "map": "MAP_47_BGS_MUMBOS_SKULL",
+    "dir": "47_BGS_MUMBOS_SKULL",
+    "files": {
+      "setup.bin": {
+        "asset_id": 1891,
+        "asset": null,
+        "compressed": true,
+        "size": 975
+      },
+      "opa.model.bin": {
+        "asset_id": 5294,
+        "asset": "MODEL_MUMBOS_SKULL_OPA",
+        "compressed": true,
+        "size": 228996
+      }
+    }
+  },
+  {
+    "map_id": 72,
+    "map": "MAP_48_FP_MUMBOS_SKULL",
+    "dir": "48_FP_MUMBOS_SKULL",
+    "files": {
+      "setup.bin": {
+        "asset_id": 1892,
+        "asset": null,
+        "compressed": true,
+        "size": 919
+      },
+      "opa.model.bin": {
+        "asset_id": 5294,
+        "asset": "MODEL_MUMBOS_SKULL_OPA",
+        "compressed": true,
+        "size": 228996
+      }
+    }
+  },
+  {
+    "map_id": 74,
+    "map": "MAP_4A_CCW_SPRING_MUMBOS_SKULL",
+    "dir": "4A_CCW_SPRING_MUMBOS_SKULL",
+    "files": {
+      "setup.bin": {
+        "asset_id": 1894,
+        "asset": null,
+        "compressed": true,
+        "size": 935
+      },
+      "opa.model.bin": {
+        "asset_id": 5294,
+        "asset": "MODEL_MUMBOS_SKULL_OPA",
+        "compressed": true,
+        "size": 228996
+      }
+    }
+  },
+  {
+    "map_id": 75,
+    "map": "MAP_4B_CCW_SUMMER_MUMBOS_SKULL",
+    "dir": "4B_CCW_SUMMER_MUMBOS_SKULL",
+    "files": {
+      "setup.bin": {
+        "asset_id": 1895,
+        "asset": null,
+        "compressed": true,
+        "size": 832
+      },
+      "opa.model.bin": {
+        "asset_id": 5294,
+        "asset": "MODEL_MUMBOS_SKULL_OPA",
+        "compressed": true,
+        "size": 228996
+      }
+    }
+  },
+  {
+    "map_id": 76,
+    "map": "MAP_4C_CCW_AUTUMN_MUMBOS_SKULL",
+    "dir": "4C_CCW_AUTUMN_MUMBOS_SKULL",
+    "files": {
+      "setup.bin": {
+        "asset_id": 1896,
+        "asset": null,
+        "compressed": true,
+        "size": 935
+      },
+      "opa.model.bin": {
+        "asset_id": 5294,
+        "asset": "MODEL_MUMBOS_SKULL_OPA",
+        "compressed": true,
+        "size": 228996
+      }
+    }
+  },
+  {
+    "map_id": 77,
+    "map": "MAP_4D_CCW_WINTER_MUMBOS_SKULL",
+    "dir": "4D_CCW_WINTER_MUMBOS_SKULL",
+    "files": {
+      "setup.bin": {
+        "asset_id": 1897,
+        "asset": null,
+        "compressed": true,
+        "size": 1079
+      },
+      "opa.model.bin": {
+        "asset_id": 5294,
+        "asset": "MODEL_MUMBOS_SKULL_OPA",
+        "compressed": true,
+        "size": 228996
+      }
+    }
+  },
+  {
+    "map_id": 83,
+    "map": "MAP_53_FP_CHRISTMAS_TREE",
+    "dir": "53_FP_CHRISTMAS_TREE",
+    "files": {
+      "setup.bin": {
+        "asset_id": 1903,
+        "asset": null,
+        "compressed": true,
+        "size": 2924
+      },
+      "opa.model.bin": {
+        "asset_id": 5323,
+        "asset": "MODEL_FP_XMAS_TREE_OPA",
+        "compressed": true,
+        "size": 66892
+      }
+    }
+  },
+  {
+    "map_id": 90,
+    "map": "MAP_5A_CCW_SUMMER_ZUBBA_HIVE",
+    "dir": "5A_CCW_SUMMER_ZUBBA_HIVE",
+    "files": {
+      "setup.bin": {
+        "asset_id": 1910,
+        "asset": null,
+        "compressed": true,
+        "size": 1494
+      },
+      "opa.model.bin": {
+        "asset_id": 5341,
+        "asset": "MODEL_CCW_ZUBBA_HIVE_OPA",
+        "compressed": true,
+        "size": 94980
+      }
+    }
+  },
+  {
+    "map_id": 91,
+    "map": "MAP_5B_CCW_SPRING_ZUBBA_HIVE",
+    "dir": "5B_CCW_SPRING_ZUBBA_HIVE",
+    "files": {
+      "setup.bin": {
+        "asset_id": 1911,
+        "asset": null,
+        "compressed": true,
+        "size": 1658
+      },
+      "opa.model.bin": {
+        "asset_id": 5341,
+        "asset": "MODEL_CCW_ZUBBA_HIVE_OPA",
+        "compressed": true,
+        "size": 94980
+      }
+    }
+  },
+  {
+    "map_id": 92,
+    "map": "MAP_5C_CCW_AUTUMN_ZUBBA_HIVE",
+    "dir": "5C_CCW_AUTUMN_ZUBBA_HIVE",
+    "files": {
+      "setup.bin": {
+        "asset_id": 1912,
+        "asset": null,
+        "compressed": true,
+        "size": 1462
+      },
+      "opa.model.bin": {
+        "asset_id": 5341,
+        "asset": "MODEL_CCW_ZUBBA_HIVE_OPA",
+        "compressed": true,
+        "size": 94980
+      }
+    }
+  },
+  {
+    "map_id": 94,
+    "map": "MAP_5E_CCW_SPRING_NABNUTS_HOUSE",
+    "dir": "5E_CCW_SPRING_NABNUTS_HOUSE",
+    "files": {
+      "setup.bin": {
+        "asset_id": 1914,
+        "asset": null,
+        "compressed": true,
+        "size": 673
+      },
+      "opa.model.bin": {
+        "asset_id": 5342,
+        "asset": "MODEL_CCW_NABNUTS_HOUSE_OPA",
+        "compressed": true,
+        "size": 56540
+      }
+    }
+  },
+  {
+    "map_id": 95,
+    "map": "MAP_5F_CCW_SUMMER_NABNUTS_HOUSE",
+    "dir": "5F_CCW_SUMMER_NABNUTS_HOUSE",
+    "files": {
+      "setup.bin": {
+        "asset_id": 1915,
+        "asset": null,
+        "compressed": true,
+        "size": 669
+      },
+      "opa.model.bin": {
+        "asset_id": 5342,
+        "asset": "MODEL_CCW_NABNUTS_HOUSE_OPA",
+        "compressed": true,
+        "size": 56540
+      }
+    }
+  },
+  {
+    "map_id": 96,
+    "map": "MAP_60_CCW_AUTUMN_NABNUTS_HOUSE",
+    "dir": "60_CCW_AUTUMN_NABNUTS_HOUSE",
+    "files": {
+      "setup.bin": {
+        "asset_id": 1916,
+        "asset": null,
+        "compressed": true,
+        "size": 641
+      },
+      "opa.model.bin": {
+        "asset_id": 5342,
+        "asset": "MODEL_CCW_NABNUTS_HOUSE_OPA",
+        "compressed": true,
+        "size": 56540
+      }
+    }
+  },
+  {
+    "map_id": 97,
+    "map": "MAP_61_CCW_WINTER_NABNUTS_HOUSE",
+    "dir": "61_CCW_WINTER_NABNUTS_HOUSE",
+    "files": {
+      "setup.bin": {
+        "asset_id": 1917,
+        "asset": null,
+        "compressed": true,
+        "size": 650
+      },
+      "opa.model.bin": {
+        "asset_id": 5342,
+        "asset": "MODEL_CCW_NABNUTS_HOUSE_OPA",
+        "compressed": true,
+        "size": 56540
+      }
+    }
+  },
+  {
+    "map_id": 98,
+    "map": "MAP_62_CCW_WINTER_HONEYCOMB_ROOM",
+    "dir": "62_CCW_WINTER_HONEYCOMB_ROOM",
+    "files": {
+      "setup.bin": {
+        "asset_id": 1918,
+        "asset": null,
+        "compressed": true,
+        "size": 865
+      },
+      "opa.model.bin": {
+        "asset_id": 5344,
+        "asset": "MODEL_CCW_HONEYCOMB_ROOM_OPA",
+        "compressed": true,
+        "size": 50156
+      }
+    }
+  },
+  {
+    "map_id": 99,
+    "map": "MAP_63_CCW_AUTUMN_NABNUTS_WATER_SUPPLY",
+    "dir": "63_CCW_AUTUMN_NABNUTS_WATER_SUPPLY",
+    "files": {
+      "setup.bin": {
+        "asset_id": 1919,
+        "asset": null,
+        "compressed": true,
+        "size": 448
+      },
+      "opa.model.bin": {
+        "asset_id": 5345,
+        "asset": "MODEL_CCW_NABBUTS_STASH_OPA",
+        "compressed": true,
+        "size": 24684
+      },
+      "xlu.model.bin": {
+        "asset_id": 5346,
+        "asset": "MODEL_CCW_NABBUTS_STASH_XLU",
+        "compressed": true,
+        "size": 7396
+      }
+    }
+  },
+  {
+    "map_id": 100,
+    "map": "MAP_64_CCW_WINTER_NABNUTS_WATER_SUPPLY",
+    "dir": "64_CCW_WINTER_NABNUTS_WATER_SUPPLY",
+    "files": {
+      "setup.bin": {
+        "asset_id": 1920,
+        "asset": null,
+        "compressed": true,
+        "size": 682
+      },
+      "opa.model.bin": {
+        "asset_id": 5345,
+        "asset": "MODEL_CCW_NABBUTS_STASH_OPA",
+        "compressed": true,
+        "size": 24684
+      },
+      "xlu.model.bin": {
+        "asset_id": 5346,
+        "asset": "MODEL_CCW_NABBUTS_STASH_XLU",
+        "compressed": true,
+        "size": 7396
+      }
+    }
+  },
+  {
+    "map_id": 101,
+    "map": "MAP_65_CCW_SPRING_WHIPCRACK_ROOM",
+    "dir": "65_CCW_SPRING_WHIPCRACK_ROOM",
+    "files": {
+      "setup.bin": {
+        "asset_id": 1921,
+        "asset": null,
+        "compressed": true,
+        "size": 1283
+      },
+      "opa.model.bin": {
+        "asset_id": 5343,
+        "asset": "MODEL_CCW_WHIPCRACK_ROOM_OPA",
+        "compressed": true,
+        "size": 65436
+      }
+    }
+  },
+  {
+    "map_id": 102,
+    "map": "MAP_66_CCW_SUMMER_WHIPCRACK_ROOM",
+    "dir": "66_CCW_SUMMER_WHIPCRACK_ROOM",
+    "files": {
+      "setup.bin": {
+        "asset_id": 1922,
+        "asset": null,
+        "compressed": true,
+        "size": 1230
+      },
+      "opa.model.bin": {
+        "asset_id": 5343,
+        "asset": "MODEL_CCW_WHIPCRACK_ROOM_OPA",
+        "compressed": true,
+        "size": 65436
+      }
+    }
+  },
+  {
+    "map_id": 103,
+    "map": "MAP_67_CCW_AUTUMN_WHIPCRACK_ROOM",
+    "dir": "67_CCW_AUTUMN_WHIPCRACK_ROOM",
+    "files": {
+      "setup.bin": {
+        "asset_id": 1923,
+        "asset": null,
+        "compressed": true,
+        "size": 1178
+      },
+      "opa.model.bin": {
+        "asset_id": 5343,
+        "asset": "MODEL_CCW_WHIPCRACK_ROOM_OPA",
+        "compressed": true,
+        "size": 65436
+      }
+    }
+  },
+  {
+    "map_id": 104,
+    "map": "MAP_68_CCW_WINTER_WHIPCRACK_ROOM",
+    "dir": "68_CCW_WINTER_WHIPCRACK_ROOM",
+    "files": {
+      "setup.bin": {
+        "asset_id": 1924,
+        "asset": null,
+        "compressed": true,
+        "size": 1163
+      },
+      "opa.model.bin": {
+        "asset_id": 5343,
+        "asset": "MODEL_CCW_WHIPCRACK_ROOM_OPA",
+        "compressed": true,
+        "size": 65436
+      }
+    }
+  },
+  {
+    "map_id": 105,
+    "map": "MAP_69_GL_MM_LOBBY",
+    "dir": "69_GL_MM_LOBBY",
+    "files": {
+      "setup.bin": {
+        "asset_id": 1925,
+        "asset": null,
+        "compressed": true,
+        "size": 4320
+      },
+      "opa.model.bin": {
+        "asset_id": 5363,
+        "asset": "MODEL_GL_MM_LOBBY_OPA",
+        "compressed": true,
+        "size": 241188
+      },
+      "xlu.model.bin": {
+        "asset_id": 5387,
+        "asset": "MODEL_GL_MM_LOBBY_XLU",
+        "compressed": true,
+        "size": 3668
+      }
+    }
+  },
+  {
+    "map_id": 106,
+    "map": "MAP_6A_GL_TTC_AND_CC_PUZZLE",
+    "dir": "6A_GL_TTC_AND_CC_PUZZLE",
+    "files": {
+      "setup.bin": {
+        "asset_id": 1926,
+        "asset": null,
+        "compressed": true,
+        "size": 2755
+      },
+      "opa.model.bin": {
+        "asset_id": 5364,
+        "asset": "MODEL_GL_TTC_AND_CC_PUZZLE_OPA",
+        "compressed": true,
+        "size": 266484
+      },
+      "xlu.model.bin": {
+        "asset_id": 5388,
+        "asset": "MODEL_GL_TTC_AND_CC_PUZZLE_XLU",
+        "compressed": true,
+        "size": 4908
+      }
+    }
+  },
+  {
+    "map_id": 107,
+    "map": "MAP_6B_GL_180_NOTE_DOOR",
+    "dir": "6B_GL_180_NOTE_DOOR",
+    "files": {
+      "setup.bin": {
+        "asset_id": 1927,
+        "asset": null,
+        "compressed": true,
+        "size": 3598
+      },
+      "opa.model.bin": {
+        "asset_id": 5365,
+        "asset": "MODEL_GL_180_NOTE_DOOR_OPA",
+        "compressed": true,
+        "size": 307284
+      },
+      "xlu.model.bin": {
+        "asset_id": 5392,
+        "asset": "MODEL_GL_180_NOTE_DOOR_XLU",
+        "compressed": true,
+        "size": 12172
+      }
+    }
+  },
+  {
+    "map_id": 108,
+    "map": "MAP_6C_GL_RED_CAULDRON_ROOM",
+    "dir": "6C_GL_RED_CAULDRON_ROOM",
+    "files": {
+      "setup.bin": {
+        "asset_id": 1928,
+        "asset": null,
+        "compressed": true,
+        "size": 1502
+      },
+      "opa.model.bin": {
+        "asset_id": 5366,
+        "asset": "MODEL_GL_RED_CAULDRON_ROOM_OPA",
+        "compressed": true,
+        "size": 85044
+      },
+      "xlu.model.bin": {
+        "asset_id": 5389,
+        "asset": "MODEL_GL_RED_CAULDRON_ROOM_XLU",
+        "compressed": true,
+        "size": 14164
+      }
+    }
+  },
+  {
+    "map_id": 109,
+    "map": "MAP_6D_GL_TTC_LOBBY",
+    "dir": "6D_GL_TTC_LOBBY",
+    "files": {
+      "setup.bin": {
+        "asset_id": 1929,
+        "asset": null,
+        "compressed": true,
+        "size": 2757
+      },
+      "opa.model.bin": {
+        "asset_id": 5367,
+        "asset": "MODEL_GL_TTC_LOBBY_OPA",
+        "compressed": true,
+        "size": 128724
+      },
+      "xlu.model.bin": {
+        "asset_id": 5394,
+        "asset": "MODEL_GL_TTC_LOBBY_XLU",
+        "compressed": true,
+        "size": 15084
+      }
+    }
+  },
+  {
+    "map_id": 110,
+    "map": "MAP_6E_GL_GV_LOBBY",
+    "dir": "6E_GL_GV_LOBBY",
+    "files": {
+      "setup.bin": {
+        "asset_id": 1930,
+        "asset": null,
+        "compressed": true,
+        "size": 4537
+      },
+      "opa.model.bin": {
+        "asset_id": 5368,
+        "asset": "MODEL_GL_GV_LOBBY_OPA",
+        "compressed": true,
+        "size": 168988
+      },
+      "xlu.model.bin": {
+        "asset_id": 5288,
+        "asset": "MODEL_GL_GV_LOBBY_XLU",
+        "compressed": true,
+        "size": 4652
+      }
+    }
+  },
+  {
+    "map_id": 111,
+    "map": "MAP_6F_GL_FP_LOBBY",
+    "dir": "6F_GL_FP_LOBBY",
+    "files": {
+      "setup.bin": {
+        "asset_id": 1931,
+        "asset": null,
+        "compressed": true,
+        "size": 7404
+      },
+      "opa.model.bin": {
+        "asset_id": 5369,
+        "asset": "MODEL_GL_FP_LOBBY_OPA",
+        "compressed": true,
+        "size": 294100
+      },
+      "xlu.model.bin": {
+        "asset_id": 5370,
+        "asset": "MODEL_GL_FP_LOBBY_XLU",
+        "compressed": true,
+        "size": 5636
+      }
+    }
+  },
+  {
+    "map_id": 116,
+    "map": "MAP_74_GL_GV_PUZZLE",
+    "dir": "74_GL_GV_PUZZLE",
+    "files": {
+      "setup.bin": {
+        "asset_id": 1936,
+        "asset": null,
+        "compressed": true,
+        "size": 2667
+      },
+      "opa.model.bin": {
+        "asset_id": 5373,
+        "asset": "MODEL_GL_GV_PUZZLE_OPA",
+        "compressed": true,
+        "size": 171708
+      }
+    }
+  },
+  {
+    "map_id": 112,
+    "map": "MAP_70_GL_CC_LOBBY",
+    "dir": "70_GL_CC_LOBBY",
+    "files": {
+      "setup.bin": {
+        "asset_id": 1932,
+        "asset": null,
+        "compressed": true,
+        "size": 3514
+      },
+      "opa.model.bin": {
+        "asset_id": 5371,
+        "asset": "MODEL_GL_CC_LOBBY_OPA",
+        "compressed": true,
+        "size": 250452
+      },
+      "xlu.model.bin": {
+        "asset_id": 5383,
+        "asset": "MODEL_GL_CC_LOBBY_XLU",
+        "compressed": true,
+        "size": 16708
+      }
+    }
+  },
+  {
+    "map_id": 117,
+    "map": "MAP_75_GL_MMM_LOBBY",
+    "dir": "75_GL_MMM_LOBBY",
+    "files": {
+      "setup.bin": {
+        "asset_id": 1937,
+        "asset": null,
+        "compressed": true,
+        "size": 4431
+      },
+      "opa.model.bin": {
+        "asset_id": 5374,
+        "asset": "MODEL_GL_MMM_LOBBY_OPA",
+        "compressed": true,
+        "size": 190900
+      }
+    }
+  },
+  {
+    "map_id": 122,
+    "map": "MAP_7A_GL_CRYPT",
+    "dir": "7A_GL_CRYPT",
+    "files": {
+      "setup.bin": {
+        "asset_id": 1942,
+        "asset": null,
+        "compressed": true,
+        "size": 1500
+      },
+      "opa.model.bin": {
+        "asset_id": 5375,
+        "asset": "MODEL_GL_CRYPT_OPA",
+        "compressed": true,
+        "size": 116668
+      }
+    }
+  },
+  {
+    "map_id": 113,
+    "map": "MAP_71_GL_STATUE_ROOM",
+    "dir": "71_GL_STATUE_ROOM",
+    "files": {
+      "setup.bin": {
+        "asset_id": 1933,
+        "asset": null,
+        "compressed": true,
+        "size": 3432
+      },
+      "opa.model.bin": {
+        "asset_id": 5376,
+        "asset": "MODEL_GL_STATUE_ROOM_OPA",
+        "compressed": true,
+        "size": 188156
+      },
+      "xlu.model.bin": {
+        "asset_id": 5390,
+        "asset": "MODEL_GL_STATUE_ROOM_XLU",
+        "compressed": true,
+        "size": 15596
+      }
+    }
+  },
+  {
+    "map_id": 114,
+    "map": "MAP_72_GL_BGS_LOBBY",
+    "dir": "72_GL_BGS_LOBBY",
+    "files": {
+      "setup.bin": {
+        "asset_id": 1934,
+        "asset": null,
+        "compressed": true,
+        "size": 5047
+      },
+      "opa.model.bin": {
+        "asset_id": 5377,
+        "asset": "MODEL_GL_BGS_LOBBY_OPA",
+        "compressed": true,
+        "size": 302412
+      },
+      "xlu.model.bin": {
+        "asset_id": 5393,
+        "asset": "MODEL_GL_BGS_LOBBY_XLU",
+        "compressed": true,
+        "size": 23476
+      }
+    }
+  },
+  {
+    "map_id": 118,
+    "map": "MAP_76_GL_640_NOTE_DOOR",
+    "dir": "76_GL_640_NOTE_DOOR",
+    "files": {
+      "setup.bin": {
+        "asset_id": 1938,
+        "asset": null,
+        "compressed": true,
+        "size": 2855
+      },
+      "opa.model.bin": {
+        "asset_id": 5378,
+        "asset": "MODEL_GL_640_NOTE_DOOR_OPA",
+        "compressed": true,
+        "size": 121132
+      },
+      "xlu.model.bin": {
+        "asset_id": 5384,
+        "asset": "MODEL_GL_640_NOTE_DOOR_XLU",
+        "compressed": true,
+        "size": 4332
+      }
+    }
+  },
+  {
+    "map_id": 119,
+    "map": "MAP_77_GL_RBB_LOBBY",
+    "dir": "77_GL_RBB_LOBBY",
+    "files": {
+      "setup.bin": {
+        "asset_id": 1939,
+        "asset": null,
+        "compressed": true,
+        "size": 4116
+      },
+      "opa.model.bin": {
+        "asset_id": 5379,
+        "asset": "MODEL_GL_RBB_LOBBY_OPA",
+        "compressed": true,
+        "size": 228764
+      },
+      "xlu.model.bin": {
+        "asset_id": 5385,
+        "asset": "MODEL_GL_RBB_LOBBY_XLU",
+        "compressed": true,
+        "size": 6076
+      }
+    }
+  },
+  {
+    "map_id": 120,
+    "map": "MAP_78_GL_RBB_AND_MMM_PUZZLE",
+    "dir": "78_GL_RBB_AND_MMM_PUZZLE",
+    "files": {
+      "setup.bin": {
+        "asset_id": 1940,
+        "asset": null,
+        "compressed": true,
+        "size": 4355
+      },
+      "opa.model.bin": {
+        "asset_id": 5380,
+        "asset": "MODEL_RBB_AND_MMM_PUZZLE_OPA",
+        "compressed": true,
+        "size": 353020
+      },
+      "xlu.model.bin": {
+        "asset_id": 5386,
+        "asset": "MODEL_RBB_AND_MMM_PUZZLE_XLU",
+        "compressed": true,
+        "size": 6500
+      }
+    }
+  },
+  {
+    "map_id": 121,
+    "map": "MAP_79_GL_CCW_LOBBY",
+    "dir": "79_GL_CCW_LOBBY",
+    "files": {
+      "setup.bin": {
+        "asset_id": 1941,
+        "asset": null,
+        "compressed": true,
+        "size": 4804
+      },
+      "opa.model.bin": {
+        "asset_id": 5381,
+        "asset": "MODEL_GL_CCW_LOBBY_OPA",
+        "compressed": true,
+        "size": 236924
+      }
+    }
+  },
+  {
+    "map_id": 128,
+    "map": "MAP_80_GL_FF_ENTRANCE",
+    "dir": "80_GL_FF_ENTRANCE",
+    "files": {
+      "setup.bin": {
+        "asset_id": 1948,
+        "asset": null,
+        "compressed": true,
+        "size": 554
+      },
+      "opa.model.bin": {
+        "asset_id": 5382,
+        "asset": "MODEL_GL_FF_ENTRANCE_OPA",
+        "compressed": true,
+        "size": 68692
+      },
+      "xlu.model.bin": {
+        "asset_id": 5396,
+        "asset": "MODEL_GL_FF_ENTRANCE_XLU",
+        "compressed": true,
+        "size": 10340
+      }
+    }
+  },
+  {
+    "map_id": 147,
+    "map": "MAP_93_GL_DINGPOT",
+    "dir": "93_GL_DINGPOT",
+    "files": {
+      "setup.bin": {
+        "asset_id": 1967,
+        "asset": null,
+        "compressed": true,
+        "size": 5129
+      },
+      "opa.model.bin": {
+        "asset_id": 5391,
+        "asset": "MODEL_CS_KLUNGOS_LAB_OPA",
+        "compressed": true,
+        "size": 353188
+      },
+      "xlu.model.bin": {
+        "asset_id": 5395,
+        "asset": "MODEL_CS_KLUNGOS_LAB_XLU",
+        "compressed": true,
+        "size": 5644
+      }
+    }
+  },
+  {
+    "map_id": 144,
+    "map": "MAP_90_GL_BATTLEMENTS",
+    "dir": "90_GL_BATTLEMENTS",
+    "files": {
+      "setup.bin": {
+        "asset_id": 1964,
+        "asset": null,
+        "compressed": true,
+        "size": 3593
+      },
+      "opa.model.bin": {
+        "asset_id": 5372,
+        "asset": "MODEL_GL_BATTLEMENTS_OPA",
+        "compressed": true,
+        "size": 74916
+      },
+      "xlu.model.bin": {
+        "asset_id": 5397,
+        "asset": "MODEL_GL_BATTLEMENTS_XLU",
+        "compressed": true,
+        "size": 25020
+      }
+    }
+  },
+  {
+    "map_id": 123,
+    "map": "MAP_7B_CS_INTRO_GL_DINGPOT_1",
+    "dir": "7B_CS_INTRO_GL_DINGPOT_1",
+    "files": {
+      "setup.bin": {
+        "asset_id": 1943,
+        "asset": null,
+        "compressed": true,
+        "size": 3440
+      },
+      "opa.model.bin": {
+        "asset_id": 5391,
+        "asset": "MODEL_CS_KLUNGOS_LAB_OPA",
+        "compressed": true,
+        "size": 353188
+      }
+    }
+  },
+  {
+    "map_id": 124,
+    "map": "MAP_7C_CS_INTRO_BANJOS_HOUSE_1",
+    "dir": "7C_CS_INTRO_BANJOS_HOUSE_1",
+    "files": {
+      "setup.bin": {
+        "asset_id": 1944,
+        "asset": null,
+        "compressed": true,
+        "size": 1506
+      },
+      "opa.model.bin": {
+        "asset_id": 5282,
+        "asset": "MODEL_CS_BANJOS_HOUSE_OPA",
+        "compressed": true,
+        "size": 75620
+      }
+    }
+  },
+  {
+    "map_id": 125,
+    "map": "MAP_7D_CS_SPIRAL_MOUNTAIN_1",
+    "dir": "7D_CS_SPIRAL_MOUNTAIN_1",
+    "files": {
+      "setup.bin": {
+        "asset_id": 1945,
+        "asset": null,
+        "compressed": true,
+        "size": 3305
+      },
+      "opa.model.bin": {
+        "asset_id": 5327,
+        "asset": "MODEL_SM_SPIRAL_MOUNTAIN_OPA",
+        "compressed": true,
+        "size": 386580
+      },
+      "xlu.model.bin": {
+        "asset_id": 5328,
+        "asset": "MODEL_SM_SPIRAL_MOUNTAIN_XLU",
+        "compressed": true,
+        "size": 54804
+      }
+    }
+  },
+  {
+    "map_id": 126,
+    "map": "MAP_7E_CS_SPIRAL_MOUNTAIN_2",
+    "dir": "7E_CS_SPIRAL_MOUNTAIN_2",
+    "files": {
+      "setup.bin": {
+        "asset_id": 1946,
+        "asset": null,
+        "compressed": true,
+        "size": 2341
+      },
+      "opa.model.bin": {
+        "asset_id": 5327,
+        "asset": "MODEL_SM_SPIRAL_MOUNTAIN_OPA",
+        "compressed": true,
+        "size": 386580
+      },
+      "xlu.model.bin": {
+        "asset_id": 5328,
+        "asset": "MODEL_SM_SPIRAL_MOUNTAIN_XLU",
+        "compressed": true,
+        "size": 54804
+      }
+    }
+  },
+  {
+    "map_id": 129,
+    "map": "MAP_81_CS_INTRO_GL_DINGPOT_2",
+    "dir": "81_CS_INTRO_GL_DINGPOT_2",
+    "files": {
+      "setup.bin": {
+        "asset_id": 1949,
+        "asset": null,
+        "compressed": true,
+        "size": 3088
+      },
+      "opa.model.bin": {
+        "asset_id": 5391,
+        "asset": "MODEL_CS_KLUNGOS_LAB_OPA",
+        "compressed": true,
+        "size": 353188
+      }
+    }
+  },
+  {
+    "map_id": 130,
+    "map": "MAP_82_CS_ENTERING_GL_MACHINE_ROOM",
+    "dir": "82_CS_ENTERING_GL_MACHINE_ROOM",
+    "files": {
+      "setup.bin": {
+        "asset_id": 1950,
+        "asset": null,
+        "compressed": true,
+        "size": 3110
+      },
+      "opa.model.bin": {
+        "asset_id": 5391,
+        "asset": "MODEL_CS_KLUNGOS_LAB_OPA",
+        "compressed": true,
+        "size": 353188
+      }
+    }
+  },
+  {
+    "map_id": 131,
+    "map": "MAP_83_CS_GAME_OVER_MACHINE_ROOM",
+    "dir": "83_CS_GAME_OVER_MACHINE_ROOM",
+    "files": {
+      "setup.bin": {
+        "asset_id": 1951,
+        "asset": null,
+        "compressed": true,
+        "size": 4409
+      },
+      "opa.model.bin": {
+        "asset_id": 5391,
+        "asset": "MODEL_CS_KLUNGOS_LAB_OPA",
+        "compressed": true,
+        "size": 353188
+      }
+    }
+  },
+  {
+    "map_id": 132,
+    "map": "MAP_84_CS_UNUSED_MACHINE_ROOM",
+    "dir": "84_CS_UNUSED_MACHINE_ROOM",
+    "files": {
+      "setup.bin": {
+        "asset_id": 1952,
+        "asset": null,
+        "compressed": true,
+        "size": 1059
+      },
+      "opa.model.bin": {
+        "asset_id": 5391,
+        "asset": "MODEL_CS_KLUNGOS_LAB_OPA",
+        "compressed": true,
+        "size": 353188
+      }
+    }
+  },
+  {
+    "map_id": 133,
+    "map": "MAP_85_CS_SPIRAL_MOUNTAIN_3",
+    "dir": "85_CS_SPIRAL_MOUNTAIN_3",
+    "files": {
+      "setup.bin": {
+        "asset_id": 1953,
+        "asset": null,
+        "compressed": true,
+        "size": 3533
+      },
+      "opa.model.bin": {
+        "asset_id": 5327,
+        "asset": "MODEL_SM_SPIRAL_MOUNTAIN_OPA",
+        "compressed": true,
+        "size": 386580
+      },
+      "xlu.model.bin": {
+        "asset_id": 5328,
+        "asset": "MODEL_SM_SPIRAL_MOUNTAIN_XLU",
+        "compressed": true,
+        "size": 54804
+      }
+    }
+  },
+  {
+    "map_id": 134,
+    "map": "MAP_86_CS_SPIRAL_MOUNTAIN_4",
+    "dir": "86_CS_SPIRAL_MOUNTAIN_4",
+    "files": {
+      "setup.bin": {
+        "asset_id": 1954,
+        "asset": null,
+        "compressed": true,
+        "size": 5523
+      },
+      "opa.model.bin": {
+        "asset_id": 5327,
+        "asset": "MODEL_SM_SPIRAL_MOUNTAIN_OPA",
+        "compressed": true,
+        "size": 386580
+      },
+      "xlu.model.bin": {
+        "asset_id": 5328,
+        "asset": "MODEL_SM_SPIRAL_MOUNTAIN_XLU",
+        "compressed": true,
+        "size": 54804
+      }
+    }
+  },
+  {
+    "map_id": 135,
+    "map": "MAP_87_CS_SPIRAL_MOUNTAIN_5",
+    "dir": "87_CS_SPIRAL_MOUNTAIN_5",
+    "files": {
+      "setup.bin": {
+        "asset_id": 1955,
+        "asset": null,
+        "compressed": true,
+        "size": 1408
+      },
+      "opa.model.bin": {
+        "asset_id": 5286,
+        "asset": "MODEL_CS_INTRO_SPIRAL_MOUNTAIN_OPA",
+        "compressed": true,
+        "size": 20508
+      }
+    }
+  },
+  {
+    "map_id": 136,
+    "map": "MAP_88_CS_SPIRAL_MOUNTAIN_6",
+    "dir": "88_CS_SPIRAL_MOUNTAIN_6",
+    "files": {
+      "setup.bin": {
+        "asset_id": 1956,
+        "asset": null,
+        "compressed": true,
+        "size": 4471
+      },
+      "opa.model.bin": {
+        "asset_id": 5327,
+        "asset": "MODEL_SM_SPIRAL_MOUNTAIN_OPA",
+        "compressed": true,
+        "size": 386580
+      },
+      "xlu.model.bin": {
+        "asset_id": 5328,
+        "asset": "MODEL_SM_SPIRAL_MOUNTAIN_XLU",
+        "compressed": true,
+        "size": 54804
+      }
+    }
+  },
+  {
+    "map_id": 148,
+    "map": "MAP_94_CS_INTRO_SPIRAL_7",
+    "dir": "94_CS_INTRO_SPIRAL_7",
+    "files": {
+      "setup.bin": {
+        "asset_id": 1968,
+        "asset": null,
+        "compressed": true,
+        "size": 6565
+      },
+      "opa.model.bin": {
+        "asset_id": 5327,
+        "asset": "MODEL_SM_SPIRAL_MOUNTAIN_OPA",
+        "compressed": true,
+        "size": 386580
+      },
+      "xlu.model.bin": {
+        "asset_id": 5328,
+        "asset": "MODEL_SM_SPIRAL_MOUNTAIN_XLU",
+        "compressed": true,
+        "size": 54804
+      }
+    }
+  },
+  {
+    "map_id": 152,
+    "map": "MAP_98_CS_END_SPIRAL_MOUNTAIN_1",
+    "dir": "98_CS_END_SPIRAL_MOUNTAIN_1",
+    "files": {
+      "setup.bin": {
+        "asset_id": 1972,
+        "asset": null,
+        "compressed": true,
+        "size": 3379
+      },
+      "opa.model.bin": {
+        "asset_id": 5279,
+        "asset": "MODEL_CS_END_SPIRAL_MOUNTAIN_OPA",
+        "compressed": true,
+        "size": 199708
+      },
+      "xlu.model.bin": {
+        "asset_id": 5283,
+        "asset": "MODEL_CS_END_SPIRAL_MOUNTAIN_XLU",
+        "compressed": true,
+        "size": 30436
+      }
+    }
+  },
+  {
+    "map_id": 153,
+    "map": "MAP_99_CS_END_SPIRAL_MOUNTAIN_2",
+    "dir": "99_CS_END_SPIRAL_MOUNTAIN_2",
+    "files": {
+      "setup.bin": {
+        "asset_id": 1973,
+        "asset": null,
+        "compressed": true,
+        "size": 3379
+      },
+      "opa.model.bin": {
+        "asset_id": 5279,
+        "asset": "MODEL_CS_END_SPIRAL_MOUNTAIN_OPA",
+        "compressed": true,
+        "size": 199708
+      },
+      "xlu.model.bin": {
+        "asset_id": 5283,
+        "asset": "MODEL_CS_END_SPIRAL_MOUNTAIN_XLU",
+        "compressed": true,
+        "size": 30436
+      }
+    }
+  },
+  {
+    "map_id": 149,
+    "map": "MAP_95_CS_END_ALL_100",
+    "dir": "95_CS_END_ALL_100",
+    "files": {
+      "setup.bin": {
+        "asset_id": 1969,
+        "asset": null,
+        "compressed": true,
+        "size": 3485
+      },
+      "opa.model.bin": {
+        "asset_id": 5289,
+        "asset": "MODEL_CS_BEACH_OPA",
+        "compressed": true,
+        "size": 28356
+      },
+      "xlu.model.bin": {
+        "asset_id": 5285,
+        "asset": "MODEL_CS_BEACH_XLU",
+        "compressed": true,
+        "size": 5244
+      }
+    }
+  },
+  {
+    "map_id": 137,
+    "map": "MAP_89_CS_INTRO_BANJOS_HOUSE_2",
+    "dir": "89_CS_INTRO_BANJOS_HOUSE_2",
+    "files": {
+      "setup.bin": {
+        "asset_id": 1957,
+        "asset": null,
+        "compressed": true,
+        "size": 2826
+      },
+      "opa.model.bin": {
+        "asset_id": 5282,
+        "asset": "MODEL_CS_BANJOS_HOUSE_OPA",
+        "compressed": true,
+        "size": 75620
+      },
+      "xlu.model.bin": {
+        "asset_id": 5284,
+        "asset": "MODEL_CS_BANJOS_HOUSE_XLU",
+        "compressed": true,
+        "size": 3028
+      }
+    }
+  },
+  {
+    "map_id": 138,
+    "map": "MAP_8A_CS_INTRO_BANJOS_HOUSE_3",
+    "dir": "8A_CS_INTRO_BANJOS_HOUSE_3",
+    "files": {
+      "setup.bin": {
+        "asset_id": 1958,
+        "asset": null,
+        "compressed": true,
+        "size": 218
+      },
+      "opa.model.bin": {
+        "asset_id": 5282,
+        "asset": "MODEL_CS_BANJOS_HOUSE_OPA",
+        "compressed": true,
+        "size": 75620
+      },
+      "xlu.model.bin": {
+        "asset_id": 5284,
+        "asset": "MODEL_CS_BANJOS_HOUSE_XLU",
+        "compressed": true,
+        "size": 3028
+      }
+    }
+  },
+  {
+    "map_id": 150,
+    "map": "MAP_96_CS_END_BEACH_1",
+    "dir": "96_CS_END_BEACH_1",
+    "files": {
+      "setup.bin": {
+        "asset_id": 1970,
+        "asset": null,
+        "compressed": true,
+        "size": 3098
+      },
+      "opa.model.bin": {
+        "asset_id": 5289,
+        "asset": "MODEL_CS_BEACH_OPA",
+        "compressed": true,
+        "size": 28356
+      },
+      "xlu.model.bin": {
+        "asset_id": 5285,
+        "asset": "MODEL_CS_BEACH_XLU",
+        "compressed": true,
+        "size": 5244
+      }
+    }
+  },
+  {
+    "map_id": 151,
+    "map": "MAP_97_CS_END_BEACH_2",
+    "dir": "97_CS_END_BEACH_2",
+    "files": {
+      "setup.bin": {
+        "asset_id": 1971,
+        "asset": null,
+        "compressed": true,
+        "size": 2955
+      },
+      "opa.model.bin": {
+        "asset_id": 5289,
+        "asset": "MODEL_CS_BEACH_OPA",
+        "compressed": true,
+        "size": 28356
+      },
+      "xlu.model.bin": {
+        "asset_id": 5285,
+        "asset": "MODEL_CS_BEACH_XLU",
+        "compressed": true,
+        "size": 5244
+      }
+    }
+  },
+  {
+    "map_id": 145,
+    "map": "MAP_91_FILE_SELECT",
+    "dir": "91_FILE_SELECT",
+    "files": {
+      "setup.bin": {
+        "asset_id": 1965,
+        "asset": null,
+        "compressed": true,
+        "size": 845
+      },
+      "opa.model.bin": {
+        "asset_id": 5282,
+        "asset": "MODEL_CS_BANJOS_HOUSE_OPA",
+        "compressed": true,
+        "size": 75620
+      },
+      "xlu.model.bin": {
+        "asset_id": 5284,
+        "asset": "MODEL_CS_BANJOS_HOUSE_XLU",
+        "compressed": true,
+        "size": 3028
+      }
+    }
+  },
+  {
+    "map_id": 140,
+    "map": "MAP_8C_SM_BANJOS_HOUSE",
+    "dir": "8C_SM_BANJOS_HOUSE",
+    "files": {
+      "setup.bin": {
+        "asset_id": 1960,
+        "asset": null,
+        "compressed": true,
+        "size": 1290
+      },
+      "opa.model.bin": {
+        "asset_id": 5282,
+        "asset": "MODEL_CS_BANJOS_HOUSE_OPA",
+        "compressed": true,
+        "size": 75620
+      },
+      "xlu.model.bin": {
+        "asset_id": 5284,
+        "asset": "MODEL_CS_BANJOS_HOUSE_XLU",
+        "compressed": true,
+        "size": 3028
+      }
+    }
+  },
+  {
+    "map_id": 142,
+    "map": "MAP_8E_GL_FURNACE_FUN",
+    "dir": "8E_GL_FURNACE_FUN",
+    "files": {
+      "setup.bin": {
+        "asset_id": 1962,
+        "asset": null,
+        "compressed": true,
+        "size": 5055
+      },
+      "opa.model.bin": {
+        "asset_id": 5352,
+        "asset": "MODEL_GL_FURNACE_FUN_OPA",
+        "compressed": true,
+        "size": 319460
+      }
+    }
+  }
+]

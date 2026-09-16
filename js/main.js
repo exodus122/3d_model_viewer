@@ -295,8 +295,30 @@ function getMapProperty(game, mapName, prop) {
 loadMap.addEventListener('click', async (e) => {
     const game = document.getElementById("selected-game").value;
     
-    if (game == "BK" || game == "BT"){
-        
+    if (game == "BK"){
+        // models/BK/<dir>/{opa,xlu}.model.bin, see BK_Maps in model_list.js
+        const mapName = document.getElementById("mapDropdown").value;
+        const mapDir = getMapProperty(game, mapName, "dir");
+        const hasXlu = getMapProperty(game, mapName, "xlu") !== "";
+
+        try {
+            const res1 = await fetch('./models/BK/' + mapDir + '/opa.model.bin');
+            const buffer1 = await res1.arrayBuffer();
+            console.log(mapDir+"/opa.model.bin: Binary file length:", buffer1.byteLength);
+            parseBKModelBinary(scene, buffer1, true);
+
+            if (hasXlu) {
+                const res2 = await fetch('./models/BK/' + mapDir + '/xlu.model.bin');
+                const buffer2 = await res2.arrayBuffer();
+                console.log(mapDir+"/xlu.model.bin: Binary file length:", buffer2.byteLength);
+                parseBKModelBinary(scene, buffer2, false, "XLU Model");
+            }
+        } catch (err) {
+            console.error(err);
+        }
+    }
+    else if (game == "BT"){
+
         const mapName = document.getElementById("mapDropdown").value;
         let mapFilename = getMapProperty(game, mapName, "modelAPointer");
         let mapFilename2 = getMapProperty(game, mapName, "modelBPointer");

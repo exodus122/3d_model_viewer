@@ -120,7 +120,7 @@ export function parseModelBinary(scene, buffer){
     buildGeometry(scene, verts, tris, null, null, "Main Model", true);
 }
 
-export function parseBKModelBinary(scene, buffer, fresh){
+export function parseBKModelBinary(scene, buffer, fresh, name){
     const dv = new DataView(buffer);
     if (dv.byteLength < 4) {
         alert('binary too small');
@@ -179,8 +179,8 @@ export function parseBKModelBinary(scene, buffer, fresh){
         for(let i=0;i<tris.length;i++) tris[i]=tris[i].map(x=>x-1);
     }
     
-    let modelName = "Main Model";
-    if(!fresh)
+    let modelName = name ?? "Main Model";
+    if(!fresh && !name)
         modelName = `Model ${loadedModels.length+1}`;
     
     buildGeometry(scene, verts, tris, null, null, modelName, fresh);
