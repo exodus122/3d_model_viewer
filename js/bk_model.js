@@ -184,11 +184,13 @@ const G_LOADTILE = 0xF4;
 const G_SETCOMBINE = 0xFC;
 
 const G_LIGHTING = 0x00020000;
+const G_TEXTURE_GEN = 0x00040000;
 const G_CULL_BACK = 0x00002000;
 
-// Colour-combiner inputs that read a texel
+// Colour-combiner inputs (a/b/c/d slot numbering is the same for these)
 const CC_TEXEL0 = 1;
 const CC_TEXEL1 = 2;
+const CC_SHADE = 4;
 
 function texturePixelBits(type) {
     if (type & TEX_TYPE_CI4) return 4;
@@ -300,22 +302,59 @@ export function parseBKModelTextured(buffer) {
     const vtxBase = vtxListOffset + 0x18;
 
     // ---- display list replay
+    //
+    // The RDP has 8 tile descriptors. A texture is loaded into TMEM through
+    // one tile (usually 7) and drawn through another; gSPTexture picks which
+    // tile renders (BK uses tile 0 for plain surfaces and tile 2 with LOD for
+    // mipmapped ones). So loads are remembered by TMEM address and resolved
+    // through the render tile's descriptor at draw time -- taking the last
+    // load would pick the smallest mip level and a stale tile's wrap modes.
     const cache = new Int32Array(VTX_CACHE_SIZE).fill(-1);
     let geometryMode = 0;
-    let texOn = false, texScaleS = 1, texScaleT = 1;
+    let texOn = false, texScaleS = 1, texScaleT = 1, renderTile = 0;
     let timgAddr = 0;
-    let currentTexture = -1;
     let combinerUsesTexel = true;
-    const tile0 = { cms: 0, cmt: 0, shifts: 0, shiftt: 0, uls: 0, ult: 0 };
+    let combinerUsesShade = true;
+    const tiles = Array.from({ length: 8 }, () => ({
+        tmem: 0, cms: 0, cmt: 0, masks: 0, maskt: 0, shifts: 0, shiftt: 0, uls: 0, ult: 0, lrs: 0, lrt: 0,
+    }));
+    // Mipmapped surfaces render through tile 2 (gSPTexture level 2, tile 2)
+    // but never configure it themselves: modelRender_draw emits mipMapWrapDL
+    // first, which sets tiles 2-6 to the 32x32 base level at TMEM 0 and its
+    // LODs, all wrapping. Seed the same so those surfaces resolve. (Two maps
+    // flip a subtree to the clamp variant via the TEXWRAP geo command; that
+    // is not replicated.)
+    [[2, 0x000, 5, 0, 32], [3, 0x100, 4, 1, 16], [4, 0x104, 3, 2, 8], [5, 0x106, 2, 3, 4], [6, 0x107, 1, 4, 2]]
+        .forEach(([t, tmem, mask, shift, size]) => {
+            Object.assign(tiles[t], { tmem, cms: 0, cmt: 0, masks: mask, maskt: mask, shifts: shift, shiftt: shift,
+                uls: 0, ult: 0, lrs: size - 1, lrt: size - 1 });
+        });
+    const tmemTextures = new Map(); // tmem address -> texture index
+
+    // Effective wrap per axis. The hardware clamps to the tile's declared size
+    // and then applies the mask, so a "clamped" tile declared wider than the
+    // texture still repeats inside it; a mask of 0 never wraps.
+    const wrapFor = (clampMirror, mask, tileSize, texSize) => {
+        if (mask === 0) return 2;                              // clamp
+        if ((clampMirror & 2) && tileSize <= texSize) return 2; // clamp
+        return clampMirror & 1;                                // mirror or repeat
+    };
 
     const batches = new Map();
     const batchFor = () => {
-        const tex = (texOn && combinerUsesTexel) ? currentTexture : -1;
+        const rt = tiles[renderTile];
+        const texIndex = tmemTextures.get(rt.tmem);
+        const tex = (texOn && combinerUsesTexel && texIndex !== undefined) ? texIndex : -1;
+        let wrapS = 0, wrapT = 0;
+        if (tex >= 0) {
+            wrapS = wrapFor(rt.cms, rt.masks, rt.lrs - rt.uls + 1, textures[tex].width);
+            wrapT = wrapFor(rt.cmt, rt.maskt, rt.lrt - rt.ult + 1, textures[tex].height);
+        }
         const cullBack = (geometryMode & G_CULL_BACK) !== 0;
-        const key = tex + ':' + tile0.cms + ':' + tile0.cmt + ':' + (cullBack ? 1 : 0);
+        const key = tex + ':' + wrapS + ':' + wrapT + ':' + (cullBack ? 1 : 0);
         let b = batches.get(key);
         if (!b) {
-            b = { texture: tex, wrapS: tile0.cms, wrapT: tile0.cmt, cullBack, positions: [], uvs: [], colors: [] };
+            b = { texture: tex, wrapS, wrapT, cullBack, positions: [], uvs: [], colors: [] };
             batches.set(key, b);
         }
         return b;
@@ -328,22 +367,36 @@ export function parseBKModelTextured(buffer) {
         const batch = batchFor();
         const tex = batch.texture >= 0 ? textures[batch.texture] : null;
         const lit = (geometryMode & G_LIGHTING) !== 0;
+        // Environment mapping: with G_TEXTURE_GEN the RSP derives s/t from the
+        // eye-space normal instead of Vtx.tc (shiny honeycombs, jiggies, eggs).
+        // That is view-dependent; a static sphere-map lookup on the model-space
+        // normal gives the right look.
+        const texGen = lit && (geometryMode & G_TEXTURE_GEN) !== 0;
         for (const idx of [a, b, c]) {
             const o = vtxBase + idx * VTX_SIZE;
             batch.positions.push(dv.getInt16(o, false), dv.getInt16(o + 2, false), dv.getInt16(o + 4, false));
 
-            // Vtx.tc is s10.5 texels, scaled by G_TEXTURE's 0.16 factors, then
-            // the tile's shift, relative to the tile's upper-left corner.
-            let s = (dv.getInt16(o + 8, false) / 32) * texScaleS;
-            let t = (dv.getInt16(o + 10, false) / 32) * texScaleT;
-            s = shiftCoord(s, tile0.shifts) - tile0.uls;
-            t = shiftCoord(t, tile0.shiftt) - tile0.ult;
-            batch.uvs.push(tex ? s / tex.width : 0, tex ? t / tex.height : 0);
+            const nx = dv.getInt8(o + 12) / 127, ny = dv.getInt8(o + 13) / 127, nz = dv.getInt8(o + 14) / 127;
 
-            if (lit) {
+            if (texGen) {
+                batch.uvs.push(0.5 + nx * 0.5, 0.5 - ny * 0.5);
+            } else {
+                // Vtx.tc is s10.5 texels, scaled by G_TEXTURE's 0.16 factors, then
+                // the tile's shift, relative to the tile's upper-left corner.
+                const rt = tiles[renderTile];
+                let s = (dv.getInt16(o + 8, false) / 32) * texScaleS;
+                let t = (dv.getInt16(o + 10, false) / 32) * texScaleT;
+                s = shiftCoord(s, rt.shifts) - rt.uls;
+                t = shiftCoord(t, rt.shiftt) - rt.ult;
+                batch.uvs.push(tex ? s / tex.width : 0, tex ? t / tex.height : 0);
+            }
+
+            if (!combinerUsesShade) {
+                // Combiner ignores the shade colour (e.g. plain TEXEL0 output).
+                batch.colors.push(1, 1, 1);
+            } else if (lit) {
                 // The colour bytes are a normal; approximate the game's single
                 // directional light with a fixed key light plus ambient.
-                const nx = dv.getInt8(o + 12) / 127, ny = dv.getInt8(o + 13) / 127, nz = dv.getInt8(o + 14) / 127;
                 const d = Math.max(0, nx * 0.30 + ny * 0.86 + nz * 0.41);
                 const i = 0.45 + 0.55 * d;
                 batch.colors.push(i, i, i);
@@ -389,33 +442,53 @@ export function parseBKModelTextured(buffer) {
             case G_TEXTURE:
                 // w0: | op | 0 | level:3 tile:3 | on |   w1: scaleS:16 scaleT:16 (0.16 fixed)
                 texOn = (w0 & 0xFF) !== 0;
+                renderTile = (w0 >>> 8) & 7;
                 texScaleS = (w1 >>> 16) / 65536;
                 texScaleT = (w1 & 0xFFFF) / 65536;
                 break;
             case G_SETTIMG: timgAddr = w1; break;
             case G_LOADBLOCK:
-            case G_LOADTILE:
-                currentTexture = textureAt(timgAddr);
+            case G_LOADTILE: {
+                // The load goes through the tile named in w1; whatever TMEM
+                // address that tile points at now holds this texture.
+                const loadTile = tiles[(w1 >>> 24) & 7];
+                tmemTextures.set(loadTile.tmem, textureAt(timgAddr));
                 break;
-            case G_SETTILE:
+            }
+            case G_SETTILE: {
+                // w0: | op | fmt:3 siz:2 | 0 | line:9 | tmem:9 |
                 // w1: | tile:3 | palette:4 | cmt:2 maskt:4 shiftt:4 | cms:2 masks:4 shifts:4 |
-                if (((w1 >>> 24) & 7) === 0) {
-                    tile0.cmt = (w1 >>> 18) & 3;
-                    tile0.shiftt = (w1 >>> 10) & 0xF;
-                    tile0.cms = (w1 >>> 8) & 3;
-                    tile0.shifts = w1 & 0xF;
-                }
+                const tile = tiles[(w1 >>> 24) & 7];
+                tile.tmem = w0 & 0x1FF;
+                tile.cmt = (w1 >>> 18) & 3;
+                tile.maskt = (w1 >>> 14) & 0xF;
+                tile.shiftt = (w1 >>> 10) & 0xF;
+                tile.cms = (w1 >>> 8) & 3;
+                tile.masks = (w1 >>> 4) & 0xF;
+                tile.shifts = w1 & 0xF;
                 break;
-            case G_SETTILESIZE:
-                if (((w1 >>> 24) & 7) === 0) {
-                    tile0.uls = ((w0 >>> 12) & 0xFFF) / 4;
-                    tile0.ult = (w0 & 0xFFF) / 4;
-                }
+            }
+            case G_SETTILESIZE: {
+                // w0: | op | uls:12 ult:12 |   w1: | tile:3 | lrs:12 lrt:12 |  (10.2 fixed)
+                const tile = tiles[(w1 >>> 24) & 7];
+                tile.uls = ((w0 >>> 12) & 0xFFF) / 4;
+                tile.ult = (w0 & 0xFFF) / 4;
+                tile.lrs = ((w1 >>> 12) & 0xFFF) / 4;
+                tile.lrt = (w1 & 0xFFF) / 4;
                 break;
+            }
             case G_SETCOMBINE: {
-                // cycle-1 colour inputs a (w0 bits 20-23) and c (w0 bits 15-19)
-                const a0 = (w0 >>> 20) & 0xF, c0 = (w0 >>> 15) & 0x1F;
-                combinerUsesTexel = a0 === CC_TEXEL0 || a0 === CC_TEXEL1 || c0 === CC_TEXEL0 || c0 === CC_TEXEL1;
+                // Colour = (a - b) * c + d, two cycles. BK's usual combiner is
+                // cycle 1: (TEXEL0 - PRIM) * ENV + PRIM, cycle 2: COMBINED * SHADE,
+                // so the shade (vertex colour / lighting) only shows up in cycle 2.
+                //   cycle 1: a = w0[23:20]  c = w0[19:15]  b = w1[31:28]  d = w1[17:15]
+                //   cycle 2: a = w0[8:5]    c = w0[4:0]    b = w1[27:24]  d = w1[8:6]
+                const inputs = [
+                    (w0 >>> 20) & 0xF, (w0 >>> 15) & 0x1F, (w1 >>> 28) & 0xF, (w1 >>> 15) & 7,
+                    (w0 >>> 5) & 0xF, w0 & 0x1F, (w1 >>> 24) & 0xF, (w1 >>> 6) & 7,
+                ];
+                combinerUsesTexel = inputs.some(v => v === CC_TEXEL0 || v === CC_TEXEL1);
+                combinerUsesShade = inputs.some(v => v === CC_SHADE);
                 break;
             }
             default:
