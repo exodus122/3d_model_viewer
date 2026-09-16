@@ -334,13 +334,23 @@ function loadPropGeometry(assetId) {
             const loaded = {
                 visual: makeGeometrySet(model.positions, model.displayListIndices),
                 collision: makeGeometrySet(model.positions, model.collisionIndices),
-                textured: null,
+                refPoints: model.refPoints,
+                texturedVariants: new Map(),
+                // Textured geometry depends on which selector-gated variant an
+                // instance shows, so it is built per selector value on demand.
+                texturedFor(selector) {
+                    if (!this.texturedVariants.has(selector)) {
+                        let parts = null;
+                        try {
+                            parts = buildTexturedParts(buffer, selector);
+                        } catch (err) {
+                            console.warn(`prop model ${file}: textured build failed: ${err.message}`);
+                        }
+                        this.texturedVariants.set(selector, parts);
+                    }
+                    return this.texturedVariants.get(selector);
+                },
             };
-            try {
-                loaded.textured = buildTexturedParts(buffer);
-            } catch (err) {
-                console.warn(`prop model ${file}: textured build failed: ${err.message}`);
-            }
             if (!loaded.visual && !loaded.collision) {
                 console.warn(`prop model ${file}: no triangles`);
                 return null;
@@ -541,7 +551,7 @@ function makeYawLine(length, material) {
 
 function describeNode(node) {
     const cat = NODE_CATEGORY_NAMES[node.category] ?? `Category ${node.category}`;
-    const model = BK_Actor_Models[node.actorId];
+    const model = node.modelAsset ?? BK_Actor_Models[node.actorId];
     const what = node.category === NODE_CATEGORY_ACTOR
         ? `ACTOR ${actorName(node.actorId)} (${hex(node.actorId)}` +
           (model ? `, model ${hex(model)}${node.geometrySource ? ' ' + node.geometrySource : ''}` : '') + ')'
@@ -549,7 +559,8 @@ function describeNode(node) {
     return `${what}: pos=${node.position.join(', ')} yaw=${node.yaw} scale=${node.scale / 100}` +
         ` ${NODE_CATEGORIES_WITH_RADIUS.has(node.category) ? 'radius' : 'selector'}=${node.selectorOrRadius}` +
         ` marker=${node.markerId} unk10=${hex(node.unk10_31)},${hex(node.unk10_19)}` +
-        ` cube=${node.cube.join(',')}`;
+        ` cube=${node.cube.join(',')}` +
+        (node.override ? ` [runtime placement; setup pos=${node.setup.position.join(', ')} yaw=${node.setup.yaw} scale=${node.setup.scale / 100} -- ${node.override.source}]` : '');
 }
 
 function describeProp(prop) {
@@ -667,6 +678,163 @@ const BK_MAP_OBJECTS = {
     ],
 };
 
+// Actors whose update function throws away the NodeProp position (and
+// sometimes rotation, scale or model) on its first tick and places them
+// itself, so the setup file's coordinates are placeholders. Keyed by map id
+// then actor id; values are what a fresh save file ends up with. A position
+// is one of:
+//   [x, y, z]                        world coordinates
+//   { object, refPoint }             a ref point (REFPOINT geo command, rest
+//                                    pose) of a BK_MAP_OBJECTS model, offset
+//                                    by that object's position
+//   { offset: [dx, dy, dz] }         relative to the setup position
+//   { nearestActor: id }             the position of the closest node with
+//                                    that actor id (actorArray_findClosest...)
+//   node => [x, y, z]                computed from the setup node
+const BK_ACTOR_OVERRIDES = {
+    0x07: { // TTC_TREASURE_TROVE_COVE
+        // Sharkfood Island slides 41.2% of the way to (8831, 13535), faces
+        // yaw 199 and sits underwater until the pink SNS egg code is entered.
+        0x25C: { position: n => [n.position[0] + 0.412 * (8831 - n.position[0]), -1000, n.position[2] + 0.412 * (13535 - n.position[2])], yaw: 199,
+                 source: 'src/TTC/code_26D0.c: __code26D0_sharkfoodIslandUpdateFunc; y = 700 once raised' },
+    },
+    0x0B: { // CC_CLANKERS_CAVERN
+        0x43: { position: { object: 'CLANKER', refPoint: 5 },
+                source: 'src/CC/ch/clankerscrew.c: lower idle position = Clanker ref point 5 (func_80388B4C)' },
+        0x44: { position: { object: 'CLANKER', refPoint: 7 }, yaw: 0,
+                source: 'src/CC/ch/clankertoothext.c: position = Clanker ref point 7 (func_80388B78), rotation 0 while upright' },
+        0x45: { position: { object: 'CLANKER', refPoint: 9 }, yaw: 0,
+                source: 'src/CC/ch/clankertoothext.c: position = Clanker ref point 9 (func_80388BBC), rotation 0 while upright' },
+        0x3C: { position: [5700, -2620, -20],
+                source: 'src/CC/ch/clankerkey.c: maClankerKey_update sets position on init' },
+    },
+    0x12: { // GV_GOBIS_VALLEY
+        0x31D: { position: [67, 1375, 400],
+                 source: 'src/GV/ch/buriedpyramid.c: y = raised_state / 3 * 1050 + 1375 (raised_state 0 on a fresh file)' },
+        0x1F5: { position: { offset: [0, -300, 0] }, scale: 1.35,
+                 source: 'src/GV/gvspawnqueue.c func_8038E97C: scale 1.35, sunk 300 until the pyramid is fully raised' },
+        0x130: { position: { nearestActor: 0x12E },
+                 source: 'src/GV/ch/gobirock.c: snaps to the nearest GOBI_1' },
+        0x12F: { position: { nearestActor: 0x12E },
+                 source: 'src/GV/ch/gobirope.c: snaps to the nearest GOBI_1' },
+    },
+    0x1A: { // GV_INSIDE_JINXY
+        0x119: { yaw: 90, source: 'src/GV/code_43B0.c: magic carpet yaw forced to 90 every frame' },
+    },
+    0x22: { // CC_INSIDE_CLANKER
+        // chTooth_update: position = D_80389B50[].position * 1.25; the model
+        // is the closed variant until the tooth's level flag is set.
+        0x101: { position: [522.9976 * 1.25, 1135.8192 * 1.25, 5503.4833 * 1.25], asset: 0x892,
+                 source: 'src/CC/ch/tooth.c: D_80389B50[0].position * 1.25, closed model until LEVEL_FLAG_0 set' },
+        0x102: { position: [-713.4896 * 1.25, 1135.8192 * 1.25, 5152.913 * 1.25], asset: 0x894,
+                 source: 'src/CC/ch/tooth.c: D_80389B50[1].position * 1.25, closed model until LEVEL_FLAG_1 set' },
+    },
+    0x31: { // RBB_RUSTY_BUCKET_BAY
+        0x1C9: { position: [-5100, -2600, 1460], yaw: 0, source: 'src/RBB/ch/anchor.c: chAnchor_update init' },
+        0x1C8: { position: [-5100, -2600, 1460], yaw: 0, source: 'src/RBB/ch/dolphin.c: chSnorkel_update init' },
+        0x1C2: { position: [-3720, 800, -350], yaw: -90, scale: 0.25, source: 'src/RBB/ch/whistle.c: chRBBWhistleInfo[0]' },
+        0x1C3: { position: [-3720, 800, 0], yaw: -90, scale: 0.25, source: 'src/RBB/ch/whistle.c: chRBBWhistleInfo[1]' },
+        0x1C4: { position: [-3720, 800, 350], yaw: -90, scale: 0.25, source: 'src/RBB/ch/whistle.c: chRBBWhistleInfo[2]' },
+        0x1BF: { position: [-3950, 690, -350], yaw: -90, source: 'src/RBB/ch/whistleswitch.c: chWhistleSwitchTable[0]' },
+        0x1C0: { position: [-3950, 690, 0], yaw: -90, source: 'src/RBB/ch/whistleswitch.c: chWhistleSwitchTable[1]' },
+        0x1C1: { position: [-3950, 690, 350], yaw: -90, source: 'src/RBB/ch/whistleswitch.c: chWhistleSwitchTable[2]' },
+        // secondaryId (NodeProp.unk10_31) 0x1C is the +z propeller.
+        0x175: { position: n => [7625.5, -1950, n.unk10_31 === 0x1C ? 300 : -300],
+                 source: 'src/RBB/ch/propellor.c: z = +300 for secondaryId 0x1C, else -300' },
+    },
+    0x34: { // RBB_ENGINE_ROOM
+        0x178: { position: [0, -60, 2450], source: 'src/RBB/ch/axle.c: chSpinningFlatPlatformTable[0]' },
+        0x179: { position: [-1600, 730, -700], source: 'src/RBB/ch/axle.c: chSpinningFlatPlatformTable[1] (roll 270)' },
+        0x17A: { position: [1600, 730, -700], source: 'src/RBB/ch/axle.c: chSpinningFlatPlatformTable[2] (roll 270)' },
+        0x1BB: { position: [0, 641.45, -1400], source: 'src/RBB/ch/enginefan.c: D_80390530[0]' },
+        0x1BC: { position: [-800, 641.45, -2400], source: 'src/RBB/ch/enginefan.c: D_80390530[1]' },
+        0x1BD: { position: [800, 641.45, -2400], source: 'src/RBB/ch/enginefan.c: D_80390530[2]' },
+        0x177: { position: [1600, 641.5, -2700], source: 'src/RBB/ch/engineparts.c: D_80390760[0]' },
+        0x17E: { position: [-1600, 641.5, -2700], source: 'src/RBB/ch/engineparts.c: D_80390760[1]' },
+        0x17F: { position: [300, 641.5, -400], source: 'src/RBB/ch/engineparts.c: D_80390760[2]' },
+        0x180: { position: [-300, 641.5, -400], source: 'src/RBB/ch/engineparts.c: D_80390760[3]' },
+        0x17B: { position: [0, -50, 700], source: 'src/RBB/ch/cog.c: small cog init' },
+        0x17C: { position: [0, -50, 500], source: 'src/RBB/ch/cog.c: medium cog init' },
+        0x17D: { position: [0, -50, 300], source: 'src/RBB/ch/cog.c: large cog init' },
+        // secondaryId 2 is the +x switch (D_80390720[0]), anything else -x.
+        0x176: { position: n => [n.unk10_31 === 2 ? 1600 : -1600, 804, -2400],
+                 source: 'src/RBB/ch/propellorswitch.c: D_80390720[secondaryId == 2 ? 0 : 1]' },
+        0x1BE: { position: [-3209.95, 1164.5, -2649.95], yaw: -90, source: 'src/RBB/ch/enginefanswitch.c: chEngineFanSwitch_update init' },
+    },
+    // CCW: Eyrie's nest and Gnawty's furniture are placed by code in every
+    // season they appear in.
+    0x43: { 0x2A1: { position: [-4900, 4619, 0], source: 'src/CCW/code_3310.c: chEyrieBaby init' } },
+    0x44: { 0x2A1: { position: [-4900, 4619, 0], source: 'src/CCW/code_3310.c: chEyrieBaby init' } },
+    0x45: {
+        0x2A1: { position: [-4900, 4619, 0], source: 'src/CCW/code_3310.c: chEyrieBaby init' },
+        0x2DE: { position: [325.8, 600, 0], source: 'src/CCW/ccwspawnqueue.c: code_76C0_ccwGnawtysStuffUpdate' },
+        0x2DD: { position: [325.8, 600, 0], source: 'src/CCW/ccwspawnqueue.c: code_76C0_ccwGnawtysStuffUpdate' },
+        0x2DC: { position: [325.8, 600, 0], source: 'src/CCW/ccwspawnqueue.c: code_76C0_ccwGnawtysStuffUpdate' },
+    },
+    0x46: {
+        0x2DE: { position: [325.8, 600, 0], source: 'src/CCW/ccwspawnqueue.c: code_76C0_ccwGnawtysStuffUpdate' },
+        0x2DD: { position: [325.8, 600, 0], source: 'src/CCW/ccwspawnqueue.c: code_76C0_ccwGnawtysStuffUpdate' },
+        0x2DC: { position: [325.8, 600, 0], source: 'src/CCW/ccwspawnqueue.c: code_76C0_ccwGnawtysStuffUpdate' },
+    },
+};
+
+/**
+ * Apply BK_ACTOR_OVERRIDES to the actor nodes of a map: the node keeps its
+ * setup values under `setup` and its position / yaw / scale / model become
+ * what the game ends up using. Ref-point positions need the host model's
+ * geometry.
+ */
+async function applyActorOverrides(mapId, actorNodes) {
+    const overrides = BK_ACTOR_OVERRIDES[mapId];
+    if (!overrides) return;
+    const mapObjects = BK_MAP_OBJECTS[mapId] ?? [];
+    const dist2 = (a, b) => (a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2 + (a[2] - b[2]) ** 2;
+    // Setup positions are read before any node is moved, so a nearestActor
+    // lookup sees the same layout the game's spawn pass does.
+    const setupPositions = new Map(actorNodes.map(n => [n, n.position]));
+
+    for (const node of actorNodes) {
+        const ov = overrides[node.actorId];
+        if (!ov) continue;
+        const setup = { position: node.position, yaw: node.yaw, scale: node.scale };
+        let position = ov.position;
+        if (typeof position === 'function') {
+            position = position(node);
+        } else if (position && !Array.isArray(position)) {
+            if (position.refPoint !== undefined) {
+                const host = mapObjects.find(o => o.name === position.object);
+                const loaded = host ? await loadPropGeometry(host.asset) : null;
+                const point = loaded?.refPoints?.get(position.refPoint);
+                if (!point) {
+                    console.warn(`actor ${hex(node.actorId)}: ref point ${position.refPoint} of ${position.object} not found`);
+                    continue;
+                }
+                position = point.map((v, i) => v + host.position[i]);
+            } else if (position.offset) {
+                position = setup.position.map((v, i) => v + position.offset[i]);
+            } else if (position.nearestActor !== undefined) {
+                let best = null, bestD = Infinity;
+                for (const other of actorNodes) {
+                    if (other.actorId !== position.nearestActor) continue;
+                    const d = dist2(setupPositions.get(other), setup.position);
+                    if (d < bestD) { bestD = d; best = setupPositions.get(other); }
+                }
+                if (!best) {
+                    console.warn(`actor ${hex(node.actorId)}: no ${hex(position.nearestActor)} node to snap to`);
+                    continue;
+                }
+                position = best;
+            }
+        }
+        node.setup = setup;
+        if (position) node.position = position.map(v => Math.round(v * 100) / 100);
+        if (ov.yaw !== undefined) node.yaw = ov.yaw;
+        if (ov.scale !== undefined) node.scale = Math.round(ov.scale * 100); // NodeProp units (percent)
+        if (ov.asset !== undefined) node.modelAsset = ov.asset;
+        node.override = ov;
+    }
+}
+
 function describeMapObject(obj) {
     return `MAP OBJECT ${obj.name} (model ${hex(obj.asset)}${obj.geometrySource ? ' ' + obj.geometrySource : ''}):` +
         ` pos=${obj.position.join(', ')} yaw=${obj.yaw} scale=${obj.scale} -- ${obj.source}`;
@@ -689,6 +857,9 @@ const ACTOR_STYLE = {
     edgeColor: 0x8a3d10,
     describe: describeNode,
     fallback: buildActorInstance,
+    // NodeProp.selector_or_radius doubles as the variant index for models whose
+    // parts are selector-gated (level signs, SNS eggs, exit pads).
+    selectorOf: node => node.selectorOrRadius,
     // func_80330208 spawns the actor at the node's position with marker->yaw =
     // NodeProp.yaw (already degrees) and scale = NodeProp.scale * 0.01, 0 = 1.
     transform(node, obj) {
@@ -736,8 +907,9 @@ function addLoadedModelRow(scene, groupBody, rowName, instances, loaded, style, 
         edges.scale.copy(mesh.scale);
         edgesGroup.add(edges);
 
-        if (loaded.textured) {
-            attachTextured(mesh, makeTexturedMesh(loaded.textured), edges);
+        const textured = loaded.texturedFor(style.selectorOf ? style.selectorOf(inst) : 0);
+        if (textured) {
+            attachTextured(mesh, makeTexturedMesh(textured), edges);
         }
 
         propInstances.push({ mesh, edges, prop: inst, loaded, describe: style.describe });
@@ -932,18 +1104,21 @@ export async function renderBKSetup(scene, buffer, mapId = -1) {
     }
 
     if (actorNodes.length) {
+        await applyActorOverrides(mapId, actorNodes);
         const byType = [...groupBy(actorNodes, n => n.actorId)]
             .sort((a, b) => actorName(a[0]).localeCompare(actorName(b[0])));
-        // Each actor's model comes from its ActorInfo (BK_Actor_Models); actors
-        // with no model (triggers, controllers) or none known keep the marker.
-        // A few actors' "models" are sprite assets; those become billboards
-        // in the hitbox-only group rather than going through the model loader.
+        // Each actor's model comes from its ActorInfo (BK_Actor_Models) unless
+        // an override swaps it; actors with no model (triggers, controllers)
+        // or none known keep the marker. A few actors' "models" are sprite
+        // assets; those become billboards in the hitbox-only group rather
+        // than going through the model loader.
+        const modelOf = ([id, list]) => list[0].modelAsset ?? BK_Actor_Models[id];
         const spriteIndex = await loadSpriteIndex();
-        const spriteActors = byType.filter(([id]) => spriteIndex.has(BK_Actor_Models[id]));
-        const modelActors = byType.filter(([id]) => !spriteIndex.has(BK_Actor_Models[id]));
+        const spriteActors = byType.filter(entry => spriteIndex.has(modelOf(entry)));
+        const modelActors = byType.filter(entry => !spriteIndex.has(modelOf(entry)));
 
-        const geometries = await Promise.all(modelActors.map(([id]) => {
-            const modelAsset = BK_Actor_Models[id];
+        const geometries = await Promise.all(modelActors.map(entry => {
+            const modelAsset = modelOf(entry);
             return modelAsset ? loadPropGeometry(modelAsset) : Promise.resolve(null);
         }));
         addSplitModelGroups(scene, modelActors, geometries, ACTOR_STYLE, actorName, rowLabel,
@@ -953,7 +1128,7 @@ export async function renderBKSetup(scene, buffer, mapId = -1) {
             const group = getModelGroup('bk-actors-hitbox', 'Actors (hitbox only)');
             for (const [id, list] of spriteActors) {
                 addSpriteRow(scene, group.body, rowLabel(actorName(id), list), list,
-                    spriteIndex.get(BK_Actor_Models[id]), true, SPRITE_ACTOR_STYLE);
+                    spriteIndex.get(modelOf([id, list])), true, SPRITE_ACTOR_STYLE);
             }
         }
     }

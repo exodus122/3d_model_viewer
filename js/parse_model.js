@@ -219,7 +219,7 @@ export function parseBKModelBinary(scene, buffer, fresh, name){
         const entry = loadedModels[loadedModels.length - 1];
         if (entry && entry.name === modelName) {
             try {
-                const textured = buildTexturedMesh(buffer);
+                const textured = buildTexturedMesh(buffer, { translucent: modelName === "XLU Model" });
                 if (textured) attachTextured(entry.mesh, textured, entry.edges);
             } catch (err) {
                 console.warn(`${modelName}: textured build failed: ${err.message}`);

@@ -123,7 +123,63 @@ export function parseBKModelGeometry(buffer) {
         displayListIndices = IndexArray.from(out);
     }
 
-    return { positions, vertexCount, collisionIndices, displayListIndices };
+    return { positions, vertexCount, collisionIndices, displayListIndices, refPoints: collectRefPoints(dv) };
+}
+
+// REFPOINT geo commands (modelRender_geoCmd_REFPOINT) publish a model-space
+// point under an index that actors attached to the model look up at runtime
+// (Clanker's screw and teeth sit on ref points 5, 7 and 9). The game moves
+// each point by its bone's animation matrix; this is the rest pose.
+function collectRefPoints(dv) {
+    const points = new Map();
+    const geoListOffset = dv.getInt32(0x04, false);
+    if (!geoListOffset) return points;
+    let steps = 0;
+    const walk = (offset, depth) => {
+        if (depth > 64) return;
+        while (offset > 0 && offset + 8 <= dv.byteLength && steps++ < 200000) {
+            const cmd = dv.getUint32(offset, false);
+            const next = dv.getInt32(offset + 4, false);
+            switch (cmd) {
+                case GEO_REFPOINT: {
+                    // s16 index +8, s16 anim_mtx_id +10, f32 point[3] +12
+                    const index = dv.getInt16(offset + 8, false);
+                    if (!points.has(index)) {
+                        points.set(index, [dv.getFloat32(offset + 12, false),
+                            dv.getFloat32(offset + 16, false), dv.getFloat32(offset + 20, false)]);
+                    }
+                    break;
+                }
+                case GEO_UNK0:
+                case GEO_CAMERA: { const b = dv.getInt16(offset + 8, false); if (b) walk(offset + b, depth + 1); break; }
+                case GEO_DRAWDIST: { const b = dv.getInt16(offset + 0x14, false); if (b) walk(offset + b, depth + 1); break; }
+                case GEO_BONE: { const b = dv.getUint8(offset + 8); if (b) walk(offset + b, depth + 1); break; }
+                case GEO_CALL: { const b = dv.getInt32(offset + 8, false); if (b) walk(offset + b, depth + 1); break; }
+                case GEO_LOD: { const b = dv.getInt32(offset + 0x1C, false); if (b) walk(offset + b, depth + 1); break; }
+                case GEO_UNKE: { const b = dv.getInt16(offset + 0x10, false); if (b) walk(offset + b, depth + 1); break; }
+                case GEO_SORT: {
+                    const b1 = dv.getInt16(offset + 0x22, false), b2 = dv.getInt32(offset + 0x24, false);
+                    if (b1) walk(offset + b1, depth + 1);
+                    if (b2) walk(offset + b2, depth + 1);
+                    break;
+                }
+                case GEO_SELECTOR: {
+                    const count = dv.getInt16(offset + 8, false);
+                    for (let i = 0; i < count; i++) {
+                        const b = dv.getInt32(offset + 12 + i * 4, false);
+                        if (b) walk(offset + b, depth + 1);
+                    }
+                    break;
+                }
+                default:
+                    break;
+            }
+            if (next === 0) break;
+            offset += next;
+        }
+    };
+    walk(geoListOffset, 0);
+    return points;
 }
 
 // Low three bytes of a TRI word are vertex-cache slots * 2.
@@ -182,14 +238,22 @@ const G_SETTILESIZE = 0xF2;
 const G_LOADBLOCK = 0xF3;
 const G_LOADTILE = 0xF4;
 const G_SETCOMBINE = 0xFC;
+const G_DL = 0x06;
 const G_ENDDL = 0xB8;
+
+// modelRender_draw points segment 3 at a table of 16-byte render-mode display
+// lists (renderModes*Opa / *Xlu in core2/modelRender.c) and a model picks one
+// with G_DL 0x030000n0. For an opaque model entries 0, 1, 6 and 7 are the OPA
+// surface modes; every other entry alpha-blends (XLU).
+const RENDER_MODE_SEGMENT = 0x03;
+const OPA_RENDER_MODE_ENTRIES = new Set([0, 1, 6, 7]);
 
 // Geometry-setup commands (include/core2/model.h). The geo list is a tree of
 // these that modelRender_draw walks; it decides which display lists run, in
 // what order, and carries state like TEXWRAP.
 const GEO_UNK0 = 0x00, GEO_SORT = 0x01, GEO_BONE = 0x02, GEO_LOADDL = 0x03, GEO_SKINNING = 0x05,
-      GEO_CALL = 0x06, GEO_LOADDL2 = 0x07, GEO_LOD = 0x08, GEO_SELECTOR = 0x0C, GEO_DRAWDIST = 0x0D,
-      GEO_UNKE = 0x0E, GEO_CAMERA = 0x0F, GEO_TEXWRAP = 0x10;
+      GEO_CALL = 0x06, GEO_LOADDL2 = 0x07, GEO_LOD = 0x08, GEO_REFPOINT = 0x0A, GEO_SELECTOR = 0x0C,
+      GEO_DRAWDIST = 0x0D, GEO_UNKE = 0x0E, GEO_CAMERA = 0x0F, GEO_TEXWRAP = 0x10;
 
 const G_LIGHTING = 0x00020000;
 const G_TEXTURE_GEN = 0x00040000;
@@ -267,12 +331,13 @@ function decodeTexture(dv, dataBase, info) {
 /**
  * @param {ArrayBuffer} buffer a decompressed BKModelBin
  * @returns {{textures: {width, height, type, rgba: Uint8Array}[],
- *            batches: {texture: number, wrapS: number, wrapT: number, cullBack: boolean,
- *                      positions: number[], uvs: number[], colors: number[]}[]} | null}
+ *            batches: {texture: number, wrapS: number, wrapT: number, cullBack: boolean, xlu: boolean,
+ *                      positions: number[], uvs: number[], colors: number[] (rgba per vertex)}[]} | null}
  *   texture is an index into textures or -1 for untextured; wrapS/wrapT are the
- *   tile's clamp/mirror bits (bit 1 clamp, bit 0 mirror).
+ *   tile's clamp/mirror bits (bit 1 clamp, bit 0 mirror); xlu is set for
+ *   triangles drawn through an alpha-blending render mode (see G_DL below).
  */
-export function parseBKModelTextured(buffer) {
+export function parseBKModelTextured(buffer, selector = 0) {
     const dv = new DataView(buffer);
     if (dv.byteLength < 0x38 || dv.getUint32(0, false) !== MODEL_MAGIC) return null;
 
@@ -319,6 +384,7 @@ export function parseBKModelTextured(buffer) {
     // load would pick the smallest mip level and a stale tile's wrap modes.
     const cache = new Int32Array(VTX_CACHE_SIZE).fill(-1);
     let geometryMode = 0;
+    let renderXlu = false; // current segment-3 render mode blends alpha
     let texOn = false, texScaleS = 1, texScaleT = 1, renderTile = 0;
     let timgAddr = 0;
     let combinerUsesTexel = true;
@@ -359,10 +425,10 @@ export function parseBKModelTextured(buffer) {
             wrapT = wrapFor(rt.cmt, rt.maskt, rt.lrt - rt.ult + 1, textures[tex].height);
         }
         const cullBack = (geometryMode & G_CULL_BACK) !== 0;
-        const key = tex + ':' + wrapS + ':' + wrapT + ':' + (cullBack ? 1 : 0);
+        const key = tex + ':' + wrapS + ':' + wrapT + ':' + (cullBack ? 1 : 0) + ':' + (renderXlu ? 1 : 0);
         let b = batches.get(key);
         if (!b) {
-            b = { texture: tex, wrapS, wrapT, cullBack, positions: [], uvs: [], colors: [] };
+            b = { texture: tex, wrapS, wrapT, cullBack, xlu: renderXlu, positions: [], uvs: [], colors: [] };
             batches.set(key, b);
         }
         return b;
@@ -399,17 +465,20 @@ export function parseBKModelTextured(buffer) {
                 batch.uvs.push(tex ? s / tex.width : 0, tex ? t / tex.height : 0);
             }
 
+            // The 4th byte is the vertex alpha in both the coloured and the
+            // lit (normal) vertex layouts; XLU models use it for translucency.
+            const alpha = dv.getUint8(o + 15) / 255;
             if (!combinerUsesShade) {
                 // Combiner ignores the shade colour (e.g. plain TEXEL0 output).
-                batch.colors.push(1, 1, 1);
+                batch.colors.push(1, 1, 1, alpha);
             } else if (lit) {
                 // The colour bytes are a normal; approximate the game's single
                 // directional light with a fixed key light plus ambient.
                 const d = Math.max(0, nx * 0.30 + ny * 0.86 + nz * 0.41);
                 const i = 0.45 + 0.55 * d;
-                batch.colors.push(i, i, i);
+                batch.colors.push(i, i, i, alpha);
             } else {
-                batch.colors.push(dv.getUint8(o + 12) / 255, dv.getUint8(o + 13) / 255, dv.getUint8(o + 14) / 255);
+                batch.colors.push(dv.getUint8(o + 12) / 255, dv.getUint8(o + 13) / 255, dv.getUint8(o + 14) / 255, alpha);
             }
         }
     };
@@ -458,6 +527,13 @@ export function parseBKModelTextured(buffer) {
                 }
                 case G_CLEARGEOMETRYMODE: geometryMode &= ~w1; break;
                 case G_SETGEOMETRYMODE: geometryMode |= w1; break;
+                case G_DL:
+                    // Only the render-mode table calls matter here; calls into
+                    // the model's own lists are reached through the geo tree.
+                    if ((w1 >>> 24) === RENDER_MODE_SEGMENT) {
+                        renderXlu = !OPA_RENDER_MODE_ENTRIES.has(((w1 & 0xFFFFFF) >>> 4));
+                    }
+                    break;
                 case G_TEXTURE:
                     // w0: | op | 0 | level:3 tile:3 | on |   w1: scaleS:16 scaleT:16 (0.16 fixed)
                     texOn = (w0 & 0xFF) !== 0;
@@ -528,6 +604,53 @@ export function parseBKModelTextured(buffer) {
     const runDl = (gfxIndex) => {
         if (gfxIndex >= 0 && gfxIndex < cmdCount) runDisplayList(gfxBase + gfxIndex * 8, false);
     };
+    // ---- selector resolution
+    //
+    // A SELECTOR draws branch D[index] (set by the actor through
+    // modelRender_setAppendageVisibility). For per-instance variants (level
+    // entry signs, SNS eggs, world exit pads) the actor sets appendage
+    // `actorTypeSpecificField` on, and that value is NodeProp.selector_or_radius
+    // from the setup file -- passed in here as `selector`. For state-driven
+    // ones (pressed / unpressed, flag colours) there is no static answer, so a
+    // model whose geometry is entirely selector-gated shows its lowest index.
+    const singleIndices = new Set();
+    let hasUnconditional = false;
+    let scanSteps = 0;
+    const scanGeo = (offset, depth, inSelector) => {
+        if (depth > 64) return;
+        while (offset > 0 && offset + 8 <= dv.byteLength && scanSteps++ < 200000) {
+            const cmd = dv.getUint32(offset, false);
+            const next = dv.getInt32(offset + 4, false);
+            if (cmd === GEO_SELECTOR) {
+                const count = dv.getInt16(offset + 8, false);
+                if (count === 1) singleIndices.add(dv.getInt16(offset + 10, false));
+            } else if (cmd === GEO_LOADDL || cmd === GEO_LOADDL2 || cmd === GEO_SKINNING) {
+                if (!inSelector) hasUnconditional = true;
+            } else {
+                let b = 0;
+                if (cmd === GEO_UNK0 || cmd === GEO_CAMERA) b = dv.getInt16(offset + 8, false);
+                else if (cmd === GEO_DRAWDIST) b = dv.getInt16(offset + 0x14, false);
+                else if (cmd === GEO_BONE) b = dv.getUint8(offset + 8);
+                else if (cmd === GEO_CALL) b = dv.getInt32(offset + 8, false);
+                else if (cmd === GEO_LOD) b = dv.getInt32(offset + 0x1C, false);
+                else if (cmd === GEO_UNKE) b = dv.getInt16(offset + 0x10, false);
+                else if (cmd === GEO_SORT) {
+                    const b1 = dv.getInt16(offset + 0x22, false), b2 = dv.getInt32(offset + 0x24, false);
+                    if (b1) scanGeo(offset + b1, depth + 1, inSelector);
+                    if (b2) scanGeo(offset + b2, depth + 1, inSelector);
+                }
+                if (b) scanGeo(offset + b, depth + 1, inSelector);
+            }
+            if (next === 0) break;
+            offset += next;
+        }
+    };
+    const geoListOffsetForScan = dv.getInt32(0x04, false);
+    if (geoListOffsetForScan) scanGeo(geoListOffsetForScan, 0, false);
+    let activeSingleIndex = -1;
+    if (singleIndices.has(selector)) activeSingleIndex = selector;
+    else if (!hasUnconditional && singleIndices.size) activeSingleIndex = Math.min(...singleIndices);
+
     let geoSteps = 0;
     const walkGeo = (offset, depth) => {
         if (depth > 64) return;
@@ -593,15 +716,20 @@ export function parseBKModelTextured(buffer) {
                 }
                 case GEO_SELECTOR: {
                     // s16 branch_offset_count +8, s16 index +10, s32 branch_offsets[] +12
-                    //
-                    // The game draws nothing here until the actor sets a
-                    // selector. A one-branch selector is an on/off toggle for an
-                    // optional part (a note door's 12 digit plates, hats, ...),
-                    // so keep it off; a multi-branch one picks between states
-                    // (eye blinks, mouth shapes), so show the first.
+                    // One branch: an on/off part, on only if it is the resolved
+                    // variant (see selector resolution above). Several branches:
+                    // a choice between states -- the instance's selector value
+                    // if it names one, else the first.
                     const count = dv.getInt16(offset + 8, false);
-                    if (count > 1) {
-                        const b = dv.getInt32(offset + 12, false);
+                    const index = dv.getInt16(offset + 10, false);
+                    let choice = -1;
+                    if (count === 1) {
+                        if (index === activeSingleIndex) choice = 0;
+                    } else if (count > 1) {
+                        choice = (selector >= 1 && selector <= count) ? selector - 1 : 0;
+                    }
+                    if (choice >= 0) {
+                        const b = dv.getInt32(offset + 12 + choice * 4, false);
                         if (b) walkGeo(offset + b, depth + 1);
                     }
                     break;

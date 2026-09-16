@@ -34,14 +34,25 @@ function wrapMode(bits) {
  * caller instancing the same model many times should share them via
  * buildTexturedParts().
  */
-export function buildTexturedMesh(buffer) {
-    const parts = buildTexturedParts(buffer);
+export function buildTexturedMesh(buffer, options = {}) {
+    const parts = buildTexturedParts(buffer, 0, options);
     return parts ? makeTexturedMesh(parts) : null;
 }
 
-/** Shared geometry + materials for a model, for instancing. */
-export function buildTexturedParts(buffer) {
-    const parsed = parseBKModelTextured(buffer);
+/**
+ * Shared geometry + materials for a model, for instancing.
+ *
+ * options.translucent: the model is drawn through the game's XLU render
+ * modes (a map's XLU model: water, glass, fog planes). Its vertex alpha then
+ * sets the opacity and the batches are alpha-blended without depth writes.
+ * Opaque models ignore vertex alpha, as the OPA render modes do, and cut out
+ * on texture alpha only -- except for the parts a model's own display list
+ * switches to an XLU render mode (batch.xlu: shadows, glows, the dark base
+ * of Clanker's teeth), which blend the same way the translucent path does.
+ */
+export function buildTexturedParts(buffer, selector = 0, options = {}) {
+    const translucent = !!options.translucent;
+    const parsed = parseBKModelTextured(buffer, selector);
     if (!parsed || parsed.batches.length === 0) return null;
 
     // One DataTexture per (texture, wrap) combination; clones share the image.
@@ -74,14 +85,26 @@ export function buildTexturedParts(buffer) {
         const count = batch.positions.length / 3;
         positions.push(...batch.positions);
         uvs.push(...batch.uvs);
-        colors.push(...batch.colors);
+        const blended = translucent || batch.xlu;
+        // colors are rgba; a 4-component colour attribute makes three.js use
+        // the vertex alpha, which only the blended batches want -- the rest
+        // get alpha 1 so the opaque alphaTest never cuts them out.
+        if (blended) {
+            colors.push(...batch.colors);
+        } else {
+            for (let i = 0; i < batch.colors.length; i += 4) colors.push(batch.colors[i], batch.colors[i + 1], batch.colors[i + 2], 1);
+        }
         geometry.addGroup(start, count, materials.length);
         start += count;
 
+        // An opaque model's XLU parts still go through the full-depth table
+        // (Z_CMP | Z_UPD | G_RM_XLU_SURF2), so they keep writing depth.
         const material = new THREE.MeshBasicMaterial({
             vertexColors: true,
             side: batch.cullBack ? THREE.FrontSide : THREE.DoubleSide,
-            alphaTest: 0.5,
+            transparent: blended,
+            depthWrite: !translucent,
+            alphaTest: blended ? 0.01 : 0.5,
         });
         if (batch.texture >= 0) {
             material.map = textureFor(batch.texture, batch.wrapS, batch.wrapT);
@@ -90,7 +113,7 @@ export function buildTexturedParts(buffer) {
     }
     geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
     geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
-    geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+    geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 4));
 
     return { geometry, materials, textureCount: parsed.textures.length, triangleCount: start / 3 };
 }
