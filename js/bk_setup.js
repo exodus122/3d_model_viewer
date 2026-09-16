@@ -1,5 +1,9 @@
 import * as THREE from 'three';
 import { addModelCheckbox, getModelGroup, resetGroupModelState } from './render.js';
+import { parseBKModelGeometry } from './bk_model.js';
+
+const wireframeCheckbox = document.getElementById('wireframe');
+const propGeometrySelect = document.getElementById('bkPropGeometry');
 
 ////////////////////////////////////////
 // System: Banjo-Kazooie setup file (object placement)
@@ -160,27 +164,30 @@ function readProp(r, cube) {
 
     let prop;
     if (isModelProp) {
-        // u16 modelId:12 | pad:4, u8 yaw (x2 = degrees), u8 roll, s16 pos[3],
-        // u8 scale (/100), u8 flags
+        // u16 modelId:12 | pad:4, u8 yaw (x2 = degrees), u8 roll (x2 = degrees),
+        // s16 pos[3], u8 scale (/100), u8 flags
         prop = {
             kind: 'model',
             modelId: r.dv.getUint16(start, false) >>> 4,
             yaw: r.dv.getUint8(start + 2) * 2,
-            roll: r.dv.getUint8(start + 3),
+            roll: r.dv.getUint8(start + 3) * 2,
             scale: r.dv.getUint8(start + 10) / 100,
         };
     } else if (isActorProp) {
         // Runtime-only (marker pointer + position); never expected in a file.
         prop = { kind: 'actor' };
     } else {
-        // u32 spriteId:12 | unk:1 | r:3 | g:3 | b:3 | scale:8 | mirrored:1 | pad:1
+        // u32 spriteId:12 | unk:1 | r:3 | g:3 | b:3 | scale:8 (/100) | mirrored:1 | pad:1
+        // s16 pos[3], u16 frame:5 | unk:5 | ... (see SpriteProp in prop.h)
         const w0 = r.dv.getUint32(start, false);
         prop = {
             kind: 'sprite',
             spriteId: w0 >>> 20,
             rgbRemove: [(w0 >>> 16) & 7, (w0 >>> 13) & 7, (w0 >>> 10) & 7],
-            scale: (w0 >>> 2) & 0xFF,
+            scale: ((w0 >>> 2) & 0xFF) / 100,
             isMirrored: (w0 >>> 1) & 1,
+            frame: r.dv.getUint16(start + 10, false) >>> 11,
+            phase: (r.dv.getUint16(start + 10, false) >>> 6) & 0x1F, // unk8_10: animation phase offset
         };
     }
     prop.cube = cube;
@@ -257,6 +264,237 @@ export function parseBKSetup(buffer) {
 }
 
 ////////////////////////////////////////
+// Prop model geometry
+////////////////////////////////////////
+//
+// Prop models are extracted by banjo-kazooie/tools/extract_models.py into
+// models/BK/props/<asset id>.model.bin. A model is fetched and decoded once
+// per session; every placement of it is a Mesh sharing that geometry.
+//
+// Each model yields up to two triangle sets sharing one vertex buffer:
+//   visual    - what the game draws (decoded from the F3DEX display lists)
+//   collision - the collision list, which for many props is just a small
+//               hitbox (an icicle is 3 triangles), but is what gameplay uses
+// The "Prop geometry" selector picks which one is shown; a model missing the
+// chosen set falls back to the other, and a model that can't be loaded at all
+// falls back to the marker cube.
+
+const PROP_MODEL_DIR = './models/BK/props/';
+const propGeometryCache = new Map(); // asset id -> Promise<{visual, collision} | null>
+
+// Every prop mesh / edge object currently in the scene, so the selector can
+// swap their geometry in place without reloading the map.
+const propInstances = [];
+
+function makeGeometrySet(positions, indices) {
+    if (!indices || indices.length === 0) return null;
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    geometry.setIndex(new THREE.BufferAttribute(indices, 1));
+    return { geometry, edges: new THREE.WireframeGeometry(geometry) };
+}
+
+function pickGeometry(loaded) {
+    const want = propGeometrySelect?.value === 'collision' ? 'collision' : 'visual';
+    const other = want === 'collision' ? 'visual' : 'collision';
+    if (loaded[want]) return { set: loaded[want], source: want };
+    if (loaded[other]) return { set: loaded[other], source: other };
+    return null;
+}
+
+propGeometrySelect?.addEventListener('change', () => {
+    for (const inst of propInstances) {
+        const picked = pickGeometry(inst.loaded);
+        if (!picked) continue;
+        inst.mesh.geometry = picked.set.geometry;
+        inst.edges.geometry = picked.set.edges;
+        inst.prop.geometrySource = picked.source;
+        inst.mesh.userData.bkInfo = inst.describe(inst.prop);
+    }
+});
+
+function loadPropGeometry(assetId) {
+    if (propGeometryCache.has(assetId)) {
+        return propGeometryCache.get(assetId);
+    }
+
+    const file = assetId.toString(16).toUpperCase().padStart(4, '0') + '.model.bin';
+    const promise = fetch(PROP_MODEL_DIR + file)
+        .then(res => {
+            if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+            return res.arrayBuffer();
+        })
+        .then(buffer => {
+            const model = parseBKModelGeometry(buffer);
+            const loaded = {
+                visual: makeGeometrySet(model.positions, model.displayListIndices),
+                collision: makeGeometrySet(model.positions, model.collisionIndices),
+            };
+            if (!loaded.visual && !loaded.collision) {
+                console.warn(`prop model ${file}: no triangles`);
+                return null;
+            }
+            return loaded;
+        })
+        .catch(err => {
+            console.warn(`prop model ${file}: ${err.message}; drawing a marker instead`);
+            return null;
+        });
+
+    propGeometryCache.set(assetId, promise);
+    return promise;
+}
+
+////////////////////////////////////////
+// Sprite images
+////////////////////////////////////////
+//
+// Sprites are extracted by banjo-kazooie/tools/extract_sprites.py into
+// models/BK/sprites/<asset>_<frame>.png plus sprites.json, which records each
+// sprite's world size (BKSprite.unk8/unkA) and each frame's pixel size and
+// anchor (BKSpriteFrame.unk0/unk2). The game draws a sprite as a camera-facing
+// quad world_w x world_h units across, with the prop's position at the anchor
+// pixel (spriteRender_drawWithSegment) -- which is exactly a THREE.Sprite with
+// its `center` set from the anchor.
+
+const SPRITE_DIR = './models/BK/sprites/';
+let spriteIndexPromise = null;   // Promise<Map<asset id, entry>>
+const spriteTextureCache = new Map(); // file -> THREE.Texture
+const textureLoader = new THREE.TextureLoader();
+
+function loadSpriteIndex() {
+    if (!spriteIndexPromise) {
+        spriteIndexPromise = fetch(SPRITE_DIR + 'sprites.json')
+            .then(res => {
+                if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+                return res.json();
+            })
+            .then(list => new Map(list.map(e => [e.asset_id, e])))
+            .catch(err => {
+                console.warn(`sprites.json: ${err.message}; sprite props will be markers`);
+                return new Map();
+            });
+    }
+    return spriteIndexPromise;
+}
+
+// The game mirrors a sprite by drawing its quad with a negative X scale.
+// THREE.Sprite can't do that (its shader uses the LENGTH of the model
+// matrix's X column, so the sign is lost), so a mirrored frame is a second
+// texture with the UVs flipped horizontally instead.
+function spriteTexture(file, mirrored = false) {
+    const key = mirrored ? file + '|mirrored' : file;
+    let tex = spriteTextureCache.get(key);
+    if (!tex) {
+        tex = mirrored ? spriteTexture(file).clone() : textureLoader.load(SPRITE_DIR + file);
+        // N64 point sampling; these are tiny and would smear otherwise.
+        tex.magFilter = THREE.NearestFilter;
+        tex.minFilter = THREE.NearestFilter;
+        tex.colorSpace = THREE.SRGBColorSpace;
+        if (mirrored) {
+            tex.repeat.x = -1;
+            tex.offset.x = 1;
+            tex.needsUpdate = true;
+        }
+        spriteTextureCache.set(key, tex);
+    }
+    return tex;
+}
+
+// Place a frame on a sprite: the anchor pixel sits on the position. Sprite.center
+// is in [0,1] with y up while the anchor is in pixels with y down, and a mirrored
+// frame's anchor is measured from the other edge.
+function setSpriteFrame(sprite, material, frame, mirrored) {
+    sprite.material = material;
+    sprite.center.set(mirrored ? 1 - frame.anchor_x / frame.w : frame.anchor_x / frame.w,
+        1 - frame.anchor_y / frame.h);
+}
+
+// Animation
+//
+// Port of func_8032CD60 (code_A5BC0.c), which the game runs on every sprite
+// prop each frame. The sprite header gives ticks-per-frame, a cycle mode and
+// how mirroring is decided; the prop contributes a 5-bit phase offset and its
+// own mirror bit, which the game overwrites with the computed one each tick
+// (so it carries state between ticks -- `state.mirrored` below).
+//
+//   mode 0     static
+//   mode 1, 2  ping-pong over the frames (period (n-1)*2)
+//   mode 3     plain loop (period n)
+//   mode 4     loop where the second half is drawn mirrored (period n*2)
+//
+// The game's tick is one 30 Hz frame (gGlobalTimer).
+const GAME_TICK_MS = 1000 / 30;
+
+export function spriteAnimationStep(anim, frameCount, prop, state, tick) {
+    const n = frameCount;
+    const mode = anim.mode;
+    const dur = Math.max(1, anim.ticks_per_frame);
+    const pingPong = mode === 1 || mode === 2;
+    const period = mode === 3 ? n : (n - (pingPong ? 1 : 0)) * 2;
+    if (period <= 0) return;
+
+    const phase = Math.floor((prop.phase * period) / 32);
+    let v = (Math.floor((tick % (period * dur)) / dur) + phase) % period;
+    let secondHalf = false;
+
+    let mirror;
+    switch (anim.mirror_mode) {
+        case 1: mirror = (prop.phase & 2) ? 1 : 0; break;
+        case 2: mirror = 1; break;
+        case 3: mirror = state.mirrored; break;
+        default: mirror = 0; break;
+    }
+
+    let flip;
+    switch (mode) {
+        case 4:
+            secondHalf = n <= v;
+            // fall through
+        case 1:
+            flip = n <= v ? 1 : 0;
+            break;
+        case 2:
+            secondHalf = n <= v;
+            // fall through
+        default:
+            switch (anim.flip_mode) {
+                case 1: flip = prop.phase & 1; break;
+                case 2: flip = 1; break;
+                default: flip = state.mirrored; break;
+            }
+            break;
+    }
+
+    if (flip ^ mirror ^ (secondHalf ? 1 : 0)) v = period - v;
+    v += pingPong ? mirror : -mirror;
+    v = v < 0 ? v + n : v % n;
+
+    state.frame = v;
+    state.mirrored = flip;
+}
+
+// Every animated sprite in the scene: { sprite, prop, entry, state, materialFor }
+const animatedSprites = [];
+let lastAnimTick = -1;
+
+function animateSprites() {
+    requestAnimationFrame(animateSprites);
+    if (!animatedSprites.length) return;
+    const tick = Math.floor(performance.now() / GAME_TICK_MS);
+    if (tick === lastAnimTick) return;
+    lastAnimTick = tick;
+
+    for (const a of animatedSprites) {
+        if (!a.sprite.visible) continue;
+        spriteAnimationStep(a.entry.anim, a.entry.frames.length, a.prop, a.state, tick);
+        const frame = a.entry.frames[Math.min(a.state.frame, a.entry.frames.length - 1)];
+        setSpriteFrame(a.sprite, a.materialFor(a.state.frame, a.state.mirrored), frame, a.state.mirrored);
+    }
+}
+animateSprites();
+
+////////////////////////////////////////
 // Rendering
 ////////////////////////////////////////
 
@@ -292,8 +530,10 @@ function makeYawLine(length, material) {
 
 function describeNode(node) {
     const cat = NODE_CATEGORY_NAMES[node.category] ?? `Category ${node.category}`;
+    const model = BK_Actor_Models[node.actorId];
     const what = node.category === NODE_CATEGORY_ACTOR
-        ? `ACTOR ${actorName(node.actorId)} (${hex(node.actorId)})`
+        ? `ACTOR ${actorName(node.actorId)} (${hex(node.actorId)}` +
+          (model ? `, model ${hex(model)}${node.geometrySource ? ' ' + node.geometrySource : ''}` : '') + ')'
         : `NODE ${cat} id=${hex(node.actorId)}`;
     return `${what}: pos=${node.position.join(', ')} yaw=${node.yaw} scale=${node.scale / 100}` +
         ` ${NODE_CATEGORIES_WITH_RADIUS.has(node.category) ? 'radius' : 'selector'}=${node.selectorOrRadius}` +
@@ -303,12 +543,12 @@ function describeNode(node) {
 
 function describeProp(prop) {
     if (prop.kind === 'model') {
-        return `MODEL ${modelName(prop.modelId)} (${hex(prop.modelId + MODEL_ASSET_OFFSET)}):` +
+        return `MODEL ${modelName(prop.modelId)} (${hex(prop.modelId + MODEL_ASSET_OFFSET)}${prop.geometrySource ? ', ' + prop.geometrySource : ''}):` +
             ` pos=${prop.position.join(', ')} yaw=${prop.yaw} roll=${prop.roll} scale=${prop.scale}` +
             ` cube=${prop.cube.join(',')}`;
     }
     return `SPRITE ${spriteName(prop.spriteId)} (${hex(prop.spriteId + SPRITE_ASSET_OFFSET)}):` +
-        ` pos=${prop.position.join(', ')} scale=${prop.scale} mirrored=${prop.isMirrored}` +
+        ` pos=${prop.position.join(', ')} scale=${prop.scale} frame=${prop.frame} mirrored=${prop.isMirrored}` +
         ` rgbRemove=${prop.rgbRemove.join(',')} cube=${prop.cube.join(',')}`;
 }
 
@@ -388,6 +628,170 @@ function buildModelInstance(prop, material, lineMaterial) {
     return mesh;
 }
 
+// How each kind of placement maps onto a loaded model. `transform` applies
+// the game's own placement matrix; `fallback` draws the marker used when the
+// model could not be loaded (or the actor has no model at all).
+const MODEL_PROP_STYLE = {
+    color: MODEL_COLOR,
+    edgeColor: 0x5a2d8a,
+    describe: describeProp,
+    fallback: buildModelInstance,
+    // propModelList_drawModel: rotation = [0, yaw*2, roll*2] degrees, scale/100.
+    // The game builds the matrix as yaw, then pitch, then roll (mlMtxRotatePYR),
+    // which is Three's 'YXZ' order.
+    transform(prop, obj) {
+        obj.position.set(prop.position[0], prop.position[1], prop.position[2]);
+        obj.rotation.set(0, THREE.MathUtils.degToRad(prop.yaw), THREE.MathUtils.degToRad(prop.roll), 'YXZ');
+        obj.scale.setScalar(prop.scale || 1);
+    },
+};
+
+const ACTOR_STYLE = {
+    color: ACTOR_COLOR,
+    edgeColor: 0x8a3d10,
+    describe: describeNode,
+    fallback: buildActorInstance,
+    // func_80330208 spawns the actor at the node's position with marker->yaw =
+    // NodeProp.yaw (already degrees) and scale = NodeProp.scale * 0.01, 0 = 1.
+    transform(node, obj) {
+        obj.position.set(node.position[0], node.position[1], node.position[2]);
+        obj.rotation.set(0, THREE.MathUtils.degToRad(node.yaw), 0, 'YXZ');
+        obj.scale.setScalar(node.scale === 0 ? 1 : node.scale / 100);
+    },
+};
+
+/**
+ * One row for every placement of a model, drawn with the model's real
+ * geometry. Falls back to the style's marker when the model could not be
+ * loaded.
+ */
+function addLoadedModelRow(scene, groupBody, rowName, instances, loaded, style, checked = true) {
+    if (!loaded) {
+        addTypeRow(scene, groupBody, rowName, instances, style.color, checked, style.fallback);
+        return;
+    }
+
+    const material = makeMaterial(style.color);
+    material.polygonOffset = true;
+    material.polygonOffsetFactor = 1;
+    material.polygonOffsetUnits = 1;
+    const edgeMaterial = new THREE.LineBasicMaterial({ color: style.edgeColor, transparent: true, opacity: 0.8 });
+
+    const typeGroup = new THREE.Group();
+    typeGroup.name = rowName;
+    const edgesGroup = new THREE.Group();
+    edgesGroup.name = rowName + ' edges';
+
+    const picked = pickGeometry(loaded);
+
+    for (const inst of instances) {
+        inst.geometrySource = picked.source;
+        const mesh = new THREE.Mesh(picked.set.geometry, material);
+        style.transform(inst, mesh);
+        mesh.userData.bkInfo = style.describe(inst);
+        mesh.userData.bkProp = inst;
+        typeGroup.add(mesh);
+
+        const edges = new THREE.LineSegments(picked.set.edges, edgeMaterial);
+        edges.position.copy(mesh.position);
+        edges.rotation.copy(mesh.rotation);
+        edges.scale.copy(mesh.scale);
+        edgesGroup.add(edges);
+
+        propInstances.push({ mesh, edges, prop: inst, loaded, describe: style.describe });
+    }
+
+    scene.add(typeGroup);
+    scene.add(edgesGroup);
+    loadedModels.push({ name: rowName, root: typeGroup, mesh: typeGroup, edges: edgesGroup });
+    addModelCheckbox(scene, rowName, typeGroup, edgesGroup, false, checked, style.color, false, null, groupBody);
+    edgesGroup.visible = typeGroup.visible && wireframeCheckbox.checked;
+}
+
+/**
+ * One row for every placement of a sprite, drawn as billboards with the real
+ * image. Falls back to the marker when the sprite sheet has no entry.
+ */
+function addSpriteRow(scene, groupBody, rowName, instances, entry, checked, style = SPRITE_PROP_STYLE) {
+    if (!entry || !entry.frames.length) {
+        addTypeRow(scene, groupBody, rowName, instances, style.color, checked, style.fallback);
+        return;
+    }
+
+    const typeGroup = new THREE.Group();
+    typeGroup.name = rowName;
+
+    // propModelList_drawSprite sets the prim colour to 0xFF - remove*0x10 per
+    // channel; instances with the same tint and frame share one material so
+    // the row's colour swatch still drives them together.
+    const materials = new Map();
+    const materialFor = (frameIndex, tint, mirrored) => {
+        const frame = entry.frames[Math.min(frameIndex, entry.frames.length - 1)];
+        const key = frame.file + ':' + tint.join(',') + (mirrored ? ':m' : '');
+        let material = materials.get(key);
+        if (!material) {
+            material = new THREE.SpriteMaterial({
+                map: spriteTexture(frame.file, mirrored),
+                color: new THREE.Color(tint[0], tint[1], tint[2]),
+                transparent: true,
+                alphaTest: 0.05,
+                depthWrite: false,
+            });
+            materials.set(key, material);
+        }
+        return material;
+    };
+    const animated = entry.anim && entry.anim.mode !== 0 && entry.frames.length > 1;
+
+    for (const prop of instances) {
+        const frame = entry.frames[Math.min(prop.frame ?? 0, entry.frames.length - 1)];
+        const tint = (prop.rgbRemove ?? [0, 0, 0]).map(v => (0xFF - v * 0x10) / 0xFF);
+        const mirrored = !!(prop.isMirrored ?? 0);
+        const material = materialFor(prop.frame ?? 0, tint, mirrored);
+
+        const sprite = new THREE.Sprite(material);
+        sprite.name = rowName;
+        sprite.position.set(prop.position[0], prop.position[1], prop.position[2]);
+        // world size before the prop's own scale
+        const scale = style.scaleOf(prop);
+        sprite.scale.set(entry.world_w * scale, entry.world_h * scale, 1);
+        setSpriteFrame(sprite, material, frame, mirrored);
+        sprite.userData.bkInfo = style.describe(prop);
+        sprite.userData.bkProp = prop;
+        typeGroup.add(sprite);
+
+        if (animated) {
+            const props = { phase: prop.phase ?? 0 };
+            animatedSprites.push({
+                sprite, entry, prop: props,
+                state: { frame: prop.frame ?? 0, mirrored: prop.isMirrored ?? 0 },
+                materialFor: (f, m) => materialFor(f, tint, m),
+            });
+        }
+    }
+
+    scene.add(typeGroup);
+    loadedModels.push({ name: rowName, root: typeGroup, mesh: typeGroup, edges: null });
+    addModelCheckbox(scene, rowName, typeGroup, null, false, checked, style.color, false, null, groupBody);
+}
+
+const SPRITE_PROP_STYLE = {
+    color: SPRITE_COLOR,
+    describe: describeProp,
+    fallback: buildSpriteInstance,
+    scaleOf: prop => prop.scale || 1,
+};
+
+// An actor whose ActorInfo "model" is really a sprite asset (Extra Life,
+// Mumbo Token): drawn as a billboard like the game does, sized by the node's
+// scale the same way the model actors are.
+const SPRITE_ACTOR_STYLE = {
+    color: ACTOR_COLOR,
+    describe: describeNode,
+    fallback: buildActorInstance,
+    scaleOf: node => node.scale === 0 ? 1 : node.scale / 100,
+};
+
 function buildSpriteInstance(prop, material) {
     const mesh = new THREE.Mesh(spriteGeometry, material);
     mesh.userData.bkInfo = describeProp(prop);
@@ -401,12 +805,40 @@ function buildSpriteInstance(prop, material) {
  * sprite type. Assumes the map's geometry has already been loaded (this does
  * not clear the scene).
  */
-export function renderBKSetup(scene, buffer) {
+/**
+ * Add one row per type, partitioned into two sidebar groups by whether the
+ * type's model has a collision list: [key, label] pairs for the solid group
+ * (rows shown) and the hitbox-only group (rows hidden).
+ */
+function addSplitModelGroups(scene, byType, geometries, style, nameFn, rowLabel, solidGroup, hitboxGroup) {
+    const solid = [];
+    const hitboxOnly = [];
+    byType.forEach(([id, list], i) => {
+        (geometries[i]?.collision ? solid : hitboxOnly).push([id, list, geometries[i]]);
+    });
+
+    if (solid.length) {
+        const group = getModelGroup(solidGroup[0], solidGroup[1]);
+        for (const [id, list, loaded] of solid) {
+            addLoadedModelRow(scene, group.body, rowLabel(nameFn(id), list), list, loaded, style, true);
+        }
+    }
+    if (hitboxOnly.length) {
+        const group = getModelGroup(hitboxGroup[0], hitboxGroup[1]);
+        for (const [id, list, loaded] of hitboxOnly) {
+            addLoadedModelRow(scene, group.body, rowLabel(nameFn(id), list), list, loaded, style, false);
+        }
+    }
+}
+
+export async function renderBKSetup(scene, buffer) {
     const setup = parseBKSetup(buffer);
+    propInstances.length = 0;
+    animatedSprites.length = 0;
 
     // Visibility is remembered per row name across loads; the same actor
     // type unchecked in one map should not start hidden in the next.
-    for (const key of ['bk-actors', 'bk-models', 'bk-sprites', 'bk-nodes']) {
+    for (const key of ['bk-models', 'bk-models-hitbox', 'bk-actors', 'bk-actors-hitbox', 'bk-sprites', 'bk-nodes']) {
         resetGroupModelState(key);
     }
 
@@ -423,27 +855,55 @@ export function renderBKSetup(scene, buffer) {
     // Rows are sorted by name so the same map always lists in the same order.
     const rowLabel = (name, list) => list.length > 1 ? `${name} (x${list.length})` : name;
 
-    if (actorNodes.length) {
-        const group = getModelGroup('bk-actors', 'Actors');
-        const byType = groupBy(actorNodes, n => n.actorId);
-        for (const [id, list] of [...byType].sort((a, b) => actorName(a[0]).localeCompare(actorName(b[0])))) {
-            addTypeRow(scene, group.body, rowLabel(actorName(id), list), list, ACTOR_COLOR, true, buildActorInstance);
-        }
+    // Model props first, then actors: both are split into a "collision" group
+    // (the model has a collision list -- solid geometry the player interacts
+    // with, shown by default) and a "hitbox only" group (models that only
+    // collide through the marker's sphere, model-less triggers, and anything
+    // whose model couldn't be loaded -- hidden by default).
+    if (modelProps.length) {
+        const byType = [...groupBy(modelProps, p => p.modelId)]
+            .sort((a, b) => modelName(a[0]).localeCompare(modelName(b[0])));
+        // Fetch every distinct model up front so the rows still come out in
+        // name order rather than in whatever order the downloads finish.
+        const geometries = await Promise.all(byType.map(([id]) => loadPropGeometry(id + MODEL_ASSET_OFFSET)));
+        addSplitModelGroups(scene, byType, geometries, MODEL_PROP_STYLE, modelName, rowLabel,
+            ['bk-models', 'Model Props (collision)'], ['bk-models-hitbox', 'Model Props (no collision)']);
     }
 
-    if (modelProps.length) {
-        const group = getModelGroup('bk-models', 'Model Props');
-        const byType = groupBy(modelProps, p => p.modelId);
-        for (const [id, list] of [...byType].sort((a, b) => modelName(a[0]).localeCompare(modelName(b[0])))) {
-            addTypeRow(scene, group.body, rowLabel(modelName(id), list), list, MODEL_COLOR, true, buildModelInstance);
+    if (actorNodes.length) {
+        const byType = [...groupBy(actorNodes, n => n.actorId)]
+            .sort((a, b) => actorName(a[0]).localeCompare(actorName(b[0])));
+        // Each actor's model comes from its ActorInfo (BK_Actor_Models); actors
+        // with no model (triggers, controllers) or none known keep the marker.
+        // A few actors' "models" are sprite assets; those become billboards
+        // in the hitbox-only group rather than going through the model loader.
+        const spriteIndex = await loadSpriteIndex();
+        const spriteActors = byType.filter(([id]) => spriteIndex.has(BK_Actor_Models[id]));
+        const modelActors = byType.filter(([id]) => !spriteIndex.has(BK_Actor_Models[id]));
+
+        const geometries = await Promise.all(modelActors.map(([id]) => {
+            const modelAsset = BK_Actor_Models[id];
+            return modelAsset ? loadPropGeometry(modelAsset) : Promise.resolve(null);
+        }));
+        addSplitModelGroups(scene, modelActors, geometries, ACTOR_STYLE, actorName, rowLabel,
+            ['bk-actors', 'Actors (collision)'], ['bk-actors-hitbox', 'Actors (hitbox only)']);
+
+        if (spriteActors.length) {
+            const group = getModelGroup('bk-actors-hitbox', 'Actors (hitbox only)');
+            for (const [id, list] of spriteActors) {
+                addSpriteRow(scene, group.body, rowLabel(actorName(id), list), list,
+                    spriteIndex.get(BK_Actor_Models[id]), false, SPRITE_ACTOR_STYLE);
+            }
         }
     }
 
     if (spriteProps.length) {
         const group = getModelGroup('bk-sprites', 'Sprite Props');
+        const spriteIndex = await loadSpriteIndex();
         const byType = groupBy(spriteProps, p => p.spriteId);
         for (const [id, list] of [...byType].sort((a, b) => spriteName(a[0]).localeCompare(spriteName(b[0])))) {
-            addTypeRow(scene, group.body, rowLabel(spriteName(id), list), list, SPRITE_COLOR, false, buildSpriteInstance);
+            addSpriteRow(scene, group.body, rowLabel(spriteName(id), list), list,
+                spriteIndex.get(id + SPRITE_ASSET_OFFSET), false);
         }
     }
 

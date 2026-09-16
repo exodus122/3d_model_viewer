@@ -491,6 +491,20 @@ export function performSelection(ev, renderer, camera, scene) {
 
     let hit = null;
     for (const i of inter) {
+        // BK sprite props are THREE.Sprites: no face to highlight, but they
+        // carry their placement info, so report that instead of falling
+        // through to whatever geometry sits behind them.
+        if (!i.face && i.object.visible && i.object.isSprite && i.object.userData.bkInfo) {
+            if (!multiSelectCheckbox.checked) clearSelection(scene);
+            selectedTriangles.push({
+                index: -1,
+                modelName: i.object.name,
+                verts: [],
+                bkInfo: i.object.userData.bkInfo,
+            });
+            updateSelectionUI();
+            return;
+        }
         if (i.face && i.object.visible) {
             hit = i;
             break;

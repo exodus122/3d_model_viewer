@@ -43,6 +43,7 @@ const groundClipBandsLabel = document.getElementById("groundClipBandsLabel");
 
 const display_fwc = document.getElementById('display_fwc');
 const display_fwc_label = document.getElementById('display_fwc_label');
+const bkPropGeometryLabel = document.getElementById('bkPropGeometryLabel');
 
 ////////////////////////////////////////
 // System: Scene, Renderer, Camera, Lights
@@ -239,6 +240,8 @@ gameSel.addEventListener('change',(e)=>{
         });
     }
     
+    bkPropGeometryLabel.style.display = (game == "BK") ? "block" : "none";
+
     if (game == "BK" || game == "BT") {
         display_fwc_label.style.display = "none";
         dropdownElement.style.display = "none";
@@ -319,7 +322,7 @@ loadMap.addEventListener('click', async (e) => {
             const res3 = await fetch('./models/BK/' + mapDir + '/setup.bin');
             const buffer3 = await res3.arrayBuffer();
             console.log(mapDir+"/setup.bin: Binary file length:", buffer3.byteLength);
-            renderBKSetup(scene, buffer3);
+            await renderBKSetup(scene, buffer3);
         } catch (err) {
             console.error(err);
         }

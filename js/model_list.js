@@ -240,7 +240,7 @@ const BT_Maps = [
     { name: "JRL - Pawno", pointer: "7a94", sceneID: "00EE", modelAPointer: "c6ec", modelBPointer: "c6f0" },
     { name: "JRL - Inside UFO", pointer: "7aa0", sceneID: "00F1", modelAPointer: "c6b8", modelBPointer: "c718" },
     { name: "JRL - Ancient Swimming Baths", pointer: "7aac", sceneID: "00F4", modelAPointer: "c6bc", modelBPointer: "c6c0" },
-    { name: "JRL - Water (laggy)", pointer: "", sceneID: "", modelAPointer: "c6f8", modelBPointer: "" },
+    { name: "JRL - Water", pointer: "", sceneID: "", modelAPointer: "c6f8", modelBPointer: "" },
     //{ name: "JRL - Objects (Beta JRL)", pointer: "7ab0", sceneID: "00F5", modelAPointer: "", modelBPointer: "" },
     { name: "JRL - Electric Eels Lair", pointer: "7ab4", sceneID: "00F6", modelAPointer: "c6c4", modelBPointer: "c6c8" },
     { name: "JRL - Seaweed Santchum", pointer: "7ab8", sceneID: "00F7", modelAPointer: "c6cc", modelBPointer: "c6d0" },

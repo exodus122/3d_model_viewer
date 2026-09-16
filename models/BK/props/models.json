@@ -1,0 +1,10897 @@
+[
+ {
+  "asset_id": 721,
+  "name": "MODEL_unk",
+  "file": "02D1.model.bin",
+  "size": 3524,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 24
+ },
+ {
+  "asset_id": 722,
+  "name": "MODEL_ORANGE",
+  "file": "02D2.model.bin",
+  "size": 2460,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 26
+ },
+ {
+  "asset_id": 723,
+  "name": "MM Conga Tree",
+  "file": "02D3.model.bin",
+  "size": 10508,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 70
+ },
+ {
+  "asset_id": 724,
+  "name": "(Shadow?)",
+  "file": "02D4.model.bin",
+  "size": 4428,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx"
+  ],
+  "vertex_count": 5
+ },
+ {
+  "asset_id": 725,
+  "name": "FP Blue Present",
+  "file": "02D5.model.bin",
+  "size": 3204,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 24
+ },
+ {
+  "asset_id": 726,
+  "name": "FP Tartan Present",
+  "file": "02D6.model.bin",
+  "size": 3204,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 24
+ },
+ {
+  "asset_id": 727,
+  "name": "FP Green/White Present",
+  "file": "02D7.model.bin",
+  "size": 3204,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 24
+ },
+ {
+  "asset_id": 730,
+  "name": "TTC Palm Tree",
+  "file": "02DA.model.bin",
+  "size": 7668,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 120
+ },
+ {
+  "asset_id": 731,
+  "name": "RBB Grey Toxic Barrel",
+  "file": "02DB.model.bin",
+  "size": 5388,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 23
+ },
+ {
+  "asset_id": 732,
+  "name": "RBB Yellow Toxic Barrel",
+  "file": "02DC.model.bin",
+  "size": 5388,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 23
+ },
+ {
+  "asset_id": 733,
+  "name": "MODEL_SHOCK_JUMP_PAD",
+  "file": "02DD.model.bin",
+  "size": 6980,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "collision"
+  ],
+  "vertex_count": 39
+ },
+ {
+  "asset_id": 735,
+  "name": "TTC Light Crate",
+  "file": "02DF.model.bin",
+  "size": 3124,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 19
+ },
+ {
+  "asset_id": 736,
+  "name": "TTC Dark Crate",
+  "file": "02E0.model.bin",
+  "size": 3124,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 19
+ },
+ {
+  "asset_id": 737,
+  "name": "TTC Light & Dark Crate",
+  "file": "02E1.model.bin",
+  "size": 3188,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 23
+ },
+ {
+  "asset_id": 739,
+  "name": "RBB Light Pipe Opening",
+  "file": "02E3.model.bin",
+  "size": 6684,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 111
+ },
+ {
+  "asset_id": 740,
+  "name": "RBB Dark Pipe Opening",
+  "file": "02E4.model.bin",
+  "size": 6636,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 111
+ },
+ {
+  "asset_id": 741,
+  "name": "(Grey Pipe?)",
+  "file": "02E5.model.bin",
+  "size": 3660,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 51
+ },
+ {
+  "asset_id": 742,
+  "name": "MODEL_JUJU",
+  "file": "02E6.model.bin",
+  "size": 9396,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 69
+ },
+ {
+  "asset_id": 743,
+  "name": "(Grey Plank?)",
+  "file": "02E7.model.bin",
+  "size": 1876,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 24
+ },
+ {
+  "asset_id": 744,
+  "name": "Flight Pad",
+  "file": "02E8.model.bin",
+  "size": 6452,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "collision"
+  ],
+  "vertex_count": 30
+ },
+ {
+  "asset_id": 745,
+  "name": "MM Orange Splat",
+  "file": "02E9.model.bin",
+  "size": 2556,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 4
+ },
+ {
+  "asset_id": 747,
+  "name": "MODEL_ORANGE_PAD",
+  "file": "02EB.model.bin",
+  "size": 6216,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 20
+ },
+ {
+  "asset_id": 749,
+  "name": "Banjo's House Dustbin",
+  "file": "02ED.model.bin",
+  "size": 9580,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 86
+ },
+ {
+  "asset_id": 750,
+  "name": "Mumbo's On Vacation Sign",
+  "file": "02EE.model.bin",
+  "size": 5244,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 42
+ },
+ {
+  "asset_id": 753,
+  "name": "MMM Tumblar",
+  "file": "02F1.model.bin",
+  "size": 10980,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "collision"
+  ],
+  "vertex_count": 144
+ },
+ {
+  "asset_id": 756,
+  "name": "CCW Autumn Leaf",
+  "file": "02F4.model.bin",
+  "size": 6620,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 40
+ },
+ {
+  "asset_id": 757,
+  "name": "Green BK Flag Pole (Beta?)",
+  "file": "02F5.model.bin",
+  "size": 4580,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 26
+ },
+ {
+  "asset_id": 758,
+  "name": "Blue BK Flag Pole (Beta?)",
+  "file": "02F6.model.bin",
+  "size": 4580,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 26
+ },
+ {
+  "asset_id": 759,
+  "name": "CCW Spring Leaf",
+  "file": "02F7.model.bin",
+  "size": 6644,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 20
+ },
+ {
+  "asset_id": 760,
+  "name": "RIP Tombstone",
+  "file": "02F8.model.bin",
+  "size": 5812,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 32
+ },
+ {
+  "asset_id": 761,
+  "name": "Red BK Flag Pole (Beta?)",
+  "file": "02F9.model.bin",
+  "size": 4580,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 26
+ },
+ {
+  "asset_id": 763,
+  "name": "CCW Summer Leaf",
+  "file": "02FB.model.bin",
+  "size": 6620,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 40
+ },
+ {
+  "asset_id": 764,
+  "name": "MMM Grave Plot",
+  "file": "02FC.model.bin",
+  "size": 1884,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 20
+ },
+ {
+  "asset_id": 767,
+  "name": "MM Tree",
+  "file": "02FF.model.bin",
+  "size": 11484,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 81
+ },
+ {
+  "asset_id": 768,
+  "name": "Jinxy Head",
+  "file": "0300.model.bin",
+  "size": 17052,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 187
+ },
+ {
+  "asset_id": 769,
+  "name": "MODEL_5_MUMBO_TOKEN_SIGN",
+  "file": "0301.model.bin",
+  "size": 5004,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 38
+ },
+ {
+  "asset_id": 770,
+  "name": "MODEL_10_MUMBO_TOKEN_SIGN",
+  "file": "0302.model.bin",
+  "size": 5004,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 38
+ },
+ {
+  "asset_id": 771,
+  "name": "MODEL_15_MUMBO_TOKEN_SIGN",
+  "file": "0303.model.bin",
+  "size": 5004,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 38
+ },
+ {
+  "asset_id": 772,
+  "name": "MODEL_20_MUMBO_TOKEN_SIGN",
+  "file": "0304.model.bin",
+  "size": 5004,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 38
+ },
+ {
+  "asset_id": 773,
+  "name": "MODEL_25_MUMBO_TOKEN_SIGN",
+  "file": "0305.model.bin",
+  "size": 5004,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 38
+ },
+ {
+  "asset_id": 774,
+  "name": "(Grey Platform Red Top?)",
+  "file": "0306.model.bin",
+  "size": 8020,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 28
+ },
+ {
+  "asset_id": 776,
+  "name": "Clanker's Blue Ring",
+  "file": "0308.model.bin",
+  "size": 20668,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 416
+ },
+ {
+  "asset_id": 777,
+  "name": "MODEL_CLANKER_TOKEN_TOOTH_EXTERIOR",
+  "file": "0309.model.bin",
+  "size": 2180,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "collision"
+  ],
+  "vertex_count": 27
+ },
+ {
+  "asset_id": 778,
+  "name": "MODEL_CLANKER_JIGGY_TOOTH_EXTERIOR",
+  "file": "030A.model.bin",
+  "size": 2548,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "collision"
+  ],
+  "vertex_count": 30
+ },
+ {
+  "asset_id": 781,
+  "name": "MODEL_LEAF_BOAT",
+  "file": "030D.model.bin",
+  "size": 4796,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 70
+ },
+ {
+  "asset_id": 782,
+  "name": "(Wood Pipe?)",
+  "file": "030E.model.bin",
+  "size": 4964,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 52
+ },
+ {
+  "asset_id": 785,
+  "name": "Corn On The Cob",
+  "file": "0311.model.bin",
+  "size": 1756,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx"
+  ],
+  "vertex_count": 57
+ },
+ {
+  "asset_id": 786,
+  "name": "Hamper",
+  "file": "0312.model.bin",
+  "size": 2500,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx"
+  ],
+  "vertex_count": 91
+ },
+ {
+  "asset_id": 792,
+  "name": "Melon",
+  "file": "0318.model.bin",
+  "size": 1564,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx"
+  ],
+  "vertex_count": 37
+ },
+ {
+  "asset_id": 802,
+  "name": "FP Present Stand Large",
+  "file": "0322.model.bin",
+  "size": 6220,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 57
+ },
+ {
+  "asset_id": 803,
+  "name": "FP Present Stand Small",
+  "file": "0323.model.bin",
+  "size": 5916,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 41
+ },
+ {
+  "asset_id": 804,
+  "name": "FP Present Ramp",
+  "file": "0324.model.bin",
+  "size": 9908,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 72
+ },
+ {
+  "asset_id": 805,
+  "name": "FP Icicle Large",
+  "file": "0325.model.bin",
+  "size": 1236,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 9
+ },
+ {
+  "asset_id": 806,
+  "name": "FP Icicle Small",
+  "file": "0326.model.bin",
+  "size": 1132,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 9
+ },
+ {
+  "asset_id": 809,
+  "name": "FP Stack Of Presents 1",
+  "file": "0329.model.bin",
+  "size": 29468,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 360
+ },
+ {
+  "asset_id": 813,
+  "name": "(Shadow)",
+  "file": "032D.model.bin",
+  "size": 4404,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx"
+  ],
+  "vertex_count": 4
+ },
+ {
+  "asset_id": 814,
+  "name": "(Banjo's Pillow?)",
+  "file": "032E.model.bin",
+  "size": 1884,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx"
+  ],
+  "vertex_count": 82
+ },
+ {
+  "asset_id": 815,
+  "name": "Corner Cobweb",
+  "file": "032F.model.bin",
+  "size": 12836,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx"
+  ],
+  "vertex_count": 11
+ },
+ {
+  "asset_id": 816,
+  "name": "Banjo's Arm Chair",
+  "file": "0330.model.bin",
+  "size": 4988,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 93
+ },
+ {
+  "asset_id": 817,
+  "name": "Banjo's Towel Holder",
+  "file": "0331.model.bin",
+  "size": 5388,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 12
+ },
+ {
+  "asset_id": 818,
+  "name": "BGS Floating Log",
+  "file": "0332.model.bin",
+  "size": 10332,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 36
+ },
+ {
+  "asset_id": 819,
+  "name": "Banjo's Flower Pot",
+  "file": "0333.model.bin",
+  "size": 11220,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 163
+ },
+ {
+  "asset_id": 820,
+  "name": "Palm Tree",
+  "file": "0334.model.bin",
+  "size": 7020,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 126
+ },
+ {
+  "asset_id": 821,
+  "name": "BGS Cattail",
+  "file": "0335.model.bin",
+  "size": 6644,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 70
+ },
+ {
+  "asset_id": 822,
+  "name": "Banjo's Drawers",
+  "file": "0336.model.bin",
+  "size": 10124,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 305
+ },
+ {
+  "asset_id": 823,
+  "name": "BANJOS_STOVE",
+  "file": "0337.model.bin",
+  "size": 39940,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation",
+   "mesh",
+   "anim_vertices"
+  ],
+  "vertex_count": 544
+ },
+ {
+  "asset_id": 824,
+  "name": "Table And Radio",
+  "file": "0338.model.bin",
+  "size": 8508,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation"
+  ],
+  "vertex_count": 70
+ },
+ {
+  "asset_id": 825,
+  "name": "Winter Tree",
+  "file": "0339.model.bin",
+  "size": 9756,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 239
+ },
+ {
+  "asset_id": 826,
+  "name": "Wall Torch",
+  "file": "033A.model.bin",
+  "size": 3716,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision",
+   "mesh"
+  ],
+  "vertex_count": 61
+ },
+ {
+  "asset_id": 827,
+  "name": "Parasol",
+  "file": "033B.model.bin",
+  "size": 2188,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx"
+  ],
+  "vertex_count": 106
+ },
+ {
+  "asset_id": 828,
+  "name": "GV Maze Pot",
+  "file": "033C.model.bin",
+  "size": 6900,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 117
+ },
+ {
+  "asset_id": 829,
+  "name": "MODEL_SARCOPHAGUS",
+  "file": "033D.model.bin",
+  "size": 24960,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation",
+   "collision",
+   "anim_vertices"
+  ],
+  "vertex_count": 615
+ },
+ {
+  "asset_id": 830,
+  "name": "GV Rock 1 (Behind Entrance?)",
+  "file": "033E.model.bin",
+  "size": 3764,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 31
+ },
+ {
+  "asset_id": 831,
+  "name": "GV Rock 2 (Behind Entrance?)",
+  "file": "033F.model.bin",
+  "size": 3180,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 20
+ },
+ {
+  "asset_id": 832,
+  "name": "BEAUTY_MACHINE",
+  "file": "0340.model.bin",
+  "size": 40564,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation",
+   "collision",
+   "mesh",
+   "animated_texture"
+  ],
+  "vertex_count": 572
+ },
+ {
+  "asset_id": 833,
+  "name": "BEAUTY_MACHINE_CONSOLE",
+  "file": "0341.model.bin",
+  "size": 10664,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation",
+   "collision"
+  ],
+  "vertex_count": 97
+ },
+ {
+  "asset_id": 834,
+  "name": "GV Short Platform",
+  "file": "0342.model.bin",
+  "size": 6468,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 30
+ },
+ {
+  "asset_id": 835,
+  "name": "Tooty Picture Frame",
+  "file": "0343.model.bin",
+  "size": 3284,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx"
+  ],
+  "vertex_count": 47
+ },
+ {
+  "asset_id": 836,
+  "name": "(Wooden Block?)",
+  "file": "0344.model.bin",
+  "size": 3204,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 11
+ },
+ {
+  "asset_id": 837,
+  "name": "(Golden Block?)",
+  "file": "0345.model.bin",
+  "size": 1908,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 26
+ },
+ {
+  "asset_id": 838,
+  "name": "(Transparent Ice Floor?)",
+  "file": "0346.model.bin",
+  "size": 4868,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 18
+ },
+ {
+  "asset_id": 839,
+  "name": "MODEL_MACHINE_ROOM_DOOR",
+  "file": "0347.model.bin",
+  "size": 13116,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation",
+   "collision",
+   "mesh"
+  ],
+  "vertex_count": 225
+ },
+ {
+  "asset_id": 840,
+  "name": "(Leaf Floor?)",
+  "file": "0348.model.bin",
+  "size": 4404,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx"
+  ],
+  "vertex_count": 4
+ },
+ {
+  "asset_id": 841,
+  "name": "(Unknown?)",
+  "file": "0349.model.bin",
+  "size": 684,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 8
+ },
+ {
+  "asset_id": 842,
+  "name": "Floor Cobweb",
+  "file": "034A.model.bin",
+  "size": 4428,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx"
+  ],
+  "vertex_count": 5
+ },
+ {
+  "asset_id": 843,
+  "name": "Banjo's Bed",
+  "file": "034B.model.bin",
+  "size": 18412,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation",
+   "collision"
+  ],
+  "vertex_count": 388
+ },
+ {
+  "asset_id": 844,
+  "name": "Furnace Fun Booth",
+  "file": "034C.model.bin",
+  "size": 7284,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 69
+ },
+ {
+  "asset_id": 845,
+  "name": "MODEL_BANJOKAZOOIE_LOW_POLY",
+  "file": "034D.model.bin",
+  "size": 100264,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation"
+  ],
+  "vertex_count": 2970
+ },
+ {
+  "asset_id": 846,
+  "name": "MODEL_BANJOKAZOOIE_HIGH_POLY",
+  "file": "034E.model.bin",
+  "size": 162264,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation"
+  ],
+  "vertex_count": 5184
+ },
+ {
+  "asset_id": 847,
+  "name": "MODEL_BANJO_TERMITE",
+  "file": "034F.model.bin",
+  "size": 22676,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation"
+  ],
+  "vertex_count": 679
+ },
+ {
+  "asset_id": 848,
+  "name": "MODEL_TERMITE",
+  "file": "0350.model.bin",
+  "size": 13260,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "animation"
+  ],
+  "vertex_count": 328
+ },
+ {
+  "asset_id": 849,
+  "name": "MODEL_CLAM",
+  "file": "0351.model.bin",
+  "size": 15040,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "animation"
+  ],
+  "vertex_count": 347
+ },
+ {
+  "asset_id": 850,
+  "name": "MODEL_SLED",
+  "file": "0352.model.bin",
+  "size": 10004,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "animation",
+   "collision",
+   "anim_vertices"
+  ],
+  "vertex_count": 49
+ },
+ {
+  "asset_id": 851,
+  "name": "MODEL_BIGBUTT",
+  "file": "0353.model.bin",
+  "size": 20060,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "animation"
+  ],
+  "vertex_count": 574
+ },
+ {
+  "asset_id": 852,
+  "name": "MODEL_SMALL_BULL",
+  "file": "0354.model.bin",
+  "size": 16884,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation"
+  ],
+  "vertex_count": 464
+ },
+ {
+  "asset_id": 853,
+  "name": "MODEL_CONCERT_BANJO",
+  "file": "0355.model.bin",
+  "size": 56316,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation"
+  ],
+  "vertex_count": 1698
+ },
+ {
+  "asset_id": 854,
+  "name": "MODEL_BANJO_WISHYWASHY",
+  "file": "0356.model.bin",
+  "size": 22484,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation"
+  ],
+  "vertex_count": 490
+ },
+ {
+  "asset_id": 856,
+  "name": "SNIPPET",
+  "file": "0358.model.bin",
+  "size": 22724,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "animation"
+  ],
+  "vertex_count": 594
+ },
+ {
+  "asset_id": 857,
+  "name": "MODEL_BANJO_WALRUS",
+  "file": "0359.model.bin",
+  "size": 36236,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation",
+   "anim_vertices"
+  ],
+  "vertex_count": 819
+ },
+ {
+  "asset_id": 858,
+  "name": "MODEL_CONCERT_TOOTY",
+  "file": "035A.model.bin",
+  "size": 37780,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation"
+  ],
+  "vertex_count": 1151
+ },
+ {
+  "asset_id": 859,
+  "name": "MODEL_TOOTY",
+  "file": "035B.model.bin",
+  "size": 27308,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation"
+  ],
+  "vertex_count": 880
+ },
+ {
+  "asset_id": 860,
+  "name": "MODEL_CONGA",
+  "file": "035C.model.bin",
+  "size": 28692,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "animation",
+   "collision"
+  ],
+  "vertex_count": 595
+ },
+ {
+  "asset_id": 861,
+  "name": "MODEL_CHIMPY",
+  "file": "035D.model.bin",
+  "size": 19348,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation"
+  ],
+  "vertex_count": 596
+ },
+ {
+  "asset_id": 862,
+  "name": "MODEL_JIGSAW_DANCE",
+  "file": "035E.model.bin",
+  "size": 4200,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation"
+  ],
+  "vertex_count": 154
+ },
+ {
+  "asset_id": 863,
+  "name": "MODEL_JIGGY",
+  "file": "035F.model.bin",
+  "size": 4016,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation"
+  ],
+  "vertex_count": 158
+ },
+ {
+  "asset_id": 864,
+  "name": "Blue Egg Fragment",
+  "file": "0360.model.bin",
+  "size": 588,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx"
+  ],
+  "vertex_count": 6
+ },
+ {
+  "asset_id": 865,
+  "name": "MODEL_EMPTY_HONEYCOMB",
+  "file": "0361.model.bin",
+  "size": 3960,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 88
+ },
+ {
+  "asset_id": 866,
+  "name": "MODEL_BANJO_BEE",
+  "file": "0362.model.bin",
+  "size": 17524,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation"
+  ],
+  "vertex_count": 364
+ },
+ {
+  "asset_id": 867,
+  "name": "MODEL_HONEYCOMB",
+  "file": "0363.model.bin",
+  "size": 5320,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 62
+ },
+ {
+  "asset_id": 868,
+  "name": "MODEL_BEEHIVE",
+  "file": "0364.model.bin",
+  "size": 14308,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation",
+   "collision",
+   "anim_vertices"
+  ],
+  "vertex_count": 364
+ },
+ {
+  "asset_id": 870,
+  "name": "MODEL_WADING_BOOTS",
+  "file": "0366.model.bin",
+  "size": 4612,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation"
+  ],
+  "vertex_count": 156
+ },
+ {
+  "asset_id": 871,
+  "name": "MODEL_TURBO_TALON_TRAINERS",
+  "file": "0367.model.bin",
+  "size": 6004,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation"
+  ],
+  "vertex_count": 138
+ },
+ {
+  "asset_id": 873,
+  "name": "MODEL_CONCERT_FROG",
+  "file": "0369.model.bin",
+  "size": 5260,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation"
+  ],
+  "vertex_count": 128
+ },
+ {
+  "asset_id": 875,
+  "name": "CHUMP_FISH",
+  "file": "036B.model.bin",
+  "size": 20632,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "animation",
+   "collision"
+  ],
+  "vertex_count": 450
+ },
+ {
+  "asset_id": 879,
+  "name": "MODEL_BANJO_PUMPKIN",
+  "file": "036F.model.bin",
+  "size": 17792,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation"
+  ],
+  "vertex_count": 583
+ },
+ {
+  "asset_id": 880,
+  "name": "MODEL_BLUBBER",
+  "file": "0370.model.bin",
+  "size": 30176,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation"
+  ],
+  "vertex_count": 933
+ },
+ {
+  "asset_id": 881,
+  "name": "MODEL_GRABBA",
+  "file": "0371.model.bin",
+  "size": 11348,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation",
+   "collision",
+   "anim_vertices"
+  ],
+  "vertex_count": 193
+ },
+ {
+  "asset_id": 882,
+  "name": "MODEL_GLOOP",
+  "file": "0372.model.bin",
+  "size": 16172,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation",
+   "collision",
+   "anim_vertices"
+  ],
+  "vertex_count": 282
+ },
+ {
+  "asset_id": 883,
+  "name": "MODEL_MR_VILE",
+  "file": "0373.model.bin",
+  "size": 26292,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "animation"
+  ],
+  "vertex_count": 739
+ },
+ {
+  "asset_id": 884,
+  "name": "MODEL_BANJO_CROC",
+  "file": "0374.model.bin",
+  "size": 40080,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation"
+  ],
+  "vertex_count": 1175
+ },
+ {
+  "asset_id": 885,
+  "name": "MODEL_FLIBBIT_RED",
+  "file": "0375.model.bin",
+  "size": 15364,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "animation"
+  ],
+  "vertex_count": 323
+ },
+ {
+  "asset_id": 886,
+  "name": "MODEL_SLAPPA",
+  "file": "0376.model.bin",
+  "size": 12708,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "animation",
+   "anim_vertices"
+  ],
+  "vertex_count": 216
+ },
+ {
+  "asset_id": 887,
+  "name": "MODEL_SIR_SLUSH",
+  "file": "0377.model.bin",
+  "size": 31668,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "animation",
+   "collision"
+  ],
+  "vertex_count": 810
+ },
+ {
+  "asset_id": 888,
+  "name": "MODEL_SNOWBALL",
+  "file": "0378.model.bin",
+  "size": 1328,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14"
+  ],
+  "vertex_count": 20
+ },
+ {
+  "asset_id": 889,
+  "name": "MODEL_SIRSLUSH_HAT",
+  "file": "0379.model.bin",
+  "size": 2788,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 38
+ },
+ {
+  "asset_id": 890,
+  "name": "MODEL_TINY_SNOWBALL",
+  "file": "037A.model.bin",
+  "size": 492,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx"
+  ],
+  "vertex_count": 14
+ },
+ {
+  "asset_id": 891,
+  "name": "Snowball Fragment",
+  "file": "037B.model.bin",
+  "size": 244,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx"
+  ],
+  "vertex_count": 4
+ },
+ {
+  "asset_id": 892,
+  "name": "MODEL_CLAM_LARGE_SHELL_PIECE",
+  "file": "037C.model.bin",
+  "size": 2092,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx"
+  ],
+  "vertex_count": 58
+ },
+ {
+  "asset_id": 893,
+  "name": "MODEL_CLAM_EYE",
+  "file": "037D.model.bin",
+  "size": 956,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx"
+  ],
+  "vertex_count": 23
+ },
+ {
+  "asset_id": 894,
+  "name": "MODEL_CLAM_SMALL_SHELL_PIECE",
+  "file": "037E.model.bin",
+  "size": 1052,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx"
+  ],
+  "vertex_count": 10
+ },
+ {
+  "asset_id": 895,
+  "name": "(White Dot?)",
+  "file": "037F.model.bin",
+  "size": 524,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx"
+  ],
+  "vertex_count": 4
+ },
+ {
+  "asset_id": 896,
+  "name": "MODEL_PINK_EGG_LARGEST",
+  "file": "0380.model.bin",
+  "size": 20276,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "animation",
+   "collision"
+  ],
+  "vertex_count": 384
+ },
+ {
+  "asset_id": 897,
+  "name": "MODEL_PINK_EGG_LARGE",
+  "file": "0381.model.bin",
+  "size": 20156,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "animation",
+   "collision"
+  ],
+  "vertex_count": 384
+ },
+ {
+  "asset_id": 898,
+  "name": "MODEL_PINK_EGG_MEDIUM",
+  "file": "0382.model.bin",
+  "size": 20276,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "animation",
+   "collision"
+  ],
+  "vertex_count": 384
+ },
+ {
+  "asset_id": 899,
+  "name": "MODEL_PINK_EGG_SMALL",
+  "file": "0383.model.bin",
+  "size": 20156,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "animation",
+   "collision"
+  ],
+  "vertex_count": 384
+ },
+ {
+  "asset_id": 900,
+  "name": "MODEL_PINK_EGG_SMALLEST",
+  "file": "0384.model.bin",
+  "size": 20276,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "animation",
+   "collision"
+  ],
+  "vertex_count": 384
+ },
+ {
+  "asset_id": 901,
+  "name": "MODEL_FLIBBIT_YELLOW",
+  "file": "0385.model.bin",
+  "size": 15364,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "animation"
+  ],
+  "vertex_count": 323
+ },
+ {
+  "asset_id": 903,
+  "name": "MODEL_BOTTLES",
+  "file": "0387.model.bin",
+  "size": 24516,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation"
+  ],
+  "vertex_count": 775
+ },
+ {
+  "asset_id": 904,
+  "name": "MODEL_MOLEHILL",
+  "file": "0388.model.bin",
+  "size": 8456,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation",
+   "collision"
+  ],
+  "vertex_count": 81
+ },
+ {
+  "asset_id": 905,
+  "name": null,
+  "file": "0389.model.bin",
+  "size": 2228,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation"
+  ],
+  "vertex_count": 59
+ },
+ {
+  "asset_id": 906,
+  "name": "MODEL_BOGGY_1",
+  "file": "038A.model.bin",
+  "size": 36084,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "animation",
+   "collision",
+   "anim_vertices"
+  ],
+  "vertex_count": 731
+ },
+ {
+  "asset_id": 907,
+  "name": "MODEL_BOGGY_RACE_FLAG",
+  "file": "038B.model.bin",
+  "size": 5572,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "animation",
+   "collision"
+  ],
+  "vertex_count": 126
+ },
+ {
+  "asset_id": 908,
+  "name": "MODEL_CRAB_CLAW",
+  "file": "038C.model.bin",
+  "size": 1636,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx"
+  ],
+  "vertex_count": 58
+ },
+ {
+  "asset_id": 909,
+  "name": "MODEL_CRAB_LEG",
+  "file": "038D.model.bin",
+  "size": 764,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx"
+  ],
+  "vertex_count": 16
+ },
+ {
+  "asset_id": 910,
+  "name": "MODEL_CRAB_HEAD",
+  "file": "038E.model.bin",
+  "size": 2540,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx"
+  ],
+  "vertex_count": 80
+ },
+ {
+  "asset_id": 911,
+  "name": "MODEL_MUTIE_SNIPPET",
+  "file": "038F.model.bin",
+  "size": 17036,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "animation",
+   "mesh"
+  ],
+  "vertex_count": 376
+ },
+ {
+  "asset_id": 912,
+  "name": "MODEL_MUTANT_CRAB_HEAD",
+  "file": "0390.model.bin",
+  "size": 2228,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx"
+  ],
+  "vertex_count": 75
+ },
+ {
+  "asset_id": 913,
+  "name": "MODEL_MUTANT_CRAB_LEG",
+  "file": "0391.model.bin",
+  "size": 764,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx"
+  ],
+  "vertex_count": 16
+ },
+ {
+  "asset_id": 914,
+  "name": "MODEL_MUTANT_CRAB_CLAW",
+  "file": "0392.model.bin",
+  "size": 1556,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx"
+  ],
+  "vertex_count": 53
+ },
+ {
+  "asset_id": 915,
+  "name": "MODEL_TERMITE_LEG",
+  "file": "0393.model.bin",
+  "size": 508,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx"
+  ],
+  "vertex_count": 16
+ },
+ {
+  "asset_id": 916,
+  "name": "MODEL_TERMITE_HEAD",
+  "file": "0394.model.bin",
+  "size": 1756,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx"
+  ],
+  "vertex_count": 43
+ },
+ {
+  "asset_id": 917,
+  "name": "MODEL_TERMITE_BODY",
+  "file": "0395.model.bin",
+  "size": 1204,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx"
+  ],
+  "vertex_count": 17
+ },
+ {
+  "asset_id": 918,
+  "name": "MODEL_TERMITE_EYES",
+  "file": "0396.model.bin",
+  "size": 948,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx"
+  ],
+  "vertex_count": 24
+ },
+ {
+  "asset_id": 919,
+  "name": "MODEL_BIG_ALLIGATOR",
+  "file": "0397.model.bin",
+  "size": 24628,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation",
+   "collision"
+  ],
+  "vertex_count": 415
+ },
+ {
+  "asset_id": 920,
+  "name": "MODEL_CONCERT_ANT",
+  "file": "0398.model.bin",
+  "size": 4148,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation"
+  ],
+  "vertex_count": 91
+ },
+ {
+  "asset_id": 934,
+  "name": "MODEL_INTRO_N64_CUBE",
+  "file": "03A6.model.bin",
+  "size": 6244,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation",
+   "anim_vertices"
+  ],
+  "vertex_count": 206
+ },
+ {
+  "asset_id": 935,
+  "name": "MODEL_INTRO_RARE_LOGO",
+  "file": "03A7.model.bin",
+  "size": 21064,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation",
+   "anim_vertices"
+  ],
+  "vertex_count": 269
+ },
+ {
+  "asset_id": 936,
+  "name": "(Brown Triangle?)",
+  "file": "03A8.model.bin",
+  "size": 2404,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx"
+  ],
+  "vertex_count": 3
+ },
+ {
+  "asset_id": 937,
+  "name": "MODEL_PALM_TREE",
+  "file": "03A9.model.bin",
+  "size": 7668,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 120
+ },
+ {
+  "asset_id": 941,
+  "name": "FIRE_SPARKLE",
+  "file": "03AD.model.bin",
+  "size": 7860,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation"
+  ],
+  "vertex_count": 56
+ },
+ {
+  "asset_id": 942,
+  "name": "MODEL_GRAVE_FLOWER_POT",
+  "file": "03AE.model.bin",
+  "size": 26468,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation",
+   "collision"
+  ],
+  "vertex_count": 314
+ },
+ {
+  "asset_id": 943,
+  "name": "(Green Plank?)",
+  "file": "03AF.model.bin",
+  "size": 940,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx"
+  ],
+  "vertex_count": 21
+ },
+ {
+  "asset_id": 944,
+  "name": "SNACKER",
+  "file": "03B0.model.bin",
+  "size": 15068,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "animation",
+   "collision"
+  ],
+  "vertex_count": 301
+ },
+ {
+  "asset_id": 945,
+  "name": "Concert Mumbo",
+  "file": "03B1.model.bin",
+  "size": 42792,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation"
+  ],
+  "vertex_count": 1240
+ },
+ {
+  "asset_id": 946,
+  "name": "MODEL_TWO_ICE_POLES_NEAR_CHEATO_3",
+  "file": "03B2.model.bin",
+  "size": 21940,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 424
+ },
+ {
+  "asset_id": 947,
+  "name": "MODEL_CCW_MUMBOS_HUT",
+  "file": "03B3.model.bin",
+  "size": 28668,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 332
+ },
+ {
+  "asset_id": 950,
+  "name": "MODEL_TTC_STAIRS_1",
+  "file": "03B6.model.bin",
+  "size": 8716,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 232
+ },
+ {
+  "asset_id": 951,
+  "name": "MODEL_TTC_STAIRS_2",
+  "file": "03B7.model.bin",
+  "size": 9284,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 232
+ },
+ {
+  "asset_id": 955,
+  "name": "MODEL_JINJO_YELLOW",
+  "file": "03BB.model.bin",
+  "size": 11340,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation"
+  ],
+  "vertex_count": 330
+ },
+ {
+  "asset_id": 956,
+  "name": "MODEL_JINJO_ORANGE",
+  "file": "03BC.model.bin",
+  "size": 11340,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation"
+  ],
+  "vertex_count": 330
+ },
+ {
+  "asset_id": 957,
+  "name": "MODEL_LIGHTHOUSE_A",
+  "file": "03BD.model.bin",
+  "size": 14284,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 161
+ },
+ {
+  "asset_id": 958,
+  "name": "MODEL_LIGHTHOUSE_B",
+  "file": "03BE.model.bin",
+  "size": 16156,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 154
+ },
+ {
+  "asset_id": 959,
+  "name": "MODEL_PLAYER_SHADOW",
+  "file": "03BF.model.bin",
+  "size": 4404,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx"
+  ],
+  "vertex_count": 4
+ },
+ {
+  "asset_id": 960,
+  "name": "MODEL_JINJO_BLUE",
+  "file": "03C0.model.bin",
+  "size": 11340,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation"
+  ],
+  "vertex_count": 330
+ },
+ {
+  "asset_id": 961,
+  "name": "MODEL_JINJO_PINK",
+  "file": "03C1.model.bin",
+  "size": 11340,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation"
+  ],
+  "vertex_count": 330
+ },
+ {
+  "asset_id": 962,
+  "name": "MODEL_JINJO_GREEN",
+  "file": "03C2.model.bin",
+  "size": 11340,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation"
+  ],
+  "vertex_count": 330
+ },
+ {
+  "asset_id": 965,
+  "name": "MODEL_GRUBLIN",
+  "file": "03C5.model.bin",
+  "size": 25836,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "animation"
+  ],
+  "vertex_count": 578
+ },
+ {
+  "asset_id": 966,
+  "name": "MODEL_MUMBO",
+  "file": "03C6.model.bin",
+  "size": 59876,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation",
+   "collision"
+  ],
+  "vertex_count": 1269
+ },
+ {
+  "asset_id": 967,
+  "name": "MODEL_GOLD_BULLION",
+  "file": "03C7.model.bin",
+  "size": 6080,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 144
+ },
+ {
+  "asset_id": 968,
+  "name": "MODEL_CHIMPY_STUMP",
+  "file": "03C8.model.bin",
+  "size": 5276,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 18
+ },
+ {
+  "asset_id": 969,
+  "name": "MODEL_GRAVESTONE",
+  "file": "03C9.model.bin",
+  "size": 20676,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "animation",
+   "collision"
+  ],
+  "vertex_count": 370
+ },
+ {
+  "asset_id": 970,
+  "name": "MODEL_BAT",
+  "file": "03CA.model.bin",
+  "size": 17212,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "animation",
+   "collision"
+  ],
+  "vertex_count": 401
+ },
+ {
+  "asset_id": 971,
+  "name": "MODEL_TEEHEE",
+  "file": "03CB.model.bin",
+  "size": 24024,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "animation",
+   "collision",
+   "mesh",
+   "anim_vertices"
+  ],
+  "vertex_count": 361
+ },
+ {
+  "asset_id": 972,
+  "name": "MODEL_1881_BARREL_TOP",
+  "file": "03CC.model.bin",
+  "size": 2820,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "collision"
+  ],
+  "vertex_count": 12
+ },
+ {
+  "asset_id": 973,
+  "name": "MODEL_SHACK_DOOR",
+  "file": "03CD.model.bin",
+  "size": 2532,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "collision"
+  ],
+  "vertex_count": 4
+ },
+ {
+  "asset_id": 974,
+  "name": "MODEL_MANSION_DOOR",
+  "file": "03CE.model.bin",
+  "size": 2668,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "collision"
+  ],
+  "vertex_count": 7
+ },
+ {
+  "asset_id": 975,
+  "name": "MODEL_CELLAR_HATCH",
+  "file": "03CF.model.bin",
+  "size": 2532,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "collision"
+  ],
+  "vertex_count": 4
+ },
+ {
+  "asset_id": 976,
+  "name": "MODEL_CHURCH_GATE_LEFT_LOCK",
+  "file": "03D0.model.bin",
+  "size": 7592,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "collision"
+  ],
+  "vertex_count": 40
+ },
+ {
+  "asset_id": 977,
+  "name": "MODEL_HEDGE_GATE_RIGHT_LOCK_1",
+  "file": "03D1.model.bin",
+  "size": 7600,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "collision"
+  ],
+  "vertex_count": 40
+ },
+ {
+  "asset_id": 978,
+  "name": "MODEL_BLUBBER_SHIP_TOP_HATCH",
+  "file": "03D2.model.bin",
+  "size": 2588,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "collision"
+  ],
+  "vertex_count": 4
+ },
+ {
+  "asset_id": 979,
+  "name": "MODEL_CHURCH_DOOR",
+  "file": "03D3.model.bin",
+  "size": 2908,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 18
+ },
+ {
+  "asset_id": 980,
+  "name": "MODEL_LOCKUP",
+  "file": "03D4.model.bin",
+  "size": 29316,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "animation",
+   "collision",
+   "anim_vertices"
+  ],
+  "vertex_count": 147
+ },
+ {
+  "asset_id": 981,
+  "name": "MODEL_NIPPER",
+  "file": "03D5.model.bin",
+  "size": 23756,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "animation",
+   "collision"
+  ],
+  "vertex_count": 556
+ },
+ {
+  "asset_id": 982,
+  "name": "MODEL_LIGHTHOUSE_DOOR",
+  "file": "03D6.model.bin",
+  "size": 2660,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "collision"
+  ],
+  "vertex_count": 5
+ },
+ {
+  "asset_id": 983,
+  "name": "MODEL_STAR_SWITCH",
+  "file": "03D7.model.bin",
+  "size": 6964,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "animation",
+   "collision",
+   "anim_vertices"
+  ],
+  "vertex_count": 41
+ },
+ {
+  "asset_id": 984,
+  "name": "MODEL_GV_BANJO_DOOR",
+  "file": "03D8.model.bin",
+  "size": 6228,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 16
+ },
+ {
+  "asset_id": 985,
+  "name": "MODEL_GV_KAZOOIE_DOOR",
+  "file": "03D9.model.bin",
+  "size": 2788,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 8
+ },
+ {
+  "asset_id": 986,
+  "name": "GV Sun Door",
+  "file": "03DA.model.bin",
+  "size": 2788,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 8
+ },
+ {
+  "asset_id": 987,
+  "name": "MODEL_GV_STAR_HATCH",
+  "file": "03DB.model.bin",
+  "size": 2980,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation",
+   "collision"
+  ],
+  "vertex_count": 13
+ },
+ {
+  "asset_id": 988,
+  "name": "MODEL_MAGIC_CARPET",
+  "file": "03DC.model.bin",
+  "size": 7572,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation",
+   "collision",
+   "anim_vertices"
+  ],
+  "vertex_count": 81
+ },
+ {
+  "asset_id": 989,
+  "name": "MODEL_RUBEE",
+  "file": "03DD.model.bin",
+  "size": 32676,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation",
+   "collision"
+  ],
+  "vertex_count": 782
+ },
+ {
+  "asset_id": 990,
+  "name": "MODEL_HISTUP",
+  "file": "03DE.model.bin",
+  "size": 18804,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation",
+   "collision",
+   "anim_vertices"
+  ],
+  "vertex_count": 459
+ },
+ {
+  "asset_id": 991,
+  "name": "MODEL_TRUNKER",
+  "file": "03DF.model.bin",
+  "size": 24708,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation",
+   "collision",
+   "anim_vertices"
+  ],
+  "vertex_count": 428
+ },
+ {
+  "asset_id": 992,
+  "name": "MODEL_GOBI",
+  "file": "03E0.model.bin",
+  "size": 28132,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "animation",
+   "collision",
+   "anim_vertices"
+  ],
+  "vertex_count": 761
+ },
+ {
+  "asset_id": 993,
+  "name": "MODEL_RUBEES_EGG_POT",
+  "file": "03E1.model.bin",
+  "size": 6972,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 33
+ },
+ {
+  "asset_id": 994,
+  "name": "MODEL_GV_KAZOOIE_TARGET",
+  "file": "03E2.model.bin",
+  "size": 16212,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "collision"
+  ],
+  "vertex_count": 183
+ },
+ {
+  "asset_id": 995,
+  "name": "MODEL_GOBI_ROPE",
+  "file": "03E3.model.bin",
+  "size": 2132,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation",
+   "anim_vertices"
+  ],
+  "vertex_count": 60
+ },
+ {
+  "asset_id": 996,
+  "name": "MODEL_GOBI_ROCK",
+  "file": "03E4.model.bin",
+  "size": 5240,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "collision"
+  ],
+  "vertex_count": 37
+ },
+ {
+  "asset_id": 997,
+  "name": "MODEL_GRABBA_SHADOW",
+  "file": "03E5.model.bin",
+  "size": 4444,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation",
+   "anim_vertices"
+  ],
+  "vertex_count": 105
+ },
+ {
+  "asset_id": 998,
+  "name": "JINXY_HEAD_KING_SANDYBUTT",
+  "file": "03E6.model.bin",
+  "size": 37372,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "animation",
+   "collision",
+   "anim_vertices"
+  ],
+  "vertex_count": 1027
+ },
+ {
+  "asset_id": 999,
+  "name": "MODEL_MAGIC_CARPET_SHADOW",
+  "file": "03E7.model.bin",
+  "size": 3276,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation"
+  ],
+  "vertex_count": 54
+ },
+ {
+  "asset_id": 1000,
+  "name": "MODEL_ANCIENT_ONE",
+  "file": "03E8.model.bin",
+  "size": 24332,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation",
+   "collision",
+   "anim_vertices"
+  ],
+  "vertex_count": 653
+ },
+ {
+  "asset_id": 1001,
+  "name": "MODEL_RED_ARROW",
+  "file": "03E9.model.bin",
+  "size": 2556,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 4
+ },
+ {
+  "asset_id": 1002,
+  "name": "MODEL_RED_X",
+  "file": "03EA.model.bin",
+  "size": 2556,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 4
+ },
+ {
+  "asset_id": 1003,
+  "name": "MODEL_RED_QUESTION_MARK",
+  "file": "03EB.model.bin",
+  "size": 2556,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 4
+ },
+ {
+  "asset_id": 1004,
+  "name": "MODEL_SHRAPNEL",
+  "file": "03EC.model.bin",
+  "size": 17332,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation",
+   "anim_vertices"
+  ],
+  "vertex_count": 435
+ },
+ {
+  "asset_id": 1005,
+  "name": "MODEL_BUZZBOMB",
+  "file": "03ED.model.bin",
+  "size": 16300,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "animation",
+   "anim_vertices"
+  ],
+  "vertex_count": 425
+ },
+ {
+  "asset_id": 1006,
+  "name": "TANKTUP",
+  "file": "03EE.model.bin",
+  "size": 34132,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "animation",
+   "collision",
+   "anim_vertices"
+  ],
+  "vertex_count": 543
+ },
+ {
+  "asset_id": 1007,
+  "name": "MODEL_TANKTUP_LEG_FL",
+  "file": "03EF.model.bin",
+  "size": 4108,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "animation",
+   "collision",
+   "anim_vertices"
+  ],
+  "vertex_count": 28
+ },
+ {
+  "asset_id": 1008,
+  "name": "MODEL_TANKTUP_LEG_BL",
+  "file": "03F0.model.bin",
+  "size": 3748,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "animation",
+   "collision",
+   "anim_vertices"
+  ],
+  "vertex_count": 28
+ },
+ {
+  "asset_id": 1009,
+  "name": "MODEL_TANKTUP_LEG_FR",
+  "file": "03F1.model.bin",
+  "size": 3748,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "animation",
+   "collision",
+   "anim_vertices"
+  ],
+  "vertex_count": 28
+ },
+ {
+  "asset_id": 1010,
+  "name": "MODEL_TANKTUP_LEG_BR",
+  "file": "03F2.model.bin",
+  "size": 4108,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "animation",
+   "collision",
+   "anim_vertices"
+  ],
+  "vertex_count": 28
+ },
+ {
+  "asset_id": 1011,
+  "name": "MODEL_GOBI_SPIT",
+  "file": "03F3.model.bin",
+  "size": 6260,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation",
+   "mesh",
+   "anim_vertices"
+  ],
+  "vertex_count": 64
+ },
+ {
+  "asset_id": 1013,
+  "name": "BGS_JIGGY_SWITCH",
+  "file": "03F5.model.bin",
+  "size": 9988,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "animation",
+   "collision",
+   "anim_vertices"
+  ],
+  "vertex_count": 37
+ },
+ {
+  "asset_id": 1014,
+  "name": "MODEL_YUMBLIE",
+  "file": "03F6.model.bin",
+  "size": 3028,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation"
+  ],
+  "vertex_count": 72
+ },
+ {
+  "asset_id": 1015,
+  "name": "MODEL_GRUMBLIE",
+  "file": "03F7.model.bin",
+  "size": 3164,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation"
+  ],
+  "vertex_count": 100
+ },
+ {
+  "asset_id": 1016,
+  "name": "MODEL_TIPTUP",
+  "file": "03F8.model.bin",
+  "size": 19780,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "animation",
+   "anim_vertices"
+  ],
+  "vertex_count": 630
+ },
+ {
+  "asset_id": 1017,
+  "name": "MODEL_CHOIR_TURTLE",
+  "file": "03F9.model.bin",
+  "size": 33868,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "animation",
+   "collision",
+   "anim_vertices"
+  ],
+  "vertex_count": 1031
+ },
+ {
+  "asset_id": 1023,
+  "name": "MODEL_GV_SUN_DOOR",
+  "file": "03FF.model.bin",
+  "size": 2788,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 8
+ },
+ {
+  "asset_id": 1024,
+  "name": "MODEL_SUN_SWITCH",
+  "file": "0400.model.bin",
+  "size": 6964,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "animation",
+   "collision",
+   "anim_vertices"
+  ],
+  "vertex_count": 41
+ },
+ {
+  "asset_id": 1025,
+  "name": "MODEL_FLOTSAM",
+  "file": "0401.model.bin",
+  "size": 12444,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation"
+  ],
+  "vertex_count": 277
+ },
+ {
+  "asset_id": 1026,
+  "name": "MODEL_EGG_TOLL",
+  "file": "0402.model.bin",
+  "size": 3612,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx"
+  ],
+  "vertex_count": 157
+ },
+ {
+  "asset_id": 1027,
+  "name": "MODEL_RUSTY_BUCKET_REAR_PROPELLER",
+  "file": "0403.model.bin",
+  "size": 8732,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "collision"
+  ],
+  "vertex_count": 101
+ },
+ {
+  "asset_id": 1028,
+  "name": "MODEL_RBB_GREEN_PROPELLER_SWITCH",
+  "file": "0404.model.bin",
+  "size": 5628,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "collision"
+  ],
+  "vertex_count": 32
+ },
+ {
+  "asset_id": 1029,
+  "name": "MODEL_RBB_GREY_PROPELLER_SWITCH",
+  "file": "0405.model.bin",
+  "size": 5628,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "collision"
+  ],
+  "vertex_count": 32
+ },
+ {
+  "asset_id": 1030,
+  "name": "MODEL_RBB_SPINNING_SINGLE_PIPE",
+  "file": "0406.model.bin",
+  "size": 3188,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 16
+ },
+ {
+  "asset_id": 1031,
+  "name": "MODEL_RBB_SPINNING_DOUBLEE_PIPE_RIGHT",
+  "file": "0407.model.bin",
+  "size": 3732,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 32
+ },
+ {
+  "asset_id": 1032,
+  "name": "MODEL_RBB_SPINNING_DOUBLEE_PIPE_LEFT",
+  "file": "0408.model.bin",
+  "size": 3732,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 32
+ },
+ {
+  "asset_id": 1033,
+  "name": "MODEL_RBB_SMALL_COG",
+  "file": "0409.model.bin",
+  "size": 10948,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 180
+ },
+ {
+  "asset_id": 1034,
+  "name": "MODEL_RBB_MEDIUM_COG",
+  "file": "040A.model.bin",
+  "size": 13612,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 252
+ },
+ {
+  "asset_id": 1035,
+  "name": "MODEL_RBB_LARGE_COG",
+  "file": "040B.model.bin",
+  "size": 16500,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 335
+ },
+ {
+  "asset_id": 1036,
+  "name": "MODEL_RBB_SPINNING_FLAT_PLATFORM_1",
+  "file": "040C.model.bin",
+  "size": 9364,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 72
+ },
+ {
+  "asset_id": 1037,
+  "name": "MODEL_RBB_SPINNING_FLAT_PLATFORM_2",
+  "file": "040D.model.bin",
+  "size": 9364,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 72
+ },
+ {
+  "asset_id": 1038,
+  "name": "MODEL_RBB_SPINNING_FLAT_PLATFORM_3",
+  "file": "040E.model.bin",
+  "size": 9364,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 72
+ },
+ {
+  "asset_id": 1039,
+  "name": "MODEL_ENGINE_ROOM_PROPELLER_1",
+  "file": "040F.model.bin",
+  "size": 11724,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "collision"
+  ],
+  "vertex_count": 177
+ },
+ {
+  "asset_id": 1040,
+  "name": "MODEL_ENGINE_ROOM_PROPELLER_2",
+  "file": "0410.model.bin",
+  "size": 11724,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "collision"
+  ],
+  "vertex_count": 177
+ },
+ {
+  "asset_id": 1041,
+  "name": "MODEL_ENGINE_ROOM_PROPELLER_3",
+  "file": "0411.model.bin",
+  "size": 11724,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "collision"
+  ],
+  "vertex_count": 177
+ },
+ {
+  "asset_id": 1042,
+  "name": "MODEL_RBB_GREY_PROPELLER_SWITCH",
+  "file": "0412.model.bin",
+  "size": 5732,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "collision"
+  ],
+  "vertex_count": 30
+ },
+ {
+  "asset_id": 1043,
+  "name": "MODEL_WHISTLE_SWITCH_1",
+  "file": "0413.model.bin",
+  "size": 6700,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "collision"
+  ],
+  "vertex_count": 36
+ },
+ {
+  "asset_id": 1044,
+  "name": "MODEL_WHISTLE_SWITCH_2",
+  "file": "0414.model.bin",
+  "size": 6700,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "collision"
+  ],
+  "vertex_count": 36
+ },
+ {
+  "asset_id": 1045,
+  "name": "MODEL_WHISTLE_SWITCH_3",
+  "file": "0415.model.bin",
+  "size": 6700,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "collision"
+  ],
+  "vertex_count": 36
+ },
+ {
+  "asset_id": 1046,
+  "name": "MODEL_WHISTLE",
+  "file": "0416.model.bin",
+  "size": 4820,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation",
+   "collision"
+  ],
+  "vertex_count": 129
+ },
+ {
+  "asset_id": 1047,
+  "name": "RBB Whistle 2 (Gold)",
+  "file": "0417.model.bin",
+  "size": 4796,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation",
+   "collision"
+  ],
+  "vertex_count": 129
+ },
+ {
+  "asset_id": 1048,
+  "name": "RBB Whistle 3 (Blue)",
+  "file": "0418.model.bin",
+  "size": 4796,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation",
+   "collision"
+  ],
+  "vertex_count": 129
+ },
+ {
+  "asset_id": 1049,
+  "name": "MODEL_GRIMLET",
+  "file": "0419.model.bin",
+  "size": 19948,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "animation",
+   "collision",
+   "anim_vertices"
+  ],
+  "vertex_count": 446
+ },
+ {
+  "asset_id": 1051,
+  "name": "MODEL_ANCHOR_SWITCH",
+  "file": "041B.model.bin",
+  "size": 6700,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "collision"
+  ],
+  "vertex_count": 36
+ },
+ {
+  "asset_id": 1052,
+  "name": "MODEL_SNORKEL",
+  "file": "041C.model.bin",
+  "size": 10572,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation",
+   "collision",
+   "anim_vertices"
+  ],
+  "vertex_count": 216
+ },
+ {
+  "asset_id": 1053,
+  "name": "MODEL_ANCHOR",
+  "file": "041D.model.bin",
+  "size": 14492,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation",
+   "collision",
+   "anim_vertices"
+  ],
+  "vertex_count": 100
+ },
+ {
+  "asset_id": 1054,
+  "name": "MODEL_RAREWARE_FLAG",
+  "file": "041E.model.bin",
+  "size": 9236,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation",
+   "collision"
+  ],
+  "vertex_count": 62
+ },
+ {
+  "asset_id": 1055,
+  "name": "(Gruntilda's Final Battle Forcefield?)",
+  "file": "041F.model.bin",
+  "size": 6356,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 30
+ },
+ {
+  "asset_id": 1057,
+  "name": "MODEL_FP_SNOWMAN_BUTTON",
+  "file": "0421.model.bin",
+  "size": 5356,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "animation",
+   "collision"
+  ],
+  "vertex_count": 48
+ },
+ {
+  "asset_id": 1058,
+  "name": "MODEL_JINXY",
+  "file": "0422.model.bin",
+  "size": 60252,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation",
+   "collision"
+  ],
+  "vertex_count": 760
+ },
+ {
+  "asset_id": 1060,
+  "name": "GV Cactus",
+  "file": "0424.model.bin",
+  "size": 13236,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "collision"
+  ],
+  "vertex_count": 310
+ },
+ {
+  "asset_id": 1061,
+  "name": "MODEL_CROCTUS",
+  "file": "0425.model.bin",
+  "size": 25156,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "animation",
+   "collision",
+   "anim_vertices"
+  ],
+  "vertex_count": 852
+ },
+ {
+  "asset_id": 1062,
+  "name": "MODEL_XMAS_TREE_STAR",
+  "file": "0426.model.bin",
+  "size": 7708,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "collision"
+  ],
+  "vertex_count": 214
+ },
+ {
+  "asset_id": 1063,
+  "name": "MODEL_WOODEN_PLANK",
+  "file": "0427.model.bin",
+  "size": 1524,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 18
+ },
+ {
+  "asset_id": 1064,
+  "name": "MODEL_BOSS_BOOM_BOX",
+  "file": "0428.model.bin",
+  "size": 23916,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "animation",
+   "collision",
+   "anim_vertices"
+  ],
+  "vertex_count": 777
+ },
+ {
+  "asset_id": 1065,
+  "name": "MODEL_CC_KEY",
+  "file": "0429.model.bin",
+  "size": 12428,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "collision"
+  ],
+  "vertex_count": 170
+ },
+ {
+  "asset_id": 1067,
+  "name": "(Orange Triangle?)",
+  "file": "042B.model.bin",
+  "size": 2396,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14"
+  ],
+  "vertex_count": 4
+ },
+ {
+  "asset_id": 1068,
+  "name": "MODEL_BURIED_TREASURE",
+  "file": "042C.model.bin",
+  "size": 9216,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation",
+   "collision",
+   "anim_vertices"
+  ],
+  "vertex_count": 58
+ },
+ {
+  "asset_id": 1069,
+  "name": "MODEL_QUARRIE",
+  "file": "042D.model.bin",
+  "size": 10156,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 174
+ },
+ {
+  "asset_id": 1070,
+  "name": "SM Quarrie Fragment",
+  "file": "042E.model.bin",
+  "size": 2940,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx"
+  ],
+  "vertex_count": 28
+ },
+ {
+  "asset_id": 1071,
+  "name": "MODEL_RBB_HONEYCOMB_SWITCH",
+  "file": "042F.model.bin",
+  "size": 7204,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "animation",
+   "collision",
+   "anim_vertices"
+  ],
+  "vertex_count": 54
+ },
+ {
+  "asset_id": 1072,
+  "name": "MODEL_GRILLE_CHOMPA",
+  "file": "0430.model.bin",
+  "size": 19372,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "animation"
+  ],
+  "vertex_count": 485
+ },
+ {
+  "asset_id": 1073,
+  "name": "MODEL_BETA_VENT",
+  "file": "0431.model.bin",
+  "size": 3356,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "animation",
+   "collision"
+  ],
+  "vertex_count": 65
+ },
+ {
+  "asset_id": 1074,
+  "name": "MODEL_CLANKER_WHIPCRACK",
+  "file": "0432.model.bin",
+  "size": 8876,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "animation",
+   "anim_vertices"
+  ],
+  "vertex_count": 88
+ },
+ {
+  "asset_id": 1076,
+  "name": "MODEL_TOOTS",
+  "file": "0434.model.bin",
+  "size": 12732,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation"
+  ],
+  "vertex_count": 338
+ },
+ {
+  "asset_id": 1077,
+  "name": "MODEL_CC_GREEN_GRATE",
+  "file": "0435.model.bin",
+  "size": 3532,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "collision"
+  ],
+  "vertex_count": 4
+ },
+ {
+  "asset_id": 1078,
+  "name": "MODEL_CC_TEAL_GRATE",
+  "file": "0436.model.bin",
+  "size": 3532,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "collision"
+  ],
+  "vertex_count": 4
+ },
+ {
+  "asset_id": 1079,
+  "name": "(Unknown?)",
+  "file": "0437.model.bin",
+  "size": 3476,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "collision"
+  ],
+  "vertex_count": 4
+ },
+ {
+  "asset_id": 1080,
+  "name": "MODEL_HONEYCOMB_SWITCH",
+  "file": "0438.model.bin",
+  "size": 6964,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "animation",
+   "collision",
+   "anim_vertices"
+  ],
+  "vertex_count": 41
+ },
+ {
+  "asset_id": 1081,
+  "name": "(Unknown?)",
+  "file": "0439.model.bin",
+  "size": 1144,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation"
+  ],
+  "vertex_count": 0
+ },
+ {
+  "asset_id": 1082,
+  "name": "MODEL_CLANKER_SAWBLADE_PROPELLOR",
+  "file": "043A.model.bin",
+  "size": 12836,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14"
+  ],
+  "vertex_count": 100
+ },
+ {
+  "asset_id": 1083,
+  "name": "MODEL_BELL_BUOY",
+  "file": "043B.model.bin",
+  "size": 24276,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation",
+   "collision"
+  ],
+  "vertex_count": 165
+ },
+ {
+  "asset_id": 1084,
+  "name": "MODEL_ROWBOAT",
+  "file": "043C.model.bin",
+  "size": 20244,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 329
+ },
+ {
+  "asset_id": 1085,
+  "name": "MODEL_MMM_CLOCK_SWITCH",
+  "file": "043D.model.bin",
+  "size": 7620,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "animation",
+   "collision",
+   "anim_vertices"
+  ],
+  "vertex_count": 40
+ },
+ {
+  "asset_id": 1086,
+  "name": "MODEL_HEDGE_GATE_RIGHT_LOCK_2",
+  "file": "043E.model.bin",
+  "size": 7600,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "collision"
+  ],
+  "vertex_count": 40
+ },
+ {
+  "asset_id": 1087,
+  "name": "(White Star?)",
+  "file": "043F.model.bin",
+  "size": 884,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx"
+  ],
+  "vertex_count": 4
+ },
+ {
+  "asset_id": 1088,
+  "name": "MODEL_SNAREBEAR",
+  "file": "0440.model.bin",
+  "size": 13268,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "animation",
+   "collision"
+  ],
+  "vertex_count": 334
+ },
+ {
+  "asset_id": 1089,
+  "name": "(Sir Slush Snowball?)",
+  "file": "0441.model.bin",
+  "size": 660,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14"
+  ],
+  "vertex_count": 20
+ },
+ {
+  "asset_id": 1090,
+  "name": "MODEL_TWINKLY_BOX",
+  "file": "0442.model.bin",
+  "size": 7428,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "animation",
+   "collision",
+   "anim_vertices"
+  ],
+  "vertex_count": 68
+ },
+ {
+  "asset_id": 1091,
+  "name": "MODEL_ZUBBA_HONEY_LUMP",
+  "file": "0443.model.bin",
+  "size": 8748,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 62
+ },
+ {
+  "asset_id": 1092,
+  "name": "MODEL_CCW_ZUBBA_DOOR",
+  "file": "0444.model.bin",
+  "size": 5020,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 10
+ },
+ {
+  "asset_id": 1093,
+  "name": "MODEL_CCW_ZUBBA_DOOR",
+  "file": "0445.model.bin",
+  "size": 2556,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 4
+ },
+ {
+  "asset_id": 1094,
+  "name": "MODEL_ZUBBA",
+  "file": "0446.model.bin",
+  "size": 24164,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "animation",
+   "anim_vertices"
+  ],
+  "vertex_count": 597
+ },
+ {
+  "asset_id": 1095,
+  "name": "MODEL_CCW_BEANSTALK",
+  "file": "0447.model.bin",
+  "size": 30484,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "animation",
+   "collision",
+   "anim_vertices"
+  ],
+  "vertex_count": 632
+ },
+ {
+  "asset_id": 1096,
+  "name": "MODEL_TWINKLY_BLUE",
+  "file": "0448.model.bin",
+  "size": 8940,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "animation",
+   "mesh",
+   "anim_vertices"
+  ],
+  "vertex_count": 76
+ },
+ {
+  "asset_id": 1097,
+  "name": "MODEL_TWINKLY_GREEN",
+  "file": "0449.model.bin",
+  "size": 8940,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "animation",
+   "mesh",
+   "anim_vertices"
+  ],
+  "vertex_count": 76
+ },
+ {
+  "asset_id": 1098,
+  "name": "MODEL_TWINKLY_ORANGE",
+  "file": "044A.model.bin",
+  "size": 8940,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "animation",
+   "mesh",
+   "anim_vertices"
+  ],
+  "vertex_count": 76
+ },
+ {
+  "asset_id": 1099,
+  "name": "MODEL_TWINKLY_RED",
+  "file": "044B.model.bin",
+  "size": 8940,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "animation",
+   "mesh",
+   "anim_vertices"
+  ],
+  "vertex_count": 76
+ },
+ {
+  "asset_id": 1100,
+  "name": "MODEL_POLAR_BEAR_CUB_BLUE",
+  "file": "044C.model.bin",
+  "size": 18844,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation"
+  ],
+  "vertex_count": 590
+ },
+ {
+  "asset_id": 1101,
+  "name": "MODEL_POLAR_BEAR_CUB_GREEN",
+  "file": "044D.model.bin",
+  "size": 18788,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation"
+  ],
+  "vertex_count": 586
+ },
+ {
+  "asset_id": 1102,
+  "name": "MODEL_POLAR_BEAR_CUB_RED",
+  "file": "044E.model.bin",
+  "size": 19716,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation"
+  ],
+  "vertex_count": 598
+ },
+ {
+  "asset_id": 1103,
+  "name": "MODEL_GREEN_FLOOR_MIST",
+  "file": "044F.model.bin",
+  "size": 7068,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation",
+   "mesh",
+   "anim_vertices"
+  ],
+  "vertex_count": 97
+ },
+ {
+  "asset_id": 1104,
+  "name": "MODEL_DINGPOT",
+  "file": "0450.model.bin",
+  "size": 36364,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "animation",
+   "collision",
+   "anim_vertices"
+  ],
+  "vertex_count": 701
+ },
+ {
+  "asset_id": 1105,
+  "name": "MODEL_GRUNTILDA",
+  "file": "0451.model.bin",
+  "size": 39436,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation",
+   "anim_vertices"
+  ],
+  "vertex_count": 1381
+ },
+ {
+  "asset_id": 1106,
+  "name": "MODEL_GRUNTILDA_ARMS",
+  "file": "0452.model.bin",
+  "size": 13444,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation",
+   "anim_vertices"
+  ],
+  "vertex_count": 501
+ },
+ {
+  "asset_id": 1107,
+  "name": "MODEL_DINGPOT_TOP",
+  "file": "0453.model.bin",
+  "size": 12468,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation",
+   "anim_vertices"
+  ],
+  "vertex_count": 219
+ },
+ {
+  "asset_id": 1108,
+  "name": "MODEL_TOOTY_REFLECTION",
+  "file": "0454.model.bin",
+  "size": 10996,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation",
+   "anim_vertices"
+  ],
+  "vertex_count": 88
+ },
+ {
+  "asset_id": 1109,
+  "name": "MMM Limbo",
+  "file": "0455.model.bin",
+  "size": 11820,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "animation"
+  ],
+  "vertex_count": 375
+ },
+ {
+  "asset_id": 1110,
+  "name": "MODEL_GRUNTILDAS_BROOMSTICK",
+  "file": "0456.model.bin",
+  "size": 8324,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation",
+   "anim_vertices"
+  ],
+  "vertex_count": 203
+ },
+ {
+  "asset_id": 1111,
+  "name": "MODEL_GRUNTILDA_RIDING_BROOMSTICK",
+  "file": "0457.model.bin",
+  "size": 41820,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation",
+   "anim_vertices"
+  ],
+  "vertex_count": 1430
+ },
+ {
+  "asset_id": 1112,
+  "name": "MODEL_BANJO_TOP_SLEEPING",
+  "file": "0458.model.bin",
+  "size": 38252,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation"
+  ],
+  "vertex_count": 1227
+ },
+ {
+  "asset_id": 1113,
+  "name": "MODEL_BANJOS_BED",
+  "file": "0459.model.bin",
+  "size": 17204,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation",
+   "anim_vertices"
+  ],
+  "vertex_count": 328
+ },
+ {
+  "asset_id": 1115,
+  "name": "MODEL_KAZOOIE_RACK",
+  "file": "045B.model.bin",
+  "size": 24740,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation"
+  ],
+  "vertex_count": 743
+ },
+ {
+  "asset_id": 1116,
+  "name": "MODEL_BANJOS_CURTAINS",
+  "file": "045C.model.bin",
+  "size": 4300,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation",
+   "anim_vertices"
+  ],
+  "vertex_count": 70
+ },
+ {
+  "asset_id": 1117,
+  "name": "(Unknown)",
+  "file": "045D.model.bin",
+  "size": 216,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14"
+  ],
+  "vertex_count": 3
+ },
+ {
+  "asset_id": 1118,
+  "name": "MODEL_BANJOS_HOUSE_DOOR",
+  "file": "045E.model.bin",
+  "size": 3108,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation",
+   "anim_vertices"
+  ],
+  "vertex_count": 26
+ },
+ {
+  "asset_id": 1119,
+  "name": "(Firey Rock?)",
+  "file": "045F.model.bin",
+  "size": 3016,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "animation"
+  ],
+  "vertex_count": 25
+ },
+ {
+  "asset_id": 1120,
+  "name": "MODEL_KAZOOIE_RACK_FEATHERS",
+  "file": "0460.model.bin",
+  "size": 3204,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation"
+  ],
+  "vertex_count": 42
+ },
+ {
+  "asset_id": 1121,
+  "name": "MODEL_GREEN_FOG_OUTSIDE_TOWER",
+  "file": "0461.model.bin",
+  "size": 2756,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "mesh"
+  ],
+  "vertex_count": 17
+ },
+ {
+  "asset_id": 1122,
+  "name": "MODEL_PINK_SQUIRREL",
+  "file": "0462.model.bin",
+  "size": 24836,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation",
+   "anim_vertices"
+  ],
+  "vertex_count": 782
+ },
+ {
+  "asset_id": 1123,
+  "name": "MODEL_NABNUT_BEDSHEETS",
+  "file": "0463.model.bin",
+  "size": 3828,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation",
+   "collision",
+   "anim_vertices"
+  ],
+  "vertex_count": 47
+ },
+ {
+  "asset_id": 1124,
+  "name": "MODEL_NABNUT_BED",
+  "file": "0464.model.bin",
+  "size": 9884,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 254
+ },
+ {
+  "asset_id": 1125,
+  "name": "Dead Snarebear",
+  "file": "0465.model.bin",
+  "size": 11668,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation",
+   "collision",
+   "anim_vertices"
+  ],
+  "vertex_count": 255
+ },
+ {
+  "asset_id": 1127,
+  "name": "MODEL_TRANSITION_FALLING_JIGGIES",
+  "file": "0467.model.bin",
+  "size": 254748,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation"
+  ],
+  "vertex_count": 3844
+ },
+ {
+  "asset_id": 1128,
+  "name": "MODEL_SEXY_GRUNTILDA",
+  "file": "0468.model.bin",
+  "size": 29836,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation",
+   "anim_vertices"
+  ],
+  "vertex_count": 1011
+ },
+ {
+  "asset_id": 1129,
+  "name": "MODEL_UGLY_TOOTY",
+  "file": "0469.model.bin",
+  "size": 28412,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation"
+  ],
+  "vertex_count": 815
+ },
+ {
+  "asset_id": 1130,
+  "name": "MODEL_KLUNGO",
+  "file": "046A.model.bin",
+  "size": 19572,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation"
+  ],
+  "vertex_count": 663
+ },
+ {
+  "asset_id": 1131,
+  "name": "MODEL_BEAUTY_MACHINE_FORCE_FIELD",
+  "file": "046B.model.bin",
+  "size": 5076,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation",
+   "mesh"
+  ],
+  "vertex_count": 30
+ },
+ {
+  "asset_id": 1132,
+  "name": "MODEL_JIGSAW_PUZZLE",
+  "file": "046C.model.bin",
+  "size": 85756,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "animation",
+   "mesh"
+  ],
+  "vertex_count": 1720
+ },
+ {
+  "asset_id": 1133,
+  "name": "MODEL_LIGHTNING",
+  "file": "046D.model.bin",
+  "size": 12676,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "mesh",
+   "animated_texture"
+  ],
+  "vertex_count": 4
+ },
+ {
+  "asset_id": 1134,
+  "name": "MODEL_FISHBOWL",
+  "file": "046E.model.bin",
+  "size": 11396,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation"
+  ],
+  "vertex_count": 283
+ },
+ {
+  "asset_id": 1135,
+  "name": "MODEL_CUCKOO_CLOCK",
+  "file": "046F.model.bin",
+  "size": 21900,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation",
+   "collision"
+  ],
+  "vertex_count": 287
+ },
+ {
+  "asset_id": 1136,
+  "name": "Banjo's Bookshelves",
+  "file": "0470.model.bin",
+  "size": 22364,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "mesh"
+  ],
+  "vertex_count": 257
+ },
+ {
+  "asset_id": 1137,
+  "name": "Empty Blow Picture Frame",
+  "file": "0471.model.bin",
+  "size": 732,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx"
+  ],
+  "vertex_count": 29
+ },
+ {
+  "asset_id": 1138,
+  "name": "UNKNOWN",
+  "file": "0472.model.bin",
+  "size": 44412,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "mesh"
+  ],
+  "vertex_count": 80
+ },
+ {
+  "asset_id": 1139,
+  "name": "MODEL_BBQ_MUMBO",
+  "file": "0473.model.bin",
+  "size": 46268,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation",
+   "anim_vertices"
+  ],
+  "vertex_count": 1211
+ },
+ {
+  "asset_id": 1140,
+  "name": "MODEL_BBQ_GRILL_AND_FISH",
+  "file": "0474.model.bin",
+  "size": 16744,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation"
+  ],
+  "vertex_count": 355
+ },
+ {
+  "asset_id": 1144,
+  "name": "(Yellow Glow?)",
+  "file": "0478.model.bin",
+  "size": 524,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx"
+  ],
+  "vertex_count": 4
+ },
+ {
+  "asset_id": 1145,
+  "name": "MODEL_BIKINI_GIRL",
+  "file": "0479.model.bin",
+  "size": 32404,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation"
+  ],
+  "vertex_count": 1127
+ },
+ {
+  "asset_id": 1146,
+  "name": "(Brown Ball?)",
+  "file": "047A.model.bin",
+  "size": 964,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14"
+  ],
+  "vertex_count": 23
+ },
+ {
+  "asset_id": 1147,
+  "name": "MODEL_ROCK",
+  "file": "047B.model.bin",
+  "size": 4196,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation",
+   "collision"
+  ],
+  "vertex_count": 27
+ },
+ {
+  "asset_id": 1151,
+  "name": "MODEL_XMAS_GIFT_BLUE",
+  "file": "047F.model.bin",
+  "size": 15444,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation",
+   "collision",
+   "anim_vertices"
+  ],
+  "vertex_count": 284
+ },
+ {
+  "asset_id": 1152,
+  "name": "MODEL_XMAS_GIFT_GREEN",
+  "file": "0480.model.bin",
+  "size": 15108,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation",
+   "collision",
+   "anim_vertices"
+  ],
+  "vertex_count": 284
+ },
+ {
+  "asset_id": 1153,
+  "name": "MODEL_XMAS_GIFT_RED",
+  "file": "0481.model.bin",
+  "size": 15108,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation",
+   "collision",
+   "anim_vertices"
+  ],
+  "vertex_count": 284
+ },
+ {
+  "asset_id": 1154,
+  "name": "MODEL_CLUCKER",
+  "file": "0482.model.bin",
+  "size": 25148,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "animation"
+  ],
+  "vertex_count": 556
+ },
+ {
+  "asset_id": 1155,
+  "name": "MODEL_EAGLE_EGG",
+  "file": "0483.model.bin",
+  "size": 23132,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "animation",
+   "collision"
+  ],
+  "vertex_count": 457
+ },
+ {
+  "asset_id": 1156,
+  "name": "MODEL_EAGLE_BABY",
+  "file": "0484.model.bin",
+  "size": 20252,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "animation",
+   "collision",
+   "anim_vertices"
+  ],
+  "vertex_count": 605
+ },
+ {
+  "asset_id": 1157,
+  "name": "MODEL_CATERPILLAR",
+  "file": "0485.model.bin",
+  "size": 5324,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation"
+  ],
+  "vertex_count": 107
+ },
+ {
+  "asset_id": 1158,
+  "name": "MODEL_XMAS_TREE_SWITCH",
+  "file": "0486.model.bin",
+  "size": 7932,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "animation",
+   "collision"
+  ],
+  "vertex_count": 108
+ },
+ {
+  "asset_id": 1159,
+  "name": "MODEL_EAGLE_ADULT",
+  "file": "0487.model.bin",
+  "size": 30572,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation",
+   "collision"
+  ],
+  "vertex_count": 624
+ },
+ {
+  "asset_id": 1160,
+  "name": "MODEL_XMAS_TREE",
+  "file": "0488.model.bin",
+  "size": 56324,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision",
+   "mesh"
+  ],
+  "vertex_count": 678
+ },
+ {
+  "asset_id": 1161,
+  "name": "MODEL_SHOCKSPRING_PAD",
+  "file": "0489.model.bin",
+  "size": 6980,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "collision"
+  ],
+  "vertex_count": 39
+ },
+ {
+  "asset_id": 1162,
+  "name": "MODEL_FLIGHT_PAD",
+  "file": "048A.model.bin",
+  "size": 6452,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "collision"
+  ],
+  "vertex_count": 30
+ },
+ {
+  "asset_id": 1163,
+  "name": "MODEL_JIGGY_PODIUM",
+  "file": "048B.model.bin",
+  "size": 28468,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision",
+   "mesh"
+  ],
+  "vertex_count": 642
+ },
+ {
+  "asset_id": 1164,
+  "name": "MODEL_BOOM_BOX",
+  "file": "048C.model.bin",
+  "size": 14932,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation",
+   "collision",
+   "anim_vertices"
+  ],
+  "vertex_count": 319
+ },
+ {
+  "asset_id": 1165,
+  "name": "MODEL_NABNUT_EATING_ACORNS",
+  "file": "048D.model.bin",
+  "size": 35236,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation",
+   "anim_vertices"
+  ],
+  "vertex_count": 885
+ },
+ {
+  "asset_id": 1166,
+  "name": "MODEL_ACORN",
+  "file": "048E.model.bin",
+  "size": 4556,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation"
+  ],
+  "vertex_count": 93
+ },
+ {
+  "asset_id": 1167,
+  "name": "MODEL_GNAWTY",
+  "file": "048F.model.bin",
+  "size": 23068,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation",
+   "collision",
+   "anim_vertices"
+  ],
+  "vertex_count": 685
+ },
+ {
+  "asset_id": 1168,
+  "name": "MODEL_GNAWTY_BOULDER",
+  "file": "0490.model.bin",
+  "size": 4452,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "collision"
+  ],
+  "vertex_count": 41
+ },
+ {
+  "asset_id": 1169,
+  "name": "MODEL_NOTE_DOOR",
+  "file": "0491.model.bin",
+  "size": 52132,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision",
+   "mesh"
+  ],
+  "vertex_count": 168
+ },
+ {
+  "asset_id": 1170,
+  "name": "MODEL_CABIN_CLOSET_DOOR",
+  "file": "0492.model.bin",
+  "size": 2532,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "collision"
+  ],
+  "vertex_count": 4
+ },
+ {
+  "asset_id": 1171,
+  "name": "MODEL_ENGINE_ROOM_DOOR",
+  "file": "0493.model.bin",
+  "size": 2796,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "collision"
+  ],
+  "vertex_count": 7
+ },
+ {
+  "asset_id": 1172,
+  "name": "MODEL_WOZZA",
+  "file": "0494.model.bin",
+  "size": 20388,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "animation",
+   "collision",
+   "anim_vertices"
+  ],
+  "vertex_count": 633
+ },
+ {
+  "asset_id": 1173,
+  "name": "MODEL_WOZZAS_JIGGY",
+  "file": "0495.model.bin",
+  "size": 4080,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation"
+  ],
+  "vertex_count": 154
+ },
+ {
+  "asset_id": 1174,
+  "name": "MODEL_TWINKLY_MUNCHER",
+  "file": "0496.model.bin",
+  "size": 12716,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "animation",
+   "collision",
+   "anim_vertices"
+  ],
+  "vertex_count": 366
+ },
+ {
+  "asset_id": 1175,
+  "name": "MODEL_TWINKLY_SHARD_BLUE",
+  "file": "0497.model.bin",
+  "size": 868,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx"
+  ],
+  "vertex_count": 3
+ },
+ {
+  "asset_id": 1176,
+  "name": "MODEL_TWINKLY_SHARD_YELLOW",
+  "file": "0498.model.bin",
+  "size": 868,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx"
+  ],
+  "vertex_count": 3
+ },
+ {
+  "asset_id": 1177,
+  "name": "MODEL_TWINKLY_SHARD_GREEN",
+  "file": "0499.model.bin",
+  "size": 868,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx"
+  ],
+  "vertex_count": 3
+ },
+ {
+  "asset_id": 1178,
+  "name": "MODEL_TWINKLY_SHARD_ORANGE",
+  "file": "049A.model.bin",
+  "size": 868,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx"
+  ],
+  "vertex_count": 3
+ },
+ {
+  "asset_id": 1179,
+  "name": "MODEL_TWINKLY_SHARD_RED",
+  "file": "049B.model.bin",
+  "size": 868,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx"
+  ],
+  "vertex_count": 3
+ },
+ {
+  "asset_id": 1180,
+  "name": "(Green & Red Area?)",
+  "file": "049C.model.bin",
+  "size": 1124,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 24
+ },
+ {
+  "asset_id": 1181,
+  "name": "MODEL_SEAMAN_GRUBLIN",
+  "file": "049D.model.bin",
+  "size": 20460,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "animation"
+  ],
+  "vertex_count": 605
+ },
+ {
+  "asset_id": 1182,
+  "name": "SPRITE_BEE_SWARM",
+  "file": "049E.model.bin",
+  "size": 8596,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx"
+  ],
+  "vertex_count": 6
+ },
+ {
+  "asset_id": 1183,
+  "name": "2D Glowing Bee (Beta)",
+  "file": "049F.model.bin",
+  "size": 8596,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx"
+  ],
+  "vertex_count": 6
+ },
+ {
+  "asset_id": 1185,
+  "name": "MODEL_BREAKABLE_BRICK_WALL",
+  "file": "04A1.model.bin",
+  "size": 7412,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "animation",
+   "collision"
+  ],
+  "vertex_count": 112
+ },
+ {
+  "asset_id": 1186,
+  "name": "MODEL_GL_MM_DOOR_ENTRANCE",
+  "file": "04A2.model.bin",
+  "size": 3052,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 16
+ },
+ {
+  "asset_id": 1187,
+  "name": "MODEL_GL_TTC_ENTRANCE_CHEST_LID",
+  "file": "04A3.model.bin",
+  "size": 10188,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 78
+ },
+ {
+  "asset_id": 1188,
+  "name": "MODEL_GL_CC_ENTRANCE_LONG_PIPE_GREEN",
+  "file": "04A4.model.bin",
+  "size": 10300,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 75
+ },
+ {
+  "asset_id": 1189,
+  "name": "MODEL_GL_CC_ENTRANCE_LONG_PIPE_BLUE",
+  "file": "04A5.model.bin",
+  "size": 10300,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 75
+ },
+ {
+  "asset_id": 1190,
+  "name": "MODEL_GL_CC_ENTRANCE_SHORT_PIPE",
+  "file": "04A6.model.bin",
+  "size": 9844,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 61
+ },
+ {
+  "asset_id": 1191,
+  "name": "MODEL_GL_CC_IRON_BARS_ENTRANCE",
+  "file": "04A7.model.bin",
+  "size": 2436,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 28
+ },
+ {
+  "asset_id": 1192,
+  "name": "MODEL_GL_BGS_PUZZLE_GRATE",
+  "file": "04A8.model.bin",
+  "size": 2732,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 11
+ },
+ {
+  "asset_id": 1193,
+  "name": "MODEL_RAISE_PIPE_TO_CC_ENTRANCE_SWITCH",
+  "file": "04A9.model.bin",
+  "size": 7460,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "animation",
+   "collision",
+   "anim_vertices"
+  ],
+  "vertex_count": 38
+ },
+ {
+  "asset_id": 1194,
+  "name": "MODEL_RAISE_PIPE_TO_BRENTILDA_SWITCH",
+  "file": "04AA.model.bin",
+  "size": 7460,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "animation",
+   "collision",
+   "anim_vertices"
+  ],
+  "vertex_count": 38
+ },
+ {
+  "asset_id": 1195,
+  "name": "MODEL_RAISE_GRATE_TO_BGS_PUZZLE_SWITCH",
+  "file": "04AB.model.bin",
+  "size": 7484,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "animation",
+   "collision",
+   "anim_vertices"
+  ],
+  "vertex_count": 39
+ },
+ {
+  "asset_id": 1196,
+  "name": "MODEL_IRON_BARS_UNDER_GRUNTY_STATUE",
+  "file": "04AC.model.bin",
+  "size": 3348,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 24
+ },
+ {
+  "asset_id": 1197,
+  "name": "MODEL_GRUNTY_STATUE_BREAKABLE_HAT_TOP",
+  "file": "04AD.model.bin",
+  "size": 4292,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 20
+ },
+ {
+  "asset_id": 1198,
+  "name": "MODEL_GL_BGS_DOOR_ENTRANCE",
+  "file": "04AE.model.bin",
+  "size": 2844,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 16
+ },
+ {
+  "asset_id": 1199,
+  "name": "MODEL_ICE_BALL_TO_CHEATO",
+  "file": "04AF.model.bin",
+  "size": 10908,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "collision"
+  ],
+  "vertex_count": 133
+ },
+ {
+  "asset_id": 1200,
+  "name": "MODEL_LEVEL_3_WATER_SWITCH",
+  "file": "04B0.model.bin",
+  "size": 7644,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "animation",
+   "collision",
+   "anim_vertices"
+  ],
+  "vertex_count": 48
+ },
+ {
+  "asset_id": 1201,
+  "name": "MODEL_GRATE_TO_LEVEL_3_WATER_SWITCH",
+  "file": "04B1.model.bin",
+  "size": 3604,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "collision"
+  ],
+  "vertex_count": 7
+ },
+ {
+  "asset_id": 1202,
+  "name": "MODEL_LEVEL_2_WATER_SWITCH",
+  "file": "04B2.model.bin",
+  "size": 7644,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "animation",
+   "collision",
+   "anim_vertices"
+  ],
+  "vertex_count": 48
+ },
+ {
+  "asset_id": 1203,
+  "name": "MODEL_RAREWARE_BOX",
+  "file": "04B3.model.bin",
+  "size": 5204,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "collision"
+  ],
+  "vertex_count": 20
+ },
+ {
+  "asset_id": 1204,
+  "name": "MODEL_GL_RBB_DOOR_ENTRANCE",
+  "file": "04B4.model.bin",
+  "size": 2740,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 9
+ },
+ {
+  "asset_id": 1205,
+  "name": "MODEL_LEVEL_1_WATER_SWITCH",
+  "file": "04B5.model.bin",
+  "size": 7644,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "animation",
+   "collision",
+   "anim_vertices"
+  ],
+  "vertex_count": 48
+ },
+ {
+  "asset_id": 1206,
+  "name": "MODEL_GRATE_BETWEEN_MMM_AND_RBB_PUZZLES",
+  "file": "04B6.model.bin",
+  "size": 3788,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 9
+ },
+ {
+  "asset_id": 1207,
+  "name": "MODEL_GRATE_TO_RBB_PUZZLE",
+  "file": "04B7.model.bin",
+  "size": 2596,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "collision"
+  ],
+  "vertex_count": 5
+ },
+ {
+  "asset_id": 1208,
+  "name": "MODEL_CCW_PUZZLE_SWITCH",
+  "file": "04B8.model.bin",
+  "size": 12508,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "animation",
+   "collision",
+   "anim_vertices"
+  ],
+  "vertex_count": 68
+ },
+ {
+  "asset_id": 1209,
+  "name": "(Jiggy Switch Beta?)",
+  "file": "04B9.model.bin",
+  "size": 10796,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 46
+ },
+ {
+  "asset_id": 1210,
+  "name": "MODEL_SHIP_SHADOW_WINDOW",
+  "file": "04BA.model.bin",
+  "size": 1836,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "collision"
+  ],
+  "vertex_count": 13
+ },
+ {
+  "asset_id": 1211,
+  "name": "MODEL_SHIP_SUNNY_WINDOW",
+  "file": "04BB.model.bin",
+  "size": 1580,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "collision"
+  ],
+  "vertex_count": 13
+ },
+ {
+  "asset_id": 1212,
+  "name": "MODEL_GL_GV_DOOR_ENTRANCE",
+  "file": "04BC.model.bin",
+  "size": 2764,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 10
+ },
+ {
+  "asset_id": 1213,
+  "name": "MODEL_GLASS_EYE",
+  "file": "04BD.model.bin",
+  "size": 6220,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 66
+ },
+ {
+  "asset_id": 1214,
+  "name": "MODEL_GL_MMM_DOOR_ENTRANCE",
+  "file": "04BE.model.bin",
+  "size": 3412,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 30
+ },
+ {
+  "asset_id": 1215,
+  "name": "MODEL_FLOOR_COBWEB",
+  "file": "04BF.model.bin",
+  "size": 5444,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "animation",
+   "collision",
+   "mesh",
+   "anim_vertices"
+  ],
+  "vertex_count": 65
+ },
+ {
+  "asset_id": 1216,
+  "name": "MODEL_WINDOW",
+  "file": "04C0.model.bin",
+  "size": 4564,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "collision"
+  ],
+  "vertex_count": 5
+ },
+ {
+  "asset_id": 1217,
+  "name": "MODEL_WIDE_WINDOW",
+  "file": "04C1.model.bin",
+  "size": 4564,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "collision"
+  ],
+  "vertex_count": 5
+ },
+ {
+  "asset_id": 1218,
+  "name": "MODEL_TALL_WINDOW",
+  "file": "04C2.model.bin",
+  "size": 4564,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "collision"
+  ],
+  "vertex_count": 5
+ },
+ {
+  "asset_id": 1219,
+  "name": "FP House",
+  "file": "04C3.model.bin",
+  "size": 15972,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 205
+ },
+ {
+  "asset_id": 1220,
+  "name": "FP Frozen Mumbo Hut",
+  "file": "04C4.model.bin",
+  "size": 28236,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 332
+ },
+ {
+  "asset_id": 1221,
+  "name": "FP Stack Of Presents 2",
+  "file": "04C5.model.bin",
+  "size": 29468,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 360
+ },
+ {
+  "asset_id": 1222,
+  "name": "FP Snowy Bridge",
+  "file": "04C6.model.bin",
+  "size": 9548,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 102
+ },
+ {
+  "asset_id": 1223,
+  "name": "MODEL_MUMMUM",
+  "file": "04C7.model.bin",
+  "size": 18436,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "animation",
+   "anim_vertices"
+  ],
+  "vertex_count": 513
+ },
+ {
+  "asset_id": 1224,
+  "name": "MODEL_MUMMUM_ARM",
+  "file": "04C8.model.bin",
+  "size": 1924,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation"
+  ],
+  "vertex_count": 48
+ },
+ {
+  "asset_id": 1225,
+  "name": "MODEL_MUMMUM_LEG",
+  "file": "04C9.model.bin",
+  "size": 1292,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx"
+  ],
+  "vertex_count": 22
+ },
+ {
+  "asset_id": 1226,
+  "name": "MODEL_MUMMUM_HEAD",
+  "file": "04CA.model.bin",
+  "size": 4748,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx"
+  ],
+  "vertex_count": 130
+ },
+ {
+  "asset_id": 1227,
+  "name": "MODEL_MUMMUM_BODY",
+  "file": "04CB.model.bin",
+  "size": 2084,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx"
+  ],
+  "vertex_count": 66
+ },
+ {
+  "asset_id": 1228,
+  "name": "MODEL_LIMBO",
+  "file": "04CC.model.bin",
+  "size": 11820,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "animation"
+  ],
+  "vertex_count": 375
+ },
+ {
+  "asset_id": 1229,
+  "name": "MODEL_LIMBO_ARM",
+  "file": "04CD.model.bin",
+  "size": 1052,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx"
+  ],
+  "vertex_count": 28
+ },
+ {
+  "asset_id": 1230,
+  "name": "MODEL_LIMBO_LEG",
+  "file": "04CE.model.bin",
+  "size": 1460,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation"
+  ],
+  "vertex_count": 50
+ },
+ {
+  "asset_id": 1231,
+  "name": "MODEL_LIMBO_HEAD",
+  "file": "04CF.model.bin",
+  "size": 3460,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation"
+  ],
+  "vertex_count": 139
+ },
+ {
+  "asset_id": 1232,
+  "name": "MODEL_LIMBO_BONE",
+  "file": "04D0.model.bin",
+  "size": 556,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx"
+  ],
+  "vertex_count": 6
+ },
+ {
+  "asset_id": 1234,
+  "name": "MODEL_XMAS_TREE_ICE",
+  "file": "04D2.model.bin",
+  "size": 4516,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 124
+ },
+ {
+  "asset_id": 1235,
+  "name": "MODEL_XMAS_ICE_FRAGMENT",
+  "file": "04D3.model.bin",
+  "size": 868,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx"
+  ],
+  "vertex_count": 3
+ },
+ {
+  "asset_id": 1236,
+  "name": "MODEL_TWINKLY_BOX_PAPER_SHARD",
+  "file": "04D4.model.bin",
+  "size": 484,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx"
+  ],
+  "vertex_count": 3
+ },
+ {
+  "asset_id": 1237,
+  "name": "MODEL_WALL_COBWEB",
+  "file": "04D5.model.bin",
+  "size": 4860,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "animation",
+   "collision",
+   "anim_vertices"
+  ],
+  "vertex_count": 43
+ },
+ {
+  "asset_id": 1238,
+  "name": "MODEL_GL_CCW_DOOR_ENTRANCE",
+  "file": "04D6.model.bin",
+  "size": 3092,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 21
+ },
+ {
+  "asset_id": 1239,
+  "name": "MODEL_GL_FP_DOOR_ENTRANCE_LEFT",
+  "file": "04D7.model.bin",
+  "size": 2596,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 8
+ },
+ {
+  "asset_id": 1240,
+  "name": "MODEL_GL_FP_DOOR_ENTRANCE_LEFT",
+  "file": "04D8.model.bin",
+  "size": 2628,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 8
+ },
+ {
+  "asset_id": 1241,
+  "name": "MODEL_GL_ADVENT_CALENDAR_HATCH_DOOR",
+  "file": "04D9.model.bin",
+  "size": 5332,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 24
+ },
+ {
+  "asset_id": 1242,
+  "name": "MODEL_DINING_DOOR",
+  "file": "04DA.model.bin",
+  "size": 3820,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "collision"
+  ],
+  "vertex_count": 18
+ },
+ {
+  "asset_id": 1243,
+  "name": "MODEL_SUNNY_LIFEBOAT",
+  "file": "04DB.model.bin",
+  "size": 26812,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 263
+ },
+ {
+  "asset_id": 1244,
+  "name": "MODEL_WITCH_SWITCH",
+  "file": "04DC.model.bin",
+  "size": 7724,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "animation",
+   "collision",
+   "anim_vertices"
+  ],
+  "vertex_count": 52
+ },
+ {
+  "asset_id": 1245,
+  "name": "MODEL_MUMBO_SWITCH",
+  "file": "04DD.model.bin",
+  "size": 15356,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation",
+   "collision",
+   "anim_vertices"
+  ],
+  "vertex_count": 256
+ },
+ {
+  "asset_id": 1246,
+  "name": "MODEL_SHADOW_LIFEBOAT",
+  "file": "04DE.model.bin",
+  "size": 26652,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 261
+ },
+ {
+  "asset_id": 1247,
+  "name": "MODEL_WARP_CAULDRON",
+  "file": "04DF.model.bin",
+  "size": 32268,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "animation",
+   "collision",
+   "mesh",
+   "anim_vertices"
+  ],
+  "vertex_count": 750
+ },
+ {
+  "asset_id": 1248,
+  "name": "CCW Season Door",
+  "file": "04E0.model.bin",
+  "size": 2676,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 8
+ },
+ {
+  "asset_id": 1249,
+  "name": "MODEL_GL_WOODEN_COFFIN_NO_LID",
+  "file": "04E1.model.bin",
+  "size": 8516,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 82
+ },
+ {
+  "asset_id": 1250,
+  "name": "MODEL_CRACKED_SKYLIGHT",
+  "file": "04E2.model.bin",
+  "size": 4660,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "collision"
+  ],
+  "vertex_count": 4
+ },
+ {
+  "asset_id": 1251,
+  "name": "MODEL_DEAD_BEANSTALK",
+  "file": "04E3.model.bin",
+  "size": 31316,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "animation",
+   "collision",
+   "anim_vertices"
+  ],
+  "vertex_count": 643
+ },
+ {
+  "asset_id": 1252,
+  "name": "MODEL_SNORE_Z",
+  "file": "04E4.model.bin",
+  "size": 948,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation"
+  ],
+  "vertex_count": 4
+ },
+ {
+  "asset_id": 1253,
+  "name": "FP Three Purple Ice Crystals",
+  "file": "04E5.model.bin",
+  "size": 7312,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 210
+ },
+ {
+  "asset_id": 1254,
+  "name": "FP Three Blue Ice Crystals",
+  "file": "04E6.model.bin",
+  "size": 7312,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 210
+ },
+ {
+  "asset_id": 1255,
+  "name": "FP Three Green Ice Crystals",
+  "file": "04E7.model.bin",
+  "size": 7288,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 210
+ },
+ {
+  "asset_id": 1256,
+  "name": "FP One Blue Ice Crystals (Large)",
+  "file": "04E8.model.bin",
+  "size": 3328,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 70
+ },
+ {
+  "asset_id": 1257,
+  "name": "FP One Blue Ice Crystals (Small)",
+  "file": "04E9.model.bin",
+  "size": 1860,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 35
+ },
+ {
+  "asset_id": 1258,
+  "name": "FP Finish Banner",
+  "file": "04EA.model.bin",
+  "size": 2676,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 8
+ },
+ {
+  "asset_id": 1259,
+  "name": "FP Start Banner",
+  "file": "04EB.model.bin",
+  "size": 2676,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 8
+ },
+ {
+  "asset_id": 1260,
+  "name": "FP Race Rostrum",
+  "file": "04EC.model.bin",
+  "size": 13228,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 103
+ },
+ {
+  "asset_id": 1261,
+  "name": "MODEL_TOPPER",
+  "file": "04ED.model.bin",
+  "size": 12060,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "animation"
+  ],
+  "vertex_count": 365
+ },
+ {
+  "asset_id": 1262,
+  "name": "MODEL_COLLYWOBBLE",
+  "file": "04EE.model.bin",
+  "size": 18932,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "animation"
+  ],
+  "vertex_count": 495
+ },
+ {
+  "asset_id": 1263,
+  "name": "MODEL_BAWL",
+  "file": "04EF.model.bin",
+  "size": 11116,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "animation"
+  ],
+  "vertex_count": 373
+ },
+ {
+  "asset_id": 1264,
+  "name": "MODEL_TOPPER_UNKNOWN",
+  "file": "04F0.model.bin",
+  "size": 796,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx"
+  ],
+  "vertex_count": 12
+ },
+ {
+  "asset_id": 1265,
+  "name": "MODEL_BAWL_OR_COLLIWOBBLE_UNKNOWN",
+  "file": "04F1.model.bin",
+  "size": 468,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx"
+  ],
+  "vertex_count": 13
+ },
+ {
+  "asset_id": 1266,
+  "name": "MODEL_COLLIWOBBLE_LARGE_DEATH",
+  "file": "04F2.model.bin",
+  "size": 3900,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx"
+  ],
+  "vertex_count": 29
+ },
+ {
+  "asset_id": 1267,
+  "name": "MODEL_COLLIWOBBLE_SMALL_DEATH",
+  "file": "04F3.model.bin",
+  "size": 3452,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx"
+  ],
+  "vertex_count": 8
+ },
+ {
+  "asset_id": 1268,
+  "name": "MODEL_COLLIWOBBLE_STEM_DEATH",
+  "file": "04F4.model.bin",
+  "size": 1228,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx"
+  ],
+  "vertex_count": 19
+ },
+ {
+  "asset_id": 1269,
+  "name": "MODEL_CCW_SPRING_SWITCH",
+  "file": "04F5.model.bin",
+  "size": 9412,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "animation",
+   "collision",
+   "anim_vertices"
+  ],
+  "vertex_count": 61
+ },
+ {
+  "asset_id": 1270,
+  "name": "MODEL_CCW_SUMMER_SWITCH",
+  "file": "04F6.model.bin",
+  "size": 7276,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "animation",
+   "collision",
+   "anim_vertices"
+  ],
+  "vertex_count": 61
+ },
+ {
+  "asset_id": 1271,
+  "name": "MODEL_CCW_AUTUMN_SWITCH",
+  "file": "04F7.model.bin",
+  "size": 9412,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "animation",
+   "collision",
+   "anim_vertices"
+  ],
+  "vertex_count": 61
+ },
+ {
+  "asset_id": 1272,
+  "name": "MODEL_CCW_WINTER_SWITCH",
+  "file": "04F8.model.bin",
+  "size": 7204,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "animation",
+   "collision",
+   "anim_vertices"
+  ],
+  "vertex_count": 57
+ },
+ {
+  "asset_id": 1273,
+  "name": "MODEL_CCW_UNKNOWN_NABNUT_WINDOW",
+  "file": "04F9.model.bin",
+  "size": 4644,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "collision"
+  ],
+  "vertex_count": 7
+ },
+ {
+  "asset_id": 1274,
+  "name": "MODEL_CCW_AUTUMN_NABNUT_WINDOW",
+  "file": "04FA.model.bin",
+  "size": 4644,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "collision"
+  ],
+  "vertex_count": 7
+ },
+ {
+  "asset_id": 1275,
+  "name": "MODEL_CCW_WINTER_NABNUT_WINDOW",
+  "file": "04FB.model.bin",
+  "size": 4644,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "collision"
+  ],
+  "vertex_count": 7
+ },
+ {
+  "asset_id": 1276,
+  "name": "MODEL_CCW_UNKNOWN_NABNUT_WINDOW",
+  "file": "04FC.model.bin",
+  "size": 4644,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "collision"
+  ],
+  "vertex_count": 7
+ },
+ {
+  "asset_id": 1277,
+  "name": "MODEL_WHIPCRACK",
+  "file": "04FD.model.bin",
+  "size": 5572,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "animation",
+   "anim_vertices"
+  ],
+  "vertex_count": 152
+ },
+ {
+  "asset_id": 1278,
+  "name": "MODEL_WHIPCRACK_PART_1",
+  "file": "04FE.model.bin",
+  "size": 1092,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx"
+  ],
+  "vertex_count": 14
+ },
+ {
+  "asset_id": 1279,
+  "name": "MODEL_WHIPCRACK_PART_2",
+  "file": "04FF.model.bin",
+  "size": 1292,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx"
+  ],
+  "vertex_count": 24
+ },
+ {
+  "asset_id": 1280,
+  "name": "MODEL_WHIPCRACK_PART_3",
+  "file": "0500.model.bin",
+  "size": 1340,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx"
+  ],
+  "vertex_count": 27
+ },
+ {
+  "asset_id": 1281,
+  "name": "MODEL_MOUND_OF_ACORNS",
+  "file": "0501.model.bin",
+  "size": 5436,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 64
+ },
+ {
+  "asset_id": 1282,
+  "name": "MODEL_NABNUT",
+  "file": "0502.model.bin",
+  "size": 24524,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation",
+   "anim_vertices"
+  ],
+  "vertex_count": 737
+ },
+ {
+  "asset_id": 1283,
+  "name": "MODEL_NABNUT_BELLY_FULL",
+  "file": "0503.model.bin",
+  "size": 25836,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation",
+   "anim_vertices"
+  ],
+  "vertex_count": 787
+ },
+ {
+  "asset_id": 1284,
+  "name": "MODEL_ICECUBE",
+  "file": "0504.model.bin",
+  "size": 10792,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "animation"
+  ],
+  "vertex_count": 240
+ },
+ {
+  "asset_id": 1285,
+  "name": "MODEL_ICECUBE_CHUNK",
+  "file": "0505.model.bin",
+  "size": 4732,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx"
+  ],
+  "vertex_count": 22
+ },
+ {
+  "asset_id": 1286,
+  "name": "CCW_DEAD_SNAREBEAR",
+  "file": "0506.model.bin",
+  "size": 11668,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation",
+   "collision",
+   "anim_vertices"
+  ],
+  "vertex_count": 255
+ },
+ {
+  "asset_id": 1287,
+  "name": "MODEL_GL_GRUNTY_FLOOR_PICTURE_EYE_1",
+  "file": "0507.model.bin",
+  "size": 3692,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "collision"
+  ],
+  "vertex_count": 44
+ },
+ {
+  "asset_id": 1288,
+  "name": "MODEL_GL_GRUNTY_FLOOR_PICTURE_EYE_2",
+  "file": "0508.model.bin",
+  "size": 3708,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "collision"
+  ],
+  "vertex_count": 44
+ },
+ {
+  "asset_id": 1289,
+  "name": "MODEL_GL_SARCOPHAGUS",
+  "file": "0509.model.bin",
+  "size": 206612,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation",
+   "collision",
+   "anim_vertices"
+  ],
+  "vertex_count": 512
+ },
+ {
+  "asset_id": 1290,
+  "name": "MODEL_SHARKFOOD_ISLAND",
+  "file": "050A.model.bin",
+  "size": 19644,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 205
+ },
+ {
+  "asset_id": 1291,
+  "name": "MODEL_X_BARREL_TOP",
+  "file": "050B.model.bin",
+  "size": 2796,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 12
+ },
+ {
+  "asset_id": 1292,
+  "name": "MODEL_ICE_KEY",
+  "file": "050C.model.bin",
+  "size": 15252,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 310
+ },
+ {
+  "asset_id": 1293,
+  "name": "MODEL_SNS_EGG",
+  "file": "050D.model.bin",
+  "size": 57700,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 1168
+ },
+ {
+  "asset_id": 1294,
+  "name": null,
+  "file": "050E.model.bin",
+  "size": 4388,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx"
+  ],
+  "vertex_count": 3
+ },
+ {
+  "asset_id": 1295,
+  "name": null,
+  "file": "050F.model.bin",
+  "size": 4388,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx"
+  ],
+  "vertex_count": 3
+ },
+ {
+  "asset_id": 1296,
+  "name": null,
+  "file": "0510.model.bin",
+  "size": 3348,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx"
+  ],
+  "vertex_count": 3
+ },
+ {
+  "asset_id": 1297,
+  "name": "MODEL_CRYPT_COFFIN_LID",
+  "file": "0511.model.bin",
+  "size": 11372,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "animation",
+   "collision"
+  ],
+  "vertex_count": 177
+ },
+ {
+  "asset_id": 1298,
+  "name": "(Piece Of Glass Panel Blocking Ice Key 1?)",
+  "file": "0512.model.bin",
+  "size": 2700,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 9
+ },
+ {
+  "asset_id": 1299,
+  "name": "(Piece Of Glass Panel Blocking Ice Key 2?)",
+  "file": "0513.model.bin",
+  "size": 2692,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 9
+ },
+ {
+  "asset_id": 1300,
+  "name": "MODEL_GV_SNS_CHAMBER_DOOR",
+  "file": "0514.model.bin",
+  "size": 2676,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 8
+ },
+ {
+  "asset_id": 1301,
+  "name": "MODEL_GV_SNS_SWITCH",
+  "file": "0515.model.bin",
+  "size": 5364,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "animation",
+   "collision",
+   "anim_vertices"
+  ],
+  "vertex_count": 37
+ },
+ {
+  "asset_id": 1302,
+  "name": "(Wooden Plank?)",
+  "file": "0516.model.bin",
+  "size": 940,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx"
+  ],
+  "vertex_count": 21
+ },
+ {
+  "asset_id": 1303,
+  "name": "MODEL_IRON_GATE_NO_LOCK",
+  "file": "0517.model.bin",
+  "size": 4724,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "collision"
+  ],
+  "vertex_count": 12
+ },
+ {
+  "asset_id": 1304,
+  "name": "MODEL_CCW_WHIPCRACK_ROOM_DOOR",
+  "file": "0518.model.bin",
+  "size": 2580,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "collision"
+  ],
+  "vertex_count": 5
+ },
+ {
+  "asset_id": 1305,
+  "name": "MODEL_LOGGO",
+  "file": "0519.model.bin",
+  "size": 25844,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "animation",
+   "collision",
+   "mesh",
+   "anim_vertices"
+  ],
+  "vertex_count": 480
+ },
+ {
+  "asset_id": 1306,
+  "name": "MODEL_LEAKY",
+  "file": "051A.model.bin",
+  "size": 10252,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "animation",
+   "anim_vertices"
+  ],
+  "vertex_count": 279
+ },
+ {
+  "asset_id": 1307,
+  "name": "MODEL_SCARAB_BEETLE",
+  "file": "051B.model.bin",
+  "size": 22772,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "animation",
+   "collision"
+  ],
+  "vertex_count": 422
+ },
+ {
+  "asset_id": 1308,
+  "name": "MODEL_SCARAB_BEETLE_PART_1",
+  "file": "051C.model.bin",
+  "size": 6220,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 101
+ },
+ {
+  "asset_id": 1309,
+  "name": "SCARAB BEETLE PART (Wing)",
+  "file": "051D.model.bin",
+  "size": 556,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 9
+ },
+ {
+  "asset_id": 1310,
+  "name": "MODEL_SCARAB_BEETLE_PART_2",
+  "file": "051E.model.bin",
+  "size": 2156,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 20
+ },
+ {
+  "asset_id": 1311,
+  "name": "MODEL_SCARAB_BEETLE_PART_3",
+  "file": "051F.model.bin",
+  "size": 3380,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 35
+ },
+ {
+  "asset_id": 1312,
+  "name": "MODEL_SCARAB_BEETLE_PART_4",
+  "file": "0520.model.bin",
+  "size": 1436,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 17
+ },
+ {
+  "asset_id": 1313,
+  "name": "MODEL_PORTRAIT_CHOMPA",
+  "file": "0521.model.bin",
+  "size": 9312,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "animation"
+  ],
+  "vertex_count": 345
+ },
+ {
+  "asset_id": 1314,
+  "name": "MODEL_PORTRAIT_OF_GRUNTY",
+  "file": "0522.model.bin",
+  "size": 24516,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation",
+   "collision"
+  ],
+  "vertex_count": 365
+ },
+ {
+  "asset_id": 1315,
+  "name": "MODEL_PORTRAIT_CHOMPA_TEETH",
+  "file": "0523.model.bin",
+  "size": 2068,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx"
+  ],
+  "vertex_count": 61
+ },
+ {
+  "asset_id": 1316,
+  "name": "MODEL_PORTRAIT_CHOMPA_HEAD",
+  "file": "0524.model.bin",
+  "size": 2596,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx"
+  ],
+  "vertex_count": 73
+ },
+ {
+  "asset_id": 1317,
+  "name": "MODEL_PORTRAIT_CHOMPA_PART",
+  "file": "0525.model.bin",
+  "size": 1084,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx"
+  ],
+  "vertex_count": 13
+ },
+ {
+  "asset_id": 1318,
+  "name": "SPRITE_FIRE",
+  "file": "0526.model.bin",
+  "size": 188,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14"
+  ],
+  "vertex_count": 3
+ },
+ {
+  "asset_id": 1319,
+  "name": "MODEL_PORTRAIT_OF_BLACKEYE",
+  "file": "0527.model.bin",
+  "size": 24516,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation",
+   "collision"
+  ],
+  "vertex_count": 365
+ },
+ {
+  "asset_id": 1320,
+  "name": "MODEL_PORTRAIT_OF_TOWER",
+  "file": "0528.model.bin",
+  "size": 24516,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation",
+   "collision"
+  ],
+  "vertex_count": 365
+ },
+ {
+  "asset_id": 1321,
+  "name": "MODEL_PORTRAIT_OF_TREE_AND_MOON",
+  "file": "0529.model.bin",
+  "size": 24516,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation",
+   "collision"
+  ],
+  "vertex_count": 365
+ },
+ {
+  "asset_id": 1322,
+  "name": "MODEL_PORTRAIT_OF_TEEHEE",
+  "file": "052A.model.bin",
+  "size": 24516,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation",
+   "collision"
+  ],
+  "vertex_count": 365
+ },
+ {
+  "asset_id": 1323,
+  "name": "MODEL_PORTRAIT_OF_MINION",
+  "file": "052B.model.bin",
+  "size": 24084,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation",
+   "collision"
+  ],
+  "vertex_count": 365
+ },
+ {
+  "asset_id": 1324,
+  "name": "MODEL_GRUBLIN_HOOD",
+  "file": "052C.model.bin",
+  "size": 26556,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "animation"
+  ],
+  "vertex_count": 745
+ },
+ {
+  "asset_id": 1325,
+  "name": "MODEL_GRUBLIN_HOOD_HAT",
+  "file": "052D.model.bin",
+  "size": 940,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx"
+  ],
+  "vertex_count": 24
+ },
+ {
+  "asset_id": 1326,
+  "name": "MODEL_CCW_SEASON_DOOR",
+  "file": "052E.model.bin",
+  "size": 2676,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 8
+ },
+ {
+  "asset_id": 1327,
+  "name": "MODEL_BANJOS_CHAIR",
+  "file": "052F.model.bin",
+  "size": 10196,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation",
+   "anim_vertices"
+  ],
+  "vertex_count": 226
+ },
+ {
+  "asset_id": 1328,
+  "name": "MODEL_BANJOS_BED",
+  "file": "0530.model.bin",
+  "size": 19132,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation",
+   "anim_vertices"
+  ],
+  "vertex_count": 412
+ },
+ {
+  "asset_id": 1329,
+  "name": "MODEL_GNAWTYS_DEN",
+  "file": "0531.model.bin",
+  "size": 38340,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision",
+   "mesh"
+  ],
+  "vertex_count": 554
+ },
+ {
+  "asset_id": 1330,
+  "name": "MODEL_BANJO_KAZOOIE_CUTSCENES",
+  "file": "0532.model.bin",
+  "size": 84452,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation",
+   "collision"
+  ],
+  "vertex_count": 1716
+ },
+ {
+  "asset_id": 1331,
+  "name": "MODEL_NABNUT_DOOR",
+  "file": "0533.model.bin",
+  "size": 2636,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 7
+ },
+ {
+  "asset_id": 1332,
+  "name": "MODEL_FLIGHT_PAD_SWITCH",
+  "file": "0534.model.bin",
+  "size": 7500,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "animation",
+   "collision",
+   "anim_vertices"
+  ],
+  "vertex_count": 40
+ },
+ {
+  "asset_id": 1333,
+  "name": "Flight Pad Blue Fragment",
+  "file": "0535.model.bin",
+  "size": 228,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx"
+  ],
+  "vertex_count": 3
+ },
+ {
+  "asset_id": 1334,
+  "name": "Flight Pad Red Fragment",
+  "file": "0536.model.bin",
+  "size": 228,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx"
+  ],
+  "vertex_count": 3
+ },
+ {
+  "asset_id": 1335,
+  "name": "Flight Pad Yellow Fragment",
+  "file": "0537.model.bin",
+  "size": 228,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx"
+  ],
+  "vertex_count": 3
+ },
+ {
+  "asset_id": 1336,
+  "name": "Jiggy Podium (Beta?)",
+  "file": "0538.model.bin",
+  "size": 28468,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision",
+   "mesh"
+  ],
+  "vertex_count": 642
+ },
+ {
+  "asset_id": 1337,
+  "name": "MODEL_BRENTILDA",
+  "file": "0539.model.bin",
+  "size": 40716,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "animation"
+  ],
+  "vertex_count": 884
+ },
+ {
+  "asset_id": 1338,
+  "name": "MODEL_SHRAPNAL_PIECE_EYE",
+  "file": "053A.model.bin",
+  "size": 3068,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx"
+  ],
+  "vertex_count": 24
+ },
+ {
+  "asset_id": 1339,
+  "name": "MODEL_SHRAPNAL_PIECE_SPIKE",
+  "file": "053B.model.bin",
+  "size": 2476,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx"
+  ],
+  "vertex_count": 6
+ },
+ {
+  "asset_id": 1340,
+  "name": "MODEL_SHRAPNAL_PIECE_PLATE",
+  "file": "053C.model.bin",
+  "size": 2540,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx"
+  ],
+  "vertex_count": 8
+ },
+ {
+  "asset_id": 1341,
+  "name": "MODEL_GRUNTILDA_FINAL_BOSS",
+  "file": "053D.model.bin",
+  "size": 35860,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "animation",
+   "anim_vertices"
+  ],
+  "vertex_count": 1105
+ },
+ {
+  "asset_id": 1342,
+  "name": "MODEL_GNAWTY_BED",
+  "file": "053E.model.bin",
+  "size": 19668,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 279
+ },
+ {
+  "asset_id": 1343,
+  "name": "MODEL_GNAWTY_SHELVES",
+  "file": "053F.model.bin",
+  "size": 15980,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 303
+ },
+ {
+  "asset_id": 1344,
+  "name": "MODEL_SHOCK_JUMP_PAD_SWITCH",
+  "file": "0540.model.bin",
+  "size": 7412,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "animation",
+   "collision",
+   "anim_vertices"
+  ],
+  "vertex_count": 35
+ },
+ {
+  "asset_id": 1345,
+  "name": "SPRITE_FIREBALL_SPELL_ATTACK",
+  "file": "0541.model.bin",
+  "size": 2912,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "mesh"
+  ],
+  "vertex_count": 20
+ },
+ {
+  "asset_id": 1346,
+  "name": "(Shadow?)",
+  "file": "0542.model.bin",
+  "size": 4404,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx"
+  ],
+  "vertex_count": 4
+ },
+ {
+  "asset_id": 1347,
+  "name": "MODEL_JINJO_STATUE_BASE",
+  "file": "0543.model.bin",
+  "size": 9108,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "collision",
+   "mesh"
+  ],
+  "vertex_count": 114
+ },
+ {
+  "asset_id": 1348,
+  "name": "MODEL_JINJONATOR_STATUE_BASE",
+  "file": "0544.model.bin",
+  "size": 11468,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "collision",
+   "mesh"
+  ],
+  "vertex_count": 185
+ },
+ {
+  "asset_id": 1349,
+  "name": "MODEL_STONE_JINJO",
+  "file": "0545.model.bin",
+  "size": 19172,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation",
+   "collision"
+  ],
+  "vertex_count": 339
+ },
+ {
+  "asset_id": 1350,
+  "name": "MODEL_GRUNTY_SPELL_BARRIER",
+  "file": "0546.model.bin",
+  "size": 5948,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "mesh"
+  ],
+  "vertex_count": 52
+ },
+ {
+  "asset_id": 1351,
+  "name": "MODEL_BLUE_EGG_REFILL_PILLOW",
+  "file": "0547.model.bin",
+  "size": 9740,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation",
+   "collision",
+   "mesh"
+  ],
+  "vertex_count": 174
+ },
+ {
+  "asset_id": 1352,
+  "name": "MODEL_RED_FEATHER_REFILL_PILLOW",
+  "file": "0548.model.bin",
+  "size": 11948,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation",
+   "collision",
+   "anim_vertices"
+  ],
+  "vertex_count": 249
+ },
+ {
+  "asset_id": 1353,
+  "name": "MODEL_GOLD_FEATHER_REFILL_PILLOW",
+  "file": "0549.model.bin",
+  "size": 11948,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation",
+   "collision",
+   "anim_vertices"
+  ],
+  "vertex_count": 249
+ },
+ {
+  "asset_id": 1354,
+  "name": "MODEL_GRUNTLING_RED",
+  "file": "054A.model.bin",
+  "size": 21828,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "animation",
+   "anim_vertices"
+  ],
+  "vertex_count": 810
+ },
+ {
+  "asset_id": 1355,
+  "name": "(Big Fireball?)",
+  "file": "054B.model.bin",
+  "size": 3248,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx"
+  ],
+  "vertex_count": 42
+ },
+ {
+  "asset_id": 1356,
+  "name": "MODEL_GAME_OVER",
+  "file": "054C.model.bin",
+  "size": 76212,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx"
+  ],
+  "vertex_count": 72
+ },
+ {
+  "asset_id": 1357,
+  "name": "MODEL_BANJO_KAZOOIE_SIGN",
+  "file": "054D.model.bin",
+  "size": 110004,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx"
+  ],
+  "vertex_count": 104
+ },
+ {
+  "asset_id": 1358,
+  "name": "MODEL_COPYRIGHT_OVERLAY",
+  "file": "054E.model.bin",
+  "size": 25580,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "mesh"
+  ],
+  "vertex_count": 24
+ },
+ {
+  "asset_id": 1359,
+  "name": "MODEL_CHEATO",
+  "file": "054F.model.bin",
+  "size": 34276,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation",
+   "collision"
+  ],
+  "vertex_count": 557
+ },
+ {
+  "asset_id": 1360,
+  "name": "MODEL_LARGE_DOOR_TO_FINAL_BATTLE",
+  "file": "0550.model.bin",
+  "size": 39404,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation",
+   "collision",
+   "anim_vertices"
+  ],
+  "vertex_count": 304
+ },
+ {
+  "asset_id": 1361,
+  "name": "MODEL_JINJONATOR",
+  "file": "0551.model.bin",
+  "size": 11156,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation",
+   "mesh"
+  ],
+  "vertex_count": 270
+ },
+ {
+  "asset_id": 1362,
+  "name": "MODEL_BROOMSTICK_PIECE_HEAD",
+  "file": "0552.model.bin",
+  "size": 1068,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx"
+  ],
+  "vertex_count": 31
+ },
+ {
+  "asset_id": 1363,
+  "name": "MODEL_BROOMSTICK_PIECE_SHORT",
+  "file": "0553.model.bin",
+  "size": 652,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx"
+  ],
+  "vertex_count": 12
+ },
+ {
+  "asset_id": 1364,
+  "name": "MODEL_BROOMSTICK_PIECE_LONG",
+  "file": "0554.model.bin",
+  "size": 508,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx"
+  ],
+  "vertex_count": 8
+ },
+ {
+  "asset_id": 1365,
+  "name": "MODEL_BROOMSTICK_PIECE_EYE",
+  "file": "0555.model.bin",
+  "size": 1348,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx"
+  ],
+  "vertex_count": 31
+ },
+ {
+  "asset_id": 1366,
+  "name": "MODEL_YELLOW_JINJO_BLAST",
+  "file": "0556.model.bin",
+  "size": 7788,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "mesh"
+  ],
+  "vertex_count": 159
+ },
+ {
+  "asset_id": 1367,
+  "name": "MODEL_ORANGE_JINJO_BLAST",
+  "file": "0557.model.bin",
+  "size": 7788,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "mesh"
+  ],
+  "vertex_count": 159
+ },
+ {
+  "asset_id": 1368,
+  "name": "MODEL_GREEN_JINJO_BLAST",
+  "file": "0558.model.bin",
+  "size": 7788,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "mesh"
+  ],
+  "vertex_count": 159
+ },
+ {
+  "asset_id": 1369,
+  "name": "MODEL_PINK_JINJO_BLAST",
+  "file": "0559.model.bin",
+  "size": 7788,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "mesh"
+  ],
+  "vertex_count": 159
+ },
+ {
+  "asset_id": 1370,
+  "name": "MODEL_WORLD_EXIT_PAD",
+  "file": "055A.model.bin",
+  "size": 17204,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 178
+ },
+ {
+  "asset_id": 1371,
+  "name": "MODEL_BOGGY_IGLOO",
+  "file": "055B.model.bin",
+  "size": 18852,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 196
+ },
+ {
+  "asset_id": 1372,
+  "name": "MODEL_PRESS_START_OVERLAY",
+  "file": "055C.model.bin",
+  "size": 27156,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation"
+  ],
+  "vertex_count": 40
+ },
+ {
+  "asset_id": 1373,
+  "name": "MODEL_NO_CONTROLLER_OVERLAY",
+  "file": "055D.model.bin",
+  "size": 31732,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation"
+  ],
+  "vertex_count": 48
+ },
+ {
+  "asset_id": 1374,
+  "name": "MODEL_NAPPER",
+  "file": "055E.model.bin",
+  "size": 45484,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "animation",
+   "mesh"
+  ],
+  "vertex_count": 1173
+ },
+ {
+  "asset_id": 1375,
+  "name": "MODEL_FF_PRIZE_WASHING_CAULDRON",
+  "file": "055F.model.bin",
+  "size": 11756,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation"
+  ],
+  "vertex_count": 263
+ },
+ {
+  "asset_id": 1376,
+  "name": "MODEL_FF_PRIZE_GRUNTY_DOLL",
+  "file": "0560.model.bin",
+  "size": 9252,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation"
+  ],
+  "vertex_count": 282
+ },
+ {
+  "asset_id": 1377,
+  "name": "MODEL_GRUNTLING_BLUE",
+  "file": "0561.model.bin",
+  "size": 21828,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "animation",
+   "anim_vertices"
+  ],
+  "vertex_count": 810
+ },
+ {
+  "asset_id": 1378,
+  "name": "MODEL_GRUNTLING_BLACK",
+  "file": "0562.model.bin",
+  "size": 21828,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "animation",
+   "anim_vertices"
+  ],
+  "vertex_count": 810
+ },
+ {
+  "asset_id": 1379,
+  "name": "MODEL_LEVEL_ENTRY_SIGNS",
+  "file": "0563.model.bin",
+  "size": 47476,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx"
+  ],
+  "vertex_count": 247
+ },
+ {
+  "asset_id": 1380,
+  "name": "MODEL_PURPLE_TEEHEE",
+  "file": "0564.model.bin",
+  "size": 17544,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "animation",
+   "mesh",
+   "anim_vertices"
+  ],
+  "vertex_count": 361
+ },
+ {
+  "asset_id": 1381,
+  "name": "MODEL_BOTTLES_BONUS_BANJO_HAND",
+  "file": "0565.model.bin",
+  "size": 9080,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation"
+  ],
+  "vertex_count": 289
+ },
+ {
+  "asset_id": 1382,
+  "name": "MODEL_BLACK_SNIPPET",
+  "file": "0566.model.bin",
+  "size": 15484,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14",
+   "animation"
+  ],
+  "vertex_count": 390
+ },
+ {
+  "asset_id": 1383,
+  "name": "MODEL_BLACK_CRAB_HEAD",
+  "file": "0567.model.bin",
+  "size": 2748,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx"
+  ],
+  "vertex_count": 108
+ },
+ {
+  "asset_id": 1384,
+  "name": "MODEL_BLACK_CRAB_LEG",
+  "file": "0568.model.bin",
+  "size": 996,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx"
+  ],
+  "vertex_count": 27
+ },
+ {
+  "asset_id": 1385,
+  "name": "MODEL_BLACK_CRAB_CLAW",
+  "file": "0569.model.bin",
+  "size": 1660,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14"
+  ],
+  "vertex_count": 58
+ },
+ {
+  "asset_id": 1386,
+  "name": "MODEL_FP_HOUSE_CHIMNEY",
+  "file": "056A.model.bin",
+  "size": 5228,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision",
+   "mesh"
+  ],
+  "vertex_count": 62
+ },
+ {
+  "asset_id": 1387,
+  "name": "MODEL_SANDYBUTT_PYRAMID",
+  "file": "056B.model.bin",
+  "size": 8596,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 59
+ },
+ {
+  "asset_id": 1388,
+  "name": "MODEL_THE_END_SIGN",
+  "file": "056C.model.bin",
+  "size": 59316,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx"
+  ],
+  "vertex_count": 56
+ },
+ {
+  "asset_id": 1389,
+  "name": "MUMBOS_HAND_WITH_PICTURE",
+  "file": "056D.model.bin",
+  "size": 55332,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation"
+  ],
+  "vertex_count": 313
+ },
+ {
+  "asset_id": 1390,
+  "name": "HAMMERHEAD_BEACH_SCENERY",
+  "file": "056E.model.bin",
+  "size": 22756,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx"
+  ],
+  "vertex_count": 423
+ },
+ {
+  "asset_id": 1758,
+  "name": null,
+  "file": "06DE.model.bin",
+  "size": 436,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx"
+  ],
+  "vertex_count": 15
+ },
+ {
+  "asset_id": 1761,
+  "name": null,
+  "file": "06E1.model.bin",
+  "size": 932,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx"
+  ],
+  "vertex_count": 42
+ },
+ {
+  "asset_id": 1762,
+  "name": null,
+  "file": "06E2.model.bin",
+  "size": 228,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx"
+  ],
+  "vertex_count": 3
+ },
+ {
+  "asset_id": 1763,
+  "name": null,
+  "file": "06E3.model.bin",
+  "size": 332,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx"
+  ],
+  "vertex_count": 9
+ },
+ {
+  "asset_id": 1768,
+  "name": null,
+  "file": "06E8.model.bin",
+  "size": 388,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx"
+  ],
+  "vertex_count": 12
+ },
+ {
+  "asset_id": 1777,
+  "name": null,
+  "file": "06F1.model.bin",
+  "size": 1372,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx"
+  ],
+  "vertex_count": 66
+ },
+ {
+  "asset_id": 1778,
+  "name": null,
+  "file": "06F2.model.bin",
+  "size": 1284,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx"
+  ],
+  "vertex_count": 60
+ },
+ {
+  "asset_id": 1779,
+  "name": null,
+  "file": "06F3.model.bin",
+  "size": 2500,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx"
+  ],
+  "vertex_count": 126
+ },
+ {
+  "asset_id": 1780,
+  "name": null,
+  "file": "06F4.model.bin",
+  "size": 3348,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx"
+  ],
+  "vertex_count": 172
+ },
+ {
+  "asset_id": 1781,
+  "name": null,
+  "file": "06F5.model.bin",
+  "size": 2340,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx"
+  ],
+  "vertex_count": 118
+ },
+ {
+  "asset_id": 1782,
+  "name": null,
+  "file": "06F6.model.bin",
+  "size": 2236,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx"
+  ],
+  "vertex_count": 112
+ },
+ {
+  "asset_id": 1783,
+  "name": null,
+  "file": "06F7.model.bin",
+  "size": 1268,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx"
+  ],
+  "vertex_count": 60
+ },
+ {
+  "asset_id": 1784,
+  "name": null,
+  "file": "06F8.model.bin",
+  "size": 820,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx"
+  ],
+  "vertex_count": 36
+ },
+ {
+  "asset_id": 1785,
+  "name": null,
+  "file": "06F9.model.bin",
+  "size": 820,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx"
+  ],
+  "vertex_count": 36
+ },
+ {
+  "asset_id": 1786,
+  "name": null,
+  "file": "06FA.model.bin",
+  "size": 1828,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx"
+  ],
+  "vertex_count": 84
+ },
+ {
+  "asset_id": 1787,
+  "name": null,
+  "file": "06FB.model.bin",
+  "size": 820,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx"
+  ],
+  "vertex_count": 36
+ },
+ {
+  "asset_id": 1978,
+  "name": null,
+  "file": "07BA.model.bin",
+  "size": 588,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx"
+  ],
+  "vertex_count": 24
+ },
+ {
+  "asset_id": 1979,
+  "name": null,
+  "file": "07BB.model.bin",
+  "size": 436,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx"
+  ],
+  "vertex_count": 15
+ },
+ {
+  "asset_id": 1980,
+  "name": null,
+  "file": "07BC.model.bin",
+  "size": 3612,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx"
+  ],
+  "vertex_count": 157
+ },
+ {
+  "asset_id": 1981,
+  "name": "MODEL_SKYBOX_MM",
+  "file": "07BD.model.bin",
+  "size": 780,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx"
+  ],
+  "vertex_count": 26
+ },
+ {
+  "asset_id": 1982,
+  "name": "MODEL_CLOUDS_MM",
+  "file": "07BE.model.bin",
+  "size": 8700,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx"
+  ],
+  "vertex_count": 12
+ },
+ {
+  "asset_id": 1983,
+  "name": "MODEL_SKYBOX_TTC",
+  "file": "07BF.model.bin",
+  "size": 4924,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx"
+  ],
+  "vertex_count": 24
+ },
+ {
+  "asset_id": 1984,
+  "name": "MODEL_CLOUDS_TTC",
+  "file": "07C0.model.bin",
+  "size": 17076,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx"
+  ],
+  "vertex_count": 16
+ },
+ {
+  "asset_id": 1985,
+  "name": "MODEL_SKYBOX_GV",
+  "file": "07C1.model.bin",
+  "size": 11196,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx"
+  ],
+  "vertex_count": 114
+ },
+ {
+  "asset_id": 1986,
+  "name": "MODEL_SKYBOX_MMM",
+  "file": "07C2.model.bin",
+  "size": 7260,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx"
+  ],
+  "vertex_count": 33
+ },
+ {
+  "asset_id": 1987,
+  "name": "MODEL_SKYBOX_MMM",
+  "file": "07C3.model.bin",
+  "size": 5036,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "mesh"
+  ],
+  "vertex_count": 34
+ },
+ {
+  "asset_id": 1988,
+  "name": "MODEL_SKYBOX_SM",
+  "file": "07C4.model.bin",
+  "size": 5324,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx"
+  ],
+  "vertex_count": 44
+ },
+ {
+  "asset_id": 1989,
+  "name": "MODEL_SKYBOX_RBB",
+  "file": "07C5.model.bin",
+  "size": 11948,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx"
+  ],
+  "vertex_count": 61
+ },
+ {
+  "asset_id": 1990,
+  "name": "MODEL_SKYBOX_FP",
+  "file": "07C6.model.bin",
+  "size": 7876,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx"
+  ],
+  "vertex_count": 60
+ },
+ {
+  "asset_id": 1991,
+  "name": "MODEL_CLOUDS_FP_A",
+  "file": "07C7.model.bin",
+  "size": 8844,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx"
+  ],
+  "vertex_count": 20
+ },
+ {
+  "asset_id": 1992,
+  "name": "MODEL_CLOUDS_FP_B",
+  "file": "07C8.model.bin",
+  "size": 8916,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx"
+  ],
+  "vertex_count": 24
+ },
+ {
+  "asset_id": 1993,
+  "name": "MODEL_SKYBOX_INTRO_N64",
+  "file": "07C9.model.bin",
+  "size": 5044,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx"
+  ],
+  "vertex_count": 29
+ },
+ {
+  "asset_id": 1994,
+  "name": "MODEL_SKYBOX_LAIR_MMM",
+  "file": "07CA.model.bin",
+  "size": 4748,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "mesh"
+  ],
+  "vertex_count": 18
+ },
+ {
+  "asset_id": 1995,
+  "name": "MODEL_CLOUDS_LAIR_MMM",
+  "file": "07CB.model.bin",
+  "size": 7260,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx"
+  ],
+  "vertex_count": 33
+ },
+ {
+  "asset_id": 1996,
+  "name": "MODEL_SKYBOX_GRUNTYS_FALL",
+  "file": "07CC.model.bin",
+  "size": 25140,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "mesh",
+   "animated_texture"
+  ],
+  "vertex_count": 159
+ },
+ {
+  "asset_id": 1997,
+  "name": "MODEL_SKYBOX_BEACH_ENDING",
+  "file": "07CD.model.bin",
+  "size": 14244,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx"
+  ],
+  "vertex_count": 77
+ },
+ {
+  "asset_id": 1999,
+  "name": "MODEL_TRANSITION_UNKNOWN",
+  "file": "07CF.model.bin",
+  "size": 4780,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx"
+  ],
+  "vertex_count": 20
+ },
+ {
+  "asset_id": 2000,
+  "name": "MODEL_TRANSITION_JIGGY",
+  "file": "07D0.model.bin",
+  "size": 17532,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx"
+  ],
+  "vertex_count": 32
+ },
+ {
+  "asset_id": 2002,
+  "name": null,
+  "file": "07D2.model.bin",
+  "size": 244,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx"
+  ],
+  "vertex_count": 4
+ },
+ {
+  "asset_id": 2003,
+  "name": null,
+  "file": "07D3.model.bin",
+  "size": 244,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx"
+  ],
+  "vertex_count": 4
+ },
+ {
+  "asset_id": 2004,
+  "name": "MODEL_TRANSITION_WITCH",
+  "file": "07D4.model.bin",
+  "size": 17532,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx"
+  ],
+  "vertex_count": 32
+ },
+ {
+  "asset_id": 2007,
+  "name": "MODEL_MM_HUT",
+  "file": "07D7.model.bin",
+  "size": 14892,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation",
+   "collision"
+  ],
+  "vertex_count": 129
+ },
+ {
+  "asset_id": 2008,
+  "name": "MODEL_MM_HUT_TOP",
+  "file": "07D8.model.bin",
+  "size": 10372,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation",
+   "collision"
+  ],
+  "vertex_count": 125
+ },
+ {
+  "asset_id": 2172,
+  "name": null,
+  "file": "087C.model.bin",
+  "size": 4404,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx"
+  ],
+  "vertex_count": 4
+ },
+ {
+  "asset_id": 2173,
+  "name": null,
+  "file": "087D.model.bin",
+  "size": 2356,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx"
+  ],
+  "vertex_count": 4
+ },
+ {
+  "asset_id": 2177,
+  "name": null,
+  "file": "0881.model.bin",
+  "size": 5932,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation",
+   "anim_vertices"
+  ],
+  "vertex_count": 249
+ },
+ {
+  "asset_id": 2178,
+  "name": null,
+  "file": "0882.model.bin",
+  "size": 4404,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx"
+  ],
+  "vertex_count": 4
+ },
+ {
+  "asset_id": 2179,
+  "name": null,
+  "file": "0883.model.bin",
+  "size": 1044,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14"
+  ],
+  "vertex_count": 38
+ },
+ {
+  "asset_id": 2180,
+  "name": null,
+  "file": "0884.model.bin",
+  "size": 1044,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14"
+  ],
+  "vertex_count": 38
+ },
+ {
+  "asset_id": 2181,
+  "name": null,
+  "file": "0885.model.bin",
+  "size": 3324,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 28
+ },
+ {
+  "asset_id": 2182,
+  "name": null,
+  "file": "0886.model.bin",
+  "size": 1900,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 18
+ },
+ {
+  "asset_id": 2183,
+  "name": null,
+  "file": "0887.model.bin",
+  "size": 3724,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 43
+ },
+ {
+  "asset_id": 2184,
+  "name": null,
+  "file": "0888.model.bin",
+  "size": 2028,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 18
+ },
+ {
+  "asset_id": 2185,
+  "name": null,
+  "file": "0889.model.bin",
+  "size": 3388,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 32
+ },
+ {
+  "asset_id": 2186,
+  "name": null,
+  "file": "088A.model.bin",
+  "size": 3356,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 30
+ },
+ {
+  "asset_id": 2187,
+  "name": null,
+  "file": "088B.model.bin",
+  "size": 3652,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 39
+ },
+ {
+  "asset_id": 2188,
+  "name": "MODEL_MOTZHAND",
+  "file": "088C.model.bin",
+  "size": 6844,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation"
+  ],
+  "vertex_count": 199
+ },
+ {
+  "asset_id": 2190,
+  "name": "MODEL_CLANKER_CHAIN",
+  "file": "088E.model.bin",
+  "size": 158692,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation",
+   "collision",
+   "anim_vertices"
+  ],
+  "vertex_count": 1953
+ },
+ {
+  "asset_id": 2191,
+  "name": null,
+  "file": "088F.model.bin",
+  "size": 3572,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx"
+  ],
+  "vertex_count": 15
+ },
+ {
+  "asset_id": 2192,
+  "name": "MODEL_SCREW",
+  "file": "0890.model.bin",
+  "size": 10124,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 67
+ },
+ {
+  "asset_id": 2193,
+  "name": "MODEL_CLANKER_TOKEN_TOOTH_OPEN",
+  "file": "0891.model.bin",
+  "size": 1908,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 14
+ },
+ {
+  "asset_id": 2194,
+  "name": "MODEL_CLANKER_TOKEN_TOOTH_CLOSED",
+  "file": "0892.model.bin",
+  "size": 1396,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 10
+ },
+ {
+  "asset_id": 2195,
+  "name": "MODEL_CLANKER_JIGGY_TOOTH_OPEN",
+  "file": "0893.model.bin",
+  "size": 1644,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 15
+ },
+ {
+  "asset_id": 2196,
+  "name": "MODEL_CLANKER_JIGGY_TOOTH_CLOSED",
+  "file": "0894.model.bin",
+  "size": 1348,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 10
+ },
+ {
+  "asset_id": 2197,
+  "name": null,
+  "file": "0895.model.bin",
+  "size": 1044,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "unk14"
+  ],
+  "vertex_count": 38
+ },
+ {
+  "asset_id": 2198,
+  "name": "MODEL_GOLD_ROCK",
+  "file": "0896.model.bin",
+  "size": 3572,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx"
+  ],
+  "vertex_count": 15
+ },
+ {
+  "asset_id": 2199,
+  "name": null,
+  "file": "0897.model.bin",
+  "size": 4412,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx"
+  ],
+  "vertex_count": 3
+ },
+ {
+  "asset_id": 2200,
+  "name": null,
+  "file": "0898.model.bin",
+  "size": 4620,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx"
+  ],
+  "vertex_count": 15
+ },
+ {
+  "asset_id": 2201,
+  "name": null,
+  "file": "0899.model.bin",
+  "size": 484,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx"
+  ],
+  "vertex_count": 3
+ },
+ {
+  "asset_id": 2202,
+  "name": null,
+  "file": "089A.model.bin",
+  "size": 484,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx"
+  ],
+  "vertex_count": 3
+ },
+ {
+  "asset_id": 2203,
+  "name": null,
+  "file": "089B.model.bin",
+  "size": 484,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx"
+  ],
+  "vertex_count": 3
+ },
+ {
+  "asset_id": 2204,
+  "name": null,
+  "file": "089C.model.bin",
+  "size": 484,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx"
+  ],
+  "vertex_count": 3
+ },
+ {
+  "asset_id": 2205,
+  "name": "ZOOMBOX_SPRITE",
+  "file": "089D.model.bin",
+  "size": 8988,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "animation"
+  ],
+  "vertex_count": 12
+ },
+ {
+  "asset_id": 2206,
+  "name": null,
+  "file": "089E.model.bin",
+  "size": 3740,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx"
+  ],
+  "vertex_count": 164
+ },
+ {
+  "asset_id": 2207,
+  "name": "MODEL_ORANGE_PARTICLE",
+  "file": "089F.model.bin",
+  "size": 3444,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx"
+  ],
+  "vertex_count": 7
+ },
+ {
+  "asset_id": 2208,
+  "name": "SPRITE_WATER_DROP",
+  "file": "08A0.model.bin",
+  "size": 4412,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx"
+  ],
+  "vertex_count": 3
+ },
+ {
+  "asset_id": 2209,
+  "name": null,
+  "file": "08A1.model.bin",
+  "size": 572,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx"
+  ],
+  "vertex_count": 3
+ },
+ {
+  "asset_id": 2210,
+  "name": null,
+  "file": "08A2.model.bin",
+  "size": 964,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx"
+  ],
+  "vertex_count": 7
+ },
+ {
+  "asset_id": 5276,
+  "name": "- Black everywhere! You dont fall and theres invisible walls and floors!",
+  "file": "149C.model.bin",
+  "size": 1212,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 20
+ },
+ {
+  "asset_id": 5334,
+  "name": "MODEL_TEST_MAP_OPA",
+  "file": "14D6.model.bin",
+  "size": 3652,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 110
+ },
+ {
+  "asset_id": 5335,
+  "name": "MODEL_TEST_MAP_XLU",
+  "file": "14D7.model.bin",
+  "size": 3652,
+  "compressed": true,
+  "is_map_model": false,
+  "sections": [
+   "geo",
+   "texture",
+   "gfx",
+   "vtx",
+   "collision"
+  ],
+  "vertex_count": 110
+ }
+]
