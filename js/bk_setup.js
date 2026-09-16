@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { addModelCheckbox, getModelGroup, resetGroupModelState } from './render.js';
 import { parseBKModelGeometry } from './bk_model.js';
+import { buildTexturedParts, makeTexturedMesh, attachTextured } from './bk_textured.js';
 
 const wireframeCheckbox = document.getElementById('wireframe');
 const propGeometrySelect = document.getElementById('bkPropGeometry');
@@ -329,7 +330,13 @@ function loadPropGeometry(assetId) {
             const loaded = {
                 visual: makeGeometrySet(model.positions, model.displayListIndices),
                 collision: makeGeometrySet(model.positions, model.collisionIndices),
+                textured: null,
             };
+            try {
+                loaded.textured = buildTexturedParts(buffer);
+            } catch (err) {
+                console.warn(`prop model ${file}: textured build failed: ${err.message}`);
+            }
             if (!loaded.visual && !loaded.collision) {
                 console.warn(`prop model ${file}: no triangles`);
                 return null;
@@ -698,6 +705,10 @@ function addLoadedModelRow(scene, groupBody, rowName, instances, loaded, style, 
         edges.scale.copy(mesh.scale);
         edgesGroup.add(edges);
 
+        if (loaded.textured) {
+            attachTextured(mesh, makeTexturedMesh(loaded.textured), edges);
+        }
+
         propInstances.push({ mesh, edges, prop: inst, loaded, describe: style.describe });
     }
 
@@ -808,9 +819,9 @@ function buildSpriteInstance(prop, material) {
 /**
  * Add one row per type, partitioned into two sidebar groups by whether the
  * type's model has a collision list: [key, label] pairs for the solid group
- * (rows shown) and the hitbox-only group (rows hidden).
+ * (rows shown) and the hitbox-only group (rows shown only if hitboxChecked).
  */
-function addSplitModelGroups(scene, byType, geometries, style, nameFn, rowLabel, solidGroup, hitboxGroup) {
+function addSplitModelGroups(scene, byType, geometries, style, nameFn, rowLabel, solidGroup, hitboxGroup, hitboxChecked = false) {
     const solid = [];
     const hitboxOnly = [];
     byType.forEach(([id, list], i) => {
@@ -826,7 +837,7 @@ function addSplitModelGroups(scene, byType, geometries, style, nameFn, rowLabel,
     if (hitboxOnly.length) {
         const group = getModelGroup(hitboxGroup[0], hitboxGroup[1]);
         for (const [id, list, loaded] of hitboxOnly) {
-            addLoadedModelRow(scene, group.body, rowLabel(nameFn(id), list), list, loaded, style, false);
+            addLoadedModelRow(scene, group.body, rowLabel(nameFn(id), list), list, loaded, style, hitboxChecked);
         }
     }
 }
@@ -886,13 +897,13 @@ export async function renderBKSetup(scene, buffer) {
             return modelAsset ? loadPropGeometry(modelAsset) : Promise.resolve(null);
         }));
         addSplitModelGroups(scene, modelActors, geometries, ACTOR_STYLE, actorName, rowLabel,
-            ['bk-actors', 'Actors (collision)'], ['bk-actors-hitbox', 'Actors (hitbox only)']);
+            ['bk-actors', 'Actors (collision)'], ['bk-actors-hitbox', 'Actors (hitbox only)'], true);
 
         if (spriteActors.length) {
             const group = getModelGroup('bk-actors-hitbox', 'Actors (hitbox only)');
             for (const [id, list] of spriteActors) {
                 addSpriteRow(scene, group.body, rowLabel(actorName(id), list), list,
-                    spriteIndex.get(BK_Actor_Models[id]), false, SPRITE_ACTOR_STYLE);
+                    spriteIndex.get(BK_Actor_Models[id]), true, SPRITE_ACTOR_STYLE);
             }
         }
     }
@@ -903,7 +914,7 @@ export async function renderBKSetup(scene, buffer) {
         const byType = groupBy(spriteProps, p => p.spriteId);
         for (const [id, list] of [...byType].sort((a, b) => spriteName(a[0]).localeCompare(spriteName(b[0])))) {
             addSpriteRow(scene, group.body, rowLabel(spriteName(id), list), list,
-                spriteIndex.get(id + SPRITE_ASSET_OFFSET), false);
+                spriteIndex.get(id + SPRITE_ASSET_OFFSET), true);
         }
     }
 

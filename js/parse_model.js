@@ -6,6 +6,7 @@ import { renderCollisionWallsXY, renderCollisionWallsYZ } from './render_walls.j
 import { scanAndBuildFlatGroundMarkers, buildSurfaceTypeMarkers, scanAndBuildSubdivision, scanAndBuildSectorSortingErrorMarkers, scanAndBuildSubdivisionSkipMarkers } from './poly_markers.js'
 import { buildWaterBoxModel } from './waterboxes.js';
 import { renderZeldaObjectsInScene } from './render_actors.js';
+import { buildTexturedMesh, attachTextured, clearTexturedPairs } from './bk_textured.js';
 
 const wireframeCheckbox = document.getElementById('wireframe');
 const surfaceTypeDropdown = document.getElementById("surfaceTypeDropdown");
@@ -208,8 +209,23 @@ export function parseBKModelBinary(scene, buffer, fresh, name){
     let modelName = name ?? "Main Model";
     if(!fresh && !name)
         modelName = `Model ${loadedModels.length+1}`;
-    
+
+    if (fresh) clearTexturedPairs();
     buildGeometry(scene, verts, tris, null, null, modelName, fresh);
+
+    // BK only: also build the textured (display list) version of the map and
+    // hang it under the collision mesh for the "Textured" checkbox.
+    if (game == "BK") {
+        const entry = loadedModels[loadedModels.length - 1];
+        if (entry && entry.name === modelName) {
+            try {
+                const textured = buildTexturedMesh(buffer);
+                if (textured) attachTextured(entry.mesh, textured, entry.edges);
+            } catch (err) {
+                console.warn(`${modelName}: textured build failed: ${err.message}`);
+            }
+        }
+    }
 }
 
 function parseZeldaModelTextTriangles(scene, text, fresh) {
