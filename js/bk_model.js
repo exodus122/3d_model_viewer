@@ -32,7 +32,11 @@ const VTX_SIZE = 16;
  * @param {ArrayBuffer} buffer a decompressed BKModelBin
  * @returns {{positions: Float32Array, vertexCount: number,
  *            collisionIndices: Uint16Array|Uint32Array|null,
- *            displayListIndices: Uint16Array|Uint32Array|null}}
+ *            displayListIndices: Uint16Array|Uint32Array|null,
+ *            bounds: {center: number[], localNorm: number, globalNorm: number}}}
+ *   bounds is the BKVertexList header: the model-space centre, the distance
+ *   from it to the furthest vertex (local_norm) and the same from the origin
+ *   (global_norm). The game's actor touch sphere is centre / local_norm.
  */
 export function parseBKModelGeometry(buffer) {
     const dv = new DataView(buffer);
@@ -50,6 +54,12 @@ export function parseBKModelGeometry(buffer) {
     // BKVertexList: min[3], max[3], center[3], local_norm, count, global_norm, Vtx[]
     const vertexCount = dv.getInt16(vtxListOffset + 0x14, false);
     const vtxBase = vtxListOffset + 0x18;
+    const bounds = {
+        center: [dv.getInt16(vtxListOffset + 0xC, false), dv.getInt16(vtxListOffset + 0xE, false),
+            dv.getInt16(vtxListOffset + 0x10, false)],
+        localNorm: dv.getInt16(vtxListOffset + 0x12, false),
+        globalNorm: dv.getInt16(vtxListOffset + 0x16, false),
+    };
     const positions = new Float32Array(vertexCount * 3);
     for (let i = 0; i < vertexCount; i++) {
         const o = vtxBase + i * VTX_SIZE;
@@ -123,7 +133,7 @@ export function parseBKModelGeometry(buffer) {
         displayListIndices = IndexArray.from(out);
     }
 
-    return { positions, vertexCount, collisionIndices, displayListIndices, refPoints: collectRefPoints(dv) };
+    return { positions, vertexCount, collisionIndices, displayListIndices, bounds, refPoints: collectRefPoints(dv) };
 }
 
 // REFPOINT geo commands (modelRender_geoCmd_REFPOINT) publish a model-space

@@ -5,6 +5,7 @@ import { buildTexturedParts, makeTexturedMesh, attachTextured, refreshTexturedMo
 
 const wireframeCheckbox = document.getElementById('wireframe');
 const viewModeSelect = document.getElementById('bkViewMode');
+const actorHitboxCheckbox = document.getElementById('bkActorHitboxes');
 
 ////////////////////////////////////////
 // System: Banjo-Kazooie setup file (object placement)
@@ -339,6 +340,7 @@ function loadPropGeometry(assetId) {
             const loaded = {
                 visual: makeGeometrySet(model.positions, model.displayListIndices),
                 collision: makeGeometrySet(model.positions, model.collisionIndices),
+                bounds: model.bounds,
                 refPoints: model.refPoints,
                 texturedVariants: new Map(),
                 // Textured geometry depends on which selector-gated variant an
@@ -862,6 +864,7 @@ const ACTOR_STYLE = {
     edgeColor: 0x8a3d10,
     describe: describeNode,
     fallback: buildActorInstance,
+    hitbox: true,
     // NodeProp.selector_or_radius doubles as the variant index for models whose
     // parts are selector-gated (level signs, SNS eggs, exit pads).
     selectorOf: node => node.selectorOrRadius,
@@ -873,6 +876,39 @@ const ACTOR_STYLE = {
         obj.scale.setScalar(node.scale === 0 ? 1 : node.scale / 100);
     },
 };
+
+////////////////////////////////////////
+// Actor hitboxes
+////////////////////////////////////////
+//
+// The game tests Banjo against an actor with a sphere (func_803322F0 in
+// core2/code_A5BC0.c): centre = the actor's position plus the model's vertex
+// list centre, radius = its local_norm, both times the actor's scale
+// (func_80331F54 / func_803320BC). The centre offset is not rotated by the
+// actor's yaw. A sprite actor's sphere has radius half the sprite size and
+// sits half a sprite up (func_80331E64). Whether the sphere counts is
+// runtime state (marker->collidable), which is not known here.
+
+const actorHitboxes = []; // every hitbox sphere in the scene, for the toggle
+const hitboxMaterial = new THREE.MeshBasicMaterial({
+    color: 0x2ee6ff, wireframe: true, transparent: true, opacity: 0.6, depthWrite: false,
+});
+
+function addActorHitbox(group, position, centerOffset, radius, host) {
+    const sphere = new THREE.Mesh(radiusGeometry, hitboxMaterial);
+    sphere.position.set(position[0] + centerOffset[0], position[1] + centerOffset[1], position[2] + centerOffset[2]);
+    sphere.scale.setScalar(Math.max(radius, 1));
+    sphere.visible = !!actorHitboxCheckbox?.checked;
+    sphere.userData.bkInfo = host.userData.bkInfo +
+        `\n  hitbox: sphere r=${radius.toFixed(1)} at offset (${centerOffset.map(v => v.toFixed(1)).join(', ')})`;
+    sphere.userData.bkProp = host.userData.bkProp;
+    group.add(sphere);
+    actorHitboxes.push(sphere);
+}
+
+actorHitboxCheckbox?.addEventListener('change', () => {
+    for (const sphere of actorHitboxes) sphere.visible = actorHitboxCheckbox.checked;
+});
 
 /**
  * One row for every placement of a model, drawn with the model's real
@@ -918,6 +954,11 @@ function addLoadedModelRow(scene, groupBody, rowName, instances, loaded, style, 
         }
 
         propInstances.push({ mesh, edges, prop: inst, loaded, describe: style.describe });
+
+        if (style.hitbox && loaded.bounds) {
+            const s = mesh.scale.x;
+            addActorHitbox(typeGroup, inst.position, loaded.bounds.center.map(v => v * s), loaded.bounds.localNorm * s, mesh);
+        }
     }
 
     scene.add(typeGroup);
@@ -979,6 +1020,11 @@ function addSpriteRow(scene, groupBody, rowName, instances, entry, checked, styl
         sprite.userData.bkProp = prop;
         typeGroup.add(sprite);
 
+        if (style.hitbox) {
+            const size = Math.max(entry.world_w, entry.world_h) * scale;
+            addActorHitbox(typeGroup, prop.position, [0, size / 2, 0], size / 2, sprite);
+        }
+
         if (animated) {
             const props = { phase: prop.phase ?? 0 };
             animatedSprites.push({
@@ -1010,6 +1056,7 @@ const SPRITE_ACTOR_STYLE = {
     color: ACTOR_COLOR,
     describe: describeNode,
     fallback: buildActorInstance,
+    hitbox: true,
     scaleOf: node => node.scale === 0 ? 1 : node.scale / 100,
 };
 
@@ -1063,6 +1110,7 @@ export async function renderBKSetup(scene, buffer, mapId = -1) {
     const setup = parseBKSetup(buffer);
     propInstances.length = 0;
     animatedSprites.length = 0;
+    actorHitboxes.length = 0;
 
     // Visibility is remembered per row name across loads; the same actor
     // type unchecked in one map should not start hidden in the next.

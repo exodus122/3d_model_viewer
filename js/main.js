@@ -44,6 +44,7 @@ const groundClipBandsLabel = document.getElementById("groundClipBandsLabel");
 const display_fwc = document.getElementById('display_fwc');
 const display_fwc_label = document.getElementById('display_fwc_label');
 const bkViewModeLabel = document.getElementById('bkViewModeLabel');
+const bkActorHitboxesLabel = document.getElementById('bkActorHitboxesLabel');
 
 ////////////////////////////////////////
 // System: Scene, Renderer, Camera, Lights
@@ -246,6 +247,7 @@ gameSel.addEventListener('change',(e)=>{
     }
     
     bkViewModeLabel.style.display = (game == "BK") ? "block" : "none";
+    bkActorHitboxesLabel.style.display = (game == "BK") ? "block" : "none";
 
     if (game == "BK" || game == "BT") {
         display_fwc_label.style.display = "none";
