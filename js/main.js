@@ -324,7 +324,7 @@ loadMap.addEventListener('click', async (e) => {
             const res3 = await fetch('./models/BK/' + mapDir + '/setup.bin');
             const buffer3 = await res3.arrayBuffer();
             console.log(mapDir+"/setup.bin: Binary file length:", buffer3.byteLength);
-            await renderBKSetup(scene, buffer3);
+            await renderBKSetup(scene, buffer3, parseInt(getMapProperty(game, mapName, "sceneID"), 16));
         } catch (err) {
             console.error(err);
         }

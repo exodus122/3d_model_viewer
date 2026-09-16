@@ -657,6 +657,33 @@ const MODEL_PROP_STYLE = {
     },
 };
 
+// Objects a level overlay draws itself rather than spawning from the setup
+// file, so they appear in no NodeProp list. Keyed by map id; positions and
+// models are the ones hard-coded in the decomp.
+const BK_MAP_OBJECTS = {
+    0x0B: [ // CC_CLANKERS_CAVERN
+        { name: 'CLANKER', asset: 0x88E, position: [5500, 0, 0], yaw: 0, scale: 1,
+          source: 'src/CC/ma/clanker.c (maClanker init; y changes when raised)' },
+    ],
+};
+
+function describeMapObject(obj) {
+    return `MAP OBJECT ${obj.name} (model ${hex(obj.asset)}${obj.geometrySource ? ' ' + obj.geometrySource : ''}):` +
+        ` pos=${obj.position.join(', ')} yaw=${obj.yaw} scale=${obj.scale} -- ${obj.source}`;
+}
+
+const MAP_OBJECT_STYLE = {
+    color: ACTOR_COLOR,
+    edgeColor: 0x8a3d10,
+    describe: describeMapObject,
+    fallback: buildActorInstance,
+    transform(obj, mesh) {
+        mesh.position.set(obj.position[0], obj.position[1], obj.position[2]);
+        mesh.rotation.set(0, THREE.MathUtils.degToRad(obj.yaw), 0, 'YXZ');
+        mesh.scale.setScalar(obj.scale || 1);
+    },
+};
+
 const ACTOR_STYLE = {
     color: ACTOR_COLOR,
     edgeColor: 0x8a3d10,
@@ -855,7 +882,7 @@ function addSplitModelGroups(scene, byType, geometries, style, nameFn, rowLabel,
     }
 }
 
-export async function renderBKSetup(scene, buffer) {
+export async function renderBKSetup(scene, buffer, mapId = -1) {
     const setup = parseBKSetup(buffer);
     propInstances.length = 0;
     animatedSprites.length = 0;
@@ -892,6 +919,16 @@ export async function renderBKSetup(scene, buffer) {
         const geometries = await Promise.all(byType.map(([id]) => loadPropGeometry(id + MODEL_ASSET_OFFSET)));
         addSplitModelGroups(scene, byType, geometries, MODEL_PROP_STYLE, modelName, rowLabel,
             ['bk-models', 'Model Props (collision)'], ['bk-models-hitbox', 'Model Props (no collision)']);
+    }
+
+    // Level-overlay objects (Clanker) go into the actor groups alongside the
+    // setup-file actors, split by collision the same way.
+    const mapObjects = BK_MAP_OBJECTS[mapId] ?? [];
+    if (mapObjects.length) {
+        const byName = [...groupBy(mapObjects, o => o.name)];
+        const geometries = await Promise.all(byName.map(([, list]) => loadPropGeometry(list[0].asset)));
+        addSplitModelGroups(scene, byName, geometries, MAP_OBJECT_STYLE, name => name, rowLabel,
+            ['bk-actors', 'Actors (collision)'], ['bk-actors-hitbox', 'Actors (hitbox only)'], true);
     }
 
     if (actorNodes.length) {
