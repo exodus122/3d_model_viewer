@@ -13,6 +13,7 @@ import { PointerLockControls } from 'three/addons/controls/PointerLockControls.j
 import { performSelection, clearSelection } from './selection.js';
 import { parseModel, parseModelText, parseModelBinary, parseBKModelBinary, parseZeldaSceneBinary, parseInvisibleSeams1D } from './parse_model.js';
 import { renderZeldaObjectBinary } from './render_actors.js';
+import { renderBKSetup } from './bk_setup.js';
 import { addModelCheckbox, buildTest } from './render.js';
 
 ////////////////////////////////////////
@@ -313,6 +314,12 @@ loadMap.addEventListener('click', async (e) => {
                 console.log(mapDir+"/xlu.model.bin: Binary file length:", buffer2.byteLength);
                 parseBKModelBinary(scene, buffer2, false, "XLU Model");
             }
+
+            // Object placement (actor spawns, static model / sprite props)
+            const res3 = await fetch('./models/BK/' + mapDir + '/setup.bin');
+            const buffer3 = await res3.arrayBuffer();
+            console.log(mapDir+"/setup.bin: Binary file length:", buffer3.byteLength);
+            renderBKSetup(scene, buffer3);
         } catch (err) {
             console.error(err);
         }

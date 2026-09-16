@@ -34,6 +34,12 @@ export function updateSelectionUI() {
     
     let sampled_triangles = [];
     for (const t of selectedTriangles) {
+        // BK setup markers carry their placement info instead of triangle data
+        if (t.bkInfo) {
+            lines.push(t.bkInfo);
+            continue;
+        }
+
         if (t.type === "waterbox") {
             const wb = t.waterbox;
             lines.push(
@@ -523,6 +529,7 @@ export function performSelection(ev, renderer, camera, scene) {
         index: triIndex,
         verts: [va, vb, vc],
         modelName: hit.object.name,
+        bkInfo: hit.object.userData.bkInfo ?? null,
 
         // include metadata if available:
         normals: meta ? meta.normals : null,
