@@ -160,15 +160,41 @@ export function parseBKModelBinary(scene, buffer, fresh, name){
     
     offset = collision_list_offset + 0x18 + geoCount * 4;
     //console.log("startTriList is "+offset.toString(16))
+
+    // The collision list is a spatial grid: BKCollisionGeometry[geoCount]
+    // are per-cell (start_tri_index, tri_count) ranges into one flat
+    // BKCollisionTriangle[triCount] array, and a triangle is stored once for
+    // EVERY cell it overlaps. A level-sized ceiling or wall therefore shows
+    // up dozens of times (TTC's biggest ones 121x each - 10479 entries for
+    // 2656 distinct triangles). Drawing every copy re-rasterises the same
+    // screen-filling triangle that many times, which is where the "looking
+    // at a giant triangle is laggy" fill-rate cost came from. Keep the first
+    // copy of each triangle only.
+    //
+    // The key is the index triple rotated so the smallest index leads, which
+    // is winding-preserving: (a,b,c), (b,c,a) and (c,a,b) are the same face,
+    // but the reversed triangle is a different (back) face and is kept.
     const tris = [];
+    const seenTris = new Set();
+    let duplicateTris = 0;
     for(let i=0;i<triCount;i++){
         if(offset+0xC>dv.byteLength) break;
         const a = dv.getInt16(offset,false)+1; offset+=2;
         const b = dv.getInt16(offset,false)+1; offset+=2;
         const c = dv.getInt16(offset,false)+1; offset+=2;
         offset+=6;
+
+        let key;
+        if (a <= b && a <= c)      key = a + "," + b + "," + c;
+        else if (b <= a && b <= c) key = b + "," + c + "," + a;
+        else                       key = c + "," + a + "," + b;
+        if (seenTris.has(key)) { duplicateTris++; continue; }
+        seenTris.add(key);
+
         tris.push([a,b,c]);
     }
+    if (duplicateTris > 0)
+        console.log(`parseBKModelBinary: dropped ${duplicateTris} duplicate grid-cell triangles (${triCount} -> ${tris.length})`);
     
     //console.log(tris);
     

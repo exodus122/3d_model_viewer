@@ -752,7 +752,7 @@ animate();
 buildTest(scene);
 
 // expose a tiny helpful function on window for quick testing
-window.__3dv = { parseModelText, parseModelBinary };
+window.__3dv = { parseModelText, parseModelBinary, camera, renderer, scene };
 
 ////////////////////////////////////////
 // System: Initialization checks
