@@ -78,6 +78,63 @@ const BT_ACTOR_APPENDAGES = {
     0x1CF: featherNest(1),                          // gold
 };
 
+// Scale changes an actor's own code makes once it has spawned. The setup
+// file's scale (NodeProp.scale / 100, gspropsDll) is applied first; then the
+// overlay's init callback (ActorInfo+0x34) runs, and these call
+// actor_setScale (0x80102FDC) with either the spawned scale times a constant
+// (mul) or a fixed value (set). Found by scanning every actor overlay's init
+// callback for that call (banjo-tooie ROM, US); the baby steggosaurus sets its
+// scale from its state machine instead (chdinofamilysmall state 1, the
+// fresh-file state, at 0x808008F8).
+const BT_ACTOR_SCALES = {
+    0x112: { mul: 1.5 },        // chwarriorbaddy (Moggies)
+    0x133: { mul: 0.75 },       // chdiggerfly (pterodactyl)
+    0x134: { mul: 0.75 },
+    0x137: { set: 0.25 },       // chgobiwitchy (Gobi)
+    0x13C: { set: 1.4 },        // chinflatableboss (Mr. Patch)
+    0x149: { mul: 0.5 },        // chtntdetonator
+    0x158: { mul: 0.6 },        // chswappy
+    0x198: { mul: 0.75 },       // chsignpost
+    0x203: { set: 0.25 },       // chdiggerboss (Hag 1, intro)
+    0x292: { set: 0.5 },        // chdinofamilysmall (baby steggosaurus)
+    0x2B3: { set: 0.75 },       // chjadestatue
+    0x327: { mul: 0.85 },       // chfairgroundworker
+    0x328: { mul: 0.85 },
+    0x32A: { mul: 0.85 },
+    0x343: { set: 0.25 },       // chdiggerboss (Grunty)
+    0x347: { set: 0.45 },       // chsabreman
+    0x35C: { mul: 0.7 },        // chseaweedbaddy
+    0x35D: { mul: 0.7 },
+    0x35E: { mul: 0.8 },        // choctopus
+    0x35F: { mul: 0.5 },        // chanemone
+    0x362: { mul: 4.0 },        // chdinofoot (Spomponadon)
+    0x36D: { set: 0.6 },        // chlagoonbits
+    0x36F: { mul: 1.25 },       // chdinoboss (Terry)
+    0x382: { mul: 0.75 },       // chtimetable (Chuffy sign post)
+    0x39B: { mul: 1.25 },       // chdinocoaster
+    0x3A5: { mul: 1.25 },       // chnicecavemenguard (Unga Bunga)
+    0x3C9: { mul: 1.5 },        // chlagoonpirate
+    0x3D1: { mul: 0.5 },        // chdingpot
+    0x3E3: { set: 0.25 },       // chgobihailfire (Gobi)
+    0x3E6: { mul: 1.6 },        // chbiggafoot
+    0x43B: { mul: 1 / 3 },      // chbottlesfamily (Mrs. Bottles)
+    0x44E: { set: 1.4 },        // chbiggafoot (ice balls)
+    0x464: { mul: 0.6 },        // ch2dbaddy
+    0x46C: { mul: 1.75 },       // changlerbossdoor
+    0x46D: { mul: 1.1 },        // chboilerbossdoor
+    0x46E: { mul: 1.4 },        // chinflatablebossdoor
+    0x4BC: { mul: 0.15 },       // chbottlesdead (Burnt Bottles)
+    0x4F5: { set: 0.25 },       // chdiggerbossbattery
+};
+
+/** The scale an actor node is drawn at: the setup scale, then its code's change. */
+function actorScale(node) {
+    const spawned = node.scale === 0 ? 1 : node.scale / 100;
+    const change = BT_ACTOR_SCALES[node.actorId];
+    if (!change) return spawned;
+    return change.set !== undefined ? change.set : spawned * change.mul;
+}
+
 // Models an actor draws besides the one in its info struct, placed with the
 // actor's own position, yaw and scale. Every nest draws the basket
 // (chnests func_80800898: model 0x85C at the actor's position, yaw and scale)
@@ -279,7 +336,10 @@ function describeNode(node) {
           (node.extraModel ? ` ${node.extraModel.label}` : '') +
           (model ? ` model ${hex(model)}${node.geometrySource ? ' ' + node.geometrySource : ''}` : '')
         : `NODE ${cat} id=${hex(node.actorId)}`;
-    return `${what}: pos=${node.position.join(', ')} yaw=${node.yaw} scale=${node.scale / 100}` +
+    const scale = node.category === NODE_CATEGORY_ACTOR && BT_ACTOR_SCALES[node.actorId]
+        ? `${node.scale / 100} (drawn at ${+actorScale(node).toFixed(4)}: set by its code on spawn)`
+        : `${node.scale / 100}`;
+    return `${what}: pos=${node.position.join(', ')} yaw=${node.yaw} scale=${scale}` +
         ` selector/radius=${node.selectorOrRadius} marker=${node.markerId} bit0=${node.bit0} unk10=${hex(node.unk10, 8)}`;
 }
 
@@ -295,7 +355,7 @@ function describeProp(prop) {
 
 function buildActorInstance(node, material, lineMaterial) {
     const mesh = new THREE.Mesh(actorGeometry, material);
-    const s = THREE.MathUtils.clamp(node.scale === 0 ? 1 : node.scale / 100, 0.25, 4);
+    const s = THREE.MathUtils.clamp(actorScale(node), 0.25, 4);
     mesh.scale.setScalar(s);
     mesh.add(makeYawLine(ACTOR_MARKER_RADIUS * 2.5, lineMaterial));
     mesh.rotation.y = THREE.MathUtils.degToRad(node.yaw);
@@ -347,7 +407,8 @@ const MODEL_PROP_STYLE = {
 };
 
 // Actors are placed like BK's (func_80330208): the node's position, yaw in
-// degrees and scale / 100 (0 = 1). NodeProp.selector_or_radius picks the
+// degrees and scale / 100 (0 = 1), then whatever their own code does to the
+// scale (BT_ACTOR_SCALES). NodeProp.selector_or_radius picks the
 // selector-gated variant for models that have one, as it does in BK.
 const ACTOR_STYLE = {
     color: ACTOR_COLOR,
@@ -359,7 +420,7 @@ const ACTOR_STYLE = {
     transform(node, obj) {
         obj.position.set(node.position[0], node.position[1], node.position[2]);
         obj.rotation.set(0, THREE.MathUtils.degToRad(node.yaw), 0, 'YXZ');
-        obj.scale.setScalar(node.scale === 0 ? 1 : node.scale / 100);
+        obj.scale.setScalar(actorScale(node));
     },
 };
 
