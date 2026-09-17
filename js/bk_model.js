@@ -33,10 +33,12 @@ const VTX_SIZE = 16;
  * @returns {{positions: Float32Array, vertexCount: number,
  *            collisionIndices: Uint16Array|Uint32Array|null,
  *            displayListIndices: Uint16Array|Uint32Array|null,
- *            bounds: {center: number[], localNorm: number, globalNorm: number}}}
+ *            bounds: {center: number[], localNorm: number, globalNorm: number},
+ *            hitVolumes: object|null}}
  *   bounds is the BKVertexList header: the model-space centre, the distance
  *   from it to the furthest vertex (local_norm) and the same from the origin
- *   (global_norm). The game's actor touch sphere is centre / local_norm.
+ *   (global_norm). The game's actor touch sphere is centre / local_norm --
+ *   unless the model has hitVolumes (see parseHitVolumes), which replace it.
  */
 export function parseBKModelGeometry(buffer) {
     const dv = new DataView(buffer);
@@ -133,7 +135,56 @@ export function parseBKModelGeometry(buffer) {
         displayListIndices = IndexArray.from(out);
     }
 
-    return { positions, vertexCount, collisionIndices, displayListIndices, bounds, refPoints: collectRefPoints(dv) };
+    return {
+        positions, vertexCount, collisionIndices, displayListIndices, bounds,
+        refPoints: collectRefPoints(dv), hitVolumes: parseHitVolumes(dv),
+    };
+}
+
+// Hit volume list (BKModelUnk14List at header +0x14). When a model has one,
+// the game tests Banjo against these instead of the vertex list's bounding
+// sphere: marker_loadModelBin installs func_80330974 as the marker's
+// collision test, and func_803322F0 calls it in place of the sphere check.
+// The test (bkmodelunk14list_func_802EBAE0, core2/code_637D0.c) first
+// rejects anything outside `radius` of the actor's position, then walks
+// the boxes, cylinders and spheres in model space. Each may be pinned to a
+// bone, in which case the game moves it with the animation; this is the
+// rest pose, which is also exactly what the game uses for actors without an
+// animation matrix list. `id` is what the actor is told was hit.
+//
+//   header:   s16 boxCount, s16 cylinderCount, s16 sphereCount, s16 radius
+//   box:      s16 min[3], s16 max[3], s16 pivot[3], u8 rot[3] (deg/2), u8 id, s8 bone, pad
+//             - an axis-aligned box [min, max] rotated about `pivot`
+//   cylinder: s16 radius, s16 height, s16 centre[3], u8 rot[3] (deg/2), u8 id, s8 bone, pad
+//             - axis along local Z, centred on `centre`, then rotated about it
+//   sphere:   s16 radius, s16 centre[3], u8 id, s8 bone, pad[2]
+//
+// Rotations are applied yaw, then pitch, then roll (func_80252DDC /
+// func_80252EC8 undo them roll-first), i.e. three.js Euler order 'ZXY'.
+function parseHitVolumes(dv) {
+    const base = dv.getInt32(0x14, false);
+    if (!base || base + 8 > dv.byteLength) return null;
+    const s16 = o => dv.getInt16(o, false);
+    const vec = o => [s16(o), s16(o + 2), s16(o + 4)];
+    const rot = o => [dv.getUint8(o) * 2, dv.getUint8(o + 1) * 2, dv.getUint8(o + 2) * 2];
+    const boxCount = s16(base);
+    const cylinderCount = s16(base + 2);
+    const sphereCount = s16(base + 4);
+    const radius = s16(base + 6);
+    let o = base + 8;
+    const boxes = [];
+    for (let i = 0; i < boxCount; i++, o += 0x18) {
+        boxes.push({ min: vec(o), max: vec(o + 6), pivot: vec(o + 12), rot: rot(o + 18), id: dv.getUint8(o + 21), bone: dv.getInt8(o + 22) });
+    }
+    const cylinders = [];
+    for (let i = 0; i < cylinderCount; i++, o += 0x10) {
+        cylinders.push({ radius: s16(o), height: s16(o + 2), center: vec(o + 4), rot: rot(o + 10), id: dv.getUint8(o + 13), bone: dv.getInt8(o + 14) });
+    }
+    const spheres = [];
+    for (let i = 0; i < sphereCount; i++, o += 0xC) {
+        spheres.push({ radius: s16(o), center: vec(o + 2), id: dv.getUint8(o + 8), bone: dv.getInt8(o + 9) });
+    }
+    return { radius, boxes, cylinders, spheres };
 }
 
 // REFPOINT geo commands (modelRender_geoCmd_REFPOINT) publish a model-space

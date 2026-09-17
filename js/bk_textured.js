@@ -184,9 +184,10 @@ function plainShown(pair) {
     return isPropCollisionShown() && pair.plain.userData.bkProp?.geometrySource === 'collision';
 }
 
-// Draw order for overlays (the collision overlay here, actor hitboxes in
-// bk_setup.js): after the XLU map (renderOrder 1), so they blend over water
-// rather than under it. Still depth-tested, so the map occludes them.
+// Draw order for the collision overlay: after the XLU map (renderOrder 1),
+// so it blends over water rather than under it. Still depth-tested, so the
+// map occludes it. (Actor hitboxes in bk_setup.js write depth instead and
+// draw before the XLU map.)
 export const OVERLAY_RENDER_ORDER = 2;
 
 function applyTexturedMode(pair) {

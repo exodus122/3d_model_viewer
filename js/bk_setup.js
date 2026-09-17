@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { addModelCheckbox, getModelGroup, resetGroupModelState, applyGroupMasterState } from './render.js';
 import { parseBKModelGeometry } from './bk_model.js';
-import { buildTexturedParts, makeTexturedMesh, attachTextured, refreshTexturedMode, isPropCollisionShown, OVERLAY_RENDER_ORDER } from './bk_textured.js';
+import { buildTexturedParts, makeTexturedMesh, attachTextured, refreshTexturedMode, isPropCollisionShown } from './bk_textured.js';
 
 const wireframeCheckbox = document.getElementById('wireframe');
 const viewModeSelect = document.getElementById('bkViewMode');
@@ -344,6 +344,7 @@ function loadPropGeometry(assetId) {
                 visual: makeGeometrySet(model.positions, model.displayListIndices),
                 collision: makeGeometrySet(model.positions, model.collisionIndices),
                 bounds: model.bounds,
+                hitVolumes: model.hitVolumes,
                 refPoints: model.refPoints,
                 texturedVariants: new Map(),
                 // Textured geometry depends on which selector-gated variant an
@@ -1111,12 +1112,22 @@ const ACTOR_STYLE = {
 // Actor hitboxes
 ////////////////////////////////////////
 //
-// The game tests Banjo against an actor with a sphere (func_803322F0 in
-// core2/code_A5BC0.c): centre = the actor's position plus the model's vertex
-// list centre, radius = its local_norm, both times the actor's scale
-// (func_80331F54 / func_803320BC). The centre offset is not rotated by the
-// actor's yaw. A sprite actor's sphere has radius half the sprite size and
-// sits half a sprite up (func_80331E64). Every marker starts collidable, but
+// The game tests Banjo against an actor in func_803322F0 (core2/code_A5BC0.c)
+// one of two ways:
+//
+//  - If the actor's model has a hit volume list (bk_model.js parseHitVolumes)
+//    the marker gets func_80330974 as its collision test and the sphere below
+//    is never consulted: the volumes (boxes, cylinders, spheres in model
+//    space) are transformed by the actor's position, rotation and scale and
+//    tested one by one, after a broad-phase reject outside the list's radius.
+//    About three quarters of the actors with a hitbox work this way.
+//  - Otherwise, a sphere: centre = the actor's position plus the model's
+//    vertex list centre, radius = its local_norm, both times the actor's
+//    scale (func_80331F54 / func_803320BC). The centre offset is not rotated
+//    by the actor's yaw. A sprite actor's sphere has radius half the sprite
+//    size and sits half a sprite up (func_80331E64).
+//
+// Every marker starts collidable, but
 // the sphere only matters for actors something reacts to -- the collision
 // table, a marker-id special case, or a callback the actor installs -- which
 // is BK_Actor_Hitboxes (see tools/bk/generate_bk_object_list.py); the rest
@@ -1125,30 +1136,122 @@ const ACTOR_STYLE = {
 // pads, switches, doors, NPCs). A style's `hitbox(instance)` returns the
 // instance's kind, or nothing.
 
-const actorHitboxes = []; // every hitbox sphere in the scene, for the toggles
+const actorHitboxes = []; // every hitbox object in the scene, for the toggles
+// Hitboxes are thin wireframes, so they can afford to write depth. Drawn
+// before the XLU map (renderOrder 1, bk_textured.js), which is then
+// depth-tested against them: water blends over a submerged hitbox and a
+// hitbox in front of a waterfall stays crisp. (The collision overlay draws
+// after the XLU map instead, because it's solid.)
 const hitboxMaterials = {
-    enemy: new THREE.MeshBasicMaterial({ color: 0xff4a4a, wireframe: true, transparent: true, opacity: 0.6, depthWrite: false }),
-    touch: new THREE.MeshBasicMaterial({ color: 0x2ee6ff, wireframe: true, transparent: true, opacity: 0.6, depthWrite: false }),
+    enemy: new THREE.MeshBasicMaterial({ color: 0xff4a4a, wireframe: true, transparent: true, opacity: 0.6 }),
+    touch: new THREE.MeshBasicMaterial({ color: 0x2ee6ff, wireframe: true, transparent: true, opacity: 0.6 }),
 };
+// The broad-phase radius around a volume list, drawn fainter so the real
+// volumes inside it stand out. Too faint to be worth occluding anything.
+const hitboxBoundsMaterials = {
+    enemy: new THREE.MeshBasicMaterial({ color: 0xff4a4a, wireframe: true, transparent: true, opacity: 0.12, depthWrite: false }),
+    touch: new THREE.MeshBasicMaterial({ color: 0x2ee6ff, wireframe: true, transparent: true, opacity: 0.12, depthWrite: false }),
+};
+const hitboxEdgeMaterials = {
+    enemy: new THREE.LineBasicMaterial({ color: 0xff4a4a, transparent: true, opacity: 0.8 }),
+    touch: new THREE.LineBasicMaterial({ color: 0x2ee6ff, transparent: true, opacity: 0.8 }),
+};
+const hitboxBoxEdges = new THREE.EdgesGeometry(new THREE.BoxGeometry(1, 1, 1));
+const hitboxCylinderGeometry = new THREE.CylinderGeometry(1, 1, 1, 12, 1);
+const hitboxSphereGeometry = new THREE.SphereGeometry(1, 8, 6);
+
+function registerHitbox(obj, kind, host, info) {
+    obj.visible = !!actorHitboxCheckboxes[kind]?.checked;
+    obj.userData.hitboxKind = kind;
+    obj.traverse(child => {
+        child.userData.bkInfo = host.userData.bkInfo + info;
+        child.userData.bkProp = host.userData.bkProp;
+    });
+    actorHitboxes.push(obj);
+}
 
 function addActorHitbox(group, kind, position, centerOffset, radius, host) {
     const sphere = new THREE.Mesh(radiusGeometry, hitboxMaterials[kind]);
     sphere.position.set(position[0] + centerOffset[0], position[1] + centerOffset[1], position[2] + centerOffset[2]);
     sphere.scale.setScalar(Math.max(radius, 1));
-    sphere.renderOrder = OVERLAY_RENDER_ORDER; // after the XLU map, like the collision overlay
-    sphere.visible = !!actorHitboxCheckboxes[kind]?.checked;
-    sphere.userData.bkInfo = host.userData.bkInfo +
-        `\n  ${kind} hitbox: sphere r=${radius.toFixed(1)} at offset (${centerOffset.map(v => v.toFixed(1)).join(', ')})`;
-    sphere.userData.bkProp = host.userData.bkProp;
-    sphere.userData.hitboxKind = kind;
+    registerHitbox(sphere, kind, host,
+        `\n  ${kind} hitbox: sphere r=${radius.toFixed(1)} at offset (${centerOffset.map(v => v.toFixed(1)).join(', ')})`);
     group.add(sphere);
-    actorHitboxes.push(sphere);
+}
+
+// Volume rotations: the game undoes them roll, pitch, yaw (func_80252DDC /
+// func_80252EC8), so the forward rotation applies yaw first -- 'ZXY'.
+function hitVolumeEuler(rot) {
+    const d = THREE.MathUtils.degToRad;
+    return new THREE.Euler(d(rot[0]), d(rot[1]), d(rot[2]), 'ZXY');
+}
+
+const fmt3 = v => v.map(n => n.toFixed(0)).join(', ');
+const boneText = bone => bone >= 0 ? ` bone ${bone}` : '';
+
+/**
+ * A model actor's hit volume list, in the actor's transform (`host` is the
+ * placed model mesh: same position, rotation and scale the game feeds
+ * func_80330974). Volumes pinned to a bone are drawn in the rest pose.
+ */
+function addActorHitVolumes(group, kind, volumes, host) {
+    const root = new THREE.Group();
+    root.position.copy(host.position);
+    root.rotation.copy(host.rotation);
+    root.scale.copy(host.scale);
+
+    const lines = [`\n  ${kind} hitbox: ${volumes.boxes.length} box, ${volumes.cylinders.length} cylinder, ` +
+        `${volumes.spheres.length} sphere (broad-phase r=${volumes.radius})`];
+
+    if (volumes.radius > 0) {
+        const bounds = new THREE.Mesh(hitboxSphereGeometry, hitboxBoundsMaterials[kind]);
+        bounds.scale.setScalar(volumes.radius);
+        root.add(bounds);
+    }
+    for (const box of volumes.boxes) {
+        // [min, max] is axis-aligned in a frame rotated about `pivot`.
+        const pivot = new THREE.Object3D();
+        pivot.position.set(box.pivot[0], box.pivot[1], box.pivot[2]);
+        pivot.rotation.copy(hitVolumeEuler(box.rot));
+        const edges = new THREE.LineSegments(hitboxBoxEdges, hitboxEdgeMaterials[kind]);
+        edges.position.set((box.min[0] + box.max[0]) / 2 - box.pivot[0], (box.min[1] + box.max[1]) / 2 - box.pivot[1],
+            (box.min[2] + box.max[2]) / 2 - box.pivot[2]);
+        edges.scale.set(Math.max(box.max[0] - box.min[0], 1), Math.max(box.max[1] - box.min[1], 1),
+            Math.max(box.max[2] - box.min[2], 1));
+        pivot.add(edges);
+        root.add(pivot);
+        lines.push(`    box min (${fmt3(box.min)}) max (${fmt3(box.max)}) pivot (${fmt3(box.pivot)})` +
+            (box.rot.some(r => r) ? ` rot (${fmt3(box.rot)})` : '') + boneText(box.bone));
+    }
+    for (const cyl of volumes.cylinders) {
+        // Axis along local Z; three.js cylinders run along Y, so tip it over.
+        const pivot = new THREE.Object3D();
+        pivot.position.set(cyl.center[0], cyl.center[1], cyl.center[2]);
+        pivot.rotation.copy(hitVolumeEuler(cyl.rot));
+        const mesh = new THREE.Mesh(hitboxCylinderGeometry, hitboxMaterials[kind]);
+        mesh.rotation.x = Math.PI / 2;
+        mesh.scale.set(Math.max(cyl.radius, 1), Math.max(cyl.height, 1), Math.max(cyl.radius, 1));
+        pivot.add(mesh);
+        root.add(pivot);
+        lines.push(`    cylinder r=${cyl.radius} h=${cyl.height} at (${fmt3(cyl.center)})` +
+            (cyl.rot.some(r => r) ? ` rot (${fmt3(cyl.rot)})` : '') + boneText(cyl.bone));
+    }
+    for (const sph of volumes.spheres) {
+        const mesh = new THREE.Mesh(hitboxSphereGeometry, hitboxMaterials[kind]);
+        mesh.position.set(sph.center[0], sph.center[1], sph.center[2]);
+        mesh.scale.setScalar(Math.max(sph.radius, 1));
+        root.add(mesh);
+        lines.push(`    sphere r=${sph.radius} at (${fmt3(sph.center)})` + boneText(sph.bone));
+    }
+
+    registerHitbox(root, kind, host, lines.join('\n'));
+    group.add(root);
 }
 
 for (const [kind, checkbox] of Object.entries(actorHitboxCheckboxes)) {
     checkbox?.addEventListener('change', () => {
-        for (const sphere of actorHitboxes) {
-            if (sphere.userData.hitboxKind === kind) sphere.visible = checkbox.checked;
+        for (const hitbox of actorHitboxes) {
+            if (hitbox.userData.hitboxKind === kind) hitbox.visible = checkbox.checked;
         }
     });
 }
@@ -1200,7 +1303,9 @@ function addLoadedModelRow(scene, groupBody, rowName, instances, loaded, style, 
         propInstances.push({ mesh, edges, prop: inst, loaded, describe: style.describe });
 
         const hitboxKind = style.hitbox?.(inst);
-        if (hitboxKind && loaded.bounds) {
+        if (hitboxKind && loaded.hitVolumes) {
+            addActorHitVolumes(typeGroup, hitboxKind, loaded.hitVolumes, mesh);
+        } else if (hitboxKind && loaded.bounds) {
             const s = mesh.scale.x;
             addActorHitbox(typeGroup, hitboxKind, inst.position, loaded.bounds.center.map(v => v * s), loaded.bounds.localNorm * s, mesh);
         }
