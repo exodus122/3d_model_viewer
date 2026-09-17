@@ -14,6 +14,7 @@ import { performSelection, clearSelection } from './selection.js';
 import { parseModel, parseModelText, parseModelBinary, parseBKModelBinary, parseZeldaSceneBinary, parseInvisibleSeams1D } from './parse_model.js';
 import { renderZeldaObjectBinary } from './render_actors.js';
 import { renderBKSetup } from './bk_setup.js';
+import { renderBKSky, drawBKSky } from './bk_sky.js';
 import { addModelCheckbox, buildTest } from './render.js';
 
 ////////////////////////////////////////
@@ -325,6 +326,9 @@ loadMap.addEventListener('click', async (e) => {
                 console.log(mapDir+"/xlu.model.bin: Binary file length:", buffer2.byteLength);
                 parseBKModelBinary(scene, buffer2, false, "XLU Model", mapId);
             }
+
+            // Sky dome / cloud layers drawn behind the map (bk_sky.js)
+            await renderBKSky(scene, mapId);
 
             // Object placement (actor spawns, static model / sprite props)
             const res3 = await fetch('./models/BK/' + mapDir + '/setup.bin');
@@ -742,6 +746,10 @@ function animate(){
     // update edges transformation if any
     if(edges && mesh){ edges.position.copy(mesh.position); edges.rotation.copy(mesh.rotation); }
 
+    // BK sky dome / clouds: drawn first as their own pass (bk_sky.js), after
+    // which the main scene must not clear the frame.
+    const afterSky = drawBKSky(renderer, scene, camera, now / 1000);
+
     if (window.__enableDepthPrepass) {
         // Match whatever culling mode the real materials are currently
         // using, so the prepass doesn't write depth for backfaces the real
@@ -755,6 +763,7 @@ function animate(){
     }
 
     renderer.render(scene,camera);
+    afterSky?.();
 }
 onWindowResize();
 animate();
