@@ -29,7 +29,8 @@ import {
 //
 // A model prop's asset comes from the gsproplookup overlay's table
 // (BT_Prop_Models, index = modelId), an actor's overlay from gemarkersDll
-// (BT_Actor_Overlays); both are generated into bt_object_list.js.
+// (BT_Actor_Overlays) and its model from the actor-info struct in that
+// overlay (BT_Actor_Models); all generated into bt_object_list.js.
 
 // NodeProp.category as BK names them (enum Prop1Category); 6 = actor holds
 // for BT (its ids resolve to actor overlays), the rest are unverified.
@@ -66,6 +67,9 @@ function hex(v, width = 0) {
 
 function actorName(id) {
     const ovl = BT_Actor_Overlays[id];
+    const model = BT_Actor_Models[id];
+    const modelName = model ? BT_Asset_Names[model]?.replace(/^Model: /, '') : null;
+    if (modelName) return `${modelName} (${hex(id)}, ${ovl ?? 'core'})`;
     return ovl ? `${ovl} (${hex(id)})` : `ACTOR ${hex(id)}`;
 }
 
@@ -229,8 +233,10 @@ export function parseBTSetup(buffer) {
 
 function describeNode(node) {
     const cat = NODE_CATEGORY_NAMES[node.category] ?? `Category ${node.category}`;
+    const model = BT_Actor_Models[node.actorId];
     const what = node.category === NODE_CATEGORY_ACTOR
-        ? `ACTOR ${actorName(node.actorId)}`
+        ? `ACTOR ${actorName(node.actorId)}` +
+          (model ? ` model ${hex(model)}${node.geometrySource ? ' ' + node.geometrySource : ''}` : '')
         : `NODE ${cat} id=${hex(node.actorId)}`;
     return `${what}: pos=${node.position.join(', ')} yaw=${node.yaw} scale=${node.scale / 100}` +
         ` selector/radius=${node.selectorOrRadius} marker=${node.markerId} bit0=${node.bit0} unk10=${hex(node.unk10, 8)}`;
@@ -299,7 +305,23 @@ const MODEL_PROP_STYLE = {
     },
 };
 
-const GROUP_KEYS = ['bt-models', 'bt-actors', 'bt-nodes'];
+// Actors are placed like BK's (func_80330208): the node's position, yaw in
+// degrees and scale / 100 (0 = 1). NodeProp.selector_or_radius picks the
+// selector-gated variant for models that have one, as it does in BK.
+const ACTOR_STYLE = {
+    color: ACTOR_COLOR,
+    edgeColor: 0x8a3d10,
+    describe: describeNode,
+    fallback: buildActorInstance,
+    selectorOf: node => node.selectorOrRadius,
+    transform(node, obj) {
+        obj.position.set(node.position[0], node.position[1], node.position[2]);
+        obj.rotation.set(0, THREE.MathUtils.degToRad(node.yaw), 0, 'YXZ');
+        obj.scale.setScalar(node.scale === 0 ? 1 : node.scale / 100);
+    },
+};
+
+const GROUP_KEYS = ['bt-models', 'bt-actors', 'bt-actors-hitbox', 'bt-nodes'];
 
 export async function renderBTSetup(scene, buffer, mapId = -1) {
     const setup = parseBTSetup(buffer);
@@ -331,12 +353,28 @@ export async function renderBTSetup(scene, buffer, mapId = -1) {
     }
 
     if (actorNodes.length) {
-        // No actor models yet: each actor's model id lives inside its overlay.
-        const group = getModelGroup('bt-actors', 'Actors');
+        // Like BK: actors whose model has a collision list go in the "collision"
+        // group (shown), the rest -- hitbox-only models, model-less actors and
+        // anything that failed to load -- in the hidden-by-default group.
         const byType = [...groupBy(actorNodes, n => n.actorId)]
             .sort((a, b) => actorName(a[0]).localeCompare(actorName(b[0])));
-        for (const [id, list] of byType) {
-            addTypeRow(scene, group.body, rowLabel(actorName(id), list), list, ACTOR_COLOR, true, buildActorInstance);
+        const geometries = await Promise.all(byType.map(([id]) => {
+            const asset = BT_Actor_Models[id];
+            return asset ? loadPropGeometry(asset, 'BT') : Promise.resolve(null);
+        }));
+        const solid = [], hitboxOnly = [];
+        byType.forEach(([id, list], i) => (geometries[i]?.collision ? solid : hitboxOnly).push([id, list, geometries[i]]));
+        if (solid.length) {
+            const group = getModelGroup('bt-actors', 'Actors (collision)');
+            for (const [id, list, loaded] of solid) {
+                addLoadedModelRow(scene, group.body, rowLabel(actorName(id), list), list, loaded, ACTOR_STYLE, true);
+            }
+        }
+        if (hitboxOnly.length) {
+            const group = getModelGroup('bt-actors-hitbox', 'Actors (no collision)');
+            for (const [id, list, loaded] of hitboxOnly) {
+                addLoadedModelRow(scene, group.body, rowLabel(actorName(id), list), list, loaded, ACTOR_STYLE, true);
+            }
         }
     }
 

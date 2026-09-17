@@ -355,9 +355,9 @@ loadMap.addEventListener('click', async (e) => {
 
         const files = [];
         if (hasOpa) files.push(["opa.model.bin", undefined]);
-        sectors.forEach(([opa, xlu], i) => {
-            files.push([`sect${i}.opa.model.bin`, `Sector ${i} (0x${opa})`]);
-            if (xlu !== "") files.push([`sect${i}.xlu.model.bin`, `Sector ${i} XLU (0x${xlu})`]);
+        sectors.forEach(([opa, xlu, offset], i) => {
+            files.push([`sect${i}.opa.model.bin`, `Sector ${i} (0x${opa})`, offset]);
+            if (xlu !== "") files.push([`sect${i}.xlu.model.bin`, `Sector ${i} XLU (0x${xlu})`, offset]);
         });
         if (hasXlu) files.push(["xlu.model.bin", "XLU Model"]);
 
@@ -365,11 +365,11 @@ loadMap.addEventListener('click', async (e) => {
             // Textures are looked up by id in the shared bank (bt_textures.js)
             await loadBTTextureBank();
             for (let i = 0; i < files.length; i++) {
-                const [filename, label] = files[i];
+                const [filename, label, offset] = files[i];
                 const res = await fetch('./models/BT/' + mapDir + '/' + filename);
                 const buffer = await res.arrayBuffer();
                 console.log(mapDir + "/" + filename + ": Binary file length:", buffer.byteLength);
-                parseBKModelBinary(scene, buffer, i === 0, label);
+                parseBKModelBinary(scene, buffer, i === 0, label, undefined, offset);
             }
 
             // Object placement (actor spawns, static model props), bt_setup.js

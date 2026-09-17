@@ -864,7 +864,10 @@ export function parseBKModelTextured(buffer, selector = 0, options = {}) {
         if (appendageOverrides && index in appendageOverrides) {
             return branchesForSelection(count, appendageOverrides[index]);
         }
-        if (count === 1) return index === activeSingleIndex ? [0] : [];
+        // BT models gate their ordinary body parts behind single-branch
+        // selectors (a character's whole torso can sit under one), so there a
+        // lone branch is on by default; BK's are opt-in parts (see above).
+        if (count === 1) return (game === "BT" || index === activeSingleIndex) ? [0] : [];
         if (count > 1) return [(selector >= 1 && selector <= count) ? selector - 1 : 0];
         return [];
     };

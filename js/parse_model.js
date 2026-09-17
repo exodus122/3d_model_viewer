@@ -124,7 +124,9 @@ export function parseModelBinary(scene, buffer){
 
 // mapId: the BK map this model belongs to (BK_Maps sceneID), which decides
 // the selector-gated parts its textured mesh shows; omit for a bare model.
-export function parseBKModelBinary(scene, buffer, fresh, name, mapId){
+// worldOffset: [x, y, z] translation of the whole model (BT's Jolly Roger's
+// Lagoon sector models are stored around their own origin).
+export function parseBKModelBinary(scene, buffer, fresh, name, mapId, worldOffset){
     const dv = new DataView(buffer);
     if (dv.byteLength < 4) {
         alert('binary too small');
@@ -166,7 +168,7 @@ export function parseBKModelBinary(scene, buffer, fresh, name, mapId){
         const idx = model.displayListIndices ?? [];
         for (let i = 0; i + 2 < idx.length; i += 3) tris.push([idx[i], idx[i + 1], idx[i + 2]]);
         console.log(`parseBKModelBinary: ${name ?? "model"} has no collision list, using its ${tris.length} display-list triangles`);
-        finishBKModel(scene, buffer, verts, tris, fresh, name, mapId);
+        finishBKModel(scene, buffer, verts, tris, fresh, name, mapId, worldOffset);
         return;
     }
     const geoCount = dv.getInt16(collision_list_offset+0x10,false);
@@ -243,18 +245,27 @@ export function parseBKModelBinary(scene, buffer, fresh, name, mapId){
         for(let i=0;i<tris.length;i++) tris[i]=tris[i].map(x=>x-1);
     }
 
-    finishBKModel(scene, buffer, verts, tris, fresh, name, mapId);
+    finishBKModel(scene, buffer, verts, tris, fresh, name, mapId, worldOffset);
 }
 
 // Second half of parseBKModelBinary: build the plain mesh from verts / tris
 // and hang the textured mesh under it.
-function finishBKModel(scene, buffer, verts, tris, fresh, name, mapId) {
+function finishBKModel(scene, buffer, verts, tris, fresh, name, mapId, worldOffset) {
     let modelName = name ?? "Main Model";
     if(!fresh && !name)
         modelName = `Model ${loadedModels.length+1}`;
 
     if (fresh) clearTexturedPairs();
     buildGeometry(scene, verts, tris, null, null, modelName, fresh);
+
+    if (worldOffset) {
+        // The textured mesh is a child of the plain mesh; the edges are not.
+        const entry = loadedModels[loadedModels.length - 1];
+        if (entry && entry.name === modelName) {
+            entry.mesh.position.set(worldOffset[0], worldOffset[1], worldOffset[2]);
+            entry.edges?.position.set(worldOffset[0], worldOffset[1], worldOffset[2]);
+        }
+    }
 
     // BK / BT: also build the textured (display list) version of the map and
     // hang it under the collision mesh for the "Textured" checkbox. The

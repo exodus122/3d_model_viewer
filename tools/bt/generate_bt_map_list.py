@@ -35,7 +35,8 @@ def js_entry(m):
         'xlu: "%s"' % ("%X" % files["xlu.model.bin"]["asset_id"] if "xlu.model.bin" in files else ""),
     ]
     if m.get("sectors"):
-        sects = ", ".join('["%X", "%s"]' % (s["opa"], "%X" % s["xlu"] if s["xlu"] else "")
+        sects = ", ".join('["%X", "%s", [%s]]' % (s["opa"], "%X" % s["xlu"] if s["xlu"] else "",
+                                                 ", ".join("%g" % v for v in s["offset"]))
                           for s in m["sectors"])
         parts.append("sectors: [%s]" % sects)
     return "    { %s }," % ", ".join(parts)
@@ -57,7 +58,8 @@ def main():
         "//   opa.model.bin  - model A, opaque level geometry (BKModelBin)      [asset id in \"opa\", \"\" if none]\n"
         "//   xlu.model.bin  - model B, translucent level geometry, if any     [asset id in \"xlu\", \"\" if none]\n"
         "//   setup.bin      - decrypted + decompressed map setup file\n"
-        "//   sect<N>.{opa,xlu}.model.bin - Jolly Roger's Lagoon terrain sectors [\"sectors\": [[opa, xlu], ...]]\n"
+        "//   sect<N>.{opa,xlu}.model.bin - Jolly Roger's Lagoon terrain sectors, drawn translated by\n"
+        "//                                 their offset [\"sectors\": [[opa, xlu, [x, y, z]], ...]]\n"
         "const BT_Maps = [\n"
     )
     block = header + "\n".join(js_entry(m) for m in maps) + "\n];"

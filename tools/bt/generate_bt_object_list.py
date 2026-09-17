@@ -54,7 +54,8 @@ def main():
     prop_models = [("0x%X" % i, a) for i, a in enumerate(tables["prop_models"]) if a]
     prop_sprites = [("0x%X" % i, a) for i, a in enumerate(tables["prop_sprites"]) if a]
     actor_overlays = [("0x%X" % int(k), "%s#%d" % (v[0], v[1])) for k, v in tables["actor_overlays"].items()]
-    asset_names = sorted({a for _, a in prop_models} | {a for _, a in prop_sprites})
+    actor_models = [("0x%X" % int(k), v) for k, v in tables["actor_models"].items() if v]
+    asset_names = sorted({a for _, a in prop_models} | {a for _, a in prop_sprites} | {a for _, a in actor_models})
     asset_names = [("0x%X" % a, names[a]) for a in asset_names if a in names]
 
     blocks = [
@@ -67,13 +68,16 @@ def main():
         js_map("BT_Actor_Overlays", actor_overlays,
                "gemarkersDll: actor id -> the ch*/gl* overlay (and entrypoint) that spawns it; "
                "ids missing here are handled by core code"),
+        js_map("BT_Actor_Models", actor_models,
+               "actor id -> model asset id, from the actor-info struct in its overlay's data "
+               "(missing: model-less actor, or its struct was not found)"),
         js_map("BT_Asset_Names", asset_names,
-               "Community names for the prop assets above (banjo-memory-viewer bt_assets.py); optional"),
+               "Community names for the model assets above (banjo-memory-viewer bt_assets.py); optional"),
     ]
     with open(args.out, "w", encoding="utf-8", newline="\n") as f:
         f.write("\n\n".join(blocks) + "\n")
-    print("wrote %s: %d prop models, %d sprites, %d actor overlays, %d names" % (
-        args.out, len(prop_models), len(prop_sprites), len(actor_overlays), len(asset_names)))
+    print("wrote %s: %d prop models, %d sprites, %d actor overlays, %d actor models, %d names" % (
+        args.out, len(prop_models), len(prop_sprites), len(actor_overlays), len(actor_models), len(asset_names)))
 
 
 if __name__ == "__main__":

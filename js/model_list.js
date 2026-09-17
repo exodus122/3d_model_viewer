@@ -137,7 +137,8 @@ const BK_Maps = [
 //   opa.model.bin  - model A, opaque level geometry (BKModelBin)      [asset id in "opa", "" if none]
 //   xlu.model.bin  - model B, translucent level geometry, if any     [asset id in "xlu", "" if none]
 //   setup.bin      - decrypted + decompressed map setup file
-//   sect<N>.{opa,xlu}.model.bin - Jolly Roger's Lagoon terrain sectors ["sectors": [[opa, xlu], ...]]
+//   sect<N>.{opa,xlu}.model.bin - Jolly Roger's Lagoon terrain sectors, drawn translated by
+//                                 their offset ["sectors": [[opa, xlu, [x, y, z]], ...]]
 const BT_Maps = [
     { name: "SM_SPIRAL_MOUNTAIN", sceneID: "AF", dir: "0AF_SM_SPIRAL_MOUNTAIN", opa: "1CF9", xlu: "1CFA" },
     { name: "SM_BEHIND_THE_WATERFALL", sceneID: "AE", dir: "0AE_SM_BEHIND_THE_WATERFALL", opa: "1CFE", xlu: "1CFF" },
@@ -169,9 +170,9 @@ const BT_Maps = [
     { name: "IOH_WASTELAND", sceneID: "15A", dir: "15A_IOH_WASTELAND", opa: "1DC9", xlu: "" },
     { name: "IOH_ANOTHER_DIGGER_TUNNEL", sceneID: "15B", dir: "15B_IOH_ANOTHER_DIGGER_TUNNEL", opa: "1DCC", xlu: "1DCD" },
     { name: "IOH_QUAGMIRE", sceneID: "15C", dir: "15C_IOH_QUAGMIRE", opa: "1DCA", xlu: "" },
+    { name: "MT_MAYAHEM_TEMPLE", sceneID: "B8", dir: "0B8_MT_MAYAHEM_TEMPLE", opa: "1D0A", xlu: "1D0B" },
     { name: "MT_WUMBAS", sceneID: "B6", dir: "0B6_MT_WUMBAS", opa: "1D00", xlu: "1D05" },
     { name: "MT_MUMBO", sceneID: "B7", dir: "0B7_MT_MUMBO", opa: "1D01", xlu: "1D02" },
-    { name: "MT_MAYAHEM_TEMPLE", sceneID: "B8", dir: "0B8_MT_MAYAHEM_TEMPLE", opa: "1D0A", xlu: "1D0B" },
     { name: "MT_PRISON_COMPOUND", sceneID: "B9", dir: "0B9_MT_PRISON_COMPOUND", opa: "1D0C", xlu: "1D0D" },
     { name: "MT_COLUMNS_VAULT", sceneID: "BA", dir: "0BA_MT_COLUMNS_VAULT", opa: "1D0E", xlu: "" },
     { name: "MT_KICKBALL_STADIUM", sceneID: "BB", dir: "0BB_MT_KICKBALL_STADIUM", opa: "1D0F", xlu: "" },
@@ -209,8 +210,8 @@ const BT_Maps = [
     { name: "GGM_RACE_1", sceneID: "16F", dir: "16F_GGM_RACE_1", opa: "1D25", xlu: "1D36" },
     { name: "GGM_RACE_2", sceneID: "170", dir: "170_GGM_RACE_2", opa: "1D25", xlu: "1D36" },
     { name: "GGM_MUMBO", sceneID: "171", dir: "171_GGM_MUMBO", opa: "1D01", xlu: "1D02" },
-    { name: "WW_WUMBA", sceneID: "D5", dir: "0D5_WW_WUMBA", opa: "1D00", xlu: "1D05" },
     { name: "WW_WITCHYWORLD", sceneID: "D6", dir: "0D6_WW_WITCHYWORLD", opa: "1D38", xlu: "1D44" },
+    { name: "WW_WUMBA", sceneID: "D5", dir: "0D5_WW_WUMBA", opa: "1D00", xlu: "1D05" },
     { name: "WW_DODGEM_LOBBY", sceneID: "DD", dir: "0DD_WW_DODGEM_LOBBY", opa: "1D41", xlu: "" },
     { name: "WW_DODGEM_1V1", sceneID: "DE", dir: "0DE_WW_DODGEM_1V1", opa: "1D42", xlu: "" },
     { name: "WW_DODGEM_1V2", sceneID: "DF", dir: "0DF_WW_DODGEM_1V2", opa: "1D42", xlu: "" },
@@ -230,6 +231,9 @@ const BT_Maps = [
     { name: "WW_CRAZY_CASTLE_SOP", sceneID: "13B", dir: "13B_WW_CRAZY_CASTLE_SOP", opa: "1D39", xlu: "" },
     { name: "WW_STAR_SPINNER_SOP", sceneID: "13C", dir: "13C_WW_STAR_SPINNER_SOP", opa: "1D40", xlu: "1D45" },
     { name: "WW_MUMBO", sceneID: "176", dir: "176_WW_MUMBO", opa: "1D01", xlu: "1D02" },
+    { name: "JRL_JOLLY_ROGERS_LAGOON", sceneID: "1A7", dir: "1A7_JRL_JOLLY_ROGERS_LAGOON", opa: "", xlu: "1D5C", sectors: [["727", "", [-9000, 9000, -8000]], ["734", "", [-9000, 9000, -9200]], ["728", "", [-9000, 2000, -3200]], ["72B", "", [-5500, 1200, -7100]], ["72C", "", [-5400, -1200, 1200]]] },
+    { name: "JRL_ATLANTIS", sceneID: "1A8", dir: "1A8_JRL_ATLANTIS", opa: "", xlu: "1D5C", sectors: [["72A", "", [-4400, -3500, 8200]], ["730", "", [3500, -5600, 2600]], ["72D", "", [3500, -6000, 10200]], ["733", "737", [-16900, -800, 9400]]] },
+    { name: "JRL_SEA_BOTTOM", sceneID: "1A9", dir: "1A9_JRL_SEA_BOTTOM", opa: "", xlu: "1D5C", sectors: [["72E", "", [8000, -6700, 300]], ["72F", "", [14300, -6300, -4600]], ["731", "", [8500, -8000, -8200]], ["732", "738", [12200, -3800, 5500]]] },
     { name: "JRL_JOLLYS", sceneID: "ED", dir: "0ED_JRL_JOLLYS", opa: "1D57", xlu: "1D63" },
     { name: "JRL_PAWNO", sceneID: "EE", dir: "0EE_JRL_PAWNO", opa: "1D59", xlu: "1D5A" },
     { name: "JRL_MUMBO", sceneID: "EF", dir: "0EF_JRL_MUMBO", opa: "1D01", xlu: "1D02" },
@@ -244,9 +248,6 @@ const BT_Maps = [
     { name: "JRL_WUMBA", sceneID: "120", dir: "120_JRL_WUMBA", opa: "1D00", xlu: "1D07" },
     { name: "JRL_SEA_BOTTOM_CAVERN", sceneID: "181", dir: "181_JRL_SEA_BOTTOM_CAVERN", opa: "1D60", xlu: "" },
     { name: "JRL_SMUGGLERS_CAVERN", sceneID: "1A6", dir: "1A6_JRL_SMUGGLERS_CAVERN", opa: "729", xlu: "736" },
-    { name: "JRL_JOLLY_ROGERS_LAGOON", sceneID: "1A7", dir: "1A7_JRL_JOLLY_ROGERS_LAGOON", opa: "", xlu: "1D5C", sectors: [["727", ""], ["734", ""], ["728", ""], ["72B", ""], ["72C", ""]] },
-    { name: "JRL_ATLANTIS", sceneID: "1A8", dir: "1A8_JRL_ATLANTIS", opa: "", xlu: "1D5C", sectors: [["72A", ""], ["730", ""], ["72D", ""], ["733", "737"]] },
-    { name: "JRL_SEA_BOTTOM", sceneID: "1A9", dir: "1A9_JRL_SEA_BOTTOM", opa: "", xlu: "1D5C", sectors: [["72E", ""], ["72F", ""], ["731", ""], ["732", "738"]] },
     { name: "TDL_TERRYDACTYLAND", sceneID: "112", dir: "112_TDL_TERRYDACTYLAND", opa: "1D66", xlu: "1D72" },
     { name: "TDL_TERRYS_NEST", sceneID: "113", dir: "113_TDL_TERRYS_NEST", opa: "1D6B", xlu: "1D75" },
     { name: "TDL_TRAIN_STATION", sceneID: "114", dir: "114_TDL_TRAIN_STATION", opa: "1D6E", xlu: "" },
