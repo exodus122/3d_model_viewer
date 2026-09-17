@@ -337,6 +337,12 @@ export function getModelGroup(key, label) {
     const header = document.createElement('div');
     header.className = 'model-group-header';
 
+    // Collapse toggle. Groups start minimised so a scene with many groups
+    // keeps the panel short; the choice is remembered per key across loads.
+    const toggle = document.createElement('button');
+    toggle.type = 'button';
+    toggle.className = 'model-group-toggle';
+
     const master = document.createElement('input');
     master.type = 'checkbox';
     master.checked = true;
@@ -353,6 +359,7 @@ export function getModelGroup(key, label) {
     count.className = 'model-group-count';
     count.title = 'Shown / total';
 
+    header.appendChild(toggle);
     header.appendChild(title);
     header.appendChild(count);
 
@@ -365,6 +372,19 @@ export function getModelGroup(key, label) {
 
     const group = { wrapper, body, master, count };
     modelGroups.set(key, group);
+
+    const setCollapsed = (collapsed) => {
+        wrapper.classList.toggle('collapsed', collapsed);
+        toggle.textContent = collapsed ? '▸' : '▾';
+        toggle.title = collapsed ? 'Expand' : 'Collapse';
+        toggle.setAttribute('aria-expanded', String(!collapsed));
+        groupCollapsedState.set(key, collapsed);
+    };
+    setCollapsed(groupCollapsedState.get(key) ?? true);
+
+    toggle.addEventListener('click', () => {
+        setCollapsed(!wrapper.classList.contains('collapsed'));
+    });
 
     master.addEventListener('change', () => {
         // Capture the target state up front. The events dispatched below
@@ -425,6 +445,10 @@ export function getModelGroup(key, label) {
 // a click on the master itself: the per-row visibility lives in modelState
 // and is deliberately NOT carried between scenes (see resetGroupModelState).
 const groupMasterState = new Map();
+
+// Collapsed/expanded choice per group key, kept across scene loads. Groups
+// default to collapsed.
+const groupCollapsedState = new Map();
 
 /**
  * Re-apply the last master-checkbox choice made for this group, if any, to
