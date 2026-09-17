@@ -80,13 +80,38 @@ const BT_ACTOR_APPENDAGES = {
 
 // Scale changes an actor's own code makes once it has spawned. The setup
 // file's scale (NodeProp.scale / 100, gspropsDll) is applied first; then the
-// overlay's init callback (ActorInfo+0x34) runs, and these call
-// actor_setScale (0x80102FDC) with either the spawned scale times a constant
-// (mul) or a fixed value (set). Found by scanning every actor overlay's init
-// callback for that call (banjo-tooie ROM, US); the baby steggosaurus sets its
-// scale from its state machine instead (chdinofamilysmall state 1, the
-// fresh-file state, at 0x808008F8).
+// overlay's init callback (ActorInfo+0x34) runs, and these either call
+// actor_setScale (0x80102FDC) or store actor->scale (+0x38) directly, with
+// the spawned scale times a constant (mul) or a fixed value (set). Found by
+// scanning every actor overlay's init callback for those (banjo-tooie ROM,
+// US). Two set theirs from their state machine instead: the baby
+// steggosaurus (chdinofamilysmall state 1, the fresh-file state, at
+// 0x808008F8) and the silo (chsilo 0x808008CC, which also takes its number
+// from the selector).
 const BT_ACTOR_SCALES = {
+    0x17F: { set: 0.2 },        // chjigsawbitcont
+    0x18F: { set: 0.5 },        // chmoley (Jamjars)
+    0x197: { set: 0.5 },        // chhoney (honeycomb)
+    0x19B: { set: 0.375 },      // chmayafarmer (Bovina)
+    0x19D: { set: 1.0 },        // chsilo
+    0x1AA: { set: 3.0 },        // chfiregen (generator pipes)
+    0x1AC: { set: 3.0 },
+    0x1AE: { set: 3.0 },
+    0x1B0: { set: 3.0 },
+    0x1B2: { set: 3.0 },
+    0x1B4: { set: 3.0 },
+    0x1BF: { set: 0.3 },        // chfishshootgame (Atlantis fish)
+    0x1E2: { set: 0.18 },       // chjiggygamenew (Banjo's hand)
+    0x229: { set: 0.5 },        // chhoney (honeycomb)
+    0x29F: { set: 0.75 },       // chglowbo
+    0x2A0: { set: 0.75 },
+    0x523: { set: 0.75 },
+    0x2A4: { set: 0.3 },        // chflysaucer (red target)
+    0x2F8: { set: 0.5 },        // chmayafarmer (fly)
+    0x37D: { set: 0.4 },        // chevilmumbo (purple light)
+    0x37F: { set: 0.8 },        // chdodgemcontrol (blue twinkly)
+    0x4A5: { set: 0.18 },       // chboggy
+    0x530: { set: 2.0 },        // chboggy (sled)
     0x112: { mul: 1.5 },        // chwarriorbaddy (Moggies)
     0x133: { mul: 0.75 },       // chdiggerfly (pterodactyl)
     0x134: { mul: 0.75 },
