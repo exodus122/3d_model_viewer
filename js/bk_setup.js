@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { addModelCheckbox, getModelGroup, resetGroupModelState, applyGroupMasterState } from './render.js';
 import { parseBKModelGeometry } from './bk_model.js';
-import { buildTexturedParts, makeTexturedMesh, attachTextured, refreshTexturedMode, isPropCollisionShown } from './bk_textured.js';
+import { buildTexturedParts, makeTexturedMesh, attachTextured, refreshTexturedMode, isPropCollisionShown, OVERLAY_RENDER_ORDER } from './bk_textured.js';
 
 const wireframeCheckbox = document.getElementById('wireframe');
 const viewModeSelect = document.getElementById('bkViewMode');
@@ -908,6 +908,7 @@ function addActorHitbox(group, kind, position, centerOffset, radius, host) {
     const sphere = new THREE.Mesh(radiusGeometry, hitboxMaterials[kind]);
     sphere.position.set(position[0] + centerOffset[0], position[1] + centerOffset[1], position[2] + centerOffset[2]);
     sphere.scale.setScalar(Math.max(radius, 1));
+    sphere.renderOrder = OVERLAY_RENDER_ORDER; // after the XLU map, like the collision overlay
     sphere.visible = !!actorHitboxCheckboxes[kind]?.checked;
     sphere.userData.bkInfo = host.userData.bkInfo +
         `\n  ${kind} hitbox: sphere r=${radius.toFixed(1)} at offset (${centerOffset.map(v => v.toFixed(1)).join(', ')})`;

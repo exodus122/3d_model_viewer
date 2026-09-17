@@ -178,27 +178,48 @@ export function parseBKModelBinary(scene, buffer, fresh, name, mapId){
     // The key is the index triple rotated so the smallest index leads, which
     // is winding-preserving: (a,b,c), (b,c,a) and (c,a,b) are the same face,
     // but the reversed triangle is a different (back) face and is kept.
+    //
+    // BKCollisionTriangle is { s16 vtx[3]; s16 unk6; s32 flags }. Flag
+    // 0x10000 makes a triangle collide from both sides (collisionList_*
+    // in core2/code_5FD90.c skips a plain triangle when moving along its
+    // normal, but flips a flagged one's normal to face the probe); water
+    // surfaces are nearly all like this. Those get their reversed winding
+    // added too, so the back face draws with the front-face material.
+    const COLLISION_FLAG_DOUBLE_SIDED = 0x10000;
     const tris = [];
     const seenTris = new Set();
-    let duplicateTris = 0;
+    let duplicateTris = 0, doubleSidedTris = 0;
+    const triKey = (a, b, c) => {
+        if (a <= b && a <= c)      return a + "," + b + "," + c;
+        else if (b <= a && b <= c) return b + "," + c + "," + a;
+        else                       return c + "," + a + "," + b;
+    };
     for(let i=0;i<triCount;i++){
         if(offset+0xC>dv.byteLength) break;
         const a = dv.getInt16(offset,false)+1; offset+=2;
         const b = dv.getInt16(offset,false)+1; offset+=2;
         const c = dv.getInt16(offset,false)+1; offset+=2;
-        offset+=6;
+        offset+=2;
+        const flags = dv.getInt32(offset,false); offset+=4;
 
-        let key;
-        if (a <= b && a <= c)      key = a + "," + b + "," + c;
-        else if (b <= a && b <= c) key = b + "," + c + "," + a;
-        else                       key = c + "," + a + "," + b;
+        const key = triKey(a, b, c);
         if (seenTris.has(key)) { duplicateTris++; continue; }
         seenTris.add(key);
-
         tris.push([a,b,c]);
+
+        if (flags & COLLISION_FLAG_DOUBLE_SIDED) {
+            const backKey = triKey(c, b, a);
+            if (!seenTris.has(backKey)) {
+                seenTris.add(backKey);
+                tris.push([c,b,a]);
+                doubleSidedTris++;
+            }
+        }
     }
     if (duplicateTris > 0)
-        console.log(`parseBKModelBinary: dropped ${duplicateTris} duplicate grid-cell triangles (${triCount} -> ${tris.length})`);
+        console.log(`parseBKModelBinary: dropped ${duplicateTris} duplicate grid-cell triangles (${triCount} -> ${tris.length - doubleSidedTris})`);
+    if (doubleSidedTris > 0)
+        console.log(`parseBKModelBinary: ${doubleSidedTris} double-sided triangles (flag 0x10000) drawn from both sides`);
     
     //console.log(tris);
     
