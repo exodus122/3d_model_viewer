@@ -7,7 +7,7 @@ import { scanAndBuildFlatGroundMarkers, buildSurfaceTypeMarkers, scanAndBuildSub
 import { buildWaterBoxModel } from './waterboxes.js';
 import { renderZeldaObjectsInScene } from './render_actors.js';
 import { buildTexturedMesh, attachTextured, clearTexturedPairs } from './bk_textured.js';
-import { mapAppendageVisibility } from './bk_model.js';
+import { mapAppendageVisibility, parseBKModelGeometry } from './bk_model.js';
 
 const wireframeCheckbox = document.getElementById('wireframe');
 const surfaceTypeDropdown = document.getElementById("surfaceTypeDropdown");
@@ -158,10 +158,15 @@ export function parseBKModelBinary(scene, buffer, fresh, name, mapId){
     //console.log("collision_list_offset is "+collision_list_offset.toString(16))
     if (!collision_list_offset) {
         // Purely visual model (about 30 BT xlu models, e.g. the Mumbo hut
-        // interiors): nothing to collide with, and BT's F3DEX2 display lists
-        // are not decoded yet, so there is nothing to draw either.
-        console.log(`parseBKModelBinary: ${name ?? "model"} has no collision list, skipped`);
-        if (fresh) { clearTexturedPairs(); clearAllModels(scene); }
+        // interiors, plus a few opa ones like the Dodgems arenas): nothing to
+        // collide with, so the plain mesh is the display-list geometry, as
+        // for BK props.
+        const model = parseBKModelGeometry(buffer, game);
+        const tris = [];
+        const idx = model.displayListIndices ?? [];
+        for (let i = 0; i + 2 < idx.length; i += 3) tris.push([idx[i], idx[i + 1], idx[i + 2]]);
+        console.log(`parseBKModelBinary: ${name ?? "model"} has no collision list, using its ${tris.length} display-list triangles`);
+        finishBKModel(scene, buffer, verts, tris, fresh, name, mapId);
         return;
     }
     const geoCount = dv.getInt16(collision_list_offset+0x10,false);
@@ -237,7 +242,13 @@ export function parseBKModelBinary(scene, buffer, fresh, name, mapId){
     if(minIdx>=1 && maxIdx<=verts.length) {
         for(let i=0;i<tris.length;i++) tris[i]=tris[i].map(x=>x-1);
     }
-    
+
+    finishBKModel(scene, buffer, verts, tris, fresh, name, mapId);
+}
+
+// Second half of parseBKModelBinary: build the plain mesh from verts / tris
+// and hang the textured mesh under it.
+function finishBKModel(scene, buffer, verts, tris, fresh, name, mapId) {
     let modelName = name ?? "Main Model";
     if(!fresh && !name)
         modelName = `Model ${loadedModels.length+1}`;
@@ -245,15 +256,16 @@ export function parseBKModelBinary(scene, buffer, fresh, name, mapId){
     if (fresh) clearTexturedPairs();
     buildGeometry(scene, verts, tris, null, null, modelName, fresh);
 
-    // BK only: also build the textured (display list) version of the map and
-    // hang it under the collision mesh for the "Textured" checkbox.
-    if (game == "BK") {
+    // BK / BT: also build the textured (display list) version of the map and
+    // hang it under the collision mesh for the "Textured" checkbox. The
+    // selector-gated parts are only known for BK maps (mapAppendageVisibility).
+    if (game == "BK" || game == "BT") {
         const entry = loadedModels[loadedModels.length - 1];
         if (entry && entry.name === modelName) {
             try {
-                const translucent = modelName === "XLU Model";
-                const appendages = mapId === undefined ? undefined : mapAppendageVisibility(mapId, translucent);
-                const textured = buildTexturedMesh(buffer, { translucent, appendages });
+                const translucent = modelName.includes("XLU");
+                const appendages = (game == "BK" && mapId !== undefined) ? mapAppendageVisibility(mapId, translucent) : undefined;
+                const textured = buildTexturedMesh(buffer, { translucent, appendages, game });
                 if (textured) attachTextured(entry.mesh, textured, entry.edges);
             } catch (err) {
                 console.warn(`${modelName}: textured build failed: ${err.message}`);

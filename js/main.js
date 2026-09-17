@@ -14,7 +14,9 @@ import { performSelection, clearSelection } from './selection.js';
 import { parseModel, parseModelText, parseModelBinary, parseBKModelBinary, parseZeldaSceneBinary, parseInvisibleSeams1D } from './parse_model.js';
 import { renderZeldaObjectBinary } from './render_actors.js';
 import { renderBKSetup } from './bk_setup.js';
+import { renderBTSetup } from './bt_setup.js';
 import { renderBKSky, drawBKSky } from './bk_sky.js';
+import { loadBTTextureBank } from './bt_textures.js';
 import { addModelCheckbox, buildTest } from './render.js';
 
 ////////////////////////////////////////
@@ -247,7 +249,7 @@ gameSel.addEventListener('change',(e)=>{
         });
     }
     
-    bkViewModeLabel.style.display = (game == "BK") ? "block" : "none";
+    bkViewModeLabel.style.display = (game == "BK" || game == "BT") ? "block" : "none";
     bkActorHitboxesLabel.style.display = (game == "BK") ? "block" : "none";
 
     if (game == "BK" || game == "BT") {
@@ -346,6 +348,7 @@ loadMap.addEventListener('click', async (e) => {
         // models (sect<N>.*.model.bin) and the map-level xlu is the water.
         const mapName = document.getElementById("mapDropdown").value;
         const mapDir = getMapProperty(game, mapName, "dir");
+        const mapId = parseInt(getMapProperty(game, mapName, "sceneID"), 16);
         const hasOpa = getMapProperty(game, mapName, "opa") !== "";
         const hasXlu = getMapProperty(game, mapName, "xlu") !== "";
         const sectors = getMapProperty(game, mapName, "sectors") ?? [];
@@ -359,6 +362,8 @@ loadMap.addEventListener('click', async (e) => {
         if (hasXlu) files.push(["xlu.model.bin", "XLU Model"]);
 
         try {
+            // Textures are looked up by id in the shared bank (bt_textures.js)
+            await loadBTTextureBank();
             for (let i = 0; i < files.length; i++) {
                 const [filename, label] = files[i];
                 const res = await fetch('./models/BT/' + mapDir + '/' + filename);
@@ -366,6 +371,12 @@ loadMap.addEventListener('click', async (e) => {
                 console.log(mapDir + "/" + filename + ": Binary file length:", buffer.byteLength);
                 parseBKModelBinary(scene, buffer, i === 0, label);
             }
+
+            // Object placement (actor spawns, static model props), bt_setup.js
+            const res3 = await fetch('./models/BT/' + mapDir + '/setup.bin');
+            const buffer3 = await res3.arrayBuffer();
+            console.log(mapDir + "/setup.bin: Binary file length:", buffer3.byteLength);
+            await renderBTSetup(scene, buffer3, mapId);
         } catch (err) {
             console.error(err);
         }

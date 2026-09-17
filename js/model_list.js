@@ -139,8 +139,8 @@ const BK_Maps = [
 //   setup.bin      - decrypted + decompressed map setup file
 //   sect<N>.{opa,xlu}.model.bin - Jolly Roger's Lagoon terrain sectors ["sectors": [[opa, xlu], ...]]
 const BT_Maps = [
-    { name: "SM_BEHIND_THE_WATERFALL", sceneID: "AE", dir: "0AE_SM_BEHIND_THE_WATERFALL", opa: "1CFE", xlu: "1CFF" },
     { name: "SM_SPIRAL_MOUNTAIN", sceneID: "AF", dir: "0AF_SM_SPIRAL_MOUNTAIN", opa: "1CF9", xlu: "1CFA" },
+    { name: "SM_BEHIND_THE_WATERFALL", sceneID: "AE", dir: "0AE_SM_BEHIND_THE_WATERFALL", opa: "1CFE", xlu: "1CFF" },
     { name: "SM_DIGGER_TUNNEL", sceneID: "141", dir: "141_SM_DIGGER_TUNNEL", opa: "1D04", xlu: "" },
     { name: "SM_BANJOS_HOUSE", sceneID: "173", dir: "173_SM_BANJOS_HOUSE", opa: "1D08", xlu: "" },
     { name: "JV_JINJO_VILLAGE", sceneID: "142", dir: "142_JV_JINJO_VILLAGE", opa: "1DC1", xlu: "" },

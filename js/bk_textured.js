@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { parseBKModelTextured } from './bk_model.js';
+import { getBTTextureBank } from './bt_textures.js';
 
 ////////////////////////////////////////
 // System: Banjo-Kazooie textured rendering
@@ -82,12 +83,15 @@ export function buildTexturedMesh(buffer, options = {}) {
  * mapAppendageVisibility); overrides `selector`.
  * options.appendageOverrides: a partial table for the parts an actor's draw
  * callback pins (BK_ACTOR_APPENDAGES); the other selectors keep the guess.
+ * options.game: "BK" (default) or "BT" (F3DEX2 display lists, see bk_model.js).
  */
 export function buildTexturedParts(buffer, selector = 0, options = {}) {
     const translucent = !!options.translucent;
     const parsed = parseBKModelTextured(buffer, selector, {
         appendages: options.appendages,
         appendageOverrides: options.appendageOverrides,
+        game: options.game,
+        textureBank: options.game === "BT" ? getBTTextureBank() : undefined,
     });
     if (!parsed || parsed.batches.length === 0) return null;
 

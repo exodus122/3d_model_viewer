@@ -1,0 +1,3228 @@
+{
+ "prop_models": [
+  0,
+  0,
+  0,
+  0,
+  1500,
+  1501,
+  1502,
+  1503,
+  1528,
+  1529,
+  1530,
+  1531,
+  1532,
+  1533,
+  1534,
+  1535,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  1503,
+  1504,
+  1505,
+  1506,
+  1507,
+  1508,
+  1509,
+  1510,
+  1511,
+  1512,
+  1513,
+  1514,
+  1515,
+  0,
+  0,
+  1527,
+  1516,
+  1517,
+  0,
+  0,
+  0,
+  0,
+  0,
+  1518,
+  1526,
+  0,
+  0,
+  0,
+  1519,
+  1520,
+  1521,
+  1522,
+  1523,
+  1524,
+  1525,
+  0
+ ],
+ "prop_sprites": [
+  0,
+  0,
+  2488,
+  2489,
+  2490,
+  2491,
+  2492,
+  2493,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  2494,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  2496,
+  2497,
+  2498,
+  2499,
+  2500,
+  2501,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  2495,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0
+ ],
+ "actor_overlays": {
+  "183": [
+   "chjamjarsdummy",
+   0
+  ],
+  "268": [
+   "chjadesnake",
+   0
+  ],
+  "269": [
+   "chgoldsnakehead",
+   0
+  ],
+  "270": [
+   "chgoldsnakehead",
+   1
+  ],
+  "271": [
+   "chbilldrillboulder",
+   0
+  ],
+  "272": [
+   "chcoderoomdoor",
+   0
+  ],
+  "273": [
+   "chwallsnakebaddy",
+   0
+  ],
+  "274": [
+   "chwarriorbaddy",
+   0
+  ],
+  "275": [
+   "chstonedartgunhead",
+   0
+  ],
+  "276": [
+   "chfriendlystonehead",
+   0
+  ],
+  "277": [
+   "chamazongoldhordeofficial",
+   0
+  ],
+  "278": [
+   "chamazonstadiumguard",
+   0
+  ],
+  "279": [
+   "chprisonbits",
+   4
+  ],
+  "280": [
+   "chboilerboss",
+   0
+  ],
+  "281": [
+   "chtntbox",
+   0
+  ],
+  "282": [
+   "chnewshovel",
+   0
+  ],
+  "283": [
+   "chwaterfallgrill",
+   1
+  ],
+  "284": [
+   "chwaterfallgrillswitch",
+   0
+  ],
+  "286": [
+   "chprisonbits",
+   0
+  ],
+  "287": [
+   "chprisonbits",
+   1
+  ],
+  "288": [
+   "chprisonbits",
+   2
+  ],
+  "289": [
+   "chprisonbits",
+   3
+  ],
+  "291": [
+   "chstonedartgunhead",
+   1
+  ],
+  "292": [
+   "chweldarbossfireball",
+   0
+  ],
+  "296": [
+   "chgate1doors",
+   0
+  ],
+  "297": [
+   "chgate1doors",
+   1
+  ],
+  "298": [
+   "chtemplebrokendoorpiece",
+   0
+  ],
+  "299": [
+   "chcrackarchwall",
+   0
+  ],
+  "301": [
+   "chlightdemon",
+   0
+  ],
+  "302": [
+   "chstonepillar",
+   0
+  ],
+  "303": [
+   "chstonepillar",
+   1
+  ],
+  "304": [
+   "chdinoswitches",
+   0
+  ],
+  "305": [
+   "chdiggerground",
+   0
+  ],
+  "306": [
+   "chdiggergroundgen",
+   0
+  ],
+  "307": [
+   "chdiggerfly",
+   0
+  ],
+  "308": [
+   "chdiggerfly",
+   1
+  ],
+  "309": [
+   "chcheato",
+   0
+  ],
+  "310": [
+   "chcheatopage",
+   0
+  ],
+  "311": [
+   "chgobiwitchy",
+   0
+  ],
+  "312": [
+   "chbabydino",
+   0
+  ],
+  "313": [
+   "chcactusofstrength",
+   0
+  ],
+  "314": [
+   "chcactusofstrength",
+   2
+  ],
+  "315": [
+   "chcactusofstrength",
+   1
+  ],
+  "316": [
+   "chinflatableboss",
+   0
+  ],
+  "317": [
+   "chballoonbomb",
+   0
+  ],
+  "318": [
+   "chboxingglove",
+   0
+  ],
+  "319": [
+   "chmrsboggy",
+   0
+  ],
+  "320": [
+   "chboggyboy",
+   0
+  ],
+  "321": [
+   "chboggygirl",
+   0
+  ],
+  "322": [
+   "chboggyfatboy",
+   1
+  ],
+  "323": [
+   "chmineprospector",
+   0
+  ],
+  "324": [
+   "chonearmbandit",
+   0
+  ],
+  "325": [
+   "chtntblockage",
+   0
+  ],
+  "326": [
+   "chweldarhead",
+   0
+  ],
+  "327": [
+   "chkingjinjo",
+   1
+  ],
+  "328": [
+   "chcamerawibble",
+   0
+  ],
+  "329": [
+   "chtntdetonator",
+   0
+  ],
+  "330": [
+   "chtnthut",
+   0
+  ],
+  "331": [
+   "chtntminecelldoor",
+   0
+  ],
+  "332": [
+   "chcaveofhorrorsdoors",
+   0
+  ],
+  "333": [
+   "chbanjoctrl",
+   0
+  ],
+  "334": [
+   "chscorepoints",
+   0
+  ],
+  "335": [
+   "chmadamegrunty",
+   0
+  ],
+  "336": [
+   "chhillbilly",
+   0
+  ],
+  "337": [
+   "chmineprospector",
+   1
+  ],
+  "338": [
+   "chmineprospector",
+   2
+  ],
+  "339": [
+   "chevilspirit",
+   0
+  ],
+  "341": [
+   "chstoneballcontrol",
+   2
+  ],
+  "342": [
+   "chpodiumbankaz",
+   1
+  ],
+  "343": [
+   "chpodiumbankaz",
+   0
+  ],
+  "344": [
+   "chswappy",
+   1
+  ],
+  "346": [
+   "cheggnormal",
+   0
+  ],
+  "347": [
+   "cheggfire",
+   0
+  ],
+  "348": [
+   "cheggice",
+   0
+  ],
+  "349": [
+   "chegggrenade",
+   1
+  ],
+  "350": [
+   "cheggclockwork",
+   0
+  ],
+  "351": [
+   "chegggolden",
+   0
+  ],
+  "352": [
+   "cheggproximity",
+   0
+  ],
+  "354": [
+   "chlaundry",
+   0
+  ],
+  "355": [
+   "chgoldstatue",
+   0
+  ],
+  "356": [
+   "chwandglow",
+   3
+  ],
+  "357": [
+   "chfaircoinbox",
+   2
+  ],
+  "358": [
+   "chfaircoin",
+   1
+  ],
+  "360": [
+   "chtorpedo",
+   1
+  ],
+  "361": [
+   "chping",
+   1
+  ],
+  "362": [
+   "chfootwear",
+   3
+  ],
+  "366": [
+   "chclimbbase",
+   1
+  ],
+  "367": [
+   "chstinger",
+   1
+  ],
+  "368": [
+   "chfactoryworkerdirty",
+   0
+  ],
+  "369": [
+   "chclockworkmouse",
+   0
+  ],
+  "370": [
+   "chstadiumdoors",
+   0
+  ],
+  "371": [
+   "chstoneballcoach",
+   0
+  ],
+  "372": [
+   "chcredits",
+   2
+  ],
+  "373": [
+   "chsounder",
+   0
+  ],
+  "374": [
+   "chcanarymarycage",
+   0
+  ],
+  "376": [
+   "chfog",
+   0
+  ],
+  "378": [
+   "chcrusher",
+   0
+  ],
+  "379": [
+   "chcrusher",
+   2
+  ],
+  "380": [
+   "chcrusher",
+   1
+  ],
+  "381": [
+   "chcrusher",
+   3
+  ],
+  "382": [
+   "chcrusherboulder",
+   0
+  ],
+  "383": [
+   "chjigsawbitcont",
+   1
+  ],
+  "384": [
+   "chjigsawbitcont",
+   0
+  ],
+  "386": [
+   "chmole_witchy",
+   0
+  ],
+  "388": [
+   "chmole_hailfire",
+   0
+  ],
+  "389": [
+   "chmole_factory",
+   0
+  ],
+  "390": [
+   "chmole_prehist",
+   0
+  ],
+  "394": [
+   "chcheatomenu",
+   0
+  ],
+  "399": [
+   "chmoley",
+   2
+  ],
+  "400": [
+   "chnewmumbo",
+   1
+  ],
+  "406": [
+   "chhoney",
+   1
+  ],
+  "407": [
+   "chhoney",
+   2
+  ],
+  "408": [
+   "chsignpost",
+   0
+  ],
+  "410": [
+   "chbadbeehive",
+   0
+  ],
+  "411": [
+   "chmayafarmer",
+   0
+  ],
+  "412": [
+   "chbadjinjo",
+   0
+  ],
+  "413": [
+   "chsilo",
+   0
+  ],
+  "414": [
+   "chcollballcontrol",
+   0
+  ],
+  "415": [
+   "chcollballcontrol",
+   5
+  ],
+  "416": [
+   "chintrocam",
+   0
+  ],
+  "417": [
+   "chcollballcontrol",
+   2
+  ],
+  "418": [
+   "chcollballcontrol",
+   4
+  ],
+  "419": [
+   "chcollballcontrol",
+   3
+  ],
+  "420": [
+   "chcolldoors",
+   0
+  ],
+  "421": [
+   "chmusicmenu",
+   0
+  ],
+  "423": [
+   "chmole_maya",
+   0
+  ],
+  "424": [
+   "chmole_mine",
+   0
+  ],
+  "425": [
+   "chmole_training",
+   1
+  ],
+  "426": [
+   "chfiregen",
+   0
+  ],
+  "427": [
+   "chfiregen",
+   6
+  ],
+  "428": [
+   "chfiregen",
+   1
+  ],
+  "429": [
+   "chfiregen",
+   7
+  ],
+  "430": [
+   "chfiregen",
+   2
+  ],
+  "431": [
+   "chfiregen",
+   8
+  ],
+  "432": [
+   "chfiregen",
+   3
+  ],
+  "433": [
+   "chfiregen",
+   9
+  ],
+  "434": [
+   "chfiregen",
+   4
+  ],
+  "435": [
+   "chfiregen",
+   10
+  ],
+  "436": [
+   "chfiregen",
+   5
+  ],
+  "437": [
+   "chfiregen",
+   11
+  ],
+  "438": [
+   "chstoneballcontrol",
+   5
+  ],
+  "439": [
+   "chstoneballcontrol",
+   0
+  ],
+  "440": [
+   "chstoneballcontrol",
+   3
+  ],
+  "443": [
+   "chwaterfallfx",
+   0
+  ],
+  "445": [
+   "chidgoldhorde",
+   0
+  ],
+  "446": [
+   "chfishshootgame",
+   0
+  ],
+  "447": [
+   "chfishshootgame",
+   1
+  ],
+  "450": [
+   "chlagoonufoext",
+   0
+  ],
+  "451": [
+   "chlagoonufoint",
+   1
+  ],
+  "452": [
+   "chlagoonufoint",
+   4
+  ],
+  "453": [
+   "chlagoonufoint",
+   0
+  ],
+  "454": [
+   "chlagoonufoint",
+   2
+  ],
+  "455": [
+   "chlagoonufoint",
+   3
+  ],
+  "456": [
+   "chnests",
+   0
+  ],
+  "457": [
+   "chnests",
+   1
+  ],
+  "458": [
+   "chnests",
+   2
+  ],
+  "459": [
+   "chnests",
+   3
+  ],
+  "460": [
+   "chnests",
+   4
+  ],
+  "461": [
+   "chnests",
+   5
+  ],
+  "462": [
+   "chnests",
+   7
+  ],
+  "463": [
+   "chnests",
+   8
+  ],
+  "464": [
+   "chfishshootgame",
+   2
+  ],
+  "465": [
+   "chbanjocurrent",
+   0
+  ],
+  "470": [
+   "chbanjocurrent",
+   1
+  ],
+  "471": [
+   "chnests",
+   9
+  ],
+  "472": [
+   "chnests",
+   10
+  ],
+  "473": [
+   "chpickups",
+   0
+  ],
+  "474": [
+   "chnastycavemen",
+   0
+  ],
+  "475": [
+   "chnastycavemen",
+   1
+  ],
+  "477": [
+   "chcamwaypoint",
+   0
+  ],
+  "478": [
+   "chjiggygamenew",
+   4
+  ],
+  "479": [
+   "chjiggygamenew",
+   0
+  ],
+  "480": [
+   "chlightdemon",
+   1
+  ],
+  "481": [
+   "chmasterjiggy",
+   0
+  ],
+  "482": [
+   "chjiggygamenew",
+   3
+  ],
+  "483": [
+   "chwaspnestgame",
+   0
+  ],
+  "484": [
+   "chwaspnestgame",
+   1
+  ],
+  "485": [
+   "chwarppad",
+   0
+  ],
+  "486": [
+   "chjiggytemple",
+   0
+  ],
+  "487": [
+   "chjiggytemple",
+   1
+  ],
+  "488": [
+   "chscreenadjust",
+   0
+  ],
+  "489": [
+   "chnests",
+   11
+  ],
+  "495": [
+   "chquicksandbaddy",
+   1
+  ],
+  "496": [
+   "chcrate",
+   0
+  ],
+  "500": [
+   "chjinjo",
+   5
+  ],
+  "505": [
+   "chclimbbase",
+   0
+  ],
+  "510": [
+   "chsabreman",
+   3
+  ],
+  "511": [
+   "chexploder",
+   0
+  ],
+  "512": [
+   "chtntbox",
+   1
+  ],
+  "514": [
+   "chmumbopadstatue",
+   0
+  ],
+  "515": [
+   "chdiggerboss",
+   1
+  ],
+  "516": [
+   "chweather",
+   0
+  ],
+  "517": [
+   "chweather",
+   1
+  ],
+  "518": [
+   "chweather",
+   2
+  ],
+  "519": [
+   "chweather",
+   3
+  ],
+  "520": [
+   "chweather",
+   4
+  ],
+  "521": [
+   "chweather",
+   5
+  ],
+  "522": [
+   "chweather",
+   6
+  ],
+  "523": [
+   "chweather",
+   7
+  ],
+  "528": [
+   "chshockjump",
+   0
+  ],
+  "529": [
+   "chbeehive",
+   0
+  ],
+  "531": [
+   "chzubba",
+   0
+  ],
+  "533": [
+   "0x800A7168",
+   -1
+  ],
+  "535": [
+   "chquizremotectrl",
+   0
+  ],
+  "538": [
+   "chfootwear",
+   0
+  ],
+  "539": [
+   "chglowbo",
+   0
+  ],
+  "543": [
+   "chjigsaw",
+   0
+  ],
+  "544": [
+   "chhoneycarrier",
+   0
+  ],
+  "547": [
+   "chboilerboss",
+   1
+  ],
+  "548": [
+   "chboilerboss",
+   2
+  ],
+  "549": [
+   "chboilerboss",
+   3
+  ],
+  "553": [
+   "chhoney",
+   0
+  ],
+  "556": [
+   "chjigsawdance",
+   2
+  ],
+  "558": [
+   "chfootwear",
+   1
+  ],
+  "564": [
+   "chshockjump",
+   1
+  ],
+  "569": [
+   "chfactoryworkerwear",
+   0
+  ],
+  "579": [
+   "chbadshad",
+   0
+  ],
+  "582": [
+   "chlavaslabswitch",
+   0
+  ],
+  "583": [
+   "chmolehill",
+   6
+  ],
+  "588": [
+   "chmineproplight",
+   0
+  ],
+  "592": [
+   "chlavaslab",
+   0
+  ],
+  "618": [
+   "chusefeather",
+   2
+  ],
+  "619": [
+   "chusefeather",
+   3
+  ],
+  "638": [
+   "chlavacolumnswitch",
+   0
+  ],
+  "639": [
+   "chlavacolumns",
+   0
+  ],
+  "640": [
+   "chmumboskullfakearchpanellava",
+   0
+  ],
+  "641": [
+   "chlavatraindoor",
+   0
+  ],
+  "645": [
+   "chlavatraindoorswitch",
+   0
+  ],
+  "647": [
+   "chlavaarchgrillswitch",
+   0
+  ],
+  "648": [
+   "chlavaarchgrill",
+   0
+  ],
+  "649": [
+   "chfirefx",
+   1
+  ],
+  "651": [
+   "chfactoryroofbits",
+   0
+  ],
+  "652": [
+   "chfactorybattery",
+   1
+  ],
+  "653": [
+   "chwumbawigwam",
+   0
+  ],
+  "654": [
+   "chswampplatform",
+   0
+  ],
+  "655": [
+   "chsmalltrexdoor",
+   0
+  ],
+  "656": [
+   "chdinofamilymother",
+   0
+  ],
+  "657": [
+   "chdinofamilysick",
+   1
+  ],
+  "658": [
+   "chdinofamilysmall",
+   0
+  ],
+  "659": [
+   "chdinofamilymissing",
+   0
+  ],
+  "660": [
+   "chcaptainblubber",
+   0
+  ],
+  "661": [
+   "chtransparentfish",
+   0
+  ],
+  "663": [
+   "chsunlightspell",
+   0
+  ],
+  "664": [
+   "chdummyjigsaw",
+   0
+  ],
+  "666": [
+   "chpufferfish",
+   0
+  ],
+  "668": [
+   "chlinkpipefan",
+   1
+  ],
+  "670": [
+   "chstoneballcontrol",
+   4
+  ],
+  "671": [
+   "chglowbo",
+   1
+  ],
+  "672": [
+   "chglowbo",
+   3
+  ],
+  "673": [
+   "chhumba",
+   0
+  ],
+  "674": [
+   "chflysaucer",
+   1
+  ],
+  "675": [
+   "chflysaucercrate",
+   0
+  ],
+  "676": [
+   "chflysaucer",
+   2
+  ],
+  "677": [
+   "chchuffy",
+   0
+  ],
+  "678": [
+   "chchuffycont",
+   2
+  ],
+  "679": [
+   "chfiregen",
+   12
+  ],
+  "680": [
+   "chfiregen",
+   13
+  ],
+  "681": [
+   "chfiregen",
+   14
+  ],
+  "682": [
+   "chfiregen",
+   15
+  ],
+  "683": [
+   "chfiregen",
+   16
+  ],
+  "684": [
+   "chfiregen",
+   17
+  ],
+  "686": [
+   "chstatictorch",
+   0
+  ],
+  "687": [
+   "chfloorbubbles",
+   0
+  ],
+  "688": [
+   "chmumbopad",
+   1
+  ],
+  "690": [
+   "cheggsplode",
+   0
+  ],
+  "691": [
+   "chjadestatue",
+   0
+  ],
+  "692": [
+   "chtemplebossdoor",
+   0
+  ],
+  "693": [
+   "chtemplelobbydoor",
+   0
+  ],
+  "694": [
+   "chtempleinternaldoor",
+   0
+  ],
+  "696": [
+   "chnests",
+   6
+  ],
+  "697": [
+   "chminelobbydoor",
+   0
+  ],
+  "699": [
+   "chtransparencypot",
+   0
+  ],
+  "700": [
+   "chtntmineshoot",
+   1
+  ],
+  "701": [
+   "chtntmineshoot",
+   2
+  ],
+  "702": [
+   "chtntmineshoot",
+   0
+  ],
+  "703": [
+   "chclinker",
+   1
+  ],
+  "704": [
+   "chclinker",
+   2
+  ],
+  "705": [
+   "chclinker",
+   0
+  ],
+  "706": [
+   "chfactorylobbydoor",
+   0
+  ],
+  "707": [
+   "chtntmineshoot",
+   3
+  ],
+  "708": [
+   "chfpsgame",
+   0
+  ],
+  "709": [
+   "ch1pfreeze",
+   0
+  ],
+  "760": [
+   "chmayafarmer",
+   1
+  ],
+  "761": [
+   "chjujubagfx",
+   0
+  ],
+  "764": [
+   "chpiranha",
+   0
+  ],
+  "765": [
+   "chpiranha",
+   1
+  ],
+  "766": [
+   "chpiranha",
+   2
+  ],
+  "767": [
+   "chnewfreezy",
+   1
+  ],
+  "768": [
+   "chlakemonster",
+   0
+  ],
+  "769": [
+   "chlakemonster",
+   4
+  ],
+  "770": [
+   "chminelightswitch",
+   0
+  ],
+  "771": [
+   "chminelight",
+   0
+  ],
+  "772": [
+   "chskeletonexplode",
+   9
+  ],
+  "773": [
+   "chdodgemcontrol",
+   2
+  ],
+  "774": [
+   "chdodgemcontrol",
+   0
+  ],
+  "775": [
+   "chdodgemdoors",
+   0
+  ],
+  "779": [
+   "chmole_maya",
+   1
+  ],
+  "780": [
+   "chflysaucerdoor",
+   0
+  ],
+  "781": [
+   "chflysaucerdoor",
+   1
+  ],
+  "782": [
+   "chchuffyglow",
+   1
+  ],
+  "783": [
+   "chtoothyfish",
+   0
+  ],
+  "784": [
+   "chtoothyfish",
+   1
+  ],
+  "785": [
+   "chmole_overworld",
+   0
+  ],
+  "789": [
+   "chmole_lagoon",
+   0
+  ],
+  "790": [
+   "chchuffy",
+   2
+  ],
+  "791": [
+   "chintrochar",
+   0
+  ],
+  "797": [
+   "chblackeye",
+   0
+  ],
+  "798": [
+   "cheel",
+   0
+  ],
+  "799": [
+   "chlagoonfish",
+   0
+  ],
+  "801": [
+   "chboilerid",
+   0
+  ],
+  "802": [
+   "chbilldrillboulder",
+   1
+  ],
+  "803": [
+   "chklungoleave",
+   0
+  ],
+  "806": [
+   "chhotfloorsmoke",
+   0
+  ],
+  "807": [
+   "chfairgroundworker",
+   0
+  ],
+  "808": [
+   "chfairgroundworker",
+   1
+  ],
+  "809": [
+   "chfairgroundworker",
+   2
+  ],
+  "810": [
+   "chfairgroundworker",
+   3
+  ],
+  "811": [
+   "chburgerstand",
+   0
+  ],
+  "812": [
+   "chburgerstand",
+   1
+  ],
+  "813": [
+   "chfriesstand",
+   0
+  ],
+  "814": [
+   "chfriesstand",
+   1
+  ],
+  "815": [
+   "chburgerstand",
+   2
+  ],
+  "816": [
+   "chburgerstand",
+   3
+  ],
+  "817": [
+   "chfriesstand",
+   2
+  ],
+  "818": [
+   "chfriesstand",
+   3
+  ],
+  "819": [
+   "chconga",
+   0
+  ],
+  "820": [
+   "chstarspinnerplanet",
+   0
+  ],
+  "821": [
+   "chstarspinnerplanet",
+   1
+  ],
+  "822": [
+   "chstarspinnerstar",
+   0
+  ],
+  "823": [
+   "chstarspinnerctrl",
+   0
+  ],
+  "824": [
+   "chstarspinnerctrl",
+   1
+  ],
+  "825": [
+   "chhellterskelter",
+   0
+  ],
+  "826": [
+   "chhellterskelter",
+   2
+  ],
+  "827": [
+   "chhellterskelter",
+   1
+  ],
+  "828": [
+   "chlightfader",
+   0
+  ],
+  "829": [
+   "chcablespark",
+   0
+  ],
+  "830": [
+   "chcablecar",
+   0
+  ],
+  "831": [
+   "chcablecar",
+   1
+  ],
+  "832": [
+   "chhellterskeltermouth",
+   0
+  ],
+  "833": [
+   "chweldarbossdoors",
+   0
+  ],
+  "834": [
+   "charea51gate",
+   0
+  ],
+  "835": [
+   "chdiggerboss",
+   0
+  ],
+  "836": [
+   "chghostdoor",
+   0
+  ],
+  "837": [
+   "chweldarbossfusebox",
+   0
+  ],
+  "838": [
+   "chsabreman",
+   1
+  ],
+  "839": [
+   "chsabreman",
+   2
+  ],
+  "840": [
+   "chghostdoor",
+   1
+  ],
+  "841": [
+   "chfloater",
+   0
+  ],
+  "842": [
+   "chpumproomgrill",
+   0
+  ],
+  "843": [
+   "chpumproomswitch",
+   0
+  ],
+  "844": [
+   "chbouncycastle",
+   0
+  ],
+  "845": [
+   "chspotlight",
+   0
+  ],
+  "846": [
+   "chboggykidshome",
+   2
+  ],
+  "847": [
+   "chballoonburst",
+   0
+  ],
+  "848": [
+   "chballoonburst",
+   2
+  ],
+  "849": [
+   "chbouncycastle",
+   1
+  ],
+  "850": [
+   "chpawnbroker",
+   0
+  ],
+  "851": [
+   "chpawnbroker",
+   1
+  ],
+  "852": [
+   "chpawnbroker",
+   2
+  ],
+  "853": [
+   "chhoopswoop",
+   0
+  ],
+  "854": [
+   "chhoopswoop",
+   2
+  ],
+  "856": [
+   "chtiptup",
+   0
+  ],
+  "857": [
+   "chtiptup",
+   1
+  ],
+  "858": [
+   "chtiptup",
+   2
+  ],
+  "859": [
+   "chonearmbandit",
+   1
+  ],
+  "860": [
+   "chseaweedbaddy",
+   0
+  ],
+  "861": [
+   "chseaweedbaddy",
+   1
+  ],
+  "862": [
+   "choctopus",
+   0
+  ],
+  "863": [
+   "chanemone",
+   0
+  ],
+  "864": [
+   "chjollyroger",
+   0
+  ],
+  "865": [
+   "chjollyroger",
+   1
+  ],
+  "866": [
+   "chdinofoot",
+   0
+  ],
+  "867": [
+   "chfreezy",
+   0
+  ],
+  "868": [
+   "chdinoswitches",
+   3
+  ],
+  "869": [
+   "chbigterrysbits",
+   1
+  ],
+  "870": [
+   "chlagoonbits",
+   0
+  ],
+  "871": [
+   "chlagoonbits",
+   1
+  ],
+  "872": [
+   "chlagoonbits",
+   2
+  ],
+  "873": [
+   "chlagoonbits",
+   3
+  ],
+  "874": [
+   "chjollyroger",
+   2
+  ],
+  "875": [
+   "chlagoonbilldrillcover",
+   0
+  ],
+  "876": [
+   "chlagoonbits",
+   4
+  ],
+  "877": [
+   "chlagoonbits",
+   5
+  ],
+  "878": [
+   "chboxingglove",
+   1
+  ],
+  "879": [
+   "chdinoboss",
+   0
+  ],
+  "880": [
+   "chlakemonster",
+   5
+  ],
+  "881": [
+   "chdrips",
+   0
+  ],
+  "884": [
+   "chintroticker",
+   0
+  ],
+  "886": [
+   "chmole_cuckoo",
+   0
+  ],
+  "887": [
+   "chdragonbrothers",
+   0
+  ],
+  "888": [
+   "chdragonbrothers",
+   1
+  ],
+  "889": [
+   "chdragonbrothers",
+   2
+  ],
+  "890": [
+   "chdragonbrothers",
+   3
+  ],
+  "891": [
+   "chdragonbrothers",
+   4
+  ],
+  "892": [
+   "chevilmumbo",
+   0
+  ],
+  "893": [
+   "chevilmumbo",
+   1
+  ],
+  "894": [
+   "chevilmumbo",
+   2
+  ],
+  "895": [
+   "chdodgemcontrol",
+   1
+  ],
+  "896": [
+   "chevilmumbo",
+   3
+  ],
+  "897": [
+   "chhumba",
+   1
+  ],
+  "898": [
+   "chtimetable",
+   0
+  ],
+  "899": [
+   "chclockworkmouse",
+   1
+  ],
+  "902": [
+   "chcrusher",
+   4
+  ],
+  "906": [
+   "chhandcart",
+   0
+  ],
+  "907": [
+   "chgruntylairexttowerwindow",
+   0
+  ],
+  "908": [
+   "chhagstraindoor",
+   0
+  ],
+  "909": [
+   "chhagstraindoorswitch",
+   0
+  ],
+  "910": [
+   "chlavaentrancebridge",
+   0
+  ],
+  "911": [
+   "chlavaentrancebridgeswitch",
+   0
+  ],
+  "913": [
+   "chmayaentrydoor",
+   0
+  ],
+  "914": [
+   "chlagoonentrygate",
+   0
+  ],
+  "915": [
+   "chmineentrygrille",
+   0
+  ],
+  "916": [
+   "chlavaentrydoor",
+   0
+  ],
+  "917": [
+   "chcauldronentrydoor",
+   1
+  ],
+  "918": [
+   "chterryteeth",
+   0
+  ],
+  "920": [
+   "chphlegm",
+   0
+  ],
+  "921": [
+   "chphlegm",
+   1
+  ],
+  "922": [
+   "chlilterry",
+   0
+  ],
+  "923": [
+   "chdinocoaster",
+   0
+  ],
+  "924": [
+   "chpowerhutwitchy",
+   0
+  ],
+  "925": [
+   "chpowerhutwitchy",
+   1
+  ],
+  "926": [
+   "chpowerhutwitchy",
+   2
+  ],
+  "927": [
+   "chpowerhutwitchy",
+   3
+  ],
+  "928": [
+   "chphlegm",
+   2
+  ],
+  "930": [
+   "chflamer",
+   0
+  ],
+  "931": [
+   "chpoolkids",
+   0
+  ],
+  "932": [
+   "chpoolkids",
+   1
+  ],
+  "933": [
+   "chnicecavemenguard",
+   0
+  ],
+  "934": [
+   "chnicecavemen",
+   0
+  ],
+  "935": [
+   "chfactorylight",
+   0
+  ],
+  "936": [
+   "chnicecavemen",
+   3
+  ],
+  "937": [
+   "chbonfirecavern",
+   0
+  ],
+  "938": [
+   "chterryegg",
+   1
+  ],
+  "939": [
+   "charmouredcaveman",
+   0
+  ],
+  "940": [
+   "chfirefx",
+   0
+  ],
+  "942": [
+   "chweldarbossfusebox",
+   1
+  ],
+  "943": [
+   "chicywind",
+   0
+  ],
+  "944": [
+   "chintrotext",
+   0
+  ],
+  "946": [
+   "chfactoryprop",
+   0
+  ],
+  "947": [
+   "chfactoryprop",
+   1
+  ],
+  "948": [
+   "chtrashcompactor",
+   0
+  ],
+  "949": [
+   "chtrashcompactor",
+   1
+  ],
+  "950": [
+   "chtrashcompactor",
+   2
+  ],
+  "951": [
+   "chtrashcompactor",
+   3
+  ],
+  "952": [
+   "chfactoryliftdoor",
+   0
+  ],
+  "953": [
+   "chfactoryliftdoor",
+   1
+  ],
+  "954": [
+   "chfactorycrusher",
+   0
+  ],
+  "955": [
+   "chfactorycrusher",
+   1
+  ],
+  "956": [
+   "chcrate",
+   1
+  ],
+  "957": [
+   "chfactoryrobot",
+   0
+  ],
+  "958": [
+   "chfactoryrobot",
+   1
+  ],
+  "959": [
+   "chfactoryrobot",
+   2
+  ],
+  "960": [
+   "chmermaidstatue",
+   0
+  ],
+  "961": [
+   "chmermaidstatue",
+   1
+  ],
+  "962": [
+   "chcrate",
+   2
+  ],
+  "963": [
+   "chfactorygoblin",
+   0
+  ],
+  "964": [
+   "chfactorytoxicpools",
+   0
+  ],
+  "965": [
+   "chfactorytoxicpools",
+   1
+  ],
+  "966": [
+   "chbigtopticket",
+   0
+  ],
+  "967": [
+   "chbouncycastle",
+   2
+  ],
+  "968": [
+   "chbouncycastle",
+   3
+  ],
+  "969": [
+   "chlagoonpirate",
+   0
+  ],
+  "970": [
+   "chpickups",
+   1
+  ],
+  "971": [
+   "chpickups",
+   2
+  ],
+  "972": [
+   "chvandoor",
+   0
+  ],
+  "973": [
+   "chpoolkids",
+   2
+  ],
+  "974": [
+   "chcoderoombits",
+   0
+  ],
+  "975": [
+   "chbilldrillboulder",
+   2
+  ],
+  "977": [
+   "chdingpot",
+   0
+  ],
+  "978": [
+   "chpumproomswitch",
+   1
+  ],
+  "979": [
+   "chelectricfence",
+   0
+  ],
+  "980": [
+   "chmadamegrunty",
+   1
+  ],
+  "981": [
+   "chfactorysmoke",
+   0
+  ],
+  "982": [
+   "chterryegg",
+   2
+  ],
+  "983": [
+   "chterryegg",
+   3
+  ],
+  "984": [
+   "chdinoboss",
+   1
+  ],
+  "985": [
+   "chappearfx",
+   0
+  ],
+  "987": [
+   "chfootwear",
+   2
+  ],
+  "988": [
+   "chbilldrillplate",
+   0
+  ],
+  "989": [
+   "chbilldrillplate",
+   1
+  ],
+  "990": [
+   "chbilldrillplate",
+   2
+  ],
+  "991": [
+   "chrainripples",
+   0
+  ],
+  "992": [
+   "chdumbwaiterlift",
+   0
+  ],
+  "993": [
+   "chmrsicecube",
+   0
+  ],
+  "994": [
+   "chmrsicecube",
+   1
+  ],
+  "995": [
+   "chgobihailfire",
+   0
+  ],
+  "996": [
+   "chboggykidshome",
+   1
+  ],
+  "997": [
+   "chbigfoot",
+   0
+  ],
+  "998": [
+   "chbiggafoot",
+   0
+  ],
+  "999": [
+   "chmricecube",
+   0
+  ],
+  "1000": [
+   "chfactorylinkgrill",
+   0
+  ],
+  "1001": [
+   "chlavahand",
+   0
+  ],
+  "1002": [
+   "chtoxicroombits",
+   0
+  ],
+  "1003": [
+   "chtoxicroombits",
+   1
+  ],
+  "1004": [
+   "chtoxicroomprops",
+   0
+  ],
+  "1005": [
+   "chfactorysparkroom",
+   1
+  ],
+  "1006": [
+   "chfactoryempspell",
+   1
+  ],
+  "1007": [
+   "chgoldfish",
+   0
+  ],
+  "1008": [
+   "chfactorydrums",
+   2
+  ],
+  "1009": [
+   "chfactorylinkgrill",
+   1
+  ],
+  "1010": [
+   "chfactoryroofbits",
+   1
+  ],
+  "1011": [
+   "chfactoryroofbits",
+   2
+  ],
+  "1012": [
+   "chfactoryroofbits",
+   3
+  ],
+  "1013": [
+   "chfactorymagnet",
+   1
+  ],
+  "1014": [
+   "chfactorymagnet",
+   2
+  ],
+  "1015": [
+   "chfactorybtwmdoor",
+   0
+  ],
+  "1016": [
+   "chfactorymaindoor",
+   0
+  ],
+  "1017": [
+   "chfactorymaindoor",
+   1
+  ],
+  "1018": [
+   "chfactorylinkgrill",
+   2
+  ],
+  "1019": [
+   "chfactorybattery",
+   2
+  ],
+  "1020": [
+   "chbosskogsdoor",
+   1
+  ],
+  "1021": [
+   "chbosskogsdoor",
+   0
+  ],
+  "1022": [
+   "chlensflare",
+   1
+  ],
+  "1023": [
+   "chfactorytoxiccloud",
+   0
+  ],
+  "1024": [
+   "chlavahand",
+   1
+  ],
+  "1025": [
+   "chlavagargoyle",
+   0
+  ],
+  "1026": [
+   "chlavagargoyle",
+   2
+  ],
+  "1027": [
+   "chfactorytrashbelt",
+   0
+  ],
+  "1029": [
+   "chpotogoldgame",
+   4
+  ],
+  "1030": [
+   "chfactorystationdoors",
+   0
+  ],
+  "1031": [
+   "chpotogoldbits",
+   0
+  ],
+  "1032": [
+   "chpotogoldbits",
+   2
+  ],
+  "1033": [
+   "chpotogoldbits",
+   3
+  ],
+  "1034": [
+   "chfantasydrillfield",
+   0
+  ],
+  "1035": [
+   "chfantasytrashcanbits",
+   1
+  ],
+  "1036": [
+   "chfantasytrashcanbits",
+   0
+  ],
+  "1037": [
+   "chbeanstalkseed",
+   0
+  ],
+  "1038": [
+   "chrainbow",
+   1
+  ],
+  "1039": [
+   "chwaspstatue",
+   1
+  ],
+  "1041": [
+   "chwaspstatue",
+   2
+  ],
+  "1042": [
+   "chbubbleelevator",
+   0
+  ],
+  "1043": [
+   "chfactorysparkroom",
+   0
+  ],
+  "1044": [
+   "chfantasylakebits",
+   2
+  ],
+  "1045": [
+   "chfantasylakebits",
+   1
+  ],
+  "1046": [
+   "chtoxicroomprops",
+   2
+  ],
+  "1047": [
+   "chfantasysafe",
+   0
+  ],
+  "1048": [
+   "chfantasysafeswitch",
+   0
+  ],
+  "1050": [
+   "chicestationbits",
+   0
+  ],
+  "1051": [
+   "chicestationbits",
+   1
+  ],
+  "1052": [
+   "chiciclebits",
+   0
+  ],
+  "1053": [
+   "chboggykidshome",
+   0
+  ],
+  "1054": [
+   "chklungo",
+   0
+  ],
+  "1055": [
+   "chklungodoors",
+   0
+  ],
+  "1056": [
+   "chklungodoors",
+   1
+  ],
+  "1057": [
+   "chklungoforcefield",
+   0
+  ],
+  "1058": [
+   "chklungophial",
+   0
+  ],
+  "1059": [
+   "chklungophial",
+   1
+  ],
+  "1060": [
+   "chvolcanobits",
+   0
+  ],
+  "1061": [
+   "chvolcanobits",
+   1
+  ],
+  "1062": [
+   "chcrystalbaddie",
+   0
+  ],
+  "1063": [
+   "chhotwaterpoolbits",
+   0
+  ],
+  "1064": [
+   "chhotwaterpoolbits",
+   1
+  ],
+  "1065": [
+   "chvolcanobits",
+   2
+  ],
+  "1066": [
+   "chvolcanobits",
+   3
+  ],
+  "1067": [
+   "chnicecavemen",
+   1
+  ],
+  "1068": [
+   "chnicecavemen",
+   2
+  ],
+  "1069": [
+   "chdippy",
+   0
+  ],
+  "1070": [
+   "chfactoryflypad",
+   0
+  ],
+  "1071": [
+   "chfactoryflypad",
+   1
+  ],
+  "1072": [
+   "chmrsboggyhome",
+   0
+  ],
+  "1073": [
+   "chweldarbossdoors",
+   1
+  ],
+  "1074": [
+   "chfactorytoxicpools",
+   2
+  ],
+  "1075": [
+   "chdinoswitches",
+   1
+  ],
+  "1076": [
+   "chdinoswitches",
+   2
+  ],
+  "1077": [
+   "chloggo",
+   0
+  ],
+  "1078": [
+   "chloggo",
+   1
+  ],
+  "1080": [
+   "chkingjinjo",
+   0
+  ],
+  "1081": [
+   "chhotwaterpoolbits",
+   2
+  ],
+  "1082": [
+   "chhotwaterpoolbits",
+   3
+  ],
+  "1083": [
+   "chbottlesfamily",
+   0
+  ],
+  "1084": [
+   "chbottlesfamily",
+   1
+  ],
+  "1085": [
+   "chbottlesfamily",
+   2
+  ],
+  "1086": [
+   "chnutsnbolts",
+   0
+  ],
+  "1087": [
+   "chnutsnbolts",
+   1
+  ],
+  "1088": [
+   "chnutsnbolts",
+   2
+  ],
+  "1089": [
+   "chdippy",
+   1
+  ],
+  "1090": [
+   "chfactorytwinklies",
+   0
+  ],
+  "1091": [
+   "chfactorytwinklies",
+   3
+  ],
+  "1092": [
+   "chfactorytwinklies",
+   4
+  ],
+  "1093": [
+   "chfactorytwinklies",
+   5
+  ],
+  "1094": [
+   "chfactorytwinklies",
+   2
+  ],
+  "1095": [
+   "chstatueboss",
+   0
+  ],
+  "1096": [
+   "chstatuebossbits",
+   0
+  ],
+  "1097": [
+   "chstatuebossbits",
+   1
+  ],
+  "1098": [
+   "chhoopswoop",
+   1
+  ],
+  "1099": [
+   "chproplighter",
+   0
+  ],
+  "1100": [
+   "chballoonburst",
+   1
+  ],
+  "1101": [
+   "chfactorytwinklies",
+   1
+  ],
+  "1102": [
+   "chbiggafoot",
+   1
+  ],
+  "1103": [
+   "chstatuebossbits",
+   3
+  ],
+  "1104": [
+   "chstatuebossbits",
+   2
+  ],
+  "1105": [
+   "chmonsterinterior",
+   0
+  ],
+  "1106": [
+   "chmonsterinterior",
+   2
+  ],
+  "1107": [
+   "chmonsterinterior",
+   3
+  ],
+  "1108": [
+   "chmonsterinterior",
+   4
+  ],
+  "1109": [
+   "chmonsterinterior",
+   1
+  ],
+  "1110": [
+   "chalienkids",
+   0
+  ],
+  "1111": [
+   "chalienkids",
+   1
+  ],
+  "1112": [
+   "chalienkids",
+   2
+  ],
+  "1113": [
+   "chalienkids",
+   3
+  ],
+  "1114": [
+   "chaliendad",
+   0
+  ],
+  "1115": [
+   "chaliendad",
+   2
+  ],
+  "1116": [
+   "chlifeforcespell",
+   0
+  ],
+  "1117": [
+   "changlerboss",
+   0
+  ],
+  "1118": [
+   "changlerboss",
+   1
+  ],
+  "1119": [
+   "changlerbossflare",
+   0
+  ],
+  "1120": [
+   "changlerbossbubble",
+   0
+  ],
+  "1121": [
+   "chbigterrysbits",
+   0
+  ],
+  "1122": [
+   "chfireimp",
+   0
+  ],
+  "1123": [
+   "chmumboskulls",
+   0
+  ],
+  "1124": [
+   "ch2dbaddy",
+   0
+  ],
+  "1125": [
+   "chweldarboss",
+   0
+  ],
+  "1126": [
+   "chalienbeam",
+   0
+  ],
+  "1127": [
+   "chaliendad",
+   1
+  ],
+  "1128": [
+   "chweldarboss",
+   1
+  ],
+  "1129": [
+   "chbigterrysbits",
+   2
+  ],
+  "1130": [
+   "chweldarbossfusebox",
+   2
+  ],
+  "1131": [
+   "chflowerbaddie",
+   0
+  ],
+  "1132": [
+   "changlerbossdoor",
+   0
+  ],
+  "1133": [
+   "chboilerbossdoor",
+   0
+  ],
+  "1134": [
+   "chinflatablebossdoor",
+   0
+  ],
+  "1135": [
+   "chhotwatersteam",
+   0
+  ],
+  "1136": [
+   "chcastleshockpadswitch",
+   0
+  ],
+  "1137": [
+   "chfootwear",
+   4
+  ],
+  "1138": [
+   "chtalontorpedoboulder",
+   0
+  ],
+  "1139": [
+   "chexplodingchainlinks",
+   0
+  ],
+  "1140": [
+   "chfactoryroofbits",
+   4
+  ],
+  "1141": [
+   "chtrashcangame",
+   0
+  ],
+  "1142": [
+   "chtrashcangame",
+   2
+  ],
+  "1143": [
+   "chfantasyathlete",
+   0
+  ],
+  "1148": [
+   "chtoxicroomprops",
+   1
+  ],
+  "1149": [
+   "chfantasycannon",
+   0
+  ],
+  "1150": [
+   "chfantasycannon",
+   1
+  ],
+  "1151": [
+   "chfantasyonion",
+   0
+  ],
+  "1152": [
+   "chbeanstalkseed",
+   1
+  ],
+  "1153": [
+   "chpickups",
+   3
+  ],
+  "1154": [
+   "chfantasyeyeball",
+   0
+  ],
+  "1155": [
+   "chfantasyeyeball",
+   1
+  ],
+  "1156": [
+   "choildrill",
+   1
+  ],
+  "1157": [
+   "choildrill",
+   2
+  ],
+  "1158": [
+   "chfloaty",
+   1
+  ],
+  "1160": [
+   "chLagoonInnBlockedWall",
+   0
+  ],
+  "1161": [
+   "chwitchyentrygates",
+   0
+  ],
+  "1163": [
+   "chfactoryentrydoors",
+   0
+  ],
+  "1165": [
+   "chcauldronenergybars",
+   0
+  ],
+  "1166": [
+   "chjinjovillagecamera1",
+   0
+  ],
+  "1167": [
+   "chjinjo",
+   6
+  ],
+  "1169": [
+   "chLagoonInnBlockedWall",
+   1
+  ],
+  "1170": [
+   "chlavaarchgrill3switches",
+   0
+  ],
+  "1171": [
+   "chlavaarchgrill3switches",
+   1
+  ],
+  "1172": [
+   "chlavaarchgrill3switches",
+   2
+  ],
+  "1173": [
+   "chmumboskullfakearchpanellava",
+   1
+  ],
+  "1174": [
+   "chlagoonlockerdoorhits",
+   0
+  ],
+  "1177": [
+   "chTalTorpWall",
+   0
+  ],
+  "1178": [
+   "chufoextdoor",
+   0
+  ],
+  "1179": [
+   "chdinotraindoor",
+   0
+  ],
+  "1180": [
+   "chdinotraindoorswitch",
+   0
+  ],
+  "1181": [
+   "chminegrill2switches",
+   0
+  ],
+  "1182": [
+   "chminegrill2switches",
+   1
+  ],
+  "1183": [
+   "chcauldronentrydoor",
+   2
+  ],
+  "1184": [
+   "chdrawbridgeswitches",
+   0
+  ],
+  "1185": [
+   "chdrawbridgeswitches",
+   1
+  ],
+  "1186": [
+   "chdinoroargrill",
+   0
+  ],
+  "1188": [
+   "chlavaexplodbuild",
+   0
+  ],
+  "1189": [
+   "chboggy",
+   0
+  ],
+  "1190": [
+   "chnests",
+   12
+  ],
+  "1191": [
+   "chgameselect",
+   0
+  ],
+  "1192": [
+   "chgameselect",
+   2
+  ],
+  "1193": [
+   "chgameselect",
+   3
+  ],
+  "1194": [
+   "chgameselect",
+   4
+  ],
+  "1195": [
+   "chgameselect",
+   1
+  ],
+  "1196": [
+   "chgameselect",
+   5
+  ],
+  "1197": [
+   "chminisubgame",
+   0
+  ],
+  "1198": [
+   "chminisubgame",
+   1
+  ],
+  "1199": [
+   "chjiggypost",
+   0
+  ],
+  "1200": [
+   "chhoneyb",
+   0
+  ],
+  "1201": [
+   "chmasterjiggy",
+   1
+  ],
+  "1202": [
+   "chjiggytemple",
+   2
+  ],
+  "1203": [
+   "chjiggybeam",
+   0
+  ],
+  "1205": [
+   "chattract",
+   0
+  ],
+  "1206": [
+   "chgameselect",
+   6
+  ],
+  "1207": [
+   "chpickups",
+   10
+  ],
+  "1208": [
+   "chhoneyb",
+   1
+  ],
+  "1209": [
+   "chgameselect",
+   7
+  ],
+  "1210": [
+   "chboggyfish",
+   0
+  ],
+  "1212": [
+   "chbottlesdead",
+   0
+  ],
+  "1213": [
+   "chjrinnlight",
+   0
+  ],
+  "1215": [
+   "chfoodwarn",
+   0
+  ],
+  "1216": [
+   "chperspexbox",
+   0
+  ],
+  "1217": [
+   "chperspexboxswitch",
+   0
+  ],
+  "1218": [
+   "chminegrilldoor",
+   0
+  ],
+  "1220": [
+   "chwitchytents",
+   0
+  ],
+  "1221": [
+   "chwitchytents",
+   1
+  ],
+  "1222": [
+   "chfantasybounce",
+   0
+  ],
+  "1223": [
+   "chfantasybounce",
+   1
+  ],
+  "1225": [
+   "chgoldsnakehead",
+   2
+  ],
+  "1229": [
+   "chquizexitdoor",
+   0
+  ],
+  "1238": [
+   "chsparkle",
+   0
+  ],
+  "1239": [
+   "chpickups",
+   7
+  ],
+  "1240": [
+   "chmumbohealspell",
+   0
+  ],
+  "1241": [
+   "chfactoryroofbits",
+   5
+  ],
+  "1242": [
+   "chfactorymaindoor",
+   2
+  ],
+  "1243": [
+   "chfactoryentrydoors",
+   1
+  ],
+  "1250": [
+   "chpickups",
+   4
+  ],
+  "1251": [
+   "chpickups",
+   5
+  ],
+  "1252": [
+   "chpickups",
+   6
+  ],
+  "1253": [
+   "chdoubloon",
+   2
+  ],
+  "1255": [
+   "chwitchyshockpadswitch",
+   0
+  ],
+  "1257": [
+   "chsquits",
+   0
+  ],
+  "1258": [
+   "chbottlesplantgrill",
+   0
+  ],
+  "1259": [
+   "chkingjinjobits",
+   0
+  ],
+  "1260": [
+   "chklungospiral",
+   0
+  ],
+  "1261": [
+   "chfactoryposter",
+   0
+  ],
+  "1263": [
+   "chjigsawcollect",
+   0
+  ],
+  "1265": [
+   "chdiggerbossdoor",
+   0
+  ],
+  "1266": [
+   "chgruntyfireball",
+   0
+  ],
+  "1267": [
+   "chdiggerbossshell",
+   0
+  ],
+  "1268": [
+   "chdiggerbossshell",
+   1
+  ],
+  "1269": [
+   "chdiggerbossbattery",
+   0
+  ],
+  "1270": [
+   "chgruntyfireballbig",
+   0
+  ],
+  "1271": [
+   "chdiggerbossinterior",
+   0
+  ],
+  "1272": [
+   "chbottlesparty",
+   0
+  ],
+  "1273": [
+   "chbottlesparty",
+   1
+  ],
+  "1274": [
+   "chspiralgrill",
+   0
+  ],
+  "1276": [
+   "chfireicestorm",
+   0
+  ],
+  "1277": [
+   "chfireicestorm",
+   1
+  ],
+  "1278": [
+   "chfactoryprop",
+   2
+  ],
+  "1279": [
+   "chdiggerbossdeflect",
+   0
+  ],
+  "1280": [
+   "chgobihailfire",
+   1
+  ],
+  "1281": [
+   "chchompaslunch",
+   0
+  ],
+  "1282": [
+   "chlavafall",
+   0
+  ],
+  "1290": [
+   "chlighthalo",
+   0
+  ],
+  "1291": [
+   "chcrashmat",
+   0
+  ],
+  "1292": [
+   "chjellycastle",
+   0
+  ],
+  "1293": [
+   "chfantasysafe",
+   1
+  ],
+  "1294": [
+   "chtrashcangame",
+   3
+  ],
+  "1295": [
+   "chfactorymagnet",
+   3
+  ],
+  "1298": [
+   "chicekeydoor",
+   0
+  ],
+  "1299": [
+   "chicekey",
+   0
+  ],
+  "1300": [
+   "chheggy",
+   0
+  ],
+  "1301": [
+   "chpickups",
+   8
+  ],
+  "1302": [
+   "chpickups",
+   9
+  ],
+  "1303": [
+   "chsecreteggs",
+   0
+  ],
+  "1304": [
+   "chplatuegrill",
+   0
+  ],
+  "1305": [
+   "chplatuegrill",
+   1
+  ],
+  "1306": [
+   "chbkcart",
+   0
+  ],
+  "1307": [
+   "chworlddoors",
+   0
+  ],
+  "1308": [
+   "chtrashcangame",
+   1
+  ],
+  "1310": [
+   "chhandcart",
+   2
+  ],
+  "1315": [
+   "chglowbo",
+   2
+  ],
+  "1316": [
+   "chjigsaw",
+   1
+  ],
+  "1320": [
+   "chquiz",
+   4
+  ],
+  "1321": [
+   "chquiz",
+   1
+  ],
+  "1322": [
+   "chheggy",
+   1
+  ],
+  "1323": [
+   "chquiz",
+   2
+  ],
+  "1324": [
+   "chquiz",
+   0
+  ],
+  "1325": [
+   "chdinofamilysick",
+   2
+  ],
+  "1326": [
+   "chquiz",
+   3
+  ],
+  "1327": [
+   "chfactorymagnet",
+   4
+  ],
+  "1328": [
+   "chboggy",
+   1
+  ],
+  "1329": [
+   "chmusicmenu",
+   1
+  ],
+  "1330": [
+   "chbobpanel",
+   0
+  ],
+  "1331": [
+   "chtrashcangame",
+   4
+  ],
+  "1332": [
+   "chmusicmenu",
+   2
+  ],
+  "1333": [
+   "chdeflect",
+   0
+  ],
+  "1340": [
+   "chjadestatue",
+   1
+  ],
+  "1341": [
+   "chdrawbridgeswitches",
+   2
+  ]
+ }
+}

@@ -290,14 +290,23 @@ export function parseBKSetup(buffer) {
 // visual set is replaced by the textured mesh, and the collision set is
 // drawn on top of it.
 
-const PROP_MODEL_DIR = './models/BK/props/';
-const propGeometryCache = new Map(); // asset id -> Promise<{visual, collision} | null>
+// Prop models are extracted per game into models/<game>/props/; BT's come
+// from banjo-tooie/tools/extract_maps.py and use the same file format
+// (bt_setup.js shares this loader and the row builders below).
+const propGeometryCache = new Map(); // "<game>:<asset id>" -> Promise<{visual, collision} | null>
 
 // Every prop mesh / edge object currently in the scene, so the selector can
 // swap their geometry in place without reloading the map.
 const propInstances = [];
 
-function makeGeometrySet(positions, indices) {
+/** Forget the previous map's prop instances, sprites and hitboxes (called on every map load). */
+export function resetSetupState() {
+    propInstances.length = 0;
+    animatedSprites.length = 0;
+    actorHitboxes.length = 0;
+}
+
+export function makeGeometrySet(positions, indices) {
     if (!indices || indices.length === 0) return null;
     const geometry = new THREE.BufferGeometry();
     geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
@@ -327,19 +336,20 @@ viewModeSelect?.addEventListener('change', () => {
     refreshTexturedMode();
 });
 
-function loadPropGeometry(assetId) {
-    if (propGeometryCache.has(assetId)) {
-        return propGeometryCache.get(assetId);
+export function loadPropGeometry(assetId, game = 'BK') {
+    const cacheKey = `${game}:${assetId}`;
+    if (propGeometryCache.has(cacheKey)) {
+        return propGeometryCache.get(cacheKey);
     }
 
     const file = assetId.toString(16).toUpperCase().padStart(4, '0') + '.model.bin';
-    const promise = fetch(PROP_MODEL_DIR + file)
+    const promise = fetch(`./models/${game}/props/` + file)
         .then(res => {
             if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
             return res.arrayBuffer();
         })
         .then(buffer => {
-            const model = parseBKModelGeometry(buffer);
+            const model = parseBKModelGeometry(buffer, game);
             const loaded = {
                 visual: makeGeometrySet(model.positions, model.displayListIndices),
                 collision: makeGeometrySet(model.positions, model.collisionIndices),
@@ -355,7 +365,7 @@ function loadPropGeometry(assetId) {
                     if (!this.texturedVariants.has(key)) {
                         let parts = null;
                         try {
-                            parts = buildTexturedParts(buffer, selector, { appendageOverrides });
+                            parts = buildTexturedParts(buffer, selector, { appendageOverrides, game });
                         } catch (err) {
                             console.warn(`prop model ${file}: textured build failed: ${err.message}`);
                         }
@@ -375,7 +385,7 @@ function loadPropGeometry(assetId) {
             return null;
         });
 
-    propGeometryCache.set(assetId, promise);
+    propGeometryCache.set(cacheKey, promise);
     return promise;
 }
 
@@ -532,29 +542,29 @@ animateSprites();
 // Rendering
 ////////////////////////////////////////
 
-const ACTOR_COLOR = '#ff7b24';
-const NODE_COLOR = '#ffd23a';
-const MODEL_COLOR = '#c77dff';
+export const ACTOR_COLOR = '#ff7b24';
+export const NODE_COLOR = '#ffd23a';
+export const MODEL_COLOR = '#c77dff';
 const SPRITE_COLOR = '#3aff78';
 
-const ACTOR_MARKER_RADIUS = 40;
+export const ACTOR_MARKER_RADIUS = 40;
 const NODE_MARKER_RADIUS = 25;
-const MODEL_MARKER_SIZE = 60;
+export const MODEL_MARKER_SIZE = 60;
 const SPRITE_MARKER_RADIUS = 20;
 
 // Shared geometries; each instance mesh clones nothing but the transform.
-const actorGeometry = new THREE.OctahedronGeometry(ACTOR_MARKER_RADIUS, 0);
-const nodeGeometry = new THREE.TetrahedronGeometry(NODE_MARKER_RADIUS, 0);
-const modelGeometry = new THREE.BoxGeometry(MODEL_MARKER_SIZE, MODEL_MARKER_SIZE, MODEL_MARKER_SIZE);
+export const actorGeometry = new THREE.OctahedronGeometry(ACTOR_MARKER_RADIUS, 0);
+export const nodeGeometry = new THREE.TetrahedronGeometry(NODE_MARKER_RADIUS, 0);
+export const modelGeometry = new THREE.BoxGeometry(MODEL_MARKER_SIZE, MODEL_MARKER_SIZE, MODEL_MARKER_SIZE);
 const spriteGeometry = new THREE.OctahedronGeometry(SPRITE_MARKER_RADIUS, 0);
-const radiusGeometry = new THREE.SphereGeometry(1, 12, 8);
+export const radiusGeometry = new THREE.SphereGeometry(1, 12, 8);
 
 function makeMaterial(color) {
     return new THREE.MeshLambertMaterial({ color, side: THREE.FrontSide, flatShading: true });
 }
 
 // A short line from the marker's centre along its yaw, so facing is visible.
-function makeYawLine(length, material) {
+export function makeYawLine(length, material) {
     const geom = new THREE.BufferGeometry().setFromPoints([
         new THREE.Vector3(0, 0, 0),
         new THREE.Vector3(0, 0, length),
@@ -591,7 +601,7 @@ function describeProp(prop) {
 /**
  * Group entries by a key, keeping first-seen order.
  */
-function groupBy(list, keyFn) {
+export function groupBy(list, keyFn) {
     const map = new Map();
     for (const item of list) {
         const key = keyFn(item);
@@ -606,7 +616,7 @@ function groupBy(list, keyFn) {
  * instances. Every instance shares the row's material so the swatch recolours
  * all of them together.
  */
-function addTypeRow(scene, groupBody, rowName, instances, color, checked, buildInstance) {
+export function addTypeRow(scene, groupBody, rowName, instances, color, checked, buildInstance) {
     const material = makeMaterial(color);
     const lineMaterial = new THREE.LineBasicMaterial({ color });
     const typeGroup = new THREE.Group();
@@ -1261,7 +1271,7 @@ for (const [kind, checkbox] of Object.entries(actorHitboxCheckboxes)) {
  * geometry. Falls back to the style's marker when the model could not be
  * loaded.
  */
-function addLoadedModelRow(scene, groupBody, rowName, instances, loaded, style, checked = true) {
+export function addLoadedModelRow(scene, groupBody, rowName, instances, loaded, style, checked = true) {
     if (!loaded) {
         addTypeRow(scene, groupBody, rowName, instances, style.color, checked, style.fallback);
         return;
@@ -1464,9 +1474,7 @@ function addSplitModelGroups(scene, byType, geometries, style, nameFn, rowLabel,
 export async function renderBKSetup(scene, buffer, mapId = -1) {
     const setup = parseBKSetup(buffer);
     currentMapId = mapId;
-    propInstances.length = 0;
-    animatedSprites.length = 0;
-    actorHitboxes.length = 0;
+    resetSetupState();
 
     // Visibility is remembered per row name across loads; the same actor
     // type unchecked in one map should not start hidden in the next.

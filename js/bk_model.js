@@ -8,25 +8,75 @@
 //  - the collision list: what the game collides with. Stored as a spatial
 //    grid, so a triangle appears once per cell it overlaps and has to be
 //    deduplicated (same issue parseBKModelBinary handles for map models).
-//  - the F3DEX display lists: what the game draws. Only needed for models
-//    with no collision (about half the props), decoded by replaying the
-//    G_VTX / G_TRI1 / G_TRI2 / G_QUAD commands against a vertex cache.
+//  - the display lists: what the game draws. Only needed for models with no
+//    collision (about half the props), decoded by replaying the G_VTX /
+//    G_TRI1 / G_TRI2 / G_QUAD commands against a vertex cache.
 //
 // Both index into the same BKVertexList, so a caller gets one position
 // array plus one index array per source.
+//
+// Banjo-Tooie uses the same file format with two differences, selected by
+// passing game: "BT": its display lists are F3DEX2 (different RSP opcodes
+// and encodings; the RDP commands are identical) and its texture list
+// entries are 8 bytes. See UCODES below.
 
 const MODEL_MAGIC = 0x0000000B;
 
-// F3DEX (v1) opcodes. modelRender_draw points segment 1 at the model's
-// vertex list, so every G_VTX address is 0x01xxxxxx with the low 24 bits a
-// byte offset into the Vtx array (16 bytes per vertex).
-const G_VTX = 0x04;
-const G_TRI1 = 0xBF;
-const G_TRI2 = 0xB1;
-const G_QUAD = 0xB5;
+// RSP microcode differences. modelRender_draw points segment 1 at the
+// model's vertex list, so every G_VTX address is 0x01xxxxxx with the low 24
+// bits a byte offset into the Vtx array (16 bytes per vertex); that is the
+// same in both games.
+//
+//   F3DEX (BK):  G_VTX w0 = | 04 | v0*2:8 | (n-1):6 (n*16-1):10 |
+//                G_TRI1 in w1, G_QUAD w1 = 4 slots, geometry mode set/clear
+//                are separate commands, G_DL 0x06.
+//   F3DEX2 (BT): G_VTX w0 = | 01 | 0:4 n:8 | 0:4 | (v0+n)*2:8 |
+//                G_TRI1 in w0, no G_QUAD (07 is the TRI2 layout),
+//                G_GEOMETRYMODE clears ~w0[23:0] then sets w1, G_DL 0xDE.
+//                G_CULL_BACK moved from bit 13 to bit 10.
+const UCODES = {
+    BK: {
+        ops: { 0x04: 'VTX', 0xBF: 'TRI1', 0xB1: 'TRI2', 0xB5: 'QUAD', 0x06: 'DL', 0xB8: 'ENDDL',
+               0xB6: 'CLEARGEOMETRYMODE', 0xB7: 'SETGEOMETRYMODE', 0xBB: 'TEXTURE' },
+        cullBack: 0x00002000,
+        textureEntrySize: 16,
+        vtx: (w0) => ({ v0: ((w0 >>> 16) & 0xFF) >>> 1, n: ((w0 >>> 10) & 0x3F) + 1 }),
+        tri1: (w0, w1) => w1,
+        // w0: | op | 0 | level:3 tile:3 | on |
+        texture: (w0) => ({ on: (w0 & 0xFF) !== 0, tile: (w0 >>> 8) & 7 }),
+    },
+    BT: {
+        ops: { 0x01: 'VTX', 0x05: 'TRI1', 0x06: 'TRI2', 0x07: 'TRI2', 0xDE: 'DL', 0xDF: 'ENDDL',
+               0xD9: 'GEOMETRYMODE', 0xD7: 'TEXTURE' },
+        cullBack: 0x00000400,
+        textureEntrySize: 8,
+        vtx: (w0) => { const n = (w0 >>> 12) & 0xFF; return { v0: (((w0 >>> 1) & 0x7F) - n), n }; },
+        tri1: (w0, w1) => w0,
+        // w0: | op | 0 | 0:2 level:3 tile:3 | on:7 0 |
+        texture: (w0) => ({ on: ((w0 >>> 1) & 0x7F) !== 0, tile: (w0 >>> 8) & 7 }),
+    },
+};
 const VERTEX_SEGMENT = 0x01;
 const VTX_CACHE_SIZE = 32;
 const VTX_SIZE = 16;
+
+// Number of Vtx records a model's vertex list holds. BK's BKVertexList
+// header stores it at +0x14; BT keeps something else in that slot (it is
+// usually larger than the list, sometimes smaller), so the list is sized
+// from the space up to the next section instead, which is also a safe cap
+// for BK.
+function vertexListCount(dv, vtxListOffset, game) {
+    let end = dv.byteLength;
+    for (const o of [0x04, 0x0C, 0x14, 0x18, 0x1C, 0x20, 0x24, 0x28, 0x2C]) {
+        const off = dv.getInt32(o, false);
+        if (off > vtxListOffset && off < end) end = off;
+    }
+    const texOff = dv.getInt16(0x08, false);
+    if (texOff > vtxListOffset && texOff < end) end = texOff;
+    const spaceCount = Math.max(0, Math.floor((end - vtxListOffset - 0x18) / VTX_SIZE));
+    if (game === "BT") return spaceCount;
+    return Math.min(dv.getInt16(vtxListOffset + 0x14, false), spaceCount);
+}
 
 /**
  * @param {ArrayBuffer} buffer a decompressed BKModelBin
@@ -39,8 +89,10 @@ const VTX_SIZE = 16;
  *   from it to the furthest vertex (local_norm) and the same from the origin
  *   (global_norm). The game's actor touch sphere is centre / local_norm --
  *   unless the model has hitVolumes (see parseHitVolumes), which replace it.
+ * @param {"BK"|"BT"} game which game's model this is (see UCODES)
  */
-export function parseBKModelGeometry(buffer) {
+export function parseBKModelGeometry(buffer, game = "BK") {
+    const ucode = UCODES[game] ?? UCODES.BK;
     const dv = new DataView(buffer);
     if (dv.byteLength < 0x38 || dv.getUint32(0, false) !== MODEL_MAGIC) {
         throw new Error('not a BK model file');
@@ -54,7 +106,7 @@ export function parseBKModelGeometry(buffer) {
     }
 
     // BKVertexList: min[3], max[3], center[3], local_norm, count, global_norm, Vtx[]
-    const vertexCount = dv.getInt16(vtxListOffset + 0x14, false);
+    const vertexCount = vertexListCount(dv, vtxListOffset, game);
     const vtxBase = vtxListOffset + 0x18;
     const bounds = {
         center: [dv.getInt16(vtxListOffset + 0xC, false), dv.getInt16(vtxListOffset + 0xE, false),
@@ -106,23 +158,22 @@ export function parseBKModelGeometry(buffer) {
         for (let i = 0; i < cmdCount && o + 8 <= dv.byteLength; i++, o += 8) {
             const w0 = dv.getUint32(o, false);
             const w1 = dv.getUint32(o + 4, false);
-            const op = w0 >>> 24;
-            if (op === G_VTX) {
-                // w0: | op:8 | v0*2:8 | (n-1):6 | (n*16-1):10 |   w1: segmented address
-                const v0 = ((w0 >>> 16) & 0xFF) >>> 1;
-                const n = ((w0 >>> 10) & 0x3F) + 1;
+            const op = ucode.ops[w0 >>> 24];
+            if (op === 'VTX') {
+                const { v0, n } = ucode.vtx(w0);
                 if ((w1 >>> 24) !== VERTEX_SEGMENT) continue;
                 const first = (w1 & 0xFFFFFF) / VTX_SIZE;
                 for (let k = 0; k < n && v0 + k < VTX_CACHE_SIZE; k++) {
+                    if (v0 + k < 0) continue;
                     const idx = first + k;
                     cache[v0 + k] = idx < vertexCount ? idx : -1;
                 }
-            } else if (op === G_TRI1) {
-                pushCacheTri(out, seen, cache, w1, vertexCount);
-            } else if (op === G_TRI2) {
+            } else if (op === 'TRI1') {
+                pushCacheTri(out, seen, cache, ucode.tri1(w0, w1), vertexCount);
+            } else if (op === 'TRI2') {
                 pushCacheTri(out, seen, cache, w0, vertexCount);
                 pushCacheTri(out, seen, cache, w1, vertexCount);
-            } else if (op === G_QUAD) {
+            } else if (op === 'QUAD') {
                 // w1: | v0*2 | v1*2 | v2*2 | v3*2 |  -> (v0,v1,v2), (v0,v2,v3)
                 const a = cache[((w1 >>> 24) & 0xFF) >>> 1];
                 const b = cache[((w1 >>> 16) & 0xFF) >>> 1];
@@ -280,6 +331,17 @@ function pushUniqueTri(out, seen, a, b, c, vertexCount) {
 // u8 pad[2]; u8 width; u8 height; u8 pad[6] }; a CI texture's 32- or 512-byte
 // RGBA16 palette sits at the offset and the pixels follow it
 // (textureInfo_getTextureSize in code_63690.c).
+//
+// BT packs the entry into 8 bytes: { s32 offset; u8 flags; u8 type; u8 width;
+// u8 height }, same type bits. flags 0x80 marks a mipmapped texture (the base
+// level is followed by a 256-byte LOD chain, drawn through tile 2 like BK's).
+// Only a handful of BT models embed their pixels after the entries like BK
+// does; in the rest the gfx list starts right after the entries and `offset`
+// is instead a texture id into the game's texture bank (asset 0x1EF6 + id).
+// The game DMAs those into the segment-2 buffer in entry order, which is
+// replicated here from options.textureBank (bt_textures.js); without the
+// bank, or for an id it lacks, the entry is marked `missing` and its
+// surfaces draw untextured.
 
 const TEX_TYPE_CI4 = 0x01;
 const TEX_TYPE_CI8 = 0x02;
@@ -289,36 +351,44 @@ const TEX_TYPE_IA8 = 0x10;
 
 const TEXTURE_SEGMENT = 0x02;
 
-// F3DEX (v1) opcodes beyond the ones the collision-only decoder needs
-const G_CLEARGEOMETRYMODE = 0xB6;
-const G_SETGEOMETRYMODE = 0xB7;
-const G_TEXTURE = 0xBB;
+// RDP commands (identical in F3DEX and F3DEX2); the RSP ones are in UCODES.
 const G_SETTIMG = 0xFD;
 const G_SETTILE = 0xF5;
 const G_SETTILESIZE = 0xF2;
 const G_LOADBLOCK = 0xF3;
 const G_LOADTILE = 0xF4;
 const G_SETCOMBINE = 0xFC;
-const G_DL = 0x06;
-const G_ENDDL = 0xB8;
 
 // modelRender_draw points segment 3 at a table of 16-byte render-mode display
 // lists (renderModes*Opa / *Xlu in core2/modelRender.c) and a model picks one
 // with G_DL 0x030000n0. For an opaque model entries 0, 1, 6 and 7 are the OPA
 // surface modes; every other entry alpha-blends (XLU).
+//
+// BT's tables (core2 data, 29 entries) follow the same idea: entries 0, 1, 6,
+// 7 are opaque, 12-13 and 18-19 are their fogged copies, and the rest
+// (including the decal modes 24-28 that its maps use for ground markings)
+// blend -- read off each entry's cycle-2 blender (CLR_MEM * (1 - A)).
 const RENDER_MODE_SEGMENT = 0x03;
-const OPA_RENDER_MODE_ENTRIES = new Set([0, 1, 6, 7]);
+// BT only: the game's "restore defaults" display list. BT model lists never
+// set G_CULL_BACK themselves -- back-face culling is on when a model starts
+// drawing, the few double-sided lists clear it, and every such list ends by
+// calling this segment to put it back.
+const BT_RESTORE_SEGMENT = 0x07;
+const OPA_RENDER_MODE_ENTRIES = {
+    BK: new Set([0, 1, 6, 7]),
+    BT: new Set([0, 1, 6, 7, 12, 13, 18, 19]),
+};
 
 // Geometry-setup commands (include/core2/model.h). The geo list is a tree of
 // these that modelRender_draw walks; it decides which display lists run, in
 // what order, and carries state like TEXWRAP.
 const GEO_UNK0 = 0x00, GEO_SORT = 0x01, GEO_BONE = 0x02, GEO_LOADDL = 0x03, GEO_SKINNING = 0x05,
       GEO_CALL = 0x06, GEO_LOADDL2 = 0x07, GEO_LOD = 0x08, GEO_REFPOINT = 0x0A, GEO_SELECTOR = 0x0C,
-      GEO_DRAWDIST = 0x0D, GEO_UNKE = 0x0E, GEO_CAMERA = 0x0F, GEO_TEXWRAP = 0x10;
+      GEO_DRAWDIST = 0x0D, GEO_UNKE = 0x0E, GEO_CAMERA = 0x0F, GEO_TEXWRAP = 0x10,
+      GEO_BT_LOADDL = 0x11; // BT only: { s16 gfx_index; s16 unk; s16 unk; s16 flags } -- another "draw display list"
 
 const G_LIGHTING = 0x00020000;
 const G_TEXTURE_GEN = 0x00040000;
-const G_CULL_BACK = 0x00002000;
 
 // Colour-combiner inputs (a/b/c/d slot numbering is the same for these)
 const CC_TEXEL0 = 1;
@@ -357,6 +427,10 @@ function decodeTexture(dv, dataBase, info) {
     const pixels = dataBase + info.offset + paletteBytes;
     const palette = dataBase + info.offset;
     const n = w * h;
+    if (info.missing) {
+        out.fill(255);
+        return out;
+    }
 
     if (type & TEX_TYPE_CI4) {
         for (let i = 0; i < n; i++) {
@@ -406,10 +480,16 @@ function decodeTexture(dv, dataBase, info) {
  *   names are resolved exactly; the rest fall back to the guess described
  *   below. For actors whose draw callback pins a part on or off (see
  *   BK_ACTOR_APPENDAGES in bk_setup.js).
+ * options.game: "BK" (default) or "BT", see UCODES.
+ * options.textureBank: for BT, the loaded bank (bt_textures.js getBTTextureBank()).
  */
 export function parseBKModelTextured(buffer, selector = 0, options = {}) {
     const appendages = options.appendages ?? null;
     const appendageOverrides = options.appendageOverrides ?? null;
+    const game = options.game === "BT" ? "BT" : "BK";
+    const ucode = UCODES[game];
+    const opaRenderModes = OPA_RENDER_MODE_ENTRIES[game];
+    const G_CULL_BACK = ucode.cullBack;
     const dv = new DataView(buffer);
     if (dv.byteLength < 0x38 || dv.getUint32(0, false) !== MODEL_MAGIC) return null;
 
@@ -422,28 +502,56 @@ export function parseBKModelTextured(buffer, selector = 0, options = {}) {
     const textures = [];
     if (textureListOffset) {
         const count = dv.getInt16(textureListOffset + 4, false);
-        const dataBase = textureListOffset + 8 + count * 16;
+        const entrySize = ucode.textureEntrySize;
+        let dataBase = textureListOffset + 8 + count * entrySize;
+        let texDv = dv;
         for (let i = 0; i < count; i++) {
-            const o = textureListOffset + 8 + i * 16;
-            const info = {
+            const o = textureListOffset + 8 + i * entrySize;
+            const info = entrySize === 16 ? {
                 offset: dv.getInt32(o, false),
                 type: dv.getInt16(o + 4, false),
                 width: dv.getUint8(o + 8),
                 height: dv.getUint8(o + 9),
+            } : {
+                offset: dv.getInt32(o, false),
+                flags: dv.getUint8(o + 4),
+                type: dv.getUint8(o + 5),
+                width: dv.getUint8(o + 6),
+                height: dv.getUint8(o + 7),
             };
             info.size = texturePaletteBytes(info.type) + (texturePixelBits(info.type) * info.width * info.height) / 8;
-            info.rgba = decodeTexture(dv, dataBase, info);
             textures.push(info);
+        }
+        if (entrySize === 8 && gfxListOffset <= dataBase) {
+            // Bank ids: assemble the segment-2 buffer the game would build.
+            const bank = options.textureBank ?? null;
+            const blobs = textures.map(t => bank ? bank.get(t.offset) : null);
+            const total = blobs.reduce((n, b) => n + (b ? b.length : 0), 0);
+            const seg = new Uint8Array(total);
+            let off = 0;
+            for (let i = 0; i < textures.length; i++) {
+                const t = textures[i], b = blobs[i];
+                t.id = t.offset;
+                t.offset = off;
+                if (b) { seg.set(b, off); off += b.length; }
+                else t.missing = true;
+            }
+            texDv = new DataView(seg.buffer);
+            dataBase = 0;
+        }
+        for (const info of textures) {
+            info.missing = info.missing || dataBase + info.offset + info.size > texDv.byteLength;
+            info.rgba = decodeTexture(texDv, dataBase, info);
         }
     }
     const textureAt = (addr) => {
         if ((addr >>> 24) !== TEXTURE_SEGMENT) return -1;
         const off = addr & 0xFFFFFF;
-        return textures.findIndex(t => off >= t.offset && off < t.offset + t.size);
+        return textures.findIndex(t => !t.missing && off >= t.offset && off < t.offset + t.size);
     };
 
     // ---- vertices
-    const vertexCount = dv.getInt16(vtxListOffset + 0x14, false);
+    const vertexCount = vertexListCount(dv, vtxListOffset, game);
     const vtxBase = vtxListOffset + 0x18;
 
     // ---- display list replay
@@ -455,7 +563,8 @@ export function parseBKModelTextured(buffer, selector = 0, options = {}) {
     // through the render tile's descriptor at draw time -- taking the last
     // load would pick the smallest mip level and a stale tile's wrap modes.
     const cache = new Int32Array(VTX_CACHE_SIZE).fill(-1);
-    let geometryMode = 0;
+    const defaultGeometryMode = game === "BT" ? G_CULL_BACK : 0;
+    let geometryMode = defaultGeometryMode;
     let renderXlu = false; // current segment-3 render mode blends alpha
     let texOn = false, texScaleS = 1, texScaleT = 1, renderTile = 0;
     let timgAddr = 0;
@@ -567,52 +676,63 @@ export function parseBKModelTextured(buffer, selector = 0, options = {}) {
         for (let o = startOffset; o + 8 <= gfxEnd; o += 8) {
             const w0 = dv.getUint32(o, false);
             const w1 = dv.getUint32(o + 4, false);
-            if ((w0 >>> 24) === G_ENDDL) {
+            const op = ucode.ops[w0 >>> 24] ?? (w0 >>> 24);
+            if (op === 'ENDDL') {
                 if (linear) continue;
                 return;
             }
-            switch (w0 >>> 24) {
-            case G_VTX: {
-                    const v0 = ((w0 >>> 16) & 0xFF) >>> 1;
-                    const n = ((w0 >>> 10) & 0x3F) + 1;
+            switch (op) {
+                case 'VTX': {
+                    const { v0, n } = ucode.vtx(w0);
                     if ((w1 >>> 24) !== VERTEX_SEGMENT) break;
                     const first = (w1 & 0xFFFFFF) / VTX_SIZE;
                     for (let k = 0; k < n && v0 + k < VTX_CACHE_SIZE; k++) {
+                        if (v0 + k < 0) continue;
                         const idx = first + k;
                         cache[v0 + k] = idx < vertexCount ? idx : -1;
                     }
                     break;
                 }
-                case G_TRI1:
-                    emit(cache[((w1 >>> 16) & 0xFF) >>> 1], cache[((w1 >>> 8) & 0xFF) >>> 1], cache[(w1 & 0xFF) >>> 1]);
+                case 'TRI1': {
+                    const w = ucode.tri1(w0, w1);
+                    emit(cache[((w >>> 16) & 0xFF) >>> 1], cache[((w >>> 8) & 0xFF) >>> 1], cache[(w & 0xFF) >>> 1]);
                     break;
-                case G_TRI2:
+                }
+                case 'TRI2':
                     emit(cache[((w0 >>> 16) & 0xFF) >>> 1], cache[((w0 >>> 8) & 0xFF) >>> 1], cache[(w0 & 0xFF) >>> 1]);
                     emit(cache[((w1 >>> 16) & 0xFF) >>> 1], cache[((w1 >>> 8) & 0xFF) >>> 1], cache[(w1 & 0xFF) >>> 1]);
                     break;
-                case G_QUAD: {
+                case 'QUAD': {
                     const a = cache[((w1 >>> 24) & 0xFF) >>> 1], b = cache[((w1 >>> 16) & 0xFF) >>> 1];
                     const c = cache[((w1 >>> 8) & 0xFF) >>> 1], d = cache[(w1 & 0xFF) >>> 1];
                     emit(a, b, c);
                     emit(a, c, d);
                     break;
                 }
-                case G_CLEARGEOMETRYMODE: geometryMode &= ~w1; break;
-                case G_SETGEOMETRYMODE: geometryMode |= w1; break;
-                case G_DL:
+                case 'CLEARGEOMETRYMODE': geometryMode &= ~w1; break;
+                case 'SETGEOMETRYMODE': geometryMode |= w1; break;
+                case 'GEOMETRYMODE':
+                    // F3DEX2: w0[23:0] is the inverted clear mask, w1 the set bits
+                    geometryMode = (geometryMode & (w0 & 0xFFFFFF)) | w1;
+                    break;
+                case 'DL':
                     // Only the render-mode table calls matter here; calls into
                     // the model's own lists are reached through the geo tree.
                     if ((w1 >>> 24) === RENDER_MODE_SEGMENT) {
-                        renderXlu = !OPA_RENDER_MODE_ENTRIES.has(((w1 & 0xFFFFFF) >>> 4));
+                        renderXlu = !opaRenderModes.has(((w1 & 0xFFFFFF) >>> 4));
+                    } else if (game === "BT" && (w1 >>> 24) === BT_RESTORE_SEGMENT) {
+                        geometryMode |= defaultGeometryMode;
                     }
                     break;
-                case G_TEXTURE:
-                    // w0: | op | 0 | level:3 tile:3 | on |   w1: scaleS:16 scaleT:16 (0.16 fixed)
-                    texOn = (w0 & 0xFF) !== 0;
-                    renderTile = (w0 >>> 8) & 7;
+                case 'TEXTURE': {
+                    // w1: scaleS:16 scaleT:16 (0.16 fixed); w0 layout per microcode (UCODES)
+                    const t = ucode.texture(w0);
+                    texOn = t.on;
+                    renderTile = t.tile;
                     texScaleS = (w1 >>> 16) / 65536;
                     texScaleT = (w1 & 0xFFFF) / 65536;
                     break;
+                }
                 case G_SETTIMG: timgAddr = w1; break;
                 case G_LOADBLOCK:
                 case G_LOADTILE: {
@@ -712,6 +832,7 @@ export function parseBKModelTextured(buffer, selector = 0, options = {}) {
                 else if (cmd === GEO_CALL) b = dv.getInt32(offset + 8, false);
                 else if (cmd === GEO_LOD) b = dv.getInt32(offset + 0x1C, false);
                 else if (cmd === GEO_UNKE) b = dv.getInt16(offset + 0x10, false);
+                else if (cmd === GEO_BT_LOADDL) { if (!inSelector) hasUnconditional = true; }
                 else if (cmd === GEO_SORT) {
                     const b1 = dv.getInt16(offset + 0x22, false), b2 = dv.getInt32(offset + 0x24, false);
                     if (b1) scanGeo(offset + b1, depth + 1, inSelector);
@@ -835,6 +956,11 @@ export function parseBKModelTextured(buffer, selector = 0, options = {}) {
                 case GEO_TEXWRAP:
                     // s32 mode at +8: 1 = mipMapClampDL, 2 = mipMapWrapDL (modelRender_geoCmd_TEXWRAP)
                     mipTile2(dv.getInt32(offset + 8, false) === 1);
+                    break;
+                case GEO_BT_LOADDL:
+                    // BT: s16 gfx_index at +8 (every BT display list is reachable
+                    // once this is treated like LOADDL; the other fields are unknown)
+                    runDl(dv.getInt16(offset + 8, false));
                     break;
                 default:
                     break;
