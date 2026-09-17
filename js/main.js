@@ -340,25 +340,31 @@ loadMap.addEventListener('click', async (e) => {
         }
     }
     else if (game == "BT"){
-
+        // models/BT/<dir>/{opa,xlu}.model.bin, see BT_Maps in model_list.js.
+        // Same BKModelBin format as BK. The three big Jolly Roger's Lagoon maps
+        // have no opa model of their own: their terrain is a list of sector
+        // models (sect<N>.*.model.bin) and the map-level xlu is the water.
         const mapName = document.getElementById("mapDropdown").value;
-        let mapFilename = getMapProperty(game, mapName, "modelAPointer");
-        let mapFilename2 = getMapProperty(game, mapName, "modelBPointer");
+        const mapDir = getMapProperty(game, mapName, "dir");
+        const hasOpa = getMapProperty(game, mapName, "opa") !== "";
+        const hasXlu = getMapProperty(game, mapName, "xlu") !== "";
+        const sectors = getMapProperty(game, mapName, "sectors") ?? [];
+
+        const files = [];
+        if (hasOpa) files.push(["opa.model.bin", undefined]);
+        sectors.forEach(([opa, xlu], i) => {
+            files.push([`sect${i}.opa.model.bin`, `Sector ${i} (0x${opa})`]);
+            if (xlu !== "") files.push([`sect${i}.xlu.model.bin`, `Sector ${i} XLU (0x${xlu})`]);
+        });
+        if (hasXlu) files.push(["xlu.model.bin", "XLU Model"]);
 
         try {
-            const res1 = await fetch('./models/' + game + '/' + mapFilename);
-            const buffer1 = await res1.arrayBuffer();
-            console.log(mapFilename+": Binary file length:", buffer1.byteLength);
-            parseBKModelBinary(scene, buffer1, true);
-
-            if (mapFilename2 === undefined) {
-            
-            }
-            else {
-                const res2 = await fetch('./models/' + game + '/' + mapFilename2);
-                const buffer2 = await res2.arrayBuffer();
-                console.log(mapFilename2+": Binary file length:", buffer2.byteLength);
-                parseBKModelBinary(scene, buffer2, false);
+            for (let i = 0; i < files.length; i++) {
+                const [filename, label] = files[i];
+                const res = await fetch('./models/BT/' + mapDir + '/' + filename);
+                const buffer = await res.arrayBuffer();
+                console.log(mapDir + "/" + filename + ": Binary file length:", buffer.byteLength);
+                parseBKModelBinary(scene, buffer, i === 0, label);
             }
         } catch (err) {
             console.error(err);

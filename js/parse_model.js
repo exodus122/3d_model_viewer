@@ -156,6 +156,14 @@ export function parseBKModelBinary(scene, buffer, fresh, name, mapId){
     
     let collision_list_offset = dv.getUint32(0x1C,false);
     //console.log("collision_list_offset is "+collision_list_offset.toString(16))
+    if (!collision_list_offset) {
+        // Purely visual model (about 30 BT xlu models, e.g. the Mumbo hut
+        // interiors): nothing to collide with, and BT's F3DEX2 display lists
+        // are not decoded yet, so there is nothing to draw either.
+        console.log(`parseBKModelBinary: ${name ?? "model"} has no collision list, skipped`);
+        if (fresh) { clearTexturedPairs(); clearAllModels(scene); }
+        return;
+    }
     const geoCount = dv.getInt16(collision_list_offset+0x10,false);
     //console.log("geoCount is "+geoCount.toString(16))
     const triCount = dv.getInt16(collision_list_offset+0x14,false);
