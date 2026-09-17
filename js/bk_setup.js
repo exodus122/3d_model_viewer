@@ -702,8 +702,9 @@ const BK_MAP_OBJECTS = {
 //                                    pose) of a BK_MAP_OBJECTS model, offset
 //                                    by that object's position
 //   { offset: [dx, dy, dz] }         relative to the setup position
-//   { nearestActor: id }             the position of the closest node with
+//   { nearestActor: id, offset? }    the position of the closest node with
 //                                    that actor id (actorArray_findClosest...)
+//                                    plus an optional [dx, dy, dz]
 //   node => [x, y, z]                computed from the setup node
 const BK_ACTOR_OVERRIDES = {
     0x07: { // TTC_TREASURE_TROVE_COVE
@@ -731,6 +732,10 @@ const BK_ACTOR_OVERRIDES = {
                  source: 'src/GV/ch/gobirock.c: snaps to the nearest GOBI_1' },
         0x12F: { position: { nearestActor: 0x12E },
                  source: 'src/GV/ch/gobirope.c: snaps to the nearest GOBI_1' },
+    },
+    0x26: { // MMM_NAPPERS_ROOM
+        0x39: { position: { nearestActor: 0x46, offset: [0, -50, 0] }, scale: 0.5,
+                source: 'src/MMM/ch/napper.c: chnapper_update init sits him 50 under the jiggy at scale 0.5' },
     },
     0x27: { // FP_FREEZEEZY_PEAK
         0x1F3: { position: { nearestActor: 0x35B },
@@ -816,12 +821,75 @@ const CCW_SEASON_BY_MAP = {
 };
 
 const BK_ACTOR_APPENDAGES = {
+    // ---- core2 (actors shared between levels)
+    // Mumbo: 4/6 = hut-version parts (lifetime_value 0 on a fresh file), 5/7
+    // and 8 = his other two costumes: src/core2/ch/mumbo.c chMumbo_draw.
+    0x7: { 4: 1, 5: 0, 6: 1, 7: 0, 8: 0, 9: 0 },
+    // Bottles: 3/4 off whenever he is drawn: src/core2/ch/mole.c.
+    0x37A: { 3: 0, 4: 0 },
+    // Gravestones: 3 = velocity[1] (1 while idle), 4 = local->unk0 (1 after
+    // init): src/core2/ch/gravestone.c.
+    0xC7: { 3: 1, 4: 1 }, 0x3C2: { 3: 1, 4: 1 },
+    // Grille chompa: 3 off while idle: src/core2/ch/grillechompa.c.
+    0x1CC: { 3: 0 },
+    // Clucker: 3 = dying, 4 off while idle: src/core2/ch/clucker.c.
+    0x29F: { 3: 0, 4: 0 },
+    // Ice cubes: 3 = unk38_31, 0 until they attack: src/core2/ch/icecube.c.
+    0x37D: { 3: 0 }, 0x3A0: { 3: 0 },
+    // Mumbo switch: 1 = 2 unless it is blinking (unk38_0): src/core2/code_4C020.c chMumboSwitch_draw.
+    0x23D: { 1: 2 },
+    // ---- SM
+    // Vegetables: 3 off until met: src/SM/ch/vegetables.c.
+    0x164: { 3: 0 }, 0x165: { 3: 0 }, 0x166: { 3: 0 }, 0x36D: { 3: 0 }, 0x36E: { 3: 0 }, 0x36F: { 3: 0 },
+    // ---- MM
+    // Mumbo's Mountain hut: 1 = not destroyed: src/MM/ch/hut.c.
+    0x9: { 1: 1 },
+    // ---- TTC
     // The whole crab is appendage 3; only the shell is unconditional. On
     // unless dead (state 7): src/TTC/ch/nipper.c __chNipper_animFunc.
     0x117: { 3: 1 },
+    // Blubber: 4 always off: src/TTC/ch/blubber.c.
+    0x115: { 4: 0 },
+    // Lockups: 3/4 = unk38_31, 0 while closed: src/TTC/ch/lockup.c.
+    0x151: { 3: 0, 4: 0 }, 0x152: { 3: 0, 4: 0 }, 0x153: { 3: 0, 4: 0 },
+    // ---- BGS
+    // BGS mud hut: the walls are appendage 1, shown while idle (state 1):
+    // src/BGS/ch/mudhut.c chMudHut_draw.
+    0xC: { 1: 1 },
+    // Choir turtles: 4 = marker id - 0x19A, i.e. 1..6 in colour order:
+    // src/BGS/ch/choirturtle.c.
+    0x27B: { 4: 1 }, 0x27C: { 4: 2 }, 0x27D: { 4: 3 }, 0x27E: { 4: 4 }, 0x27F: { 4: 5 }, 0x280: { 4: 6 },
+    // Croctus: 1 = actorTypeSpecificField (NodeProp selector): src/BGS/ch/croctus.c.
+    0x1FA: node => ({ 1: node.selectorOrRadius }),
+    // Pink egg: 1 = intact, 2 = breaking: src/BGS/ch/pinkegg.c.
+    0x5B: { 1: 1, 2: 0 }, 0xED: { 1: 1, 2: 0 }, 0xEE: { 1: 1, 2: 0 }, 0xEF: { 1: 1, 2: 0 }, 0xF0: { 1: 1, 2: 0 },
+    // ---- FP
+    // Snowman button: 1 = pressed (state 3), 2 = the inverse: src/FP/ch/snowmanbutton.c.
+    0x116: { 1: 0, 2: 1 },
+    // Christmas tree: 5 = lights on (unk38_31), 6 = lit after the Twinklies
+    // minigame: src/FP/ch/xmastree.c. Star: 1 = off, 2 = on. Switch: 1 off, 2 on.
+    0x15F: { 5: 0, 6: 0 },
+    0x339: { 1: 1, 2: 0 },
+    0x338: { 1: 0, 2: 1 },
+    // Boggy: 1/3 per appearance: src/FP/ch/boggy1.c, boggy2.c, boggy3.c.
+    0x160: { 1: 0, 3: 1 }, 0xC8: { 1: 1, 3: 1 }, 0x33D: { 1: 0, 3: 0 },
     // 1 = snowball in hand (raised mid-attack), 2 = hat (until knocked off):
     // src/core2/ch/snowman.c chSnowman_draw, idle sets unk9 = 0, unkA = 1.
     0x124: { 1: 0, 2: 1 },
+    // ---- GV
+    // Ancient ones: 3/4 on unless state 3: src/GV/ch/ancientone.c.
+    0x147: { 3: 1, 4: 1 },
+    // ---- MMM
+    // Cemetery pot: 3 = flowered: src/MMM/ch/cemetarypot.c.
+    0x25: { 3: 0 },
+    // Napper asleep (state 1): src/MMM/ch/napper.c chnapper_draw.
+    0x39: { 1: 1, 2: 0, 3: 0 },
+    // Portraits: 3 = unk38_31, 2 until broken: src/MMM/ch/portrait.c.
+    0x382: { 3: 2 }, 0x384: { 3: 2 }, 0x385: { 3: 2 }, 0x386: { 3: 2 }, 0x387: { 3: 2 }, 0x388: { 3: 2 },
+    // ---- RBB
+    // Grimlet: 3/4 only while Banjo is within 600: src/RBB/ch/grimlet.c.
+    0x1C6: { 3: 0, 4: 0 },
+    // ---- CCW
     // Seasonal outfit; 14 = hat, worn until Banjo has met him:
     // src/CCW/ch/grublinhood.c chgrublinhood_draw.
     0x375: (node, mapId) => {
@@ -837,6 +905,28 @@ const BK_ACTOR_APPENDAGES = {
             14: 1,
         };
     },
+    // Eyrie's egg: 3 = whole, 4 = broken: src/CCW/ch/eyrieegg.c.
+    0x2A0: { 3: 1, 4: 0 },
+    // Eyrie: 3 = 2 asleep, 1 otherwise: src/CCW/code_3310.c.
+    0x2A1: { 3: 1 },
+    // Nabnut outside in autumn: src/CCW/ch/outsideautumnnabnut.c.
+    0x2A8: { 3: 0, 4: 0, 5: 1, 6: 0, 7: 1, 8: 1, 9: 0, 10: 1 },
+    // Pink squirrel and Nabnut eating acorns: src/CCW/code_5BF0.c func_8038C380.
+    0x311: { 3: 0, 4: 0, 5: 0, 6: 1, 7: 0, 8: 0, 9: 0, 10: 1 },
+    0x315: { 3: 0, 4: 0, 5: 0, 6: 1, 7: 0, 8: 0, 9: 0, 10: 1 },
+    // ---- Gruntilda's Lair
+    // Warp cauldron: 3 = active, 4 = inactive: src/lair/ch/cauldron.c.
+    0x23B: { 3: 0, 4: 1 },
+    // Cheato: src/lair/ch/cheato.c.
+    0x1D5: { 3: 1, 4: 1 }, 0x1D6: { 3: 1, 4: 1 }, 0x1D7: { 3: 1, 4: 1 },
+    // Refill pillows: 3/4 while still collidable (unused): src/lair/ch/refillpillow.c.
+    0x1D8: { 3: 1, 4: 1 }, 0x1D9: { 3: 1, 4: 1 }, 0x1DA: { 3: 1, 4: 1 },
+    // Furnace Fun prizes: src/lair/ch/furnacefunprizes.c.
+    0x3C4: { 4: 1, 5: 1 }, 0x3C6: { 4: 1, 5: 1 }, 0x3C7: { 4: 1, 5: 1 }, 0x3C8: { 4: 1, 5: 1 },
+    // Gruntilda in the lair: src/lair/ch/lairgruntilda.c.
+    0x3C5: { 3: 0, 4: 0, 5: 0 },
+    // Crypt coffin lid: 3 = opening (unk10_12), 4 = shut: src/lair/lairspawnqueue.c func_8038664C.
+    0x258: { 3: 0, 4: 1 },
 };
 
 // Map being rendered, for BK_ACTOR_APPENDAGES entries that depend on it.
@@ -967,7 +1057,7 @@ async function applyActorOverrides(mapId, actorNodes) {
                     console.warn(`actor ${hex(node.actorId)}: no ${hex(position.nearestActor)} node to snap to`);
                     continue;
                 }
-                position = best;
+                position = best.map((v, i) => v + (position.offset?.[i] ?? 0));
             }
         }
         node.setup = setup;
