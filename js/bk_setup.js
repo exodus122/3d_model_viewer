@@ -5,7 +5,10 @@ import { buildTexturedParts, makeTexturedMesh, attachTextured, refreshTexturedMo
 
 const wireframeCheckbox = document.getElementById('wireframe');
 const viewModeSelect = document.getElementById('bkViewMode');
-const actorHitboxCheckbox = document.getElementById('bkActorHitboxes');
+const actorHitboxCheckboxes = {
+    enemy: document.getElementById('bkActorHitboxesEnemy'),
+    touch: document.getElementById('bkActorHitboxesTouch'),
+};
 
 ////////////////////////////////////////
 // System: Banjo-Kazooie setup file (object placement)
@@ -864,7 +867,7 @@ const ACTOR_STYLE = {
     edgeColor: 0x8a3d10,
     describe: describeNode,
     fallback: buildActorInstance,
-    hitbox: true,
+    hitbox: node => BK_Actor_Hitboxes[node.actorId],
     // NodeProp.selector_or_radius doubles as the variant index for models whose
     // parts are selector-gated (level signs, SNS eggs, exit pads).
     selectorOf: node => node.selectorOrRadius,
@@ -886,29 +889,41 @@ const ACTOR_STYLE = {
 // list centre, radius = its local_norm, both times the actor's scale
 // (func_80331F54 / func_803320BC). The centre offset is not rotated by the
 // actor's yaw. A sprite actor's sphere has radius half the sprite size and
-// sits half a sprite up (func_80331E64). Whether the sphere counts is
-// runtime state (marker->collidable), which is not known here.
+// sits half a sprite up (func_80331E64). Every marker starts collidable, but
+// the sphere only matters for actors something reacts to -- the collision
+// table, a marker-id special case, or a callback the actor installs -- which
+// is BK_Actor_Hitboxes (see tools/bk/generate_bk_object_list.py); the rest
+// (stairs, signs, Bottles) are skipped. It sorts them into two kinds with a
+// toggle each: "enemy" (contact hurts Banjo) and "touch" (collectibles,
+// pads, switches, doors, NPCs). A style's `hitbox(instance)` returns the
+// instance's kind, or nothing.
 
-const actorHitboxes = []; // every hitbox sphere in the scene, for the toggle
-const hitboxMaterial = new THREE.MeshBasicMaterial({
-    color: 0x2ee6ff, wireframe: true, transparent: true, opacity: 0.6, depthWrite: false,
-});
+const actorHitboxes = []; // every hitbox sphere in the scene, for the toggles
+const hitboxMaterials = {
+    enemy: new THREE.MeshBasicMaterial({ color: 0xff4a4a, wireframe: true, transparent: true, opacity: 0.6, depthWrite: false }),
+    touch: new THREE.MeshBasicMaterial({ color: 0x2ee6ff, wireframe: true, transparent: true, opacity: 0.6, depthWrite: false }),
+};
 
-function addActorHitbox(group, position, centerOffset, radius, host) {
-    const sphere = new THREE.Mesh(radiusGeometry, hitboxMaterial);
+function addActorHitbox(group, kind, position, centerOffset, radius, host) {
+    const sphere = new THREE.Mesh(radiusGeometry, hitboxMaterials[kind]);
     sphere.position.set(position[0] + centerOffset[0], position[1] + centerOffset[1], position[2] + centerOffset[2]);
     sphere.scale.setScalar(Math.max(radius, 1));
-    sphere.visible = !!actorHitboxCheckbox?.checked;
+    sphere.visible = !!actorHitboxCheckboxes[kind]?.checked;
     sphere.userData.bkInfo = host.userData.bkInfo +
-        `\n  hitbox: sphere r=${radius.toFixed(1)} at offset (${centerOffset.map(v => v.toFixed(1)).join(', ')})`;
+        `\n  ${kind} hitbox: sphere r=${radius.toFixed(1)} at offset (${centerOffset.map(v => v.toFixed(1)).join(', ')})`;
     sphere.userData.bkProp = host.userData.bkProp;
+    sphere.userData.hitboxKind = kind;
     group.add(sphere);
     actorHitboxes.push(sphere);
 }
 
-actorHitboxCheckbox?.addEventListener('change', () => {
-    for (const sphere of actorHitboxes) sphere.visible = actorHitboxCheckbox.checked;
-});
+for (const [kind, checkbox] of Object.entries(actorHitboxCheckboxes)) {
+    checkbox?.addEventListener('change', () => {
+        for (const sphere of actorHitboxes) {
+            if (sphere.userData.hitboxKind === kind) sphere.visible = checkbox.checked;
+        }
+    });
+}
 
 /**
  * One row for every placement of a model, drawn with the model's real
@@ -955,9 +970,10 @@ function addLoadedModelRow(scene, groupBody, rowName, instances, loaded, style, 
 
         propInstances.push({ mesh, edges, prop: inst, loaded, describe: style.describe });
 
-        if (style.hitbox && loaded.bounds) {
+        const hitboxKind = style.hitbox?.(inst);
+        if (hitboxKind && loaded.bounds) {
             const s = mesh.scale.x;
-            addActorHitbox(typeGroup, inst.position, loaded.bounds.center.map(v => v * s), loaded.bounds.localNorm * s, mesh);
+            addActorHitbox(typeGroup, hitboxKind, inst.position, loaded.bounds.center.map(v => v * s), loaded.bounds.localNorm * s, mesh);
         }
     }
 
@@ -990,12 +1006,16 @@ function addSpriteRow(scene, groupBody, rowName, instances, entry, checked, styl
         const key = frame.file + ':' + tint.join(',') + (mirrored ? ':m' : '');
         let material = materials.get(key);
         if (!material) {
+            // The alpha test makes the sprite a cutout, so it can write depth
+            // like the game's do; the XLU map draws after every sprite
+            // (bk_textured.js, renderOrder) and needs that depth to stay
+            // behind the ones in front of it.
             material = new THREE.SpriteMaterial({
                 map: spriteTexture(frame.file, mirrored),
                 color: new THREE.Color(tint[0], tint[1], tint[2]),
                 transparent: true,
                 alphaTest: 0.05,
-                depthWrite: false,
+                depthWrite: true,
             });
             materials.set(key, material);
         }
@@ -1020,9 +1040,10 @@ function addSpriteRow(scene, groupBody, rowName, instances, entry, checked, styl
         sprite.userData.bkProp = prop;
         typeGroup.add(sprite);
 
-        if (style.hitbox) {
+        const hitboxKind = style.hitbox?.(prop);
+        if (hitboxKind) {
             const size = Math.max(entry.world_w, entry.world_h) * scale;
-            addActorHitbox(typeGroup, prop.position, [0, size / 2, 0], size / 2, sprite);
+            addActorHitbox(typeGroup, hitboxKind, prop.position, [0, size / 2, 0], size / 2, sprite);
         }
 
         if (animated) {
@@ -1056,7 +1077,7 @@ const SPRITE_ACTOR_STYLE = {
     color: ACTOR_COLOR,
     describe: describeNode,
     fallback: buildActorInstance,
-    hitbox: true,
+    hitbox: node => BK_Actor_Hitboxes[node.actorId],
     scaleOf: node => node.scale === 0 ? 1 : node.scale / 100,
 };
 

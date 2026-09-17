@@ -801,11 +801,14 @@ export function parseBKModelTextured(buffer, selector = 0, options = {}) {
 // What mapModel_opa_draw / mapModel_xlu_draw (core2/mapModel.c) put in the
 // appendage table before drawing a map model. modelRender_reset leaves 1 on
 // and 2 off after every draw and props zero the rest, so that is the base
-// state; the per-map cases override it. Runtime conditions are resolved to a
-// fresh file / nothing-happening state: GV's water pyramid down (flag 6 off,
-// jiggy 42 not collected), Sandybutt's maze not in first person, the cellar's
-// barrel-top actor still spawned, Grunty's door shut, and the SM cutscene
-// flag off.
+// state; the per-map cases override it. Runtime conditions are resolved to
+// whichever state's geometry the collision list contains, so the textured
+// view covers the collision view: Grunty's door open (GL_DINGPOT 6), the
+// cellar's barrel top broken (MMM_CELLAR 1 -- the X_BARREL_TOP actor also
+// stands there until then), GV's water pyramid jiggy collected (5 on, 2 off).
+// Branches with no collision behind them stay off: GV's raised pyramid
+// (flag 6), Sandybutt's first-person roof, SM's alternate ground patch
+// (cutscene flag), and the closed-door Dingpot cutscenes keep 4-6 off.
 
 const SM_OPA_MAP_IDS = [0x01, 0x7D, 0x7E, 0x85, 0x86, 0x88, 0x94]; // maps drawn with ASSET_14CF
 const MUMBOS_SKULL_MAP_IDS = [0x0E, 0x47, 0x48, 0x30, 0x4A, 0x4B, 0x4C, 0x4D]; // variant n+1
@@ -813,19 +816,19 @@ const MUMBOS_SKULL_MAP_IDS = [0x0E, 0x47, 0x48, 0x30, 0x4A, 0x4B, 0x4C, 0x4D]; /
 const MAP_OPA_APPENDAGES = new Map([
     ...SM_OPA_MAP_IDS.map(id => [id, { 1: 0, 2: 1 }]),
     ...MUMBOS_SKULL_MAP_IDS.map((id, i) => [id, { 1: i + 1, 5: i + 1 }]),
-    [0x12, { 1: 0, 2: 1, 5: 0 }],                       // GV_GOBIS_VALLEY
+    [0x12, { 1: 0, 2: 0, 5: 1 }],                       // GV_GOBIS_VALLEY
     [0x14, { 5: 0 }],                                   // GV_SANDYBUTTS_MAZE
     [0x5E, { 1: 1, 2: 0 }], [0x5F, { 1: 1, 2: 0 }], [0x60, { 1: 1, 2: 0 }], // CCW_*_NABNUTS_HOUSE
     [0x61, { 1: 0, 2: 1 }],                             // CCW_WINTER_NABNUTS_HOUSE
-    [0x1D, { 1: 0 }],                                   // MMM_CELLAR
+    [0x1D, { 1: 1 }],                                   // MMM_CELLAR
     [0x7C, { 5: 1 }], [0x89, { 5: 1 }], [0x8A, { 5: 1 }], [0x8C, { 5: 1 }], [0x91, { 5: 1 }], // Banjo's house, file select
     [0x7B, { 4: 0, 5: 0, 6: 0 }], [0x81, { 4: 0, 5: 0, 6: 0 }], // CS_INTRO_GL_DINGPOT_*
     [0x82, { 4: 1, 5: 1, 6: 1 }], [0x83, { 4: 1, 5: 1, 6: 1 }], [0x84, { 4: 1, 5: 1, 6: 1 }], // CS_*_MACHINE_ROOM
-    [0x93, { 4: 1, 5: 1, 6: 0 }],                       // GL_DINGPOT
+    [0x93, { 4: 1, 5: 1, 6: 1 }],                       // GL_DINGPOT
 ]);
 
 const MAP_XLU_APPENDAGES = new Map([
-    [0x1D, { 1: 0 }],                                   // MMM_CELLAR
+    [0x1D, { 1: 1 }],                                   // MMM_CELLAR
 ]);
 
 /**
