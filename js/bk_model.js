@@ -262,7 +262,7 @@ function collectRefPoints(dv) {
                     }
                     break;
                 }
-                case GEO_UNK0:
+                case GEO_BILLBOARD:
                 case GEO_CAMERA: { const b = dv.getInt16(offset + 8, false); if (b) walk(offset + b, depth + 1); break; }
                 case GEO_DRAWDIST: { const b = dv.getInt16(offset + 0x14, false); if (b) walk(offset + b, depth + 1); break; }
                 case GEO_BONE: { const b = dv.getUint8(offset + 8); if (b) walk(offset + b, depth + 1); break; }
@@ -350,6 +350,10 @@ const TEX_TYPE_RGBA32 = 0x08;
 const TEX_TYPE_IA8 = 0x10;
 
 const TEXTURE_SEGMENT = 0x02;
+// A few BT models address their textures through segments 0xC-0xF instead
+// (the feather nest: one per selector branch). The offsets line up with the
+// model's own texture list, so they are read as aliases of segment 2.
+const BT_TEXTURE_SEGMENT_ALIASES = new Set([0x0C, 0x0D, 0x0E, 0x0F]);
 
 // RDP commands (identical in F3DEX and F3DEX2); the RSP ones are in UCODES.
 const G_SETTIMG = 0xFD;
@@ -382,10 +386,13 @@ const OPA_RENDER_MODE_ENTRIES = {
 // Geometry-setup commands (include/core2/model.h). The geo list is a tree of
 // these that modelRender_draw walks; it decides which display lists run, in
 // what order, and carries state like TEXWRAP.
-const GEO_UNK0 = 0x00, GEO_SORT = 0x01, GEO_BONE = 0x02, GEO_LOADDL = 0x03, GEO_SKINNING = 0x05,
+const GEO_BILLBOARD = 0x00, GEO_SORT = 0x01, GEO_BONE = 0x02, GEO_LOADDL = 0x03, GEO_SKINNING = 0x05,
       GEO_CALL = 0x06, GEO_LOADDL2 = 0x07, GEO_LOD = 0x08, GEO_REFPOINT = 0x0A, GEO_SELECTOR = 0x0C,
       GEO_DRAWDIST = 0x0D, GEO_UNKE = 0x0E, GEO_CAMERA = 0x0F, GEO_TEXWRAP = 0x10,
-      GEO_BT_LOADDL = 0x11; // BT only: { s16 gfx_index; s16 unk; s16 unk; s16 flags } -- another "draw display list"
+      // BT only: three more "draw display list" commands, all with s16 gfx_index
+      // at +8 (0x11 is 16 bytes, 0x16 is 24, 0x18 is 48; the other fields are
+      // unknown -- every BT display list is reachable once these are honoured)
+      GEO_BT_LOADDL = 0x11, GEO_BT_LOADDL2 = 0x16, GEO_BT_LOADDL3 = 0x18;
 
 const G_LIGHTING = 0x00020000;
 const G_TEXTURE_GEN = 0x00040000;
@@ -467,10 +474,15 @@ function decodeTexture(dv, dataBase, info) {
  * @param {ArrayBuffer} buffer a decompressed BKModelBin
  * @returns {{textures: {width, height, type, rgba: Uint8Array}[],
  *            batches: {texture: number, wrapS: number, wrapT: number, cullBack: boolean, xlu: boolean,
- *                      positions: number[], uvs: number[], colors: number[] (rgba per vertex)}[]} | null}
+ *                      billboard: number,
+ *                      positions: number[], uvs: number[], colors: number[] (rgba per vertex)}[],
+ *            billboards: {pivot: number[], yawOnly: boolean}[]} | null}
  *   texture is an index into textures or -1 for untextured; wrapS/wrapT are the
  *   tile's clamp/mirror bits (bit 1 clamp, bit 0 mirror); xlu is set for
  *   triangles drawn through an alpha-blending render mode (see G_DL below).
+ *   billboard is an index into billboards, or -1 for geometry drawn in place:
+ *   a batch under a BILLBOARD geo command is drawn turned to face the camera
+ *   about its pivot (see GEO_BILLBOARD in the geo walk below).
  *
  * options.appendages: the model's appendage visibility table (the game's
  *   D_80383658, see selector resolution below) as { [index]: selection }.
@@ -545,7 +557,8 @@ export function parseBKModelTextured(buffer, selector = 0, options = {}) {
         }
     }
     const textureAt = (addr) => {
-        if ((addr >>> 24) !== TEXTURE_SEGMENT) return -1;
+        const segment = addr >>> 24;
+        if (segment !== TEXTURE_SEGMENT && !(game === "BT" && BT_TEXTURE_SEGMENT_ALIASES.has(segment))) return -1;
         const off = addr & 0xFFFFFF;
         return textures.findIndex(t => !t.missing && off >= t.offset && off < t.offset + t.size);
     };
@@ -595,6 +608,11 @@ export function parseBKModelTextured(buffer, selector = 0, options = {}) {
         return clampMirror & 1;                                // mirror or repeat
     };
 
+    // The BILLBOARD geo command the walk is currently inside (index into
+    // billboards), -1 outside any.
+    const billboards = [];
+    let billboard = -1;
+
     const batches = new Map();
     const batchFor = () => {
         const rt = tiles[renderTile];
@@ -606,10 +624,10 @@ export function parseBKModelTextured(buffer, selector = 0, options = {}) {
             wrapT = wrapFor(rt.cmt, rt.maskt, rt.lrt - rt.ult + 1, textures[tex].height);
         }
         const cullBack = (geometryMode & G_CULL_BACK) !== 0;
-        const key = tex + ':' + wrapS + ':' + wrapT + ':' + (cullBack ? 1 : 0) + ':' + (renderXlu ? 1 : 0);
+        const key = tex + ':' + wrapS + ':' + wrapT + ':' + (cullBack ? 1 : 0) + ':' + (renderXlu ? 1 : 0) + ':' + billboard;
         let b = batches.get(key);
         if (!b) {
-            b = { texture: tex, wrapS, wrapT, cullBack, xlu: renderXlu, positions: [], uvs: [], colors: [] };
+            b = { texture: tex, wrapS, wrapT, cullBack, xlu: renderXlu, billboard, positions: [], uvs: [], colors: [] };
             batches.set(key, b);
         }
         return b;
@@ -826,13 +844,13 @@ export function parseBKModelTextured(buffer, selector = 0, options = {}) {
                 if (!inSelector) hasUnconditional = true;
             } else {
                 let b = 0;
-                if (cmd === GEO_UNK0 || cmd === GEO_CAMERA) b = dv.getInt16(offset + 8, false);
+                if (cmd === GEO_BILLBOARD || cmd === GEO_CAMERA) b = dv.getInt16(offset + 8, false);
                 else if (cmd === GEO_DRAWDIST) b = dv.getInt16(offset + 0x14, false);
                 else if (cmd === GEO_BONE) b = dv.getUint8(offset + 8);
                 else if (cmd === GEO_CALL) b = dv.getInt32(offset + 8, false);
                 else if (cmd === GEO_LOD) b = dv.getInt32(offset + 0x1C, false);
                 else if (cmd === GEO_UNKE) b = dv.getInt16(offset + 0x10, false);
-                else if (cmd === GEO_BT_LOADDL) { if (!inSelector) hasUnconditional = true; }
+                else if (cmd === GEO_BT_LOADDL || cmd === GEO_BT_LOADDL2 || cmd === GEO_BT_LOADDL3) { if (!inSelector) hasUnconditional = true; }
                 else if (cmd === GEO_SORT) {
                     const b1 = dv.getInt16(offset + 0x22, false), b2 = dv.getInt32(offset + 0x24, false);
                     if (b1) scanGeo(offset + b1, depth + 1, inSelector);
@@ -880,7 +898,27 @@ export function parseBKModelTextured(buffer, selector = 0, options = {}) {
             const next = dv.getInt32(offset + 4, false);
             const branch16 = () => dv.getInt16(offset + 8, false);
             switch (cmd) {
-                case GEO_UNK0:
+                case GEO_BILLBOARD: {
+                    // s16 branch_offset +8, s16 yaw_only +10, f32 pivot[3] +12.
+                    // modelRender_geoCmd_Unk0 draws the branch with a fresh
+                    // matrix: translate to the pivot, turn by the camera's yaw
+                    // (and its pitch too unless yaw_only), scale, translate
+                    // back -- so the branch faces the camera about the pivot
+                    // and ignores the model's own rotation. Egg nests, sparkles,
+                    // Napper's Zs. Recorded on the batches for the renderer.
+                    const b = branch16();
+                    if (b) {
+                        const saved = billboard;
+                        billboard = billboards.push({
+                            pivot: [dv.getFloat32(offset + 12, false), dv.getFloat32(offset + 16, false),
+                                dv.getFloat32(offset + 20, false)],
+                            yawOnly: dv.getInt16(offset + 10, false) !== 0,
+                        }) - 1;
+                        walkGeo(offset + b, depth + 1);
+                        billboard = saved;
+                    }
+                    break;
+                }
                 case GEO_CAMERA: {
                     // s16 branch_offset at +8
                     const b = branch16();
@@ -961,8 +999,8 @@ export function parseBKModelTextured(buffer, selector = 0, options = {}) {
                     mipTile2(dv.getInt32(offset + 8, false) === 1);
                     break;
                 case GEO_BT_LOADDL:
-                    // BT: s16 gfx_index at +8 (every BT display list is reachable
-                    // once this is treated like LOADDL; the other fields are unknown)
+                case GEO_BT_LOADDL2:
+                case GEO_BT_LOADDL3:
                     runDl(dv.getInt16(offset + 8, false));
                     break;
                 default:
@@ -980,7 +1018,7 @@ export function parseBKModelTextured(buffer, selector = 0, options = {}) {
         runDisplayList(gfxBase, true);
     }
 
-    return { textures, batches: [...batches.values()] };
+    return { textures, batches: [...batches.values()], billboards };
 }
 
 ////////////////////////////////////////

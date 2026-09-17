@@ -117,51 +117,106 @@ export function buildTexturedParts(buffer, selector = 0, options = {}) {
         return tex;
     };
 
-    const geometry = new THREE.BufferGeometry();
-    const positions = [], uvs = [], colors = [];
-    const materials = [];
-    let start = 0;
-    for (const batch of parsed.batches) {
-        const count = batch.positions.length / 3;
-        positions.push(...batch.positions);
-        uvs.push(...batch.uvs);
-        const blended = translucent || batch.xlu;
-        // colors are rgba; a 4-component colour attribute makes three.js use
-        // the vertex alpha, which only the blended batches want -- the rest
-        // get alpha 1 so the opaque alphaTest never cuts them out.
-        if (blended) {
-            colors.push(...batch.colors);
-        } else {
-            for (let i = 0; i < batch.colors.length; i += 4) colors.push(batch.colors[i], batch.colors[i + 1], batch.colors[i + 2], 1);
-        }
-        geometry.addGroup(start, count, materials.length);
-        start += count;
+    // One geometry (with a material per batch) from a list of batches; the
+    // positions are shifted by -origin.
+    const buildSet = (batchList, origin = [0, 0, 0]) => {
+        const geometry = new THREE.BufferGeometry();
+        const positions = [], uvs = [], colors = [];
+        const materials = [];
+        let start = 0;
+        for (const batch of batchList) {
+            const count = batch.positions.length / 3;
+            for (let i = 0; i < batch.positions.length; i += 3) {
+                positions.push(batch.positions[i] - origin[0], batch.positions[i + 1] - origin[1], batch.positions[i + 2] - origin[2]);
+            }
+            uvs.push(...batch.uvs);
+            const blended = translucent || batch.xlu;
+            // colors are rgba; a 4-component colour attribute makes three.js use
+            // the vertex alpha, which only the blended batches want -- the rest
+            // get alpha 1 so the opaque alphaTest never cuts them out.
+            if (blended) {
+                colors.push(...batch.colors);
+            } else {
+                for (let i = 0; i < batch.colors.length; i += 4) colors.push(batch.colors[i], batch.colors[i + 1], batch.colors[i + 2], 1);
+            }
+            geometry.addGroup(start, count, materials.length);
+            start += count;
 
-        // An opaque model's XLU parts still go through the full-depth table
-        // (Z_CMP | Z_UPD | G_RM_XLU_SURF2), so they keep writing depth.
-        const material = new THREE.MeshBasicMaterial({
-            vertexColors: true,
-            side: batch.cullBack ? THREE.FrontSide : THREE.DoubleSide,
-            transparent: blended,
-            depthWrite: !translucent,
-            alphaTest: blended ? 0.01 : 0.5,
-        });
-        if (batch.texture >= 0) {
-            material.map = textureFor(batch.texture, batch.wrapS, batch.wrapT);
+            // An opaque model's XLU parts still go through the full-depth table
+            // (Z_CMP | Z_UPD | G_RM_XLU_SURF2), so they keep writing depth.
+            const material = new THREE.MeshBasicMaterial({
+                vertexColors: true,
+                side: batch.cullBack ? THREE.FrontSide : THREE.DoubleSide,
+                transparent: blended,
+                depthWrite: !translucent,
+                alphaTest: blended ? 0.01 : 0.5,
+            });
+            if (batch.texture >= 0) {
+                material.map = textureFor(batch.texture, batch.wrapS, batch.wrapT);
+            }
+            materials.push(material);
         }
-        materials.push(material);
+        geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+        geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+        geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 4));
+        return { geometry, materials, triangleCount: start / 3 };
+    };
+
+    // Geometry under a BILLBOARD geo command is kept apart, relative to its
+    // pivot, so makeTexturedMesh can turn it to face the camera.
+    const fixed = buildSet(parsed.batches.filter(b => b.billboard < 0));
+    const billboards = parsed.billboards.map((bb, i) => {
+        const set = buildSet(parsed.batches.filter(b => b.billboard === i), bb.pivot);
+        return { pivot: bb.pivot, yawOnly: bb.yawOnly, geometry: set.geometry, materials: set.materials, triangleCount: set.triangleCount };
+    }).filter(bb => bb.materials.length);
+    const triangleCount = fixed.triangleCount + billboards.reduce((n, bb) => n + bb.triangleCount, 0);
+
+    return { geometry: fixed.geometry, materials: fixed.materials, billboards, textureCount: parsed.textures.length, triangleCount };
+}
+
+// The game's BILLBOARD geo command (modelRender_geoCmd_Unk0): the branch is
+// drawn translated to its pivot and turned by the camera's yaw -- and pitch,
+// unless yaw_only -- with the model's own rotation dropped and only its scale
+// kept. Here each billboard is a child mesh at the pivot; just before it is
+// drawn, its rotation is set so that, in world space, it matches the camera's
+// (or the camera's yaw alone), whatever the parent mesh's rotation is.
+const _camQuat = new THREE.Quaternion();
+const _parentQuat = new THREE.Quaternion();
+const _camDir = new THREE.Vector3();
+const Y_AXIS = new THREE.Vector3(0, 1, 0);
+function faceCamera(renderer, scene, camera) {
+    if (this.userData.yawOnly) {
+        // The quad faces +z in model space; point that at the camera in the ground plane.
+        camera.getWorldDirection(_camDir);
+        _camQuat.setFromAxisAngle(Y_AXIS, Math.atan2(-_camDir.x, -_camDir.z));
+    } else {
+        camera.getWorldQuaternion(_camQuat);
     }
-    geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-    geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
-    geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 4));
-
-    return { geometry, materials, textureCount: parsed.textures.length, triangleCount: start / 3 };
+    if (this.parent) {
+        this.parent.getWorldQuaternion(_parentQuat);
+        this.quaternion.copy(_parentQuat.invert()).multiply(_camQuat);
+    } else {
+        this.quaternion.copy(_camQuat);
+    }
+    // The renderer builds the model-view matrix right after this callback
+    // from matrixWorld, which was computed before the turn.
+    this.updateMatrixWorld(true);
 }
 
 export function makeTexturedMesh(parts) {
     const mesh = new THREE.Mesh(parts.geometry, parts.materials);
     mesh.name = 'textured';
     mesh.visible = isTexturedMode();
+    for (const bb of parts.billboards ?? []) {
+        const child = new THREE.Mesh(bb.geometry, bb.materials);
+        child.name = 'textured';
+        child.position.set(bb.pivot[0], bb.pivot[1], bb.pivot[2]);
+        child.userData.yawOnly = bb.yawOnly;
+        // Its rotation, and so its world bounds, are only settled at draw time.
+        child.frustumCulled = false;
+        child.onBeforeRender = faceCamera;
+        mesh.add(child);
+    }
     return mesh;
 }
 
@@ -171,8 +226,11 @@ export function makeTexturedMesh(parts) {
  * object (hidden while textured).
  */
 export function attachTextured(plain, textured, edges = null) {
-    textured.userData.bkInfo = plain.userData.bkInfo;
-    textured.userData.bkProp = plain.userData.bkProp;
+    // Billboard children are picked in their own right (selection.js).
+    textured.traverse(obj => {
+        obj.userData.bkInfo = plain.userData.bkInfo;
+        obj.userData.bkProp = plain.userData.bkProp;
+    });
     plain.add(textured);
     texturedPairs.push({ plain, textured, edges });
     applyTexturedMode(texturedPairs[texturedPairs.length - 1]);

@@ -50,6 +50,46 @@ const NODE_CATEGORY_NAMES = {
 };
 const NODE_CATEGORY_ACTOR = 6;
 
+// Parts an actor's draw callback switches on or off, as a partial appendage
+// table (see parseBKModelTextured's options.appendageOverrides). BT models
+// gate most parts behind single-branch selectors that are on by default, so
+// a model whose selectors are alternatives has every index listed.
+//
+// Nests (chnests overlay): the egg nest model 0x6EA holds all seven egg types
+// under selectors 1-8 and the feather nest 0x6EF both feather types under 1-2.
+// Its draw callbacks (func_80800968, func_80800D8C) turn on the one index
+// named by the marker's row in the overlay's item table -- 0x1CE 2, 0x1CF 1,
+// 0x1D0 3, 0x1D1 5, 0x1D2 7, 0x1D3 8, 0x1D4 4, 0x1D5 2, 0x1D6 1 -- and 0x6EA's
+// textures put 1 = fire, 2 = blue, 3 = ice, 4 = gold, 5 = grenade, 7 =
+// proximity, 8 = clockwork; 0x6EF's 1 = gold, 2 = red. The generic nests
+// (0x1E9 eggs, 0x4A6 feathers) pick their row at run time; blue eggs / red
+// feathers are the defaults.
+const eggNest = type => Object.fromEntries([1, 2, 3, 4, 5, 7, 8].map(i => [i, i === type ? 1 : 0]));
+const featherNest = type => ({ 1: type === 1 ? 1 : 0, 2: type === 2 ? 1 : 0 });
+const BT_ACTOR_APPENDAGES = {
+    0x1C8: eggNest(2), 0x1E9: eggNest(2),           // blue
+    0x1C9: eggNest(1),                              // fire
+    0x1CA: eggNest(3),                              // ice
+    0x1CB: eggNest(5),                              // grenade
+    0x1CC: eggNest(7),                              // proximity
+    0x1CD: eggNest(4),                              // gold
+    0x2B8: eggNest(8),                              // clockwork
+    0x1CE: featherNest(2), 0x4A6: featherNest(2),   // red
+    0x1CF: featherNest(1),                          // gold
+};
+
+// Models an actor draws besides the one in its info struct, placed with the
+// actor's own position, yaw and scale. Every nest draws the basket
+// (chnests func_80800898: model 0x85C at the actor's position, yaw and scale)
+// before its eggs, feathers or notes.
+const NEST_BASKET = { asset: 0x85C, label: 'nest basket' };
+const BT_ACTOR_EXTRA_MODELS = {
+    0x1C8: [NEST_BASKET], 0x1C9: [NEST_BASKET], 0x1CA: [NEST_BASKET], 0x1CB: [NEST_BASKET],
+    0x1CC: [NEST_BASKET], 0x1CD: [NEST_BASKET], 0x1CE: [NEST_BASKET], 0x1CF: [NEST_BASKET],
+    0x1D7: [NEST_BASKET], 0x1D8: [NEST_BASKET], 0x1E9: [NEST_BASKET], 0x2B8: [NEST_BASKET],
+    0x4A6: [NEST_BASKET],
+};
+
 const NODE_PROP_SIZE = 20;
 const PROP_SIZE = 12;
 
@@ -233,9 +273,10 @@ export function parseBTSetup(buffer) {
 
 function describeNode(node) {
     const cat = NODE_CATEGORY_NAMES[node.category] ?? `Category ${node.category}`;
-    const model = BT_Actor_Models[node.actorId];
+    const model = node.extraModel ? node.extraModel.asset : BT_Actor_Models[node.actorId];
     const what = node.category === NODE_CATEGORY_ACTOR
         ? `ACTOR ${actorName(node.actorId)}` +
+          (node.extraModel ? ` ${node.extraModel.label}` : '') +
           (model ? ` model ${hex(model)}${node.geometrySource ? ' ' + node.geometrySource : ''}` : '')
         : `NODE ${cat} id=${hex(node.actorId)}`;
     return `${what}: pos=${node.position.join(', ')} yaw=${node.yaw} scale=${node.scale / 100}` +
@@ -314,6 +355,7 @@ const ACTOR_STYLE = {
     describe: describeNode,
     fallback: buildActorInstance,
     selectorOf: node => node.selectorOrRadius,
+    appendagesOf: node => BT_ACTOR_APPENDAGES[node.actorId] ?? null,
     transform(node, obj) {
         obj.position.set(node.position[0], node.position[1], node.position[2]);
         obj.rotation.set(0, THREE.MathUtils.degToRad(node.yaw), 0, 'YXZ');
@@ -358,22 +400,30 @@ export async function renderBTSetup(scene, buffer, mapId = -1) {
         // anything that failed to load -- in the hidden-by-default group.
         const byType = [...groupBy(actorNodes, n => n.actorId)]
             .sort((a, b) => actorName(a[0]).localeCompare(actorName(b[0])));
-        const geometries = await Promise.all(byType.map(([id]) => {
-            const asset = BT_Actor_Models[id];
-            return asset ? loadPropGeometry(asset, 'BT') : Promise.resolve(null);
-        }));
+        // One row per actor type, plus one per extra model it draws
+        // (BT_ACTOR_EXTRA_MODELS) over copies of its nodes, so each row keeps
+        // its own geometry source and description.
+        const rows = byType.flatMap(([id, list]) => [
+            { name: actorName(id), asset: BT_Actor_Models[id], list },
+            ...(BT_ACTOR_EXTRA_MODELS[id] ?? []).map(extra => ({
+                name: `${actorName(id)} ${extra.label}`, asset: extra.asset,
+                list: list.map(node => ({ ...node, extraModel: extra })),
+            })),
+        ]);
+        const geometries = await Promise.all(rows.map(row =>
+            row.asset ? loadPropGeometry(row.asset, 'BT') : Promise.resolve(null)));
         const solid = [], hitboxOnly = [];
-        byType.forEach(([id, list], i) => (geometries[i]?.collision ? solid : hitboxOnly).push([id, list, geometries[i]]));
+        rows.forEach((row, i) => (geometries[i]?.collision ? solid : hitboxOnly).push([row, geometries[i]]));
         if (solid.length) {
             const group = getModelGroup('bt-actors', 'Actors (collision)');
-            for (const [id, list, loaded] of solid) {
-                addLoadedModelRow(scene, group.body, rowLabel(actorName(id), list), list, loaded, ACTOR_STYLE, true);
+            for (const [row, loaded] of solid) {
+                addLoadedModelRow(scene, group.body, rowLabel(row.name, row.list), row.list, loaded, ACTOR_STYLE, true);
             }
         }
         if (hitboxOnly.length) {
             const group = getModelGroup('bt-actors-hitbox', 'Actors (no collision)');
-            for (const [id, list, loaded] of hitboxOnly) {
-                addLoadedModelRow(scene, group.body, rowLabel(actorName(id), list), list, loaded, ACTOR_STYLE, true);
+            for (const [row, loaded] of hitboxOnly) {
+                addLoadedModelRow(scene, group.body, rowLabel(row.name, row.list), row.list, loaded, ACTOR_STYLE, true);
             }
         }
     }
