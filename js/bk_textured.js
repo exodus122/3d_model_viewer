@@ -80,10 +80,15 @@ export function buildTexturedMesh(buffer, options = {}) {
  * options.appendages: the model's appendage visibility table, for models
  * whose selector-gated parts the game switches itself (map models, see
  * mapAppendageVisibility); overrides `selector`.
+ * options.appendageOverrides: a partial table for the parts an actor's draw
+ * callback pins (BK_ACTOR_APPENDAGES); the other selectors keep the guess.
  */
 export function buildTexturedParts(buffer, selector = 0, options = {}) {
     const translucent = !!options.translucent;
-    const parsed = parseBKModelTextured(buffer, selector, { appendages: options.appendages });
+    const parsed = parseBKModelTextured(buffer, selector, {
+        appendages: options.appendages,
+        appendageOverrides: options.appendageOverrides,
+    });
     if (!parsed || parsed.batches.length === 0) return null;
 
     // One DataTexture per (texture, wrap) combination; clones share the image.

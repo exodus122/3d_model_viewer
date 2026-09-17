@@ -351,9 +351,14 @@ function decodeTexture(dv, dataBase, info) {
  *   D_80383658, see selector resolution below) as { [index]: selection }.
  *   When given, SELECTORs are resolved exactly as modelRender_geoCmd_SELECTOR
  *   does and `selector` is ignored; see mapAppendageVisibility().
+ * options.appendageOverrides: a partial table in the same form. Indices it
+ *   names are resolved exactly; the rest fall back to the guess described
+ *   below. For actors whose draw callback pins a part on or off (see
+ *   BK_ACTOR_APPENDAGES in bk_setup.js).
  */
 export function parseBKModelTextured(buffer, selector = 0, options = {}) {
     const appendages = options.appendages ?? null;
+    const appendageOverrides = options.appendageOverrides ?? null;
     const dv = new DataView(buffer);
     if (dv.byteLength < 0x38 || dv.getUint32(0, false) !== MODEL_MAGIC) return null;
 
@@ -673,15 +678,19 @@ export function parseBKModelTextured(buffer, selector = 0, options = {}) {
     if (singleIndices.has(selector)) activeSingleIndex = selector;
     else if (!hasUnconditional && singleIndices.size) activeSingleIndex = Math.min(...singleIndices);
 
+    // modelRender_geoCmd_SELECTOR for one known table entry.
+    const branchesForSelection = (count, selection) => {
+        if (selection > 0) return selection <= count ? [selection - 1] : [];
+        const chosen = [];
+        for (let i = 0; i < count; i++) if ((-selection >> i) & 1) chosen.push(i);
+        return chosen;
+    };
+
     // Branch choices for one SELECTOR node, per the resolution above.
     const selectorBranches = (count, index) => {
-        if (appendages) {
-            if (index === 0) return [];
-            const selection = appendages[index] ?? 0;
-            if (selection > 0) return selection <= count ? [selection - 1] : [];
-            const chosen = [];
-            for (let i = 0; i < count; i++) if ((-selection >> i) & 1) chosen.push(i);
-            return chosen;
+        if (appendages) return index === 0 ? [] : branchesForSelection(count, appendages[index] ?? 0);
+        if (appendageOverrides && index in appendageOverrides) {
+            return branchesForSelection(count, appendageOverrides[index]);
         }
         if (count === 1) return index === activeSingleIndex ? [0] : [];
         if (count > 1) return [(selector >= 1 && selector <= count) ? selector - 1 : 0];

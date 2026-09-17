@@ -347,18 +347,20 @@ function loadPropGeometry(assetId) {
                 refPoints: model.refPoints,
                 texturedVariants: new Map(),
                 // Textured geometry depends on which selector-gated variant an
-                // instance shows, so it is built per selector value on demand.
-                texturedFor(selector) {
-                    if (!this.texturedVariants.has(selector)) {
+                // instance shows, so it is built per (selector, appendage
+                // overrides) on demand.
+                texturedFor(selector, appendageOverrides = null) {
+                    const key = appendageOverrides ? `${selector}:${JSON.stringify(appendageOverrides)}` : selector;
+                    if (!this.texturedVariants.has(key)) {
                         let parts = null;
                         try {
-                            parts = buildTexturedParts(buffer, selector);
+                            parts = buildTexturedParts(buffer, selector, { appendageOverrides });
                         } catch (err) {
                             console.warn(`prop model ${file}: textured build failed: ${err.message}`);
                         }
-                        this.texturedVariants.set(selector, parts);
+                        this.texturedVariants.set(key, parts);
                     }
-                    return this.texturedVariants.get(selector);
+                    return this.texturedVariants.get(key);
                 },
             };
             if (!loaded.visual && !loaded.collision) {
@@ -570,7 +572,8 @@ function describeNode(node) {
         ` ${NODE_CATEGORIES_WITH_RADIUS.has(node.category) ? 'radius' : 'selector'}=${node.selectorOrRadius}` +
         ` marker=${node.markerId} unk10=${hex(node.unk10_31)},${hex(node.unk10_19)}` +
         ` cube=${node.cube.join(',')}` +
-        (node.override ? ` [runtime placement; setup pos=${node.setup.position.join(', ')} yaw=${node.setup.yaw} scale=${node.setup.scale / 100} -- ${node.override.source}]` : '');
+        (node.override ? ` [runtime placement; setup pos=${node.setup.position.join(', ')} yaw=${node.setup.yaw} scale=${node.setup.scale / 100} -- ${node.override.source}]` : '') +
+        (node.spawnedBy ? ` [spawned by ${actorName(node.spawnedBy.actorId)} (${hex(node.spawnedBy.actorId)}) -- ${node.spawnedBy.source}]` : '');
 }
 
 function describeProp(prop) {
@@ -680,7 +683,8 @@ const MODEL_PROP_STYLE = {
 
 // Objects a level overlay draws itself rather than spawning from the setup
 // file, so they appear in no NodeProp list. Keyed by map id; positions and
-// models are the ones hard-coded in the decomp.
+// models are the ones hard-coded in the decomp. Optional `hitbox` and
+// `appendages` are as for setup actors (BK_Actor_Hitboxes, BK_ACTOR_APPENDAGES).
 const BK_MAP_OBJECTS = {
     0x0B: [ // CC_CLANKERS_CAVERN
         { name: 'CLANKER', asset: 0x88E, position: [5500, 0, 0], yaw: 0, scale: 1,
@@ -727,6 +731,14 @@ const BK_ACTOR_OVERRIDES = {
                  source: 'src/GV/ch/gobirock.c: snaps to the nearest GOBI_1' },
         0x12F: { position: { nearestActor: 0x12E },
                  source: 'src/GV/ch/gobirope.c: snaps to the nearest GOBI_1' },
+    },
+    0x27: { // FP_FREEZEEZY_PEAK
+        0x1F3: { position: { nearestActor: 0x35B },
+                 source: 'src/FP/ch/wozza.c: chWozza_update init moves him to the 0x35B node while he still holds the jiggy' },
+    },
+    0x6A: { // GL_TTC_AND_CC_PUZZLE
+        0x259: { position: { offset: [0, -51, 0] },
+                 source: 'src/lair/lairspawnqueue.c func_803880BC: position_y -= 51 on init (rises when the witch switch is pressed)' },
     },
     0x1A: { // GV_INSIDE_JINXY
         0x119: { yaw: 90, source: 'src/GV/code_43B0.c: magic carpet yaw forced to 90 every frame' },
@@ -787,6 +799,128 @@ const BK_ACTOR_OVERRIDES = {
         0x2DC: { position: [325.8, 600, 0], source: 'src/CCW/ccwspawnqueue.c: code_76C0_ccwGnawtysStuffUpdate' },
     },
 };
+
+// Appendage visibility an actor's draw callback pins before actor_draw, for
+// models whose parts are behind a SELECTOR the guess in parseBKModelTextured
+// gets wrong. actorId -> { [appendage index]: selection } as passed to
+// modelRender_setAppendageVisibility, in the actor's resting state; indices
+// not listed keep the guess. A function entry gets (node, mapId) for actors
+// whose parts depend on the map.
+
+// CCW season by map id: src/CCW/ch/grublinhood.c __get_current_season.
+const CCW_SEASON_BY_MAP = {
+    0x43: 0, 0x4A: 0, 0x5B: 0, 0x5E: 0, 0x65: 0, // spring
+    0x44: 1, 0x4B: 1, 0x5A: 1, 0x5F: 1, 0x66: 1, // summer
+    0x45: 2, 0x4C: 2, 0x5C: 2, 0x60: 2, 0x63: 2, 0x67: 2, // autumn
+    0x46: 3, 0x4D: 3, 0x61: 3, 0x62: 3, 0x64: 3, 0x68: 3, // winter
+};
+
+const BK_ACTOR_APPENDAGES = {
+    // The whole crab is appendage 3; only the shell is unconditional. On
+    // unless dead (state 7): src/TTC/ch/nipper.c __chNipper_animFunc.
+    0x117: { 3: 1 },
+    // 1 = snowball in hand (raised mid-attack), 2 = hat (until knocked off):
+    // src/core2/ch/snowman.c chSnowman_draw, idle sets unk9 = 0, unkA = 1.
+    0x124: { 1: 0, 2: 1 },
+    // Seasonal outfit; 14 = hat, worn until Banjo has met him:
+    // src/CCW/ch/grublinhood.c chgrublinhood_draw.
+    0x375: (node, mapId) => {
+        const season = CCW_SEASON_BY_MAP[mapId] ?? 0;
+        const summer = season === 1, autumn = season === 2, winter = season === 3;
+        const beforeAutumn = season < 2;
+        return {
+            3: summer ? 1 : 2, 4: summer ? 1 : 2,
+            5: beforeAutumn ? 1 : 2, 6: beforeAutumn ? 1 : 2, 7: beforeAutumn ? 1 : 2, 8: beforeAutumn ? 1 : 2,
+            9: summer ? 1 : 0,
+            10: beforeAutumn ? 0 : autumn ? 1 : 2, 11: beforeAutumn ? 0 : autumn ? 1 : 2,
+            12: winter ? 2 : 1, 13: winter ? 1 : 0,
+            14: 1,
+        };
+    },
+};
+
+// Map being rendered, for BK_ACTOR_APPENDAGES entries that depend on it.
+let currentMapId = -1;
+
+function actorAppendages(node) {
+    const entry = BK_ACTOR_APPENDAGES[node.actorId];
+    return typeof entry === 'function' ? entry(node, currentMapId) : entry ?? null;
+}
+
+// Actors another actor spawns on its first update tick (spawn_child_actor /
+// actor_spawnWithYaw / __spawnQueue_add_*), which therefore have no NodeProp
+// of their own. Keyed by the spawning actor's id; each rule is
+//   { actorId, offset?, position?, yaw?, scale?, source }
+// where offset is relative to the parent (spawn_child_actor uses the parent's
+// position and yaw), position is absolute, yaw and scale default to the
+// parent's yaw and 1 (actor_new), and scale 'parent' copies the parent's. A
+// function entry gets the parent node and returns rules (or nothing). Only
+// spawns a fresh save file sees are listed; ones that need an event (jiggies
+// appearing, enemies splitting, minigames) are not.
+const BK_ACTOR_CHILDREN = {
+    // Bottles digs a molehill under himself.
+    0x37A: [{ actorId: 0x12C, source: 'src/core2/ch/mole.c chmole_spawnMolehill' }],
+    0x12B: [{ actorId: 0x12C, source: 'src/SM/ch/smbottles.c __chSmBottles_spawnMolehill' }],
+    // The lighthouse top is a child of its base.
+    0x2E2: [{ actorId: 0x2DF, source: 'src/TTC/code_26D0.c __code26D0_spawnLighthouseB' }],
+    // Tanktup's four legs, 50 above him, facing his way.
+    0xE8: [0xE9, 0xEA, 0xEB, 0xEC].map(actorId => ({ actorId, offset: [0, 50, 0],
+        source: 'src/BGS/ch/tanktup.c func_8038F470 (spawned for each leg not yet hit)' })),
+    // The Juju controller stacks four totems, 250 apart, none yet destroyed.
+    0x11: [0, 1, 2, 3].map(i => ({ actorId: 0x59, offset: [0, 250 * i, 0],
+        source: 'src/MM/ch/juju.c __chjuju_initialize_all (count = 0 on a fresh file)' })),
+    // The Christmas tree spawns its star and the switch that lights it.
+    0x336: [
+        { actorId: 0x339, offset: [20, 0, 25], source: 'src/FP/ch/xmastree.c chXmasTree_spawnStar' },
+        { actorId: 0x338, position: [-4640, 106, 6469], yaw: 350, source: 'src/FP/ch/xmastree.c chXmasTree_spawnSwitch' },
+    ],
+    // The boss Boom Box controller spawns the largest box where it stands;
+    // its init sets scale 1.1 and yaw 270 (chBossBoomBoxTable[0]). The
+    // smaller boxes only exist once it has been split.
+    0x2AD: [{ actorId: 0x281, yaw: 270, scale: 1.1,
+        source: 'src/RBB/ch/bossboomboxctrl.c spawn at controller; src/RBB/ch/bossboombox.c init' }],
+    // Grunty's floor picture: eye 2 spawns at eye 1 (after its -51 drop).
+    0x259: [{ actorId: 0x25A, source: 'src/lair/lairspawnqueue.c func_80387E94' }],
+    // The crypt coffin's lid, until it has been opened; copies the coffin's scale.
+    0x23E: [{ actorId: 0x258, scale: 'parent', source: 'src/lair/lairspawnqueue.c func_803897D4' }],
+    // Wozza holds his jiggy at his position (see the FP override above).
+    0x1F3: [{ actorId: 0x1F4, source: 'src/FP/ch/wozza.c chWozza_spawnJiggy' }],
+    // Each portrait chompa hangs the painting its selector names.
+    0x381: node => ({
+        actorId: { 0x32: 0x382, 0x33: 0x384, 0x34: 0x385, 0x35: 0x386, 0x36: 0x387, 0x37: 0x388 }[node.selectorOrRadius] ?? 0x382,
+        source: 'src/MMM/ch/portraitchompa.c __chChompa_spawnPortrait (actorTypeSpecificField picks the portrait)',
+    }),
+};
+
+/**
+ * Nodes for the actors that BK_ACTOR_CHILDREN says these actor nodes spawn.
+ * Call after applyActorOverrides so a moved parent spawns its children where
+ * the game does.
+ */
+function spawnActorChildren(actorNodes) {
+    const spawned = [];
+    for (const parent of actorNodes) {
+        let rules = BK_ACTOR_CHILDREN[parent.actorId];
+        if (typeof rules === 'function') rules = rules(parent);
+        if (!rules) continue;
+        for (const rule of [].concat(rules)) {
+            const offset = rule.offset ?? [0, 0, 0];
+            spawned.push({
+                ...parent,
+                actorId: rule.actorId,
+                position: rule.position ?? parent.position.map((v, i) => v + offset[i]),
+                yaw: rule.yaw ?? parent.yaw,
+                // NodeProp scale units (x100); actor_new starts at 1.
+                scale: rule.scale === 'parent' ? parent.scale : Math.round((rule.scale ?? 1) * 100),
+                // actorTypeSpecificField is 0 for a code-spawned actor.
+                selectorOrRadius: 0,
+                override: null,
+                spawnedBy: { actorId: parent.actorId, source: rule.source },
+            });
+        }
+    }
+    return spawned;
+}
 
 /**
  * Apply BK_ACTOR_OVERRIDES to the actor nodes of a map: the node keeps its
@@ -855,6 +989,8 @@ const MAP_OBJECT_STYLE = {
     edgeColor: 0x8a3d10,
     describe: describeMapObject,
     fallback: buildActorInstance,
+    hitbox: obj => obj.hitbox,
+    appendagesOf: obj => obj.appendages ?? null,
     transform(obj, mesh) {
         mesh.position.set(obj.position[0], obj.position[1], obj.position[2]);
         mesh.rotation.set(0, THREE.MathUtils.degToRad(obj.yaw), 0, 'YXZ');
@@ -871,6 +1007,7 @@ const ACTOR_STYLE = {
     // NodeProp.selector_or_radius doubles as the variant index for models whose
     // parts are selector-gated (level signs, SNS eggs, exit pads).
     selectorOf: node => node.selectorOrRadius,
+    appendagesOf: actorAppendages,
     // func_80330208 spawns the actor at the node's position with marker->yaw =
     // NodeProp.yaw (already degrees) and scale = NodeProp.scale * 0.01, 0 = 1.
     transform(node, obj) {
@@ -964,7 +1101,8 @@ function addLoadedModelRow(scene, groupBody, rowName, instances, loaded, style, 
         edges.scale.copy(mesh.scale);
         edgesGroup.add(edges);
 
-        const textured = loaded.texturedFor(style.selectorOf ? style.selectorOf(inst) : 0);
+        const textured = loaded.texturedFor(style.selectorOf ? style.selectorOf(inst) : 0,
+            style.appendagesOf ? style.appendagesOf(inst) ?? null : null);
         if (textured) {
             attachTextured(mesh, makeTexturedMesh(textured), edges);
         }
@@ -1130,6 +1268,7 @@ function addSplitModelGroups(scene, byType, geometries, style, nameFn, rowLabel,
 
 export async function renderBKSetup(scene, buffer, mapId = -1) {
     const setup = parseBKSetup(buffer);
+    currentMapId = mapId;
     propInstances.length = 0;
     animatedSprites.length = 0;
     actorHitboxes.length = 0;
@@ -1180,6 +1319,7 @@ export async function renderBKSetup(scene, buffer, mapId = -1) {
 
     if (actorNodes.length) {
         await applyActorOverrides(mapId, actorNodes);
+        actorNodes.push(...spawnActorChildren(actorNodes));
         const byType = [...groupBy(actorNodes, n => n.actorId)]
             .sort((a, b) => actorName(a[0]).localeCompare(actorName(b[0])));
         // Each actor's model comes from its ActorInfo (BK_Actor_Models) unless
