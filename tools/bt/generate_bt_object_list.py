@@ -55,7 +55,8 @@ def main():
     prop_sprites = [("0x%X" % i, a) for i, a in enumerate(tables["prop_sprites"]) if a]
     actor_overlays = [("0x%X" % int(k), "%s#%d" % (v[0], v[1])) for k, v in tables["actor_overlays"].items()]
     actor_models = [("0x%X" % int(k), v) for k, v in tables["actor_models"].items() if v]
-    asset_names = sorted({a for _, a in prop_models} | {a for _, a in prop_sprites} | {a for _, a in actor_models})
+    extra_models = [int(k) for k in tables.get("extra_models", {})]
+    asset_names = sorted({a for _, a in prop_models} | {a for _, a in prop_sprites} | {a for _, a in actor_models} | set(extra_models))
     asset_names = [("0x%X" % a, names[a]) for a in asset_names if a in names]
 
     blocks = [
@@ -72,7 +73,8 @@ def main():
                "actor id -> model asset id, from the actor-info struct in its overlay's data "
                "(missing: model-less actor, or its struct was not found)"),
         js_map("BT_Asset_Names", asset_names,
-               "Community names for the model assets above (banjo-memory-viewer bt_assets.py); optional"),
+               "Community names for the model assets above and the ones actor code loads itself "
+               "(tables.json extra_models); optional"),
     ]
     with open(args.out, "w", encoding="utf-8", newline="\n") as f:
         f.write("\n\n".join(blocks) + "\n")

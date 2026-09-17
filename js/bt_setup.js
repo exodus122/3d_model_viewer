@@ -160,6 +160,45 @@ function actorScale(node) {
     return change.set !== undefined ? change.set : spawned * change.mul;
 }
 
+// Models picked at run time by actors whose info struct names none (model
+// 0 / 0xFFFF, so they are not in BT_Actor_Models): actor_setModel
+// (0x80103140) with an id that depends on the placement, usually the node's
+// selector. Each entry is an asset id or a function of (node, mapName)
+// returning one (or 0 for nothing to draw). Read out of the overlays' code:
+//   chmumboskulls / chdiggerbossbattery / chlagoonlockerdoorhits index a
+//   table with selector - 50 (- 51 for the lockers); the doors and the ice
+//   station pick one of two ids on selector == 50; the Weldar doors add the
+//   selector to 0x837; the dino switches' table holds one id; the Mumbo pad
+//   indexes its colour table with a per-level number, which is guessed here
+//   from the map's prefix (world order, MT = 1); every chmole_* actor has the
+//   sumole library spawn a chmolehill (0x247, model 0x7D7) at its position,
+//   with Jamjars only appearing when approached.
+const MOLEHILL = 0x7D7;
+const MUMBO_PAD_LEVELS = { MT: 1, GGM: 2, WW: 3, JRL: 4, TDL: 5, GI: 6, HP: 7, CCL: 8, CK: 9, IOH: 10, JV: 10, SM: 11 };
+const MUMBO_PAD_MODELS = [0x7D8, 0x7D8, 0x7E0, 0x7D9, 0x7D9, 0x7D9, 0x7DB, 0x7DC, 0x7DC, 0x7DC, 0x7DE, 0x7DE];
+const BT_ACTOR_RUNTIME_MODELS = {
+    0x463: node => [0x648, 0x8E0, 0x8E1, 0x867][node.selectorOrRadius - 50] ?? 0,   // chmumboskulls
+    0x4F5: node => [0x909, 0x90A][node.selectorOrRadius - 50] ?? 0,                 // chdiggerbossbattery
+    0x496: node => (node.selectorOrRadius >= 51 && node.selectorOrRadius <= 59) ? 0x8E4 + node.selectorOrRadius - 51 : 0, // chlagoonlockerdoorhits
+    0x341: node => 0x837 + node.selectorOrRadius,                                    // chweldarbossdoors
+    0x344: node => node.selectorOrRadius === 50 ? 0x782 : 0x783,                     // chghostdoor
+    0x38C: node => node.selectorOrRadius === 50 ? 0x94F : 0x950,                     // chhagstraindoor
+    0x49B: node => node.selectorOrRadius === 50 ? 0x949 : 0x94A,                     // chdinotraindoor
+    0x41B: node => node.selectorOrRadius === 50 ? 0x872 : 0x873,                     // chicestationbits
+    0x130: 0x7C4,                                                                    // chdinoswitches
+    0x306: 0x828,                                                                    // chdodgemcontrol
+    0x2B0: (node, mapName) => MUMBO_PAD_MODELS[MUMBO_PAD_LEVELS[mapName.split('_')[0]] ?? 0], // chmumbopad
+    0x182: MOLEHILL, 0x184: MOLEHILL, 0x185: MOLEHILL, 0x186: MOLEHILL, 0x1A7: MOLEHILL, 0x1A8: MOLEHILL,
+    0x1A9: MOLEHILL, 0x30B: MOLEHILL, 0x311: MOLEHILL, 0x315: MOLEHILL, 0x376: MOLEHILL,  // chmole_*
+};
+
+/** The model asset an actor node is drawn with, or 0 for none. */
+function actorModelAsset(node, mapName) {
+    const runtime = BT_ACTOR_RUNTIME_MODELS[node.actorId];
+    if (runtime !== undefined) return typeof runtime === 'function' ? runtime(node, mapName) : runtime;
+    return BT_Actor_Models[node.actorId] ?? 0;
+}
+
 // Models an actor draws besides the one in its info struct, placed with the
 // actor's own position, yaw and scale. Every nest draws the basket
 // (chnests func_80800898: model 0x85C at the actor's position, yaw and scale)
@@ -187,12 +226,13 @@ function hex(v, width = 0) {
     return '0x' + v.toString(16).toUpperCase().padStart(width, '0');
 }
 
-function actorName(id) {
+function actorName(id, model = BT_Actor_Models[id]) {
     const ovl = BT_Actor_Overlays[id];
-    const model = BT_Actor_Models[id];
-    const modelName = model ? BT_Asset_Names[model]?.replace(/^Model: /, '') : null;
-    if (modelName) return `${modelName} (${hex(id)}, ${ovl ?? 'core'})`;
-    return ovl ? `${ovl} (${hex(id)})` : `ACTOR ${hex(id)}`;
+    const modelName = model ? BT_Asset_Names[model]?.replace(/^Model:\s*/, '') : null;
+    if (modelName && modelName !== '?') return `${modelName} (${hex(id)}, ${ovl ?? 'core'})`;
+    if (ovl) return `${ovl} (${hex(id)})`;
+    // Not in gemarkersDll's table: the game has no spawn routine for the id.
+    return `ACTOR ${hex(id)} (no actor in the marker table)`;
 }
 
 function propModelAsset(modelId) {
@@ -355,11 +395,11 @@ export function parseBTSetup(buffer) {
 
 function describeNode(node) {
     const cat = NODE_CATEGORY_NAMES[node.category] ?? `Category ${node.category}`;
-    const model = node.extraModel ? node.extraModel.asset : BT_Actor_Models[node.actorId];
+    const model = node.extraModel ? node.extraModel.asset : (node.runtimeModel ?? BT_Actor_Models[node.actorId]);
     const what = node.category === NODE_CATEGORY_ACTOR
-        ? `ACTOR ${actorName(node.actorId)}` +
+        ? `ACTOR ${actorName(node.actorId, node.runtimeModel)}` +
           (node.extraModel ? ` ${node.extraModel.label}` : '') +
-          (model ? ` model ${hex(model)}${node.geometrySource ? ' ' + node.geometrySource : ''}` : '')
+          (model ? ` model ${hex(model)}${node.runtimeModel ? ' (picked by its code)' : ''}${node.geometrySource ? ' ' + node.geometrySource : ''}` : '')
         : `NODE ${cat} id=${hex(node.actorId)}`;
     const scale = node.category === NODE_CATEGORY_ACTOR && BT_ACTOR_SCALES[node.actorId]
         ? `${node.scale / 100} (drawn at ${+actorScale(node).toFixed(4)}: set by its code on spawn)`
@@ -451,7 +491,7 @@ const ACTOR_STYLE = {
 
 const GROUP_KEYS = ['bt-models', 'bt-actors', 'bt-actors-hitbox', 'bt-nodes'];
 
-export async function renderBTSetup(scene, buffer, mapId = -1) {
+export async function renderBTSetup(scene, buffer, mapId = -1, mapName = '') {
     const setup = parseBTSetup(buffer);
     resetSetupState();
     for (const key of GROUP_KEYS) resetGroupModelState(key);
@@ -484,13 +524,18 @@ export async function renderBTSetup(scene, buffer, mapId = -1) {
         // Like BK: actors whose model has a collision list go in the "collision"
         // group (shown), the rest -- hitbox-only models, model-less actors and
         // anything that failed to load -- in the hidden-by-default group.
-        const byType = [...groupBy(actorNodes, n => n.actorId)]
-            .sort((a, b) => actorName(a[0]).localeCompare(actorName(b[0])));
-        // One row per actor type, plus one per extra model it draws
+        // One row per actor type and model (BT_ACTOR_RUNTIME_MODELS can give
+        // one actor several), plus one per extra model it draws
         // (BT_ACTOR_EXTRA_MODELS) over copies of its nodes, so each row keeps
         // its own geometry source and description.
+        for (const node of actorNodes) {
+            if (node.actorId in BT_ACTOR_RUNTIME_MODELS) node.runtimeModel = actorModelAsset(node, mapName);
+        }
+        const byType = [...groupBy(actorNodes, n => `${n.actorId}:${n.runtimeModel ?? ''}`)]
+            .map(([, list]) => [list[0].actorId, list])
+            .sort((a, b) => actorName(a[0], a[1][0].runtimeModel).localeCompare(actorName(b[0], b[1][0].runtimeModel)));
         const rows = byType.flatMap(([id, list]) => [
-            { name: actorName(id), asset: BT_Actor_Models[id], list },
+            { name: actorName(id, list[0].runtimeModel), asset: list[0].runtimeModel ?? BT_Actor_Models[id], list },
             ...(BT_ACTOR_EXTRA_MODELS[id] ?? []).map(extra => ({
                 name: `${actorName(id)} ${extra.label}`, asset: extra.asset,
                 list: list.map(node => ({ ...node, extraModel: extra })),

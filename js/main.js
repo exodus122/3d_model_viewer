@@ -376,7 +376,7 @@ loadMap.addEventListener('click', async (e) => {
             const res3 = await fetch('./models/BT/' + mapDir + '/setup.bin');
             const buffer3 = await res3.arrayBuffer();
             console.log(mapDir + "/setup.bin: Binary file length:", buffer3.byteLength);
-            await renderBTSetup(scene, buffer3, mapId);
+            await renderBTSetup(scene, buffer3, mapId, mapName);
         } catch (err) {
             console.error(err);
         }
