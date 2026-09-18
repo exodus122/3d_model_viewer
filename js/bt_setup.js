@@ -31,6 +31,11 @@ import {
 // (BT_Prop_Models, index = modelId), an actor's overlay from gemarkersDll
 // (BT_Actor_Overlays) and its model from the actor-info struct in that
 // overlay (BT_Actor_Models); all generated into bt_object_list.js.
+//
+// The actor behaviour cited below (scale changes, model picks, actors moving
+// other actors) was read out of the overlays' MIPS with
+// tools/bt/disasm_bt_overlay.py, which disassembles an overlay (or a core1 /
+// core2 range) from the ROM with the decomp's symbol names.
 
 // NodeProp.category as BK names them (enum Prop1Category); 6 = actor holds
 // for BT (its ids resolve to actor overlays), the rest are unverified.
@@ -150,11 +155,12 @@ const BT_ACTOR_SCALES = {
     0x46E: { mul: 1.4 },        // chinflatablebossdoor
     0x4BC: { mul: 0.15 },       // chbottlesdead (Burnt Bottles)
     0x4F5: { set: 0.25 },       // chdiggerbossbattery
+    0x21B: { set: 0.4 },        // chglowbo#0 (0.75 instead under a flag its init checks)
 };
 
 /** The scale an actor node is drawn at: the setup scale, then its code's change. */
 function actorScale(node) {
-    const spawned = node.scale === 0 ? 1 : node.scale / 100;
+    const spawned = (node.scale === 0 || node.setupActorId !== undefined) ? 1 : node.scale / 100;
     const change = BT_ACTOR_SCALES[node.actorId];
     if (!change) return spawned;
     return change.set !== undefined ? change.set : spawned * change.mul;
@@ -210,6 +216,76 @@ const BT_ACTOR_EXTRA_MODELS = {
     0x1D7: [NEST_BASKET], 0x1D8: [NEST_BASKET], 0x1E9: [NEST_BASKET], 0x2B8: [NEST_BASKET],
     0x4A6: [NEST_BASKET],
 };
+
+// Collectibles are placed in the setup file under ids the marker table
+// (gemarkersDll, BT_Actor_Overlays) has no entry for, so gspropsDll's spawn
+// of them fails; gccollectDll then walks the map's node list itself
+// (gccollectDll_entrypoint_8), checks the save flags -- the node's yaw field
+// is the item's number in the level, not an angle -- and spawns the real
+// actor from its own table (D_80800C18) at the node's position. It calls
+// the core spawn (0x80108C90) directly, skipping gspropsDll's step that
+// applies the node's scale field, so the actor spawns at scale 1 whatever
+// that field holds (often junk, e.g. 6000). The setup id is kept in
+// setupActorId for the description.
+const BT_COLLECTIBLE_SPAWNS = {
+    0x1F5: 0x1F4,   // chjinjo
+    0x1F6: 0x21F,   // chjigsaw (Jiggy)
+    0x1F7: 0x220,   // chhoneycarrier (honeycomb piece)
+    0x1F8: 0x21B,   // chglowbo (the node's selector is copied to the actor)
+    0x29D: 0x4E5,   // chdoubloon
+    0x4E6: 0x3C6,   // chbigtopticket
+};
+
+// Actors that move another actor onto themselves once spawned, so the
+// setup file's position for the moved one is only a rough placeholder.
+//
+// The ice cubes (chmrsicecube: 0x3E1 George Ice Cube, 0x3E2 Aice Cube) hold
+// an item: the overlay's table at 0x80800910, indexed by selector - 50,
+// names the actor id held; the spawn code (func_80800508) finds the nearest
+// setup node with that id (gccubesearch_entrypoint_6 collects the map's
+// nodes of the id, closest to the cube wins; jinjos, 0x1F4, via
+// subaddiefind_entrypoint_0 instead), and every frame (func_8080066C) puts
+// that actor at the cube's position plus scale * 100 in y -- the middle of
+// the cube, whose model origin is at its base.
+const ICE_CUBE_CONTENTS = [
+    0x1F4, 0x229, 0x136, 0x4A6, 0x1C9, 0x1CA, 0x1CB, 0x1CC, 0x1CE,
+    0x1CF, 0x1D7, 0x211, 0x19C, 0x1D8, 0x1E9, 0x210, 0x2B0,
+];
+const iceCube = {
+    heldActor: node => ICE_CUBE_CONTENTS[node.selectorOrRadius - 50],
+    place: node => [node.position[0], node.position[1] + actorScale(node) * 100, node.position[2]],
+};
+const BT_ACTOR_HOLDERS = { 0x3E1: iceCube, 0x3E2: iceCube };
+// Holders are translucent shells drawn after everything at the default order
+// (their contents included) and with the XLU map, so the ice always blends
+// over the nest inside instead of the nest's own blended parts landing on
+// top of the ice when the distance sort puts the cube's origin farther away.
+const HOLDER_RENDER_ORDER = 1;
+
+/**
+ * Move actor nodes that another actor's code places onto itself
+ * (BT_ACTOR_HOLDERS). Each moved node keeps its setup position in
+ * setupPosition and names the holder in heldBy.
+ */
+function applyActorHolders(actorNodes) {
+    for (const holder of actorNodes) {
+        const rule = BT_ACTOR_HOLDERS[holder.actorId];
+        if (!rule) continue;
+        const heldId = rule.heldActor(holder);
+        if (heldId === undefined) continue;
+        let best = null, bestDist = Infinity;
+        for (const node of actorNodes) {
+            if (node.actorId !== heldId) continue;
+            const from = node.setupPosition ?? node.position;
+            const d = (from[0] - holder.position[0]) ** 2 + (from[1] - holder.position[1]) ** 2 + (from[2] - holder.position[2]) ** 2;
+            if (d < bestDist) { best = node; bestDist = d; }
+        }
+        if (!best) continue;
+        best.setupPosition ??= best.position;
+        best.position = rule.place(holder);
+        best.heldBy = holder;
+    }
+}
 
 const NODE_PROP_SIZE = 20;
 const PROP_SIZE = 12;
@@ -398,13 +474,19 @@ function describeNode(node) {
     const model = node.extraModel ? node.extraModel.asset : (node.runtimeModel ?? BT_Actor_Models[node.actorId]);
     const what = node.category === NODE_CATEGORY_ACTOR
         ? `ACTOR ${actorName(node.actorId, node.runtimeModel)}` +
+          (node.setupActorId !== undefined ? ` (setup id ${hex(node.setupActorId)}, spawned by gccollectDll)` : '') +
           (node.extraModel ? ` ${node.extraModel.label}` : '') +
           (model ? ` model ${hex(model)}${node.runtimeModel ? ' (picked by its code)' : ''}${node.geometrySource ? ' ' + node.geometrySource : ''}` : '')
         : `NODE ${cat} id=${hex(node.actorId)}`;
     const scale = node.category === NODE_CATEGORY_ACTOR && BT_ACTOR_SCALES[node.actorId]
         ? `${node.scale / 100} (drawn at ${+actorScale(node).toFixed(4)}: set by its code on spawn)`
-        : `${node.scale / 100}`;
-    return `${what}: pos=${node.position.join(', ')} yaw=${node.yaw} scale=${scale}` +
+        : node.setupActorId !== undefined
+            ? `${node.scale / 100} (ignored: gccollectDll spawns at 1)`
+            : `${node.scale / 100}`;
+    const pos = node.heldBy
+        ? `${node.position.map(v => +v.toFixed(2)).join(', ')} (moved by its ${actorName(node.heldBy.actorId)} from ${node.setupPosition.join(', ')})`
+        : node.position.join(', ');
+    return `${what}: pos=${pos} yaw=${node.yaw} scale=${scale}` +
         ` selector/radius=${node.selectorOrRadius} marker=${node.markerId} bit0=${node.bit0} unk10=${hex(node.unk10, 8)}`;
 }
 
@@ -482,6 +564,7 @@ const ACTOR_STYLE = {
     fallback: buildActorInstance,
     selectorOf: node => node.selectorOrRadius,
     appendagesOf: node => BT_ACTOR_APPENDAGES[node.actorId] ?? null,
+    renderOrderOf: node => node.actorId in BT_ACTOR_HOLDERS ? HOLDER_RENDER_ORDER : 0,
     transform(node, obj) {
         obj.position.set(node.position[0], node.position[1], node.position[2]);
         obj.rotation.set(0, THREE.MathUtils.degToRad(node.yaw), 0, 'YXZ');
@@ -502,6 +585,11 @@ export async function renderBTSetup(scene, buffer, mapId = -1, mapName = '') {
     }
 
     const actorNodes = setup.nodes.filter(n => n.category === NODE_CATEGORY_ACTOR);
+    for (const node of actorNodes) {
+        const spawned = BT_COLLECTIBLE_SPAWNS[node.actorId];
+        if (spawned !== undefined) { node.setupActorId = node.actorId; node.actorId = spawned; }
+    }
+    applyActorHolders(actorNodes);
     const otherNodes = setup.nodes.filter(n => n.category !== NODE_CATEGORY_ACTOR);
     const modelProps = setup.props.filter(p => p.kind === 'model');
     const spriteProps = setup.props.filter(p => p.kind === 'sprite');

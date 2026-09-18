@@ -94,6 +94,7 @@ export function buildTexturedParts(buffer, selector = 0, options = {}) {
         textureBank: options.game === "BT" ? getBTTextureBank() : undefined,
     });
     if (!parsed || parsed.batches.length === 0) return null;
+    const allXlu = parsed.batches.every(b => b.xlu);
 
     // One DataTexture per (texture, wrap) combination; clones share the image.
     const textureCache = new Map();
@@ -143,12 +144,16 @@ export function buildTexturedParts(buffer, selector = 0, options = {}) {
             start += count;
 
             // An opaque model's XLU parts still go through the full-depth table
-            // (Z_CMP | Z_UPD | G_RM_XLU_SURF2), so they keep writing depth.
+            // (Z_CMP | Z_UPD | G_RM_XLU_SURF2), so they keep writing depth. A
+            // model that is XLU throughout (BT's ice cubes, feathers) is a
+            // translucent object in its own right and is drawn like one:
+            // depth-tested but not depth-written, so what sits inside or
+            // behind it (the nest in an ice cube) still shows.
             const material = new THREE.MeshBasicMaterial({
                 vertexColors: true,
                 side: batch.cullBack ? THREE.FrontSide : THREE.DoubleSide,
                 transparent: blended,
-                depthWrite: !translucent,
+                depthWrite: !translucent && !allXlu,
                 alphaTest: blended ? 0.01 : 0.5,
             });
             if (batch.texture >= 0) {

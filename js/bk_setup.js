@@ -1308,6 +1308,12 @@ export function addLoadedModelRow(scene, groupBody, rowName, instances, loaded, 
             style.appendagesOf ? style.appendagesOf(inst) ?? null : null);
         if (textured) {
             attachTextured(mesh, makeTexturedMesh(textured), edges);
+            // A style can push an instance's textured draw later in the
+            // transparent pass (three.js sorts by renderOrder, then depth),
+            // for translucent things that must blend over what sits inside
+            // them whatever the camera does to the distance sort.
+            const order = style.renderOrderOf?.(inst) ?? 0;
+            if (order) mesh.traverse(o => { if (o.name === 'textured') o.renderOrder = order; });
         }
 
         propInstances.push({ mesh, edges, prop: inst, loaded, describe: style.describe });

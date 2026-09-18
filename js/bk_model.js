@@ -373,6 +373,13 @@ const G_SETCOMBINE = 0xFC;
 // (including the decal modes 24-28 that its maps use for ground markings)
 // blend -- read off each entry's cycle-2 blender (CLR_MEM * (1 - A)).
 const RENDER_MODE_SEGMENT = 0x03;
+// BKModelBin.geo_type (header +0xA) bits: 0x02 trilinear mipmapping, 0x04
+// environment mapping (both games). BT adds 0x40: the display list loads its
+// bone matrices itself (G_MTX from segment 5, e.g. the feather nest's
+// feathers 0x6EF, three chains of five bones), so core2 pre-multiplies the
+// actor's transform into the projection stack instead of the modelview. Such
+// a model's in-game shape is an animation pose; with no animation played,
+// only the rest pose (the flat template) can be drawn here.
 // BT only: the game's "restore defaults" display list. BT model lists never
 // set G_CULL_BACK themselves -- back-face culling is on when a model starts
 // drawing, the few double-sided lists clear it, and every such list ends by
