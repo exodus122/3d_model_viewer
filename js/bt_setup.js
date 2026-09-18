@@ -96,7 +96,10 @@ const BT_ACTOR_APPENDAGES = {
 // US). Two set theirs from their state machine instead: the baby
 // steggosaurus (chdinofamilysmall state 1, the fresh-file state, at
 // 0x808008F8) and the silo (chsilo 0x808008CC, which also takes its number
-// from the selector).
+// from the selector). The Kazooie rock (chtalontorpedoboulder 0x472) is the
+// one that scales without a constant: its init (0x8080000C) despawns it
+// when the boulder's flag (0x3EF + selector - 50) is set, else doubles the
+// spawned scale (add.s of actor->scale with itself, at 0x80800050).
 const BT_ACTOR_SCALES = {
     0x17F: { set: 0.2 },        // chjigsawbitcont
     0x18F: { set: 0.5 },        // chmoley (Jamjars)
@@ -160,6 +163,7 @@ const BT_ACTOR_SCALES = {
     0x4BC: { mul: 0.15 },       // chbottlesdead (Burnt Bottles)
     0x4F5: { set: 0.25 },       // chdiggerbossbattery
     0x21B: { set: 0.4 },        // chglowbo#0 (0.75 instead under a flag its init checks)
+    0x472: { mul: 2.0 },        // chtalontorpedoboulder (Kazooie rock)
 };
 
 /** The scale an actor node is drawn at: the setup scale, then its code's change. */
@@ -946,6 +950,19 @@ const MODEL_PROP_STYLE = {
     },
 };
 
+// Actor hitboxes: the same test as BK's (bk_setup.js "Actor hitboxes"),
+// read out of core2. The player's sphere query (0x801099D0) rejects a
+// marker outside its sphere first (0x801098D0: centre = the model's vertex
+// list centre, radius = its local_norm, cached in the marker at +0x1E /
+// +0x18 by 0x800EC504 / 0x800EC5C0 and scaled by actor->scale), then runs
+// the marker's own test (callback slot 4) or the glhittableDll hit volume
+// test (0x80088610) when the model has a hit volume list, and only then
+// calls the touch callback (0x800EB210: slot 0 sends the actor event
+// 0x3E). Which actors have those callbacks at all, and which hurt on
+// contact, is BT_Actor_Hitboxes (extract_maps.py find_actor_hitbox). An
+// actor's extra models (nest baskets) and fires draw no hitbox of their own.
+const actorHitbox = node => node.extraModel ? undefined : BT_Actor_Hitboxes[node.actorId];
+
 // Actors are placed like BK's (func_80330208): the node's position, yaw in
 // degrees and scale / 100 (0 = 1), then whatever their own code does to the
 // scale (BT_ACTOR_SCALES). NodeProp.selector_or_radius picks the
@@ -955,6 +972,7 @@ const ACTOR_STYLE = {
     edgeColor: 0x8a3d10,
     describe: describeNode,
     fallback: buildActorInstance,
+    hitbox: actorHitbox,
     selectorOf: node => node.selectorOrRadius,
     appendagesOf: node => BT_ACTOR_APPENDAGES[node.actorId] ?? null,
     renderOrderOf: node => node.actorId in BT_ACTOR_HOLDERS ? HOLDER_RENDER_ORDER : 0,
@@ -973,6 +991,7 @@ const SPRITE_ACTOR_STYLE = {
     color: ACTOR_COLOR,
     describe: describeNode,
     fallback: buildActorInstance,
+    hitbox: actorHitbox,
     scaleOf: node => actorScale(node),
     tintOf: node => BT_SPRITE_ACTOR_TINTS[node.actorId]?.(node) ?? [1, 1, 1],
 };

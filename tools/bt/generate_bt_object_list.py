@@ -56,6 +56,7 @@ def main():
     actor_overlays = [("0x%X" % int(k), "%s#%d" % (v[0], v[1])) for k, v in tables["actor_overlays"].items()]
     actor_models = [("0x%X" % int(k), v) for k, v in tables["actor_models"].items() if v]
     actor_sprites = [("0x%X" % int(k), v) for k, v in tables.get("actor_sprites", {}).items() if v]
+    actor_hitboxes = [("0x%X" % int(k), v) for k, v in tables.get("actor_hitboxes", {}).items() if v]
     extra_models = [int(k) for k in tables.get("extra_models", {})]
     extra_sprites = [int(k) for k in tables.get("extra_sprites", {})]
     skies = [("0x%X" % sky["map_id"], [{"model": l["model"], "scale": l["scale"], "speed": l["speed"]} for l in sky["layers"]])
@@ -81,6 +82,10 @@ def main():
         js_map("BT_Actor_Sprites", actor_sprites,
                "actor id -> sprite asset id, for the actors whose info struct names a sprite "
                "(eggs, feathers, the light halo): drawn as billboards, see bt_setup.js"),
+        js_map("BT_Actor_Hitboxes", actor_hitboxes,
+               "actor id -> \"enemy\" (contact hurts: info flag +0x3C bit 0) or \"touch\" (the marker gets a "
+               "collision-callback table from info +0x2C, so the player's touch sphere reaches its code); "
+               "actors without either are found by the sphere query but nothing happens, see bk_setup.js"),
         js_map("BT_Skies", skies,
                "gcskyDll: map id -> sky layers [{model asset, uniform scale, rotation deg/s}], "
                "drawn centred on the camera before the map (see sky.js)"),
@@ -90,8 +95,8 @@ def main():
     ]
     with open(args.out, "w", encoding="utf-8", newline="\n") as f:
         f.write("\n\n".join(blocks) + "\n")
-    print("wrote %s: %d prop models, %d sprites, %d actor overlays, %d actor models, %d actor sprites, %d skies, %d names" % (
-        args.out, len(prop_models), len(prop_sprites), len(actor_overlays), len(actor_models), len(actor_sprites), len(skies), len(asset_names)))
+    print("wrote %s: %d prop models, %d sprites, %d actor overlays, %d actor models, %d actor sprites, %d actor hitboxes, %d skies, %d names" % (
+        args.out, len(prop_models), len(prop_sprites), len(actor_overlays), len(actor_models), len(actor_sprites), len(actor_hitboxes), len(skies), len(asset_names)))
 
 
 if __name__ == "__main__":

@@ -250,7 +250,7 @@ gameSel.addEventListener('change',(e)=>{
     }
     
     bkViewModeLabel.style.display = (game == "BK" || game == "BT") ? "block" : "none";
-    bkActorHitboxesLabel.style.display = (game == "BK") ? "block" : "none";
+    bkActorHitboxesLabel.style.display = (game == "BK" || game == "BT") ? "block" : "none";
 
     if (game == "BK" || game == "BT") {
         display_fwc_label.style.display = "none";
