@@ -1,9 +1,10 @@
 import * as THREE from 'three';
 import { getModelGroup, resetGroupModelState, applyGroupMasterState } from './render.js';
 import {
-    resetSetupState, getPropInstances, loadPropGeometry, addTypeRow, addLoadedModelRow, groupBy, makeYawLine,
-    actorGeometry, nodeGeometry, modelGeometry, radiusGeometry,
-    ACTOR_COLOR, NODE_COLOR, MODEL_COLOR, ACTOR_MARKER_RADIUS, MODEL_MARKER_SIZE,
+    resetSetupState, getPropInstances, loadPropGeometry, addTypeRow, addLoadedModelRow, addSpriteRow, loadSpriteIndex,
+    groupBy, makeYawLine,
+    actorGeometry, nodeGeometry, modelGeometry, radiusGeometry, spriteGeometry,
+    ACTOR_COLOR, NODE_COLOR, MODEL_COLOR, SPRITE_COLOR, ACTOR_MARKER_RADIUS, MODEL_MARKER_SIZE,
 } from './bk_setup.js';
 
 ////////////////////////////////////////
@@ -28,9 +29,12 @@ import {
 // those are reported and skipped.
 //
 // A model prop's asset comes from the gsproplookup overlay's table
-// (BT_Prop_Models, index = modelId), an actor's overlay from gemarkersDll
-// (BT_Actor_Overlays) and its model from the actor-info struct in that
-// overlay (BT_Actor_Models); all generated into bt_object_list.js.
+// (BT_Prop_Models, index = modelId; BT_Prop_Sprites for a sprite prop), an
+// actor's overlay from gemarkersDll (BT_Actor_Overlays) and its model from
+// the actor-info struct in that overlay (BT_Actor_Models, or BT_Actor_Sprites
+// when that struct names a sprite asset); all generated into
+// bt_object_list.js. Sprites (models/BT/sprites, banjo-tooie/tools/
+// extract_sprites.py) are drawn as billboards by bk_setup.js's addSpriteRow.
 //
 // The actor behaviour cited below (scale changes, model picks, actors moving
 // other actors) was read out of the overlays' MIPS with
@@ -160,6 +164,7 @@ const BT_ACTOR_SCALES = {
 
 /** The scale an actor node is drawn at: the setup scale, then its code's change. */
 function actorScale(node) {
+    if (node.takenProp) return node.takenProp.scale || 1;
     const spawned = (node.scale === 0 || node.setupActorId !== undefined) ? 1 : node.scale / 100;
     const change = BT_ACTOR_SCALES[node.actorId];
     if (!change) return spawned;
@@ -363,13 +368,175 @@ export function updateBTCameraActors(camera) {
 // Models an actor draws besides the one in its info struct, placed with the
 // actor's own position, yaw and scale. Every nest draws the basket
 // (chnests func_80800898: model 0x85C at the actor's position, yaw and scale)
-// before its eggs, feathers or notes.
+// before its eggs, feathers or notes. The mine light (chmineproplight, see
+// BT_ACTOR_PROP_TAKEOVERS) draws the glow 0x695 and the lit lantern 0x696 in
+// the XLU pass (draw 0x80800168) over the lantern prop it sits on.
 const NEST_BASKET = { asset: 0x85C, label: 'nest basket' };
 const BT_ACTOR_EXTRA_MODELS = {
     0x1C8: [NEST_BASKET], 0x1C9: [NEST_BASKET], 0x1CA: [NEST_BASKET], 0x1CB: [NEST_BASKET],
     0x1CC: [NEST_BASKET], 0x1CD: [NEST_BASKET], 0x1CE: [NEST_BASKET], 0x1CF: [NEST_BASKET],
     0x1D7: [NEST_BASKET], 0x1D8: [NEST_BASKET], 0x1E9: [NEST_BASKET], 0x2B8: [NEST_BASKET],
     0x4A6: [NEST_BASKET],
+    0x24C: [{ asset: 0x695, label: 'glow (lit)' }, { asset: 0x696, label: 'lit lantern' }],
+};
+
+// Actors with no model of their own that take over a nearby model prop:
+// chmineproplight (0x24C, the GGM mine lights) has its init (0x8080000C) ask
+// gccubesearch_entrypoint_16 for the model prop within 500 units of its
+// node, flags that prop as taken (byte 0xB |= 0x20, &= ~0x10), copies the
+// prop's position, yaw (byte 2 * 2) and roll (byte 3 * 2, into the actor's x
+// rotation), takes its model through gsproplookup (actor_setModel) and its
+// scale (byte 0xA / 100, actor_setScale). Every placement in the game is
+// next to a GGM Lantern (0x5E1); the prop is then drawn by the actor.
+const BT_ACTOR_PROP_TAKEOVERS = { 0x24C: { radius: 500 } };
+
+/**
+ * Move each BT_ACTOR_PROP_TAKEOVERS actor onto the nearest model prop in
+ * range, keeping the prop in node.takenProp (and marking it prop.takenBy so
+ * the prop rows skip it) and the setup placement in setupPosition / setupYaw.
+ */
+function applyPropTakeovers(actorNodes, modelProps) {
+    for (const node of actorNodes) {
+        const rule = BT_ACTOR_PROP_TAKEOVERS[node.actorId];
+        if (!rule) continue;
+        let best = null, bestD = rule.radius ** 2;
+        for (const prop of modelProps) {
+            if (prop.takenBy) continue;
+            const d = (prop.position[0] - node.position[0]) ** 2 + (prop.position[1] - node.position[1]) ** 2 + (prop.position[2] - node.position[2]) ** 2;
+            if (d < bestD) { bestD = d; best = prop; }
+        }
+        if (!best) continue;
+        best.takenBy = node;
+        node.takenProp = best;
+        node.setupPosition ??= node.position;
+        node.setupYaw ??= node.yaw;
+        node.position = best.position;
+        node.yaw = best.yaw;
+        node.pitch = best.roll;
+        node.runtimeModel = propModelAsset(best.modelId);
+    }
+}
+
+// Sprite actors: the ones whose info struct names a sprite asset instead of
+// a model (BT_Actor_Sprites: eggs, feathers, the light halo, Mumbo's hat...)
+// are drawn as billboards at the actor's position, sized by the actor's
+// scale like model actors are (the sheet's world size times the scale).
+//
+// The light halo (chlighthalo 0x50A, sprite 0x9C7 White Glow) tints it by
+// the node's selector -- the switch at 0x80800464 over selector - 50, the
+// same ten colours again from 60, which also registers a real light source
+// -- and fades its alpha with the camera's view of the light (0x800E8918);
+// it is drawn at full alpha here.
+const HALO_COLOURS = [
+    [0xFF, 0xFF, 0x20], [0x20, 0xFF, 0x00], [0xFF, 0x20, 0x20], [0x20, 0xFF, 0xFF], [0x20, 0xFF, 0xFF],
+    [0xFF, 0x80, 0x20], [0xFF, 0x60, 0xFF], [0xFF, 0xFF, 0xFF], [0xFF, 0xFF, 0xFF], [0xFF, 0xFF, 0xFF],
+];
+const LIGHT_HALO = 0x50A;
+const haloColour = node => {
+    const i = node.selectorOrRadius - 50;
+    return (i >= 0 && i < 20 ? HALO_COLOURS[i % 10] : HALO_COLOURS[9]).map(v => v / 0xFF);
+};
+const BT_SPRITE_ACTOR_TINTS = { [LIGHT_HALO]: haloColour };
+// Sprites blended as glows rather than alpha-tested cutouts.
+const BT_SPRITE_ACTOR_GLOWS = new Set([LIGHT_HALO]);
+
+// Fire (chfirefx#0 0x3AC, the torches and braziers): a particle effect, not
+// a model. Its init (chfirefx_entrypoint_1 -> _2) sizes a particle pool from
+// the node: the yaw field is the number of flames (not an angle), the
+// selector the spawn radius. The update (entrypoint_3 / func_80800884)
+// keeps the pool full, spawning each flame at a random distance in
+// [radius / 4, radius] from the node, on a random bearing within 90 degrees
+// of the camera's, with an upward speed of rand(30, 40) * scale that grows
+// by 400 * scale per second, a size of rand(0.8, 1.2) and a random mirror;
+// flames farther than 0.4 * radius from the node are pulled in at 50 *
+// scale per second. A flame ages 15 frames per second through sprite 0x9CE's
+// nine frames and dies at frame 9. The draw (entrypoint_4) puts each at the
+// node plus its offset, scaled by size * scale * 0.5, alpha 0xC0. Here every
+// flame gets a fixed bearing (all round, not camera-facing) and phase from a
+// PRNG seeded by the node, and loops through the same life.
+const FIRE_ACTOR = 0x3AC;
+const FIRE_SPRITE = 0x9CE;
+const FIRE_FRAMES = 9, FIRE_FPS = 15, FIRE_TICK_RATE = 30;
+const FIRE_ALPHA = 0xC0 / 0xFF;
+const FIRE_RISE_ACCEL = 400, FIRE_PULL_SPEED = 50, FIRE_PULL_RADIUS = 0.4;
+
+/** mulberry32: a small seeded PRNG, so a map's flames land the same way on every load. */
+function seededRandom(seed) {
+    let a = seed >>> 0;
+    return () => {
+        a = (a + 0x6D2B79F5) >>> 0;
+        let t = a;
+        t = Math.imul(t ^ (t >>> 15), t | 1);
+        t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+}
+
+/** The flames of one fire node: instances for addSpriteRow, each { node, position, size, ... } */
+function fireFlames(node) {
+    const count = node.yaw;
+    const radius = node.selectorOrRadius;
+    const scale = actorScale(node);
+    const rand = seededRandom(node.uid * 7919 + node.position[0] * 31 + node.position[2]);
+    const between = (lo, hi) => lo + rand() * (hi - lo);
+    const flames = [];
+    for (let i = 0; i < count; i++) {
+        const bearing = rand() * Math.PI * 2;
+        const dist = between(radius / 4, radius);
+        flames.push({
+            node, index: i,
+            position: [node.position[0] + Math.sin(bearing) * dist, node.position[1], node.position[2] + Math.cos(bearing) * dist],
+            bearing, dist,
+            size: between(0.8, 1.2) * scale * 0.5,
+            speed: between(30, 40) * scale,
+            phase: rand() * FIRE_FRAMES,
+            isMirrored: rand() < 0.5 ? 1 : 0,
+        });
+    }
+    return flames;
+}
+
+/** Where a flame is `age` frames (0..9) into its life, relative to the node. */
+function flameOffset(flame, age) {
+    const t = age / FIRE_FPS;
+    const scale = actorScale(flame.node);
+    const radius = flame.node.selectorOrRadius;
+    const dist = flame.dist > FIRE_PULL_RADIUS * radius
+        ? Math.max(FIRE_PULL_RADIUS * radius, flame.dist - FIRE_PULL_SPEED * scale * t)
+        : flame.dist;
+    return [
+        Math.sin(flame.bearing) * dist,
+        flame.speed * t + 0.5 * FIRE_RISE_ACCEL * scale * t * t,
+        Math.cos(flame.bearing) * dist,
+    ];
+}
+
+const FIRE_STYLE = {
+    game: 'BT',
+    color: ACTOR_COLOR,
+    describe: flame => `${describeNode(flame.node)} -- flame ${flame.index + 1}/${flame.node.yaw}` +
+        ` (sprite ${hex(FIRE_SPRITE)}, ${+(flame.dist).toFixed(0)} from the node, size ${+flame.size.toFixed(2)})`,
+    fallback: (flame, material) => {
+        const mesh = new THREE.Mesh(spriteGeometry, material);
+        mesh.userData.bkInfo = FIRE_STYLE.describe(flame);
+        mesh.userData.bkProp = flame.node;
+        return mesh;
+    },
+    scaleOf: flame => flame.size,
+    translucent: true,
+    opacity: FIRE_ALPHA,
+    animator: (flame, sprite, setFrame) => {
+        const origin = flame.node.position;
+        let last = -1;
+        const place = age => {
+            const off = flameOffset(flame, age);
+            sprite.position.set(origin[0] + off[0], origin[1] + off[1], origin[2] + off[2]);
+            const frame = Math.floor(age);
+            if (frame !== last) { setFrame(frame, !!flame.isMirrored); last = frame; }
+        };
+        place(flame.phase);
+        return tick => place((tick * FIRE_FPS / FIRE_TICK_RATE + flame.phase) % FIRE_FRAMES);
+    },
 };
 
 // Collectibles are placed in the setup file under ids the marker table
@@ -458,9 +625,9 @@ function hex(v, width = 0) {
     return '0x' + v.toString(16).toUpperCase().padStart(width, '0');
 }
 
-function actorName(id, model = BT_Actor_Models[id]) {
+function actorName(id, model = BT_Actor_Models[id] ?? BT_Actor_Sprites[id]) {
     const ovl = BT_Actor_Overlays[id];
-    const modelName = model ? BT_Asset_Names[model]?.replace(/^Model:\s*/, '') : null;
+    const modelName = model ? BT_Asset_Names[model]?.replace(/^(Model|Sprite):\s*/, '') : null;
     if (modelName && modelName !== '?') return `${modelName} (${hex(id)}, ${ovl ?? 'core'})`;
     if (ovl) return `${ovl} (${hex(id)})`;
     // Not in gemarkersDll's table: the game has no spawn routine for the id.
@@ -476,6 +643,17 @@ function modelName(modelId) {
     if (!asset) return `MODEL_ID_${hex(modelId)}`;
     const name = BT_Asset_Names[asset];
     return name ? name.replace(/^Model: /, '') : `MODEL_${hex(asset)}`;
+}
+
+function propSpriteAsset(spriteId) {
+    return BT_Prop_Sprites[spriteId] ?? 0;
+}
+
+function spriteName(spriteId) {
+    const asset = propSpriteAsset(spriteId);
+    if (!asset) return `SPRITE_ID_${hex(spriteId)}`;
+    const name = BT_Asset_Names[asset];
+    return name ? name.replace(/^Sprite: /, '') : `SPRITE_${hex(asset)}`;
 }
 
 ////////////////////////////////////////
@@ -517,25 +695,45 @@ function readNodeProp(r) {
     };
 }
 
-// Prop, 12 bytes: u16 modelId:12 | unk:4, u8 yaw (x2 deg), u8 roll (x2 deg),
-// s16 pos[3], u8 scale (/100), u8 flags (bit 1 = model prop, else sprite).
+// Prop, 12 bytes, BK's union (include/prop.h) told apart by bit 1 of the
+// last byte (isModelProp):
+//   ModelProp:  u16 modelId:12 | unk:4, u8 yaw (x2 deg), u8 roll (x2 deg),
+//               s16 pos[3], u8 scale (/100), u8 flags
+//   SpriteProp: u32 spriteId:12 | unk:1 | r:3 | g:3 | b:3 | scale:8 (/100) | mirrored:1 | pad:1,
+//               s16 pos[3], u16 frame:5 | phase:5 | mirrored:1 | flags:5
+// gspropprop reads them the same way (entrypoint_1 takes a model prop's
+// scale from byte 0xA and a sprite prop's from bits 2-9 of the first word).
 function readProp(r) {
     const dv = r.dv, o = r.pos;
-    const w0 = dv.getUint16(o, false);
+    const w0 = dv.getUint32(o, false);
     const flags = dv.getUint8(o + 11);
+    const position = [dv.getInt16(o + 4, false), dv.getInt16(o + 6, false), dv.getInt16(o + 8, false)];
     r.skip(PROP_SIZE);
-    const prop = {
-        kind: (flags & 2) ? 'model' : 'sprite',
-        modelId: w0 >>> 4,
-        unk0: w0 & 0xF,
-        yaw: dv.getUint8(o + 2) * 2,
-        roll: dv.getUint8(o + 3) * 2,
-        position: [dv.getInt16(o + 4, false), dv.getInt16(o + 6, false), dv.getInt16(o + 8, false)],
-        scale: dv.getUint8(o + 10) / 100,
+    if (flags & 2) {
+        return {
+            kind: 'model',
+            modelId: w0 >>> 20,
+            unk0: (w0 >>> 16) & 0xF,
+            yaw: dv.getUint8(o + 2) * 2,
+            roll: dv.getUint8(o + 3) * 2,
+            position,
+            scale: dv.getUint8(o + 10) / 100,
+            flags,
+        };
+    }
+    const wA = dv.getUint16(o + 10, false);
+    return {
+        kind: 'sprite',
+        spriteId: w0 >>> 20,
+        unk0: (w0 >>> 19) & 1,
+        rgbRemove: [(w0 >>> 16) & 7, (w0 >>> 13) & 7, (w0 >>> 10) & 7],
+        scale: ((w0 >>> 2) & 0xFF) / 100,
+        isMirrored: (w0 >>> 1) & 1,
+        position,
+        frame: wA >>> 11,
+        phase: (wA >>> 6) & 0x1F,
         flags,
     };
-    if (prop.kind === 'sprite') prop.spriteId = prop.modelId;
-    return prop;
 }
 
 function readCameraSection(r, result) {
@@ -629,11 +827,15 @@ export function parseBTSetup(buffer) {
 function describeNode(node) {
     const cat = NODE_CATEGORY_NAMES[node.category] ?? `Category ${node.category}`;
     const model = node.extraModel ? node.extraModel.asset : (node.runtimeModel ?? BT_Actor_Models[node.actorId]);
+    const sprite = BT_Actor_Sprites[node.actorId];
     const what = node.category === NODE_CATEGORY_ACTOR
         ? `ACTOR ${actorName(node.actorId, node.runtimeModel)}` +
           (node.setupActorId !== undefined ? ` (setup id ${hex(node.setupActorId)}, spawned by gccollectDll)` : '') +
           (node.extraModel ? ` ${node.extraModel.label}` : '') +
-          (model ? ` model ${hex(model)}${node.runtimeModel ? ' (picked by its code)' : ''}${node.geometrySource ? ' ' + node.geometrySource : ''}` : '')
+          (model ? ` model ${hex(model)}${node.runtimeModel ? ' (picked by its code)' : ''}${node.geometrySource ? ' ' + node.geometrySource : ''}` : '') +
+          (sprite && !node.extraModel ? ` sprite ${hex(sprite)}` : '') +
+          (node.actorId === FIRE_ACTOR ? ` (${node.yaw} flames of sprite ${hex(FIRE_SPRITE)} within ${node.selectorOrRadius} units)` : '') +
+          (node.takenProp ? ` (took over the model prop ${modelName(node.takenProp.modelId)} within ${BT_ACTOR_PROP_TAKEOVERS[node.actorId].radius} units)` : '')
         : `NODE ${cat} id=${hex(node.actorId)}`;
     const scale = node.category === NODE_CATEGORY_ACTOR && BT_ACTOR_SCALES[node.actorId]
         ? `${node.scale / 100} (drawn at ${+actorScale(node).toFixed(4)}: set by its code on spawn)`
@@ -642,16 +844,22 @@ function describeNode(node) {
             : `${node.scale / 100}`;
     const pos = node.heldBy
         ? `${node.position.map(v => +v.toFixed(2)).join(', ')} (moved by its ${actorName(node.heldBy.actorId)} from ${node.setupPosition.join(', ')})`
+        : node.takenProp
+            ? `${node.position.join(', ')} (the prop's, setup ${node.setupPosition.join(', ')})`
         : node.cameraPlaced
             ? `${node.position.map(v => +v.toFixed(0)).join(', ')} (follows the camera: set by its code every frame)`
         : node.setupPosition
             ? `${node.position.join(', ')} (set by its code, setup ${node.setupPosition.join(', ')})`
             : node.position.join(', ');
-    const yaw = node.setupYaw !== undefined ? `${node.yaw} (set by its code, setup ${node.setupYaw})` : node.cameraPlaced ? `${+node.yaw.toFixed(1)}` : `${node.yaw}`;
+    const yaw = node.takenProp ? `${node.yaw} (the prop's, setup ${node.setupYaw})`
+        : node.actorId === FIRE_ACTOR ? `${node.yaw} (the flame count, not an angle)`
+        : node.setupYaw !== undefined ? `${node.yaw} (set by its code, setup ${node.setupYaw})` : node.cameraPlaced ? `${+node.yaw.toFixed(1)}` : `${node.yaw}`;
     const placed = (node.scaleVec ? ` (drawn at scale ${node.scaleVec.join(', ')}: set by its code)` : '') +
         (node.pitch !== undefined ? ` pitch=${+node.pitch.toFixed(1)} (set by its code)` : '');
-    return `${what}: pos=${pos} yaw=${yaw} scale=${scale}${placed}` +
-        ` selector/radius=${node.selectorOrRadius} marker=${node.markerId} bit0=${node.bit0} uid=${node.uid} unk10=${hex(node.unk10, 8)}`;
+    const takenScale = node.takenProp ? `${node.scale / 100} (drawn at ${node.takenProp.scale}: the prop's)` : scale;
+    return `${what}: pos=${pos} yaw=${yaw} scale=${takenScale}${placed}` +
+        ` selector/radius=${node.selectorOrRadius}${node.actorId === LIGHT_HALO ? ' (halo colour)' : ''}` +
+        ` marker=${node.markerId} bit0=${node.bit0} uid=${node.uid} unk10=${hex(node.unk10, 8)}`;
 }
 
 function describeProp(prop) {
@@ -660,8 +868,9 @@ function describeProp(prop) {
             `${prop.geometrySource ? ', ' + prop.geometrySource : ''}): pos=${prop.position.join(', ')}` +
             ` yaw=${prop.yaw} roll=${prop.roll} scale=${prop.scale} unk=${prop.unk0} flags=${hex(prop.flags)}`;
     }
-    return `SPRITE id ${hex(prop.spriteId)} (asset ${hex(BT_Prop_Sprites[prop.spriteId] ?? 0)}): pos=${prop.position.join(', ')}` +
-        ` scale=${prop.scale} flags=${hex(prop.flags)}`;
+    return `SPRITE ${spriteName(prop.spriteId)} (id ${hex(prop.spriteId)}, asset ${hex(propSpriteAsset(prop.spriteId))}): pos=${prop.position.join(', ')}` +
+        ` scale=${prop.scale} frame=${prop.frame} phase=${prop.phase} mirrored=${prop.isMirrored} rgbRemove=${prop.rgbRemove.join(',')}` +
+        ` unk=${prop.unk0} flags=${hex(prop.flags)}`;
 }
 
 function buildActorInstance(node, material, lineMaterial) {
@@ -704,6 +913,26 @@ function buildModelInstance(prop, material, lineMaterial) {
     return mesh;
 }
 
+function buildSpriteInstance(prop, material) {
+    const mesh = new THREE.Mesh(spriteGeometry, material);
+    mesh.scale.setScalar(THREE.MathUtils.clamp(prop.scale || 1, 0.25, 8));
+    mesh.userData.bkInfo = describeProp(prop);
+    mesh.userData.bkProp = prop;
+    return mesh;
+}
+
+// Sprite props are placed like BK's: the sheet's world size times the
+// prop's scale, at the prop's position, tinted by rgbRemove, mirrored and
+// animated from the prop's frame and phase (gspropprop_entrypoint_2 is BK's
+// func_8032CD60 again, reading the same anim bits from the sprite header).
+const SPRITE_PROP_STYLE = {
+    game: 'BT',
+    color: SPRITE_COLOR,
+    describe: describeProp,
+    fallback: buildSpriteInstance,
+    scaleOf: prop => prop.scale || 1,
+};
+
 // Same placement matrix as BK's propModelList_drawModel: yaw, then roll.
 const MODEL_PROP_STYLE = {
     color: MODEL_COLOR,
@@ -737,7 +966,18 @@ const ACTOR_STYLE = {
     },
 };
 
-const GROUP_KEYS = ['bt-models', 'bt-actors', 'bt-actors-hitbox', 'bt-nodes'];
+// Sprite actors (BT_Actor_Sprites), sized by the actor's scale like the
+// model actors; the halo is a glow (BT_SPRITE_ACTOR_GLOWS), the rest cutouts.
+const SPRITE_ACTOR_STYLE = {
+    game: 'BT',
+    color: ACTOR_COLOR,
+    describe: describeNode,
+    fallback: buildActorInstance,
+    scaleOf: node => actorScale(node),
+    tintOf: node => BT_SPRITE_ACTOR_TINTS[node.actorId]?.(node) ?? [1, 1, 1],
+};
+
+const GROUP_KEYS = ['bt-models', 'bt-actors', 'bt-actors-hitbox', 'bt-sprites', 'bt-nodes'];
 
 export async function renderBTSetup(scene, buffer, mapId = -1, mapName = '') {
     const setup = parseBTSetup(buffer);
@@ -758,9 +998,13 @@ export async function renderBTSetup(scene, buffer, mapId = -1, mapName = '') {
     applyActorPlacements(actorNodes);
     await applyCameraPlacements(actorNodes);
     const otherNodes = setup.nodes.filter(n => n.category !== NODE_CATEGORY_ACTOR);
-    const modelProps = setup.props.filter(p => p.kind === 'model');
+    const allModelProps = setup.props.filter(p => p.kind === 'model');
     const spriteProps = setup.props.filter(p => p.kind === 'sprite');
+    applyPropTakeovers(actorNodes, allModelProps);
+    // Props an actor took over are drawn by that actor (its row shows them).
+    const modelProps = allModelProps.filter(p => !p.takenBy);
     const rowLabel = (name, list) => list.length > 1 ? `${name} (x${list.length})` : name;
+    const spriteIndex = await loadSpriteIndex('BT');
 
     if (modelProps.length) {
         const group = getModelGroup('bt-models', 'Model Props');
@@ -786,10 +1030,15 @@ export async function renderBTSetup(scene, buffer, mapId = -1, mapName = '') {
         for (const node of actorNodes) {
             if (node.actorId in BT_ACTOR_RUNTIME_MODELS) node.runtimeModel = actorModelAsset(node, mapName, mapId);
         }
+        // Sprite actors and fires are billboards, drawn below in the
+        // no-collision group with the real images rather than through the
+        // model loader.
+        const isSpriteActor = id => spriteIndex.has(BT_Actor_Sprites[id]) || (id === FIRE_ACTOR && spriteIndex.has(FIRE_SPRITE));
         const byType = [...groupBy(actorNodes, n => `${n.actorId}:${n.runtimeModel ?? ''}`)]
             .map(([, list]) => [list[0].actorId, list])
             .sort((a, b) => actorName(a[0], a[1][0].runtimeModel).localeCompare(actorName(b[0], b[1][0].runtimeModel)));
-        const rows = byType.flatMap(([id, list]) => [
+        const spriteRows = byType.filter(([id]) => isSpriteActor(id));
+        const rows = byType.filter(([id]) => !isSpriteActor(id)).flatMap(([id, list]) => [
             { name: actorName(id, list[0].runtimeModel), asset: list[0].runtimeModel ?? BT_Actor_Models[id], list },
             ...(BT_ACTOR_EXTRA_MODELS[id] ?? []).map(extra => ({
                 name: `${actorName(id)} ${extra.label}`, asset: extra.asset,
@@ -806,23 +1055,38 @@ export async function renderBTSetup(scene, buffer, mapId = -1, mapName = '') {
                 addLoadedModelRow(scene, group.body, rowLabel(row.name, row.list), row.list, loaded, ACTOR_STYLE, true);
             }
         }
-        if (hitboxOnly.length) {
+        if (hitboxOnly.length || spriteRows.length) {
             const group = getModelGroup('bt-actors-hitbox', 'Actors (no collision)');
             for (const [row, loaded] of hitboxOnly) {
                 addLoadedModelRow(scene, group.body, rowLabel(row.name, row.list), row.list, loaded, ACTOR_STYLE, true);
             }
+            for (const [id, list] of spriteRows) {
+                if (id === FIRE_ACTOR) {
+                    const flames = list.flatMap(fireFlames);
+                    addSpriteRow(scene, group.body, `${actorName(id)} flames (x${flames.length} over ${list.length} fires)`,
+                        flames, spriteIndex.get(FIRE_SPRITE), true, FIRE_STYLE);
+                } else {
+                    addSpriteRow(scene, group.body, rowLabel(actorName(id), list), list, spriteIndex.get(BT_Actor_Sprites[id]), true,
+                        { ...SPRITE_ACTOR_STYLE, translucent: BT_SPRITE_ACTOR_GLOWS.has(id) });
+                }
+            }
         }
     }
 
-    if (otherNodes.length || spriteProps.length) {
+    if (spriteProps.length) {
+        const group = getModelGroup('bt-sprites', 'Sprite Props');
+        const byType = groupBy(spriteProps, p => p.spriteId);
+        for (const [id, list] of [...byType].sort((a, b) => spriteName(a[0]).localeCompare(spriteName(b[0])))) {
+            addSpriteRow(scene, group.body, rowLabel(spriteName(id), list), list, spriteIndex.get(propSpriteAsset(id)), true, SPRITE_PROP_STYLE);
+        }
+    }
+
+    if (otherNodes.length) {
         const group = getModelGroup('bt-nodes', 'Other Setup Nodes');
         const byType = groupBy(otherNodes, n => n.category);
         for (const [cat, list] of [...byType].sort((a, b) => a[0] - b[0])) {
             const name = NODE_CATEGORY_NAMES[cat] ?? `Category ${cat}`;
             addTypeRow(scene, group.body, rowLabel(name, list), list, NODE_COLOR, false, buildNodeInstance);
-        }
-        if (spriteProps.length) {
-            addTypeRow(scene, group.body, rowLabel('Sprite Props', spriteProps), spriteProps, NODE_COLOR, false, buildModelInstance);
         }
     }
 

@@ -3931,9 +3931,26 @@
   "1340": 0,
   "1341": 2370
  },
+ "actor_sprites": {
+  "346": 2519,
+  "347": 2497,
+  "348": 2496,
+  "349": 2498,
+  "350": 2500,
+  "351": 2499,
+  "352": 2501,
+  "354": 2513,
+  "618": 2494,
+  "619": 2495,
+  "890": 2519,
+  "1120": 2507,
+  "1290": 2503
+ },
  "extra_models": {
   "1577": "Bottles mound, swapped in for the hatch when the mole is chmole_training (sumole_entrypoint_21)",
   "1608": "chmumboskulls, by selector",
+  "1685": "chmineproplight, glow + lit lantern drawn in the XLU pass over the GGM lantern prop it takes over (draw 0x80800168)",
+  "1686": "chmineproplight, glow + lit lantern drawn in the XLU pass over the GGM lantern prop it takes over (draw 0x80800168)",
   "1922": "chghostdoor",
   "1923": "chghostdoor",
   "1924": "chdinoswitches, switch model by (map, selector)",
@@ -3976,6 +3993,9 @@
   "2378": "chdinotraindoor",
   "2383": "chhagstraindoor",
   "2384": "chhagstraindoor"
+ },
+ "extra_sprites": {
+  "2510": "chfirefx, the flame particles of every chfirefx#0 (entrypoint_4)"
  },
  "skies": [
   {

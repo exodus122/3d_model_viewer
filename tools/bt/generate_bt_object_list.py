@@ -55,11 +55,14 @@ def main():
     prop_sprites = [("0x%X" % i, a) for i, a in enumerate(tables["prop_sprites"]) if a]
     actor_overlays = [("0x%X" % int(k), "%s#%d" % (v[0], v[1])) for k, v in tables["actor_overlays"].items()]
     actor_models = [("0x%X" % int(k), v) for k, v in tables["actor_models"].items() if v]
+    actor_sprites = [("0x%X" % int(k), v) for k, v in tables.get("actor_sprites", {}).items() if v]
     extra_models = [int(k) for k in tables.get("extra_models", {})]
+    extra_sprites = [int(k) for k in tables.get("extra_sprites", {})]
     skies = [("0x%X" % sky["map_id"], [{"model": l["model"], "scale": l["scale"], "speed": l["speed"]} for l in sky["layers"]])
              for sky in tables.get("skies", [])]
     sky_models = {l["model"] for _, layers in skies for l in layers}
-    asset_names = sorted({a for _, a in prop_models} | {a for _, a in prop_sprites} | {a for _, a in actor_models} | set(extra_models) | sky_models)
+    asset_names = sorted({a for _, a in prop_models} | {a for _, a in prop_sprites} | {a for _, a in actor_models}
+                         | {a for _, a in actor_sprites} | set(extra_models) | set(extra_sprites) | sky_models)
     asset_names = [("0x%X" % a, names[a]) for a in asset_names if a in names]
 
     blocks = [
@@ -75,17 +78,20 @@ def main():
         js_map("BT_Actor_Models", actor_models,
                "actor id -> model asset id, from the actor-info struct in its overlay's data "
                "(missing: model-less actor, or its struct was not found)"),
+        js_map("BT_Actor_Sprites", actor_sprites,
+               "actor id -> sprite asset id, for the actors whose info struct names a sprite "
+               "(eggs, feathers, the light halo): drawn as billboards, see bt_setup.js"),
         js_map("BT_Skies", skies,
                "gcskyDll: map id -> sky layers [{model asset, uniform scale, rotation deg/s}], "
                "drawn centred on the camera before the map (see sky.js)"),
         js_map("BT_Asset_Names", asset_names,
-               "Community names for the model assets above, the ones actor code loads itself "
-               "(tables.json extra_models) and the sky models; optional"),
+               "Community names for the model and sprite assets above, the ones actor code loads itself "
+               "(tables.json extra_models / extra_sprites) and the sky models; optional"),
     ]
     with open(args.out, "w", encoding="utf-8", newline="\n") as f:
         f.write("\n\n".join(blocks) + "\n")
-    print("wrote %s: %d prop models, %d sprites, %d actor overlays, %d actor models, %d skies, %d names" % (
-        args.out, len(prop_models), len(prop_sprites), len(actor_overlays), len(actor_models), len(skies), len(asset_names)))
+    print("wrote %s: %d prop models, %d sprites, %d actor overlays, %d actor models, %d actor sprites, %d skies, %d names" % (
+        args.out, len(prop_models), len(prop_sprites), len(actor_overlays), len(actor_models), len(actor_sprites), len(skies), len(asset_names)))
 
 
 if __name__ == "__main__":

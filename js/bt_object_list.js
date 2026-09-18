@@ -1426,6 +1426,23 @@ const BT_Actor_Models = {
     0x53D: 2370,
 };
 
+// actor id -> sprite asset id, for the actors whose info struct names a sprite (eggs, feathers, the light halo): drawn as billboards, see bt_setup.js
+const BT_Actor_Sprites = {
+    0x15A: 2519,
+    0x15B: 2497,
+    0x15C: 2496,
+    0x15D: 2498,
+    0x15E: 2500,
+    0x15F: 2499,
+    0x160: 2501,
+    0x162: 2513,
+    0x26A: 2494,
+    0x26B: 2495,
+    0x37A: 2519,
+    0x460: 2507,
+    0x50A: 2503,
+};
+
 // gcskyDll: map id -> sky layers [{model asset, uniform scale, rotation deg/s}], drawn centred on the camera before the map (see sky.js)
 const BT_Skies = {
     0x190: [{"model": 2879, "scale": 1.0, "speed": 0.0}],
@@ -1472,7 +1489,7 @@ const BT_Skies = {
     0x19A: [{"model": 2398, "scale": 1.0, "speed": 0.0}],
 };
 
-// Community names for the model assets above, the ones actor code loads itself (tables.json extra_models) and the sky models; optional
+// Community names for the model and sprite assets above, the ones actor code loads itself (tables.json extra_models / extra_sprites) and the sky models; optional
 const BT_Asset_Names = {
     0x5DC: "Model: Wood Plank",
     0x5DD: "Model: Pay here sign",
@@ -1587,6 +1604,8 @@ const BT_Asset_Names = {
     0x691: "Model: UFO Box",
     0x692: "Model: Boulders",
     0x693: "Model: Conga",
+    0x695: "Model: Glow",
+    0x696: "Model: Lantern",
     0x69D: "Model: Purple Light",
     0x6A1: "Model: Gunpowder barrel wish fuse",
     0x6A2: "Model: Rareware Box",
@@ -2026,6 +2045,10 @@ const BT_Asset_Names = {
     0x9C3: "Sprite: Gold Egg",
     0x9C4: "Sprite: Clockwork Kazooie Egg",
     0x9C5: "Sprite: Proximity Egg",
+    0x9C7: "Sprite: White Glow",
+    0x9CE: "Sprite: Yellow Dot",
+    0x9D1: "Sprite: Hat?",
+    0x9D7: "Sprite: Blue Egg",
     0xB34: "Model: Sky - Mayahem Temple",
     0xB35: "Model: Sky - Witchyworld",
     0xB36: "Model: Sky - Jolly Roger's Lagoon",

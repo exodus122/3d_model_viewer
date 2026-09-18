@@ -398,44 +398,46 @@ export function loadPropGeometry(assetId, game = 'BK') {
 // Sprite images
 ////////////////////////////////////////
 //
-// Sprites are extracted by banjo-kazooie/tools/extract_sprites.py into
-// models/BK/sprites/<asset>_<frame>.png plus sprites.json, which records each
-// sprite's world size (BKSprite.unk8/unkA) and each frame's pixel size and
-// anchor (BKSpriteFrame.unk0/unk2). The game draws a sprite as a camera-facing
-// quad world_w x world_h units across, with the prop's position at the anchor
-// pixel (spriteRender_drawWithSegment) -- which is exactly a THREE.Sprite with
-// its `center` set from the anchor.
+// Sprites are extracted by banjo-kazooie/tools/extract_sprites.py (and
+// banjo-tooie/tools/extract_sprites.py for BT, whose sprites are a prebuilt
+// display-list format but place their quads the same way) into
+// models/<game>/sprites/<asset>_<frame>.png plus sprites.json, which records
+// each sprite's world size (BKSprite.unk8/unkA) and each frame's pixel size
+// and anchor (BKSpriteFrame.unk0/unk2). The game draws a sprite as a
+// camera-facing quad world_w x world_h units across, with the prop's position
+// at the anchor pixel (spriteRender_drawWithSegment) -- which is exactly a
+// THREE.Sprite with its `center` set from the anchor.
 
-const SPRITE_DIR = './models/BK/sprites/';
-let spriteIndexPromise = null;   // Promise<Map<asset id, entry>>
-const spriteTextureCache = new Map(); // file -> THREE.Texture
+const spriteDir = game => `./models/${game}/sprites/`;
+const spriteIndexPromises = new Map();   // game -> Promise<Map<asset id, entry>>
+const spriteTextureCache = new Map(); // game/file -> THREE.Texture
 const textureLoader = new THREE.TextureLoader();
 
-function loadSpriteIndex() {
-    if (!spriteIndexPromise) {
-        spriteIndexPromise = fetch(SPRITE_DIR + 'sprites.json')
+export function loadSpriteIndex(game = 'BK') {
+    if (!spriteIndexPromises.has(game)) {
+        spriteIndexPromises.set(game, fetch(spriteDir(game) + 'sprites.json')
             .then(res => {
                 if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
                 return res.json();
             })
             .then(list => new Map(list.map(e => [e.asset_id, e])))
             .catch(err => {
-                console.warn(`sprites.json: ${err.message}; sprite props will be markers`);
+                console.warn(`${game} sprites.json: ${err.message}; sprite props will be markers`);
                 return new Map();
-            });
+            }));
     }
-    return spriteIndexPromise;
+    return spriteIndexPromises.get(game);
 }
 
 // The game mirrors a sprite by drawing its quad with a negative X scale.
 // THREE.Sprite can't do that (its shader uses the LENGTH of the model
 // matrix's X column, so the sign is lost), so a mirrored frame is a second
 // texture with the UVs flipped horizontally instead.
-function spriteTexture(file, mirrored = false) {
-    const key = mirrored ? file + '|mirrored' : file;
+function spriteTexture(file, mirrored = false, game = 'BK') {
+    const key = game + '/' + file + (mirrored ? '|mirrored' : '');
     let tex = spriteTextureCache.get(key);
     if (!tex) {
-        tex = mirrored ? spriteTexture(file).clone() : textureLoader.load(SPRITE_DIR + file);
+        tex = mirrored ? spriteTexture(file, false, game).clone() : textureLoader.load(spriteDir(game) + file);
         // N64 point sampling; these are tiny and would smear otherwise.
         tex.magFilter = THREE.NearestFilter;
         tex.minFilter = THREE.NearestFilter;
@@ -524,6 +526,9 @@ export function spriteAnimationStep(anim, frameCount, prop, state, tick) {
 }
 
 // Every animated sprite in the scene: { sprite, prop, entry, state, materialFor }
+// stepping through its sheet's animation, or { sprite, update } when the
+// placing code animates it itself (update(tick) each game tick; BT's fire
+// particles).
 const animatedSprites = [];
 let lastAnimTick = -1;
 
@@ -536,6 +541,7 @@ function animateSprites() {
 
     for (const a of animatedSprites) {
         if (!a.sprite.visible) continue;
+        if (a.update) { a.update(tick); continue; }
         spriteAnimationStep(a.entry.anim, a.entry.frames.length, a.prop, a.state, tick);
         const frame = a.entry.frames[Math.min(a.state.frame, a.entry.frames.length - 1)];
         setSpriteFrame(a.sprite, a.materialFor(a.state.frame, a.state.mirrored), frame, a.state.mirrored);
@@ -550,7 +556,7 @@ animateSprites();
 export const ACTOR_COLOR = '#ff7b24';
 export const NODE_COLOR = '#ffd23a';
 export const MODEL_COLOR = '#c77dff';
-const SPRITE_COLOR = '#3aff78';
+export const SPRITE_COLOR = '#3aff78';
 
 export const ACTOR_MARKER_RADIUS = 40;
 const NODE_MARKER_RADIUS = 25;
@@ -561,7 +567,7 @@ const SPRITE_MARKER_RADIUS = 20;
 export const actorGeometry = new THREE.OctahedronGeometry(ACTOR_MARKER_RADIUS, 0);
 export const nodeGeometry = new THREE.TetrahedronGeometry(NODE_MARKER_RADIUS, 0);
 export const modelGeometry = new THREE.BoxGeometry(MODEL_MARKER_SIZE, MODEL_MARKER_SIZE, MODEL_MARKER_SIZE);
-const spriteGeometry = new THREE.OctahedronGeometry(SPRITE_MARKER_RADIUS, 0);
+export const spriteGeometry = new THREE.OctahedronGeometry(SPRITE_MARKER_RADIUS, 0);
 export const radiusGeometry = new THREE.SphereGeometry(1, 12, 8);
 
 function makeMaterial(color) {
@@ -1342,12 +1348,19 @@ export function addLoadedModelRow(scene, groupBody, rowName, instances, loaded, 
 /**
  * One row for every placement of a sprite, drawn as billboards with the real
  * image. Falls back to the marker when the sprite sheet has no entry.
+ *
+ * style: { game ('BK'), color, describe, fallback, scaleOf(prop), hitbox?(prop),
+ *   tintOf?(prop) -> [r, g, b] in 0..1 (default: BK's rgbRemove),
+ *   translucent? (blend without writing depth, for glows and flames), opacity? (1),
+ *   animator?(prop, sprite, setFrame(frame, mirrored)) -> update(tick) or
+ *   null: the caller animates the instance itself instead of the sheet's cycle }
  */
-function addSpriteRow(scene, groupBody, rowName, instances, entry, checked, style = SPRITE_PROP_STYLE) {
+export function addSpriteRow(scene, groupBody, rowName, instances, entry, checked, style = SPRITE_PROP_STYLE) {
     if (!entry || !entry.frames.length) {
         addTypeRow(scene, groupBody, rowName, instances, style.color, checked, style.fallback);
         return;
     }
+    const game = style.game ?? 'BK';
 
     const typeGroup = new THREE.Group();
     typeGroup.name = rowName;
@@ -1364,13 +1377,15 @@ function addSpriteRow(scene, groupBody, rowName, instances, entry, checked, styl
             // The alpha test makes the sprite a cutout, so it can write depth
             // like the game's do; the XLU map draws after every sprite
             // (bk_textured.js, renderOrder) and needs that depth to stay
-            // behind the ones in front of it.
+            // behind the ones in front of it. Glows and flames blend
+            // instead, drawn after the cutouts.
             material = new THREE.SpriteMaterial({
-                map: spriteTexture(frame.file, mirrored),
+                map: spriteTexture(frame.file, mirrored, game),
                 color: new THREE.Color(tint[0], tint[1], tint[2]),
                 transparent: true,
-                alphaTest: 0.05,
-                depthWrite: true,
+                opacity: style.opacity ?? 1,
+                alphaTest: style.translucent ? 0 : 0.05,
+                depthWrite: !style.translucent,
             });
             materials.set(key, material);
         }
@@ -1380,7 +1395,7 @@ function addSpriteRow(scene, groupBody, rowName, instances, entry, checked, styl
 
     for (const prop of instances) {
         const frame = entry.frames[Math.min(prop.frame ?? 0, entry.frames.length - 1)];
-        const tint = (prop.rgbRemove ?? [0, 0, 0]).map(v => (0xFF - v * 0x10) / 0xFF);
+        const tint = style.tintOf ? style.tintOf(prop) : (prop.rgbRemove ?? [0, 0, 0]).map(v => (0xFF - v * 0x10) / 0xFF);
         const mirrored = !!(prop.isMirrored ?? 0);
         const material = materialFor(prop.frame ?? 0, tint, mirrored);
 
@@ -1391,6 +1406,7 @@ function addSpriteRow(scene, groupBody, rowName, instances, entry, checked, styl
         const scale = style.scaleOf(prop);
         sprite.scale.set(entry.world_w * scale, entry.world_h * scale, 1);
         setSpriteFrame(sprite, material, frame, mirrored);
+        if (style.translucent) sprite.renderOrder = 2;
         sprite.userData.bkInfo = style.describe(prop);
         sprite.userData.bkProp = prop;
         typeGroup.add(sprite);
@@ -1401,7 +1417,11 @@ function addSpriteRow(scene, groupBody, rowName, instances, entry, checked, styl
             addActorHitbox(typeGroup, hitboxKind, prop.position, [0, size / 2, 0], size / 2, sprite);
         }
 
-        if (animated) {
+        if (style.animator) {
+            const setFrame = (f, m = false) => setSpriteFrame(sprite, materialFor(f, tint, m), entry.frames[Math.min(f, entry.frames.length - 1)], m);
+            const update = style.animator(prop, sprite, setFrame);
+            if (update) animatedSprites.push({ sprite, update });
+        } else if (animated) {
             const props = { phase: prop.phase ?? 0 };
             animatedSprites.push({
                 sprite, entry, prop: props,
