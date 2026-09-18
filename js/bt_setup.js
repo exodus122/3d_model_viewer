@@ -177,9 +177,13 @@ function actorScale(node) {
 //   selector to 0x837; the dino switches' table holds one id; the Mumbo pad
 //   indexes its colour table with a per-level number, which is guessed here
 //   from the map's prefix (world order, MT = 1); every chmole_* actor has the
-//   sumole library spawn a chmolehill (0x247, model 0x7D7) at its position,
-//   with Jamjars only appearing when approached.
+//   sumole library spawn a chmolehill (0x247, model 0x7D7, the hatch) at its
+//   position, with Jamjars only appearing when approached. The spawn
+//   (sumole_entrypoint_21) swaps the hatch for the Bottles mound (0x629)
+//   when the mole's init passed it 1, which only chmole_training (0x1A9,
+//   Spiral Mountain) does; the others all pass 0.
 const MOLEHILL = 0x7D7;
+const MOLEHILL_MOUND = 0x629;
 const MUMBO_PAD_LEVELS = { MT: 1, GGM: 2, WW: 3, JRL: 4, TDL: 5, GI: 6, HP: 7, CCL: 8, CK: 9, IOH: 10, JV: 10, SM: 11 };
 const MUMBO_PAD_MODELS = [0x7D8, 0x7D8, 0x7E0, 0x7D9, 0x7D9, 0x7D9, 0x7DB, 0x7DC, 0x7DC, 0x7DC, 0x7DE, 0x7DE];
 const BT_ACTOR_RUNTIME_MODELS = {
@@ -195,7 +199,8 @@ const BT_ACTOR_RUNTIME_MODELS = {
     0x306: 0x828,                                                                    // chdodgemcontrol
     0x2B0: (node, mapName) => MUMBO_PAD_MODELS[MUMBO_PAD_LEVELS[mapName.split('_')[0]] ?? 0], // chmumbopad
     0x182: MOLEHILL, 0x184: MOLEHILL, 0x185: MOLEHILL, 0x186: MOLEHILL, 0x1A7: MOLEHILL, 0x1A8: MOLEHILL,
-    0x1A9: MOLEHILL, 0x30B: MOLEHILL, 0x311: MOLEHILL, 0x315: MOLEHILL, 0x376: MOLEHILL,  // chmole_*
+    0x30B: MOLEHILL, 0x311: MOLEHILL, 0x315: MOLEHILL, 0x376: MOLEHILL,                    // chmole_*
+    0x1A9: MOLEHILL_MOUND,                                                           // chmole_training
 };
 
 /** The model asset an actor node is drawn with, or 0 for none. */

@@ -15,7 +15,7 @@ import { parseModel, parseModelText, parseModelBinary, parseBKModelBinary, parse
 import { renderZeldaObjectBinary } from './render_actors.js';
 import { renderBKSetup } from './bk_setup.js';
 import { renderBTSetup } from './bt_setup.js';
-import { renderBKSky, drawBKSky } from './bk_sky.js';
+import { renderSky, drawSky } from './sky.js';
 import { loadBTTextureBank } from './bt_textures.js';
 import { addModelCheckbox, buildTest } from './render.js';
 
@@ -329,8 +329,8 @@ loadMap.addEventListener('click', async (e) => {
                 parseBKModelBinary(scene, buffer2, false, "XLU Model", mapId);
             }
 
-            // Sky dome / cloud layers drawn behind the map (bk_sky.js)
-            await renderBKSky(scene, mapId);
+            // Sky dome / cloud layers drawn behind the map (sky.js)
+            await renderSky(scene, 'BK', mapId);
 
             // Object placement (actor spawns, static model / sprite props)
             const res3 = await fetch('./models/BK/' + mapDir + '/setup.bin');
@@ -371,6 +371,9 @@ loadMap.addEventListener('click', async (e) => {
                 console.log(mapDir + "/" + filename + ": Binary file length:", buffer.byteLength);
                 parseBKModelBinary(scene, buffer, i === 0, label, undefined, offset);
             }
+
+            // Sky layers drawn behind the map (sky.js, BT_Skies)
+            await renderSky(scene, 'BT', mapId);
 
             // Object placement (actor spawns, static model props), bt_setup.js
             const res3 = await fetch('./models/BT/' + mapDir + '/setup.bin');
@@ -763,9 +766,9 @@ function animate(){
     // update edges transformation if any
     if(edges && mesh){ edges.position.copy(mesh.position); edges.rotation.copy(mesh.rotation); }
 
-    // BK sky dome / clouds: drawn first as their own pass (bk_sky.js), after
-    // which the main scene must not clear the frame.
-    const afterSky = drawBKSky(renderer, scene, camera, now / 1000);
+    // BK / BT sky dome / clouds: drawn first as their own pass (sky.js),
+    // after which the main scene must not clear the frame.
+    const afterSky = drawSky(renderer, scene, camera, now / 1000);
 
     if (window.__enableDepthPrepass) {
         // Match whatever culling mode the real materials are currently

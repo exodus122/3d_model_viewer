@@ -3,28 +3,35 @@ import { addModelCheckbox } from './render.js';
 import { buildTexturedParts, makeTexturedMesh, isTexturedMode } from './bk_textured.js';
 
 ////////////////////////////////////////
-// System: Banjo-Kazooie skyboxes
+// System: Banjo-Kazooie / Banjo-Tooie skyboxes
 ////////////////////////////////////////
 //
-// A map's sky is up to three model assets (core2/gc/sky.c, D_8036BD40) that
-// sky_draw renders first each frame, centred on the camera, before the map:
-// a sky dome and, for some maps, one or two cloud layers that spin about the
-// camera at rotation_speed degrees per second. Nothing about the sky is
+// A BK map's sky is up to three model assets (core2/gc/sky.c, D_8036BD40)
+// that sky_draw renders first each frame, centred on the camera, before the
+// map: a sky dome and, for some maps, one or two cloud layers that spin about
+// the camera at rotation_speed degrees per second. Nothing about the sky is
 // depth-buffered (sky_draw leaves modelRender in MODEL_RENDER_DEPTH_NONE),
 // so the layers simply paint over each other in list order and the map
 // paints over them all. The models are tiny -- Freezeezy Peak's dome is 22
 // units across -- which never shows because a dome centred on the camera
 // looks the same at any size.
 //
-// The viewer does the same: the layers live in their own scene, drawn as a
-// separate pass before the main scene with the depth test and depth write
-// off, centred on the camera and turned by the clock. (A separate pass
-// rather than a render order because three.js draws every blended material
-// after every opaque one, which would put a cloud layer over the map.) The
-// "Skybox" row in the sidebar is an empty group in the main scene that only
-// carries the checkbox; the sky is shown in the textured views only.
-
-const PROP_MODEL_DIR = './models/BK/props/';
+// BT keeps the scheme with up to two layers: the gcskyDll overlay's table
+// (BT_Skies in bt_object_list.js, generated from the ROM) names each map's
+// layers with the same model / scale / rotation-speed fields, and core2's
+// draw (0x800BFD6C) puts them at the camera, rotated speed * seconds about
+// y, before the map, with the near / far planes reset around the model's
+// bounds. Its models are full-sized (thousands of units), which changes
+// nothing for a camera-centred dome.
+//
+// The viewer does the same for both: the layers live in their own scene,
+// drawn as a separate pass before the main scene with the depth test and
+// depth write off, centred on the camera and turned by the clock. (A
+// separate pass rather than a render order because three.js draws every
+// blended material after every opaque one, which would put a cloud layer
+// over the map.) The "Skybox" row in the sidebar is an empty group in the
+// main scene that only carries the checkbox; the sky is shown in the
+// textured views only.
 
 // map id -> [{ model, scale, speed }]  (asset id, uniform scale, deg/s)
 const BK_Skies = {
@@ -69,27 +76,31 @@ function clearSky() {
     }
 }
 
-async function loadSkyModel(assetId) {
+// Sky tables by game; BT's is generated into bt_object_list.js.
+const SKIES = { BK: BK_Skies, BT: typeof BT_Skies !== 'undefined' ? BT_Skies : {} };
+
+async function loadSkyModel(game, assetId) {
     const file = assetId.toString(16).toUpperCase().padStart(4, '0') + '.model.bin';
-    const res = await fetch(PROP_MODEL_DIR + file);
+    const res = await fetch(`./models/${game}/props/` + file);
     if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
-    return buildTexturedParts(await res.arrayBuffer());
+    return buildTexturedParts(await res.arrayBuffer(), 0, { game });
 }
 
 /**
  * Add the map's sky layers to the scene as one "Skybox" row. Resolves once
- * the models are loaded; maps without a sky add nothing.
+ * the models are loaded; maps without a sky add nothing. For BT the texture
+ * bank must already be loaded (bt_textures.js).
  */
-export async function renderBKSky(scene, mapId) {
+export async function renderSky(scene, game, mapId) {
     clearSky();
-    const list = BK_Skies[mapId];
+    const list = SKIES[game]?.[mapId];
     if (!list) return;
 
     const row = new THREE.Group();
     row.name = 'Skybox';
     const entries = [];
 
-    const parts = await Promise.all(list.map(layer => loadSkyModel(layer.model).catch(err => {
+    const parts = await Promise.all(list.map(layer => loadSkyModel(game, layer.model).catch(err => {
         console.warn(`sky model ${layer.model.toString(16)}: ${err.message}`);
         return null;
     })));
@@ -122,11 +133,11 @@ export async function renderBKSky(scene, mapId) {
  * function to call once the main scene is rendered, or null when there is
  * no sky to draw (and nothing was touched).
  */
-export function drawBKSky(renderer, scene, camera, seconds) {
+export function drawSky(renderer, scene, camera, seconds) {
     if (!currentSky || !currentSky.row.parent || !currentSky.row.visible || !isTexturedMode()) return null;
     for (const { mesh, speed } of currentSky.entries) {
         mesh.position.copy(camera.position);
-        if (speed) mesh.rotation.y = THREE.MathUtils.degToRad(speed * seconds); // sky_update's timer
+        if (speed) mesh.rotation.y = THREE.MathUtils.degToRad(speed * seconds); // sky_update's timer (BT: D_80128770+0x134)
     }
     // Where no layer covers, the game shows the black rectangle sky_draw
     // draws first; the viewer keeps its own background there.

@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-Generate js/bt_object_list.js (BT setup-file lookup tables) from
-models/BT/tables.json, the tables banjo-tooie/tools/extract_maps.py pulls out
-of the gsproplookup and gemarkersDll overlays.
+Generate js/bt_object_list.js (BT setup-file lookup tables and the sky table)
+from models/BT/tables.json, the tables banjo-tooie/tools/extract_maps.py pulls
+out of the gsproplookup, gemarkersDll and gcskyDll overlays.
 
 usage: generate_bt_object_list.py [models/BT/tables.json] [js/bt_object_list.js] [--names bt_assets.py]
 
@@ -56,7 +56,10 @@ def main():
     actor_overlays = [("0x%X" % int(k), "%s#%d" % (v[0], v[1])) for k, v in tables["actor_overlays"].items()]
     actor_models = [("0x%X" % int(k), v) for k, v in tables["actor_models"].items() if v]
     extra_models = [int(k) for k in tables.get("extra_models", {})]
-    asset_names = sorted({a for _, a in prop_models} | {a for _, a in prop_sprites} | {a for _, a in actor_models} | set(extra_models))
+    skies = [("0x%X" % sky["map_id"], [{"model": l["model"], "scale": l["scale"], "speed": l["speed"]} for l in sky["layers"]])
+             for sky in tables.get("skies", [])]
+    sky_models = {l["model"] for _, layers in skies for l in layers}
+    asset_names = sorted({a for _, a in prop_models} | {a for _, a in prop_sprites} | {a for _, a in actor_models} | set(extra_models) | sky_models)
     asset_names = [("0x%X" % a, names[a]) for a in asset_names if a in names]
 
     blocks = [
@@ -72,14 +75,17 @@ def main():
         js_map("BT_Actor_Models", actor_models,
                "actor id -> model asset id, from the actor-info struct in its overlay's data "
                "(missing: model-less actor, or its struct was not found)"),
+        js_map("BT_Skies", skies,
+               "gcskyDll: map id -> sky layers [{model asset, uniform scale, rotation deg/s}], "
+               "drawn centred on the camera before the map (see sky.js)"),
         js_map("BT_Asset_Names", asset_names,
-               "Community names for the model assets above and the ones actor code loads itself "
-               "(tables.json extra_models); optional"),
+               "Community names for the model assets above, the ones actor code loads itself "
+               "(tables.json extra_models) and the sky models; optional"),
     ]
     with open(args.out, "w", encoding="utf-8", newline="\n") as f:
         f.write("\n\n".join(blocks) + "\n")
-    print("wrote %s: %d prop models, %d sprites, %d actor overlays, %d actor models, %d names" % (
-        args.out, len(prop_models), len(prop_sprites), len(actor_overlays), len(actor_models), len(asset_names)))
+    print("wrote %s: %d prop models, %d sprites, %d actor overlays, %d actor models, %d skies, %d names" % (
+        args.out, len(prop_models), len(prop_sprites), len(actor_overlays), len(actor_models), len(skies), len(asset_names)))
 
 
 if __name__ == "__main__":

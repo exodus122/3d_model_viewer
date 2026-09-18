@@ -3932,11 +3932,12 @@
   "1341": 2370
  },
  "extra_models": {
+  "1577": "Bottles mound, swapped in for the hatch when the mole is chmole_training (sumole_entrypoint_21)",
   "1608": "chmumboskulls, by selector",
   "1922": "chghostdoor",
   "1923": "chghostdoor",
   "1988": "chdinoswitches",
-  "2007": "molehill, spawned by sumole for every chmole_* actor",
+  "2007": "Jamjars hatch, the chmolehill sumole spawns for every chmole_* actor",
   "2008": "chmumbopad, by level",
   "2009": "chmumbopad, by level",
   "2011": "chmumbopad, by level",
@@ -3967,5 +3968,481 @@
   "2378": "chdinotraindoor",
   "2383": "chhagstraindoor",
   "2384": "chhagstraindoor"
- }
+ },
+ "skies": [
+  {
+   "map_id": 400,
+   "layers": [
+    {
+     "model": 2879,
+     "scale": 1.0,
+     "speed": 0.0,
+     "flag": 1
+    }
+   ]
+  },
+  {
+   "map_id": 408,
+   "layers": [
+    {
+     "model": 2879,
+     "scale": 1.0,
+     "speed": 0.0,
+     "flag": 1
+    }
+   ]
+  },
+  {
+   "map_id": 403,
+   "layers": [
+    {
+     "model": 2241,
+     "scale": 1.0,
+     "speed": 0.0,
+     "flag": 0
+    }
+   ]
+  },
+  {
+   "map_id": 395,
+   "layers": [
+    {
+     "model": 2241,
+     "scale": 1.0,
+     "speed": 0.0,
+     "flag": 0
+    }
+   ]
+  },
+  {
+   "map_id": 167,
+   "layers": [
+    {
+     "model": 2241,
+     "scale": 1.0,
+     "speed": 0.0,
+     "flag": 0
+    }
+   ]
+  },
+  {
+   "map_id": 166,
+   "layers": [
+    {
+     "model": 2230,
+     "scale": 1.0,
+     "speed": 0.0,
+     "flag": 0
+    }
+   ]
+  },
+  {
+   "map_id": 165,
+   "layers": [
+    {
+     "model": 2230,
+     "scale": 1.0,
+     "speed": 0.0,
+     "flag": 0
+    }
+   ]
+  },
+  {
+   "map_id": 164,
+   "layers": [
+    {
+     "model": 2230,
+     "scale": 1.0,
+     "speed": 0.0,
+     "flag": 0
+    }
+   ]
+  },
+  {
+   "map_id": 163,
+   "layers": [
+    {
+     "model": 2230,
+     "scale": 1.0,
+     "speed": 0.0,
+     "flag": 0
+    }
+   ]
+  },
+  {
+   "map_id": 161,
+   "layers": [
+    {
+     "model": 2230,
+     "scale": 1.0,
+     "speed": 0.0,
+     "flag": 0
+    }
+   ]
+  },
+  {
+   "map_id": 162,
+   "layers": [
+    {
+     "model": 2230,
+     "scale": 1.0,
+     "speed": 0.0,
+     "flag": 0
+    }
+   ]
+  },
+  {
+   "map_id": 184,
+   "layers": [
+    {
+     "model": 2868,
+     "scale": 1.0,
+     "speed": 0.0,
+     "flag": 0
+    }
+   ]
+  },
+  {
+   "map_id": 196,
+   "layers": [
+    {
+     "model": 2868,
+     "scale": 1.0,
+     "speed": 0.0,
+     "flag": 0
+    }
+   ]
+  },
+  {
+   "map_id": 185,
+   "layers": [
+    {
+     "model": 2868,
+     "scale": 1.0,
+     "speed": 0.0,
+     "flag": 0
+    }
+   ]
+  },
+  {
+   "map_id": 187,
+   "layers": [
+    {
+     "model": 2868,
+     "scale": 1.0,
+     "speed": 0.0,
+     "flag": 0
+    }
+   ]
+  },
+  {
+   "map_id": 214,
+   "layers": [
+    {
+     "model": 2869,
+     "scale": 1.0,
+     "speed": 0.0,
+     "flag": 0
+    }
+   ]
+  },
+  {
+   "map_id": 292,
+   "layers": [
+    {
+     "model": 2869,
+     "scale": 1.0,
+     "speed": 0.0,
+     "flag": 0
+    }
+   ]
+  },
+  {
+   "map_id": 221,
+   "layers": [
+    {
+     "model": 2871,
+     "scale": 1.0,
+     "speed": 1.5,
+     "flag": 0
+    }
+   ]
+  },
+  {
+   "map_id": 222,
+   "layers": [
+    {
+     "model": 2871,
+     "scale": 1.0,
+     "speed": 1.5,
+     "flag": 0
+    }
+   ]
+  },
+  {
+   "map_id": 223,
+   "layers": [
+    {
+     "model": 2871,
+     "scale": 1.0,
+     "speed": 1.5,
+     "flag": 0
+    }
+   ]
+  },
+  {
+   "map_id": 224,
+   "layers": [
+    {
+     "model": 2871,
+     "scale": 1.0,
+     "speed": 1.5,
+     "flag": 0
+    }
+   ]
+  },
+  {
+   "map_id": 390,
+   "layers": [
+    {
+     "model": 2871,
+     "scale": 1.0,
+     "speed": 1.5,
+     "flag": 0
+    }
+   ]
+  },
+  {
+   "map_id": 230,
+   "layers": [
+    {
+     "model": 2872,
+     "scale": 1.0,
+     "speed": 1.0,
+     "flag": 0
+    },
+    {
+     "model": 2880,
+     "scale": 1.0,
+     "speed": 0.0,
+     "flag": 0
+    }
+   ]
+  },
+  {
+   "map_id": 316,
+   "layers": [
+    {
+     "model": 2872,
+     "scale": 1.0,
+     "speed": 1.0,
+     "flag": 0
+    },
+    {
+     "model": 2880,
+     "scale": 1.0,
+     "speed": 0.0,
+     "flag": 0
+    }
+   ]
+  },
+  {
+   "map_id": 225,
+   "layers": [
+    {
+     "model": 2873,
+     "scale": 1.0,
+     "speed": 1.0,
+     "flag": 0
+    }
+   ]
+  },
+  {
+   "map_id": 315,
+   "layers": [
+    {
+     "model": 2873,
+     "scale": 1.0,
+     "speed": 1.0,
+     "flag": 0
+    }
+   ]
+  },
+  {
+   "map_id": 423,
+   "layers": [
+    {
+     "model": 2870,
+     "scale": 1.0,
+     "speed": 0.0,
+     "flag": 0
+    }
+   ]
+  },
+  {
+   "map_id": 256,
+   "layers": [
+    {
+     "model": 2874,
+     "scale": 1.0,
+     "speed": 0.0,
+     "flag": 1
+    }
+   ]
+  },
+  {
+   "map_id": 295,
+   "layers": [
+    {
+     "model": 2875,
+     "scale": 1.0,
+     "speed": 0.0,
+     "flag": 0
+    }
+   ]
+  },
+  {
+   "map_id": 296,
+   "layers": [
+    {
+     "model": 2876,
+     "scale": 1.0,
+     "speed": 0.0,
+     "flag": 0
+    }
+   ]
+  },
+  {
+   "map_id": 310,
+   "layers": [
+    {
+     "model": 2877,
+     "scale": 1.0,
+     "speed": 0.0,
+     "flag": 0
+    }
+   ]
+  },
+  {
+   "map_id": 353,
+   "layers": [
+    {
+     "model": 2877,
+     "scale": 1.0,
+     "speed": 0.0,
+     "flag": 0
+    }
+   ]
+  },
+  {
+   "map_id": 175,
+   "layers": [
+    {
+     "model": 2878,
+     "scale": 1.0,
+     "speed": 0.0,
+     "flag": 0
+    }
+   ]
+  },
+  {
+   "map_id": 322,
+   "layers": [
+    {
+     "model": 2879,
+     "scale": 1.0,
+     "speed": 0.0,
+     "flag": 1
+    }
+   ]
+  },
+  {
+   "map_id": 335,
+   "layers": [
+    {
+     "model": 2879,
+     "scale": 1.0,
+     "speed": 0.0,
+     "flag": 1
+    }
+   ]
+  },
+  {
+   "map_id": 338,
+   "layers": [
+    {
+     "model": 2879,
+     "scale": 1.0,
+     "speed": 0.0,
+     "flag": 1
+    }
+   ]
+  },
+  {
+   "map_id": 340,
+   "layers": [
+    {
+     "model": 2879,
+     "scale": 1.0,
+     "speed": 0.0,
+     "flag": 1
+    }
+   ]
+  },
+  {
+   "map_id": 341,
+   "layers": [
+    {
+     "model": 2879,
+     "scale": 1.0,
+     "speed": 0.0,
+     "flag": 1
+    }
+   ]
+  },
+  {
+   "map_id": 346,
+   "layers": [
+    {
+     "model": 2879,
+     "scale": 1.0,
+     "speed": 0.0,
+     "flag": 1
+    }
+   ]
+  },
+  {
+   "map_id": 348,
+   "layers": [
+    {
+     "model": 2879,
+     "scale": 1.0,
+     "speed": 0.0,
+     "flag": 1
+    }
+   ]
+  },
+  {
+   "map_id": 231,
+   "layers": [
+    {
+     "model": 2881,
+     "scale": 1.0,
+     "speed": 0.0,
+     "flag": 1
+    }
+   ]
+  },
+  {
+   "map_id": 410,
+   "layers": [
+    {
+     "model": 2398,
+     "scale": 1.0,
+     "speed": 0.0,
+     "flag": 0
+    }
+   ]
+  }
+ ]
 }
