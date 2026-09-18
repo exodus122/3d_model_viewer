@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { getModelGroup, resetGroupModelState, applyGroupMasterState } from './render.js';
 import {
-    resetSetupState, loadPropGeometry, addTypeRow, addLoadedModelRow, groupBy, makeYawLine,
+    resetSetupState, getPropInstances, loadPropGeometry, addTypeRow, addLoadedModelRow, groupBy, makeYawLine,
     actorGeometry, nodeGeometry, modelGeometry, radiusGeometry,
     ACTOR_COLOR, NODE_COLOR, MODEL_COLOR, ACTOR_MARKER_RADIUS, MODEL_MARKER_SIZE,
 } from './bk_setup.js';
@@ -174,7 +174,10 @@ function actorScale(node) {
 //   chmumboskulls / chdiggerbossbattery / chlagoonlockerdoorhits index a
 //   table with selector - 50 (- 51 for the lockers); the doors and the ice
 //   station pick one of two ids on selector == 50; the Weldar doors add the
-//   selector to 0x837; the dino switches' table holds one id; the Mumbo pad
+//   selector to 0x837; the dino switches (chdinoswitches 0x130, model-less)
+//   look their row up by (map, selector) in the overlay's table at
+//   0x80800B20 and take its switch model, while the row's door model 0x7C4
+//   belongs to the TL Door actor (0x364) the switch opens; the Mumbo pad
 //   indexes its colour table with a per-level number, which is guessed here
 //   from the map's prefix (world order, MT = 1); every chmole_* actor has the
 //   sumole library spawn a chmolehill (0x247, model 0x7D7, the hatch) at its
@@ -184,6 +187,15 @@ function actorScale(node) {
 //   Spiral Mountain) does; the others all pass 0.
 const MOLEHILL = 0x7D7;
 const MOLEHILL_MOUND = 0x629;
+const DINO_SWITCH_MODELS = {   // map id -> selector -> switch model
+    0x11A: { 50: 0x7B9, 51: 0x7B8, 52: 0x942 },   // TDL_STOMPING_PLAINS: Kazooie, Banjo, BK switch
+    0x112: { 52: 0x948, 53: 0x784, 55: 0x7CE },   // TDL_TERRYDACTYLAND (spawned by code, not in the setup)
+    0x115: { 50: 0x7CD },                         // TDL_OOGLE_BOOGLE_CAVE
+    0x119: { 50: 0x7CD, 51: 0x7CD },              // TDL_UNGA_BUNGAS_CAVE
+    0x116: { 50: 0x7CD },                         // TDL_INSIDE_MOUNTAIN
+    0xBB: { 50: 0x7CD },                          // MT_KICKBALL_STADIUM
+    0xC5: { 50: 0x7CD },                          // MT_TREASURE_CHAMBER
+};
 const MUMBO_PAD_LEVELS = { MT: 1, GGM: 2, WW: 3, JRL: 4, TDL: 5, GI: 6, HP: 7, CCL: 8, CK: 9, IOH: 10, JV: 10, SM: 11 };
 const MUMBO_PAD_MODELS = [0x7D8, 0x7D8, 0x7E0, 0x7D9, 0x7D9, 0x7D9, 0x7DB, 0x7DC, 0x7DC, 0x7DC, 0x7DE, 0x7DE];
 const BT_ACTOR_RUNTIME_MODELS = {
@@ -195,7 +207,7 @@ const BT_ACTOR_RUNTIME_MODELS = {
     0x38C: node => node.selectorOrRadius === 50 ? 0x94F : 0x950,                     // chhagstraindoor
     0x49B: node => node.selectorOrRadius === 50 ? 0x949 : 0x94A,                     // chdinotraindoor
     0x41B: node => node.selectorOrRadius === 50 ? 0x872 : 0x873,                     // chicestationbits
-    0x130: 0x7C4,                                                                    // chdinoswitches
+    0x130: (node, mapName, mapId) => DINO_SWITCH_MODELS[mapId]?.[node.selectorOrRadius] ?? 0, // chdinoswitches
     0x306: 0x828,                                                                    // chdodgemcontrol
     0x2B0: (node, mapName) => MUMBO_PAD_MODELS[MUMBO_PAD_LEVELS[mapName.split('_')[0]] ?? 0], // chmumbopad
     0x182: MOLEHILL, 0x184: MOLEHILL, 0x185: MOLEHILL, 0x186: MOLEHILL, 0x1A7: MOLEHILL, 0x1A8: MOLEHILL,
@@ -204,10 +216,148 @@ const BT_ACTOR_RUNTIME_MODELS = {
 };
 
 /** The model asset an actor node is drawn with, or 0 for none. */
-function actorModelAsset(node, mapName) {
+function actorModelAsset(node, mapName, mapId) {
     const runtime = BT_ACTOR_RUNTIME_MODELS[node.actorId];
-    if (runtime !== undefined) return typeof runtime === 'function' ? runtime(node, mapName) : runtime;
+    if (runtime !== undefined) return typeof runtime === 'function' ? runtime(node, mapName, mapId) : runtime;
     return BT_Actor_Models[node.actorId] ?? 0;
+}
+
+// Placement an actor's own code overrides once spawned: a function of
+// (node, all actor nodes) returning any of { position, scale: [x, y, z],
+// pitch, yaw } (degrees; pitch is actor +0x44, the x rotation applied in
+// the yawed frame as mlMtxRotatePYR does, yaw +0x48). What the setup file
+// gave stays in setupPosition / setupYaw for the description.
+//
+// GI roof windows (chfactoryroofbits 0x3F2, init 0x808003C4 ->
+//   func_808001C0): switch on the node's unique id (NodeProp.uid, the top 11
+//   bits of its last word, kept at marker +0x6C) and set the position, a
+//   per-axis scale (actor +0x28) and the pitch of each of the five windows;
+//   the setup yaw stays. Unknown ids keep the setup placement.
+// Big Terry's bits (chbigterrysbits 0x461 / 0x469, TDL_TERRYS_NEST): doors
+//   built with chdoormake whose init writes the pitch (-50 / -90).
+// Ray of Light (chworlddoors 0x51B): func_80800068 finds the 0x4DC and 0x4DD
+//   nodes of its world (selector), takes the angles from 0x4DD toward 0x4DC
+//   (0x800F18FC) and sits 1000 units from 0x4DD along them (state 1); the
+//   draw then shifts it by scale * the model's radius (0x80103EAC) further
+//   along, so the beam (0x966, symmetric about its origin) starts there.
+// Chuffy (chchuffy 0x2A5): nothing in the overlay writes its rotation, and
+//   every station's track runs along x (z ~ -1070), so its yaw is inferred:
+//   engine (model +z) toward -x, which in GI_TRAIN_STATION is the only way
+//   round the train fits between the station doors (chfactorystationdoors
+//   0x406 at x = -3136 / 2717).
+const ROOF_WINDOWS = {
+    0x4B: { position: [-1392, 8063, -632], scale: [0.94, 0.73, 1], pitch: 312 },
+    0x4C: { position: [174, 8066, -1017], scale: [0.94, 0.73, 1], pitch: 312 },
+    0x4D: { position: [-1138, 2148, 2300], scale: [1.8, 1.8, 1.8], pitch: 0 },
+    0x4E: { position: [2303, 2143, -376], scale: [1.8, 1.8, 1.8], pitch: 0 },
+    0x0E: { position: [2645, 1494, 2645], scale: [1.14, 1, 1], pitch: 0 },
+};
+const WORLD_DOOR_START = 0x4DC, WORLD_DOOR_END = 0x4DD;
+const RAY_OF_LIGHT_RADIUS = 733;   // 0x966's bounding radius (vertex store +0x12)
+const deg = rad => rad * 180 / Math.PI;
+/** Game angles (0x800F18FC): pitch up-positive, yaw with +z at 0, of the vector `to - from`. */
+function anglesBetween(from, to) {
+    const dx = to[0] - from[0], dy = to[1] - from[1], dz = to[2] - from[2];
+    const h = Math.hypot(dx, dz);
+    return { pitch: deg(Math.atan2(dy, h)), yaw: deg(Math.atan2(dx, dz)), length: Math.hypot(h, dy) };
+}
+function nearestNode(actorNodes, actorId, selector, near) {
+    let best = null, bestD = Infinity;
+    for (const n of actorNodes) {
+        if (n.actorId !== actorId) continue;
+        const d = (n.selectorOrRadius !== selector ? 1e12 : 0) +
+            (n.position[0] - near[0]) ** 2 + (n.position[1] - near[1]) ** 2 + (n.position[2] - near[2]) ** 2;
+        if (d < bestD) { bestD = d; best = n; }
+    }
+    return best;
+}
+const BT_ACTOR_PLACEMENTS = {
+    0x3F2: node => ROOF_WINDOWS[node.uid],
+    0x461: () => ({ pitch: -50 }),
+    0x469: () => ({ pitch: -90 }),
+    0x2A5: () => ({ yaw: 270 }),
+    0x51B: (node, actorNodes) => {
+        const end = nearestNode(actorNodes, WORLD_DOOR_END, node.selectorOrRadius, node.position);
+        const start = end && nearestNode(actorNodes, WORLD_DOOR_START, node.selectorOrRadius, end.position);
+        if (!start) return null;
+        const { pitch, yaw, length } = anglesBetween(end.position, start.position);
+        const t = (1000 + RAY_OF_LIGHT_RADIUS * actorScale(node)) / length;
+        const position = end.position.map((v, i) => Math.round(v + (start.position[i] - v) * t));
+        return { position, pitch: +pitch.toFixed(2), yaw: +yaw.toFixed(2) };
+    },
+};
+
+/** Apply BT_ACTOR_PLACEMENTS. */
+function applyActorPlacements(actorNodes) {
+    for (const node of actorNodes) {
+        const placed = BT_ACTOR_PLACEMENTS[node.actorId]?.(node, actorNodes);
+        if (!placed) continue;
+        node.placed = placed;
+        if (placed.position) { node.setupPosition ??= node.position; node.position = placed.position; }
+        if (placed.scale) node.scaleVec = placed.scale;
+        if (placed.pitch !== undefined) node.pitch = placed.pitch;
+        if (placed.yaw !== undefined) { node.setupYaw ??= node.yaw; node.yaw = placed.yaw; }
+    }
+}
+
+// Actors whose code places them relative to the camera every frame, as a
+// function of the camera position returning { position, pitch, yaw }.
+//
+// chsunlightspell (0x297, JRL_JOLLY_ROGERS_LAGOON; the sunlight Mumbo's
+// spell brings to the lagoon): func_80800668 takes the sky model's ref point
+// 4 (the sun in 0xB36, via 0x800BFFB4 = sky layer 0 -> 0x800DBEFC), puts the
+// actor 1000 units from the camera toward it, and aims it (0x800F18FC) at the
+// fixed point D_808008B0 = (-9000, 8000, -3100). Its model 0x928 is a
+// 5600-unit beam hanging down -y from its origin.
+const SUNLIGHT_TARGET = [-9000, 8000, -3100];
+const BT_CAMERA_PLACEMENTS = {
+    0x297: {
+        skyRefPoint: { model: 0xB36, index: 4 },
+        place(node, cameraPos, sun) {
+            const len = Math.hypot(sun[0], sun[1], sun[2]) || 1;
+            const position = cameraPos.map((v, i) => v + sun[i] / len * 1000);
+            const { pitch, yaw } = anglesBetween(position, SUNLIGHT_TARGET);
+            return { position, pitch, yaw };
+        },
+    },
+};
+const cameraActors = [];   // { node, rule, sun }
+
+/** Register nodes that follow the camera (BT_CAMERA_PLACEMENTS); resolved once their ref point loads. */
+async function applyCameraPlacements(actorNodes) {
+    cameraActors.length = 0;
+    for (const node of actorNodes) {
+        const rule = BT_CAMERA_PLACEMENTS[node.actorId];
+        if (!rule) continue;
+        const sky = await loadPropGeometry(rule.skyRefPoint.model, 'BT').catch(() => null);
+        const sun = sky?.refPoints?.get(rule.skyRefPoint.index);
+        if (!sun) { console.warn(`actor ${hex(node.actorId)}: sky ref point ${rule.skyRefPoint.index} of ${hex(rule.skyRefPoint.model)} not found`); continue; }
+        node.cameraPlaced = true;
+        cameraActors.push({ node, rule, sun });
+    }
+}
+
+/**
+ * Move the camera-relative actors (BT_CAMERA_PLACEMENTS) for this frame.
+ * Called from the render loop; does nothing when the map has none.
+ */
+export function updateBTCameraActors(camera) {
+    // Entries outlive a switch to another game's map, but then match no
+    // instance and do nothing until the next BT map replaces them.
+    if (!cameraActors.length) return;
+    const cameraPos = [camera.position.x, camera.position.y, camera.position.z];
+    for (const { node, rule, sun } of cameraActors) {
+        const placed = rule.place(node, cameraPos, sun);
+        node.position = placed.position;
+        node.pitch = placed.pitch;
+        node.yaw = placed.yaw;
+        for (const inst of getPropInstances()) {
+            if (inst.prop !== node) continue;
+            ACTOR_STYLE.transform(node, inst.mesh);
+            inst.edges?.position.copy(inst.mesh.position);
+            inst.edges?.rotation.copy(inst.mesh.rotation);
+        }
+    }
 }
 
 // Models an actor draws besides the one in its info struct, placed with the
@@ -237,6 +387,7 @@ const BT_COLLECTIBLE_SPAWNS = {
     0x1F6: 0x21F,   // chjigsaw (Jiggy)
     0x1F7: 0x220,   // chhoneycarrier (honeycomb piece)
     0x1F8: 0x21B,   // chglowbo (the node's selector is copied to the actor)
+    0x201: 0x136,   // chcheatopage
     0x29D: 0x4E5,   // chdoubloon
     0x4E6: 0x3C6,   // chbigtopticket
 };
@@ -345,7 +496,7 @@ class SetupReader {
 
 // NodeProp, 20 bytes (BK include/prop.h; identical in BT):
 //   s16 position[3]; u16 selector_or_radius:9 | category:6 | bit0:1; u16 actorId;
-//   u8 markerId; u8 pad; u32 yaw:9 | scale:23; u32 unk10
+//   u8 markerId; u8 pad; u32 yaw:9 | scale:23; u32 uid:11 | unk:21
 function readNodeProp(r) {
     const dv = r.dv, o = r.pos;
     const w6 = dv.getUint16(o + 6, false);
@@ -361,6 +512,7 @@ function readNodeProp(r) {
         markerId: dv.getUint8(o + 10),
         yaw: wC >>> 23,
         scale: wC & 0x7FFFFF,
+        uid: w10 >>> 21,
         unk10: w10,
     };
 }
@@ -490,9 +642,16 @@ function describeNode(node) {
             : `${node.scale / 100}`;
     const pos = node.heldBy
         ? `${node.position.map(v => +v.toFixed(2)).join(', ')} (moved by its ${actorName(node.heldBy.actorId)} from ${node.setupPosition.join(', ')})`
-        : node.position.join(', ');
-    return `${what}: pos=${pos} yaw=${node.yaw} scale=${scale}` +
-        ` selector/radius=${node.selectorOrRadius} marker=${node.markerId} bit0=${node.bit0} unk10=${hex(node.unk10, 8)}`;
+        : node.cameraPlaced
+            ? `${node.position.map(v => +v.toFixed(0)).join(', ')} (follows the camera: set by its code every frame)`
+        : node.setupPosition
+            ? `${node.position.join(', ')} (set by its code, setup ${node.setupPosition.join(', ')})`
+            : node.position.join(', ');
+    const yaw = node.setupYaw !== undefined ? `${node.yaw} (set by its code, setup ${node.setupYaw})` : node.cameraPlaced ? `${+node.yaw.toFixed(1)}` : `${node.yaw}`;
+    const placed = (node.scaleVec ? ` (drawn at scale ${node.scaleVec.join(', ')}: set by its code)` : '') +
+        (node.pitch !== undefined ? ` pitch=${+node.pitch.toFixed(1)} (set by its code)` : '');
+    return `${what}: pos=${pos} yaw=${yaw} scale=${scale}${placed}` +
+        ` selector/radius=${node.selectorOrRadius} marker=${node.markerId} bit0=${node.bit0} uid=${node.uid} unk10=${hex(node.unk10, 8)}`;
 }
 
 function describeProp(prop) {
@@ -572,8 +731,9 @@ const ACTOR_STYLE = {
     renderOrderOf: node => node.actorId in BT_ACTOR_HOLDERS ? HOLDER_RENDER_ORDER : 0,
     transform(node, obj) {
         obj.position.set(node.position[0], node.position[1], node.position[2]);
-        obj.rotation.set(0, THREE.MathUtils.degToRad(node.yaw), 0, 'YXZ');
-        obj.scale.setScalar(actorScale(node));
+        obj.rotation.set(THREE.MathUtils.degToRad(node.pitch ?? 0), THREE.MathUtils.degToRad(node.yaw), 0, 'YXZ');
+        if (node.scaleVec) obj.scale.set(node.scaleVec[0], node.scaleVec[1], node.scaleVec[2]);
+        else obj.scale.setScalar(actorScale(node));
     },
 };
 
@@ -595,6 +755,8 @@ export async function renderBTSetup(scene, buffer, mapId = -1, mapName = '') {
         if (spawned !== undefined) { node.setupActorId = node.actorId; node.actorId = spawned; }
     }
     applyActorHolders(actorNodes);
+    applyActorPlacements(actorNodes);
+    await applyCameraPlacements(actorNodes);
     const otherNodes = setup.nodes.filter(n => n.category !== NODE_CATEGORY_ACTOR);
     const modelProps = setup.props.filter(p => p.kind === 'model');
     const spriteProps = setup.props.filter(p => p.kind === 'sprite');
@@ -622,7 +784,7 @@ export async function renderBTSetup(scene, buffer, mapId = -1, mapName = '') {
         // (BT_ACTOR_EXTRA_MODELS) over copies of its nodes, so each row keeps
         // its own geometry source and description.
         for (const node of actorNodes) {
-            if (node.actorId in BT_ACTOR_RUNTIME_MODELS) node.runtimeModel = actorModelAsset(node, mapName);
+            if (node.actorId in BT_ACTOR_RUNTIME_MODELS) node.runtimeModel = actorModelAsset(node, mapName, mapId);
         }
         const byType = [...groupBy(actorNodes, n => `${n.actorId}:${n.runtimeModel ?? ''}`)]
             .map(([, list]) => [list[0].actorId, list])

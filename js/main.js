@@ -14,7 +14,7 @@ import { performSelection, clearSelection } from './selection.js';
 import { parseModel, parseModelText, parseModelBinary, parseBKModelBinary, parseZeldaSceneBinary, parseInvisibleSeams1D } from './parse_model.js';
 import { renderZeldaObjectBinary } from './render_actors.js';
 import { renderBKSetup } from './bk_setup.js';
-import { renderBTSetup } from './bt_setup.js';
+import { renderBTSetup, updateBTCameraActors } from './bt_setup.js';
 import { renderSky, drawSky } from './sky.js';
 import { loadBTTextureBank } from './bt_textures.js';
 import { addModelCheckbox, buildTest } from './render.js';
@@ -765,6 +765,9 @@ function animate(){
 
     // update edges transformation if any
     if(edges && mesh){ edges.position.copy(mesh.position); edges.rotation.copy(mesh.rotation); }
+
+    // BT actors placed relative to the camera each frame (bt_setup.js)
+    updateBTCameraActors(camera);
 
     // BK / BT sky dome / clouds: drawn first as their own pass (sky.js),
     // after which the main scene must not clear the frame.

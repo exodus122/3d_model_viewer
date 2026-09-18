@@ -299,6 +299,11 @@ const propGeometryCache = new Map(); // "<game>:<asset id>" -> Promise<{visual, 
 // swap their geometry in place without reloading the map.
 const propInstances = [];
 
+/** The { mesh, edges, prop } instances the current map's rows were built from. */
+export function getPropInstances() {
+    return propInstances;
+}
+
 /** Forget the previous map's prop instances, sprites and hitboxes (called on every map load). */
 export function resetSetupState() {
     propInstances.length = 0;
