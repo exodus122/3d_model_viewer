@@ -144,16 +144,19 @@ export function buildTexturedParts(buffer, selector = 0, options = {}) {
             start += count;
 
             // An opaque model's XLU parts still go through the full-depth table
-            // (Z_CMP | Z_UPD | G_RM_XLU_SURF2), so they keep writing depth. A
-            // model that is XLU throughout (BT's ice cubes, feathers) is a
-            // translucent object in its own right and is drawn like one:
-            // depth-tested but not depth-written, so what sits inside or
-            // behind it (the nest in an ice cube) still shows.
+            // (Z_CMP | Z_UPD | G_RM_XLU_SURF2), so they keep writing depth --
+            // in BK always: MM's huts are XLU throughout and must still hide
+            // the XLU map behind them (drawn later, renderOrder 1). BT picks an
+            // actor's render-mode table at draw time (core2 0x800DF440), with
+            // a Z_CMP-only one (0x8011D6B0) for translucent actors; a BT model
+            // that is XLU throughout (the ice cubes, feathers) is taken to be
+            // one of those and is depth-tested but not depth-written, so what
+            // sits inside or behind it (the nest in an ice cube) still shows.
             const material = new THREE.MeshBasicMaterial({
                 vertexColors: true,
                 side: batch.cullBack ? THREE.FrontSide : THREE.DoubleSide,
                 transparent: blended,
-                depthWrite: !translucent && !allXlu,
+                depthWrite: !translucent && !(allXlu && options.game === "BT"),
                 alphaTest: blended ? 0.01 : 0.5,
             });
             if (batch.texture >= 0) {

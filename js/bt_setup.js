@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { getModelGroup, resetGroupModelState, applyGroupMasterState } from './render.js';
 import {
-    resetSetupState, getPropInstances, loadPropGeometry, addTypeRow, addLoadedModelRow, addSpriteRow, loadSpriteIndex,
+    resetSetupState, loadPropGeometry, addTypeRow, addLoadedModelRow, addSpriteRow, loadSpriteIndex,
     groupBy, makeYawLine,
     actorGeometry, nodeGeometry, modelGeometry, radiusGeometry, spriteGeometry,
     ACTOR_COLOR, NODE_COLOR, MODEL_COLOR, SPRITE_COLOR, ACTOR_MARKER_RADIUS, MODEL_MARKER_SIZE,
@@ -306,66 +306,6 @@ function applyActorPlacements(actorNodes) {
         if (placed.scale) node.scaleVec = placed.scale;
         if (placed.pitch !== undefined) node.pitch = placed.pitch;
         if (placed.yaw !== undefined) { node.setupYaw ??= node.yaw; node.yaw = placed.yaw; }
-    }
-}
-
-// Actors whose code places them relative to the camera every frame, as a
-// function of the camera position returning { position, pitch, yaw }.
-//
-// chsunlightspell (0x297, JRL_JOLLY_ROGERS_LAGOON; the sunlight Mumbo's
-// spell brings to the lagoon): func_80800668 takes the sky model's ref point
-// 4 (the sun in 0xB36, via 0x800BFFB4 = sky layer 0 -> 0x800DBEFC), puts the
-// actor 1000 units from the camera toward it, and aims it (0x800F18FC) at the
-// fixed point D_808008B0 = (-9000, 8000, -3100). Its model 0x928 is a
-// 5600-unit beam hanging down -y from its origin.
-const SUNLIGHT_TARGET = [-9000, 8000, -3100];
-const BT_CAMERA_PLACEMENTS = {
-    0x297: {
-        skyRefPoint: { model: 0xB36, index: 4 },
-        place(node, cameraPos, sun) {
-            const len = Math.hypot(sun[0], sun[1], sun[2]) || 1;
-            const position = cameraPos.map((v, i) => v + sun[i] / len * 1000);
-            const { pitch, yaw } = anglesBetween(position, SUNLIGHT_TARGET);
-            return { position, pitch, yaw };
-        },
-    },
-};
-const cameraActors = [];   // { node, rule, sun }
-
-/** Register nodes that follow the camera (BT_CAMERA_PLACEMENTS); resolved once their ref point loads. */
-async function applyCameraPlacements(actorNodes) {
-    cameraActors.length = 0;
-    for (const node of actorNodes) {
-        const rule = BT_CAMERA_PLACEMENTS[node.actorId];
-        if (!rule) continue;
-        const sky = await loadPropGeometry(rule.skyRefPoint.model, 'BT').catch(() => null);
-        const sun = sky?.refPoints?.get(rule.skyRefPoint.index);
-        if (!sun) { console.warn(`actor ${hex(node.actorId)}: sky ref point ${rule.skyRefPoint.index} of ${hex(rule.skyRefPoint.model)} not found`); continue; }
-        node.cameraPlaced = true;
-        cameraActors.push({ node, rule, sun });
-    }
-}
-
-/**
- * Move the camera-relative actors (BT_CAMERA_PLACEMENTS) for this frame.
- * Called from the render loop; does nothing when the map has none.
- */
-export function updateBTCameraActors(camera) {
-    // Entries outlive a switch to another game's map, but then match no
-    // instance and do nothing until the next BT map replaces them.
-    if (!cameraActors.length) return;
-    const cameraPos = [camera.position.x, camera.position.y, camera.position.z];
-    for (const { node, rule, sun } of cameraActors) {
-        const placed = rule.place(node, cameraPos, sun);
-        node.position = placed.position;
-        node.pitch = placed.pitch;
-        node.yaw = placed.yaw;
-        for (const inst of getPropInstances()) {
-            if (inst.prop !== node) continue;
-            ACTOR_STYLE.transform(node, inst.mesh);
-            inst.edges?.position.copy(inst.mesh.position);
-            inst.edges?.rotation.copy(inst.mesh.rotation);
-        }
     }
 }
 
@@ -850,14 +790,12 @@ function describeNode(node) {
         ? `${node.position.map(v => +v.toFixed(2)).join(', ')} (moved by its ${actorName(node.heldBy.actorId)} from ${node.setupPosition.join(', ')})`
         : node.takenProp
             ? `${node.position.join(', ')} (the prop's, setup ${node.setupPosition.join(', ')})`
-        : node.cameraPlaced
-            ? `${node.position.map(v => +v.toFixed(0)).join(', ')} (follows the camera: set by its code every frame)`
         : node.setupPosition
             ? `${node.position.join(', ')} (set by its code, setup ${node.setupPosition.join(', ')})`
             : node.position.join(', ');
     const yaw = node.takenProp ? `${node.yaw} (the prop's, setup ${node.setupYaw})`
         : node.actorId === FIRE_ACTOR ? `${node.yaw} (the flame count, not an angle)`
-        : node.setupYaw !== undefined ? `${node.yaw} (set by its code, setup ${node.setupYaw})` : node.cameraPlaced ? `${+node.yaw.toFixed(1)}` : `${node.yaw}`;
+        : node.setupYaw !== undefined ? `${node.yaw} (set by its code, setup ${node.setupYaw})` : `${node.yaw}`;
     const placed = (node.scaleVec ? ` (drawn at scale ${node.scaleVec.join(', ')}: set by its code)` : '') +
         (node.pitch !== undefined ? ` pitch=${+node.pitch.toFixed(1)} (set by its code)` : '');
     const takenScale = node.takenProp ? `${node.scale / 100} (drawn at ${node.takenProp.scale}: the prop's)` : scale;
@@ -1015,7 +953,6 @@ export async function renderBTSetup(scene, buffer, mapId = -1, mapName = '') {
     }
     applyActorHolders(actorNodes);
     applyActorPlacements(actorNodes);
-    await applyCameraPlacements(actorNodes);
     const otherNodes = setup.nodes.filter(n => n.category !== NODE_CATEGORY_ACTOR);
     const allModelProps = setup.props.filter(p => p.kind === 'model');
     const spriteProps = setup.props.filter(p => p.kind === 'sprite');
