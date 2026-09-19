@@ -491,6 +491,8 @@ export function performSelection(ev, renderer, camera, scene) {
 
     let hit = null;
     for (const i of inter) {
+        // Actor hitbox wireframes (bk_setup.js) are see-through for picking.
+        if (i.object.userData.unselectable) continue;
         // BK sprite props are THREE.Sprites: no face to highlight, but they
         // carry their placement info, so report that instead of falling
         // through to whatever geometry sits behind them.

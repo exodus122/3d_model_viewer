@@ -1,10 +1,9 @@
 import * as THREE from 'three';
 import { addModelCheckbox, getModelGroup, resetGroupModelState, applyGroupMasterState } from './render.js';
 import { parseBKModelGeometry } from './bk_model.js';
-import { buildTexturedParts, makeTexturedMesh, attachTextured, refreshTexturedMode, isPropCollisionShown } from './bk_textured.js';
+import { buildTexturedParts, makeTexturedMesh, attachTextured, refreshTexturedMode, isPropCollisionShown, VIEW_CONTROLS } from './bk_textured.js';
 
 const wireframeCheckbox = document.getElementById('wireframe');
-const viewModeSelect = document.getElementById('bkViewMode');
 const actorHitboxCheckboxes = {
     enemy: document.getElementById('bkActorHitboxesEnemy'),
     touch: document.getElementById('bkActorHitboxesTouch'),
@@ -327,7 +326,9 @@ function pickGeometry(loaded) {
     return null;
 }
 
-viewModeSelect?.addEventListener('change', () => {
+// The Prop collision checkbox swaps every prop instance's geometry; Textures
+// only changes how bk_textured.js draws it, but re-picking is harmless.
+for (const control of VIEW_CONTROLS) control?.addEventListener('change', () => {
     for (const inst of propInstances) {
         const picked = pickGeometry(inst.loaded);
         if (!picked) continue;
@@ -861,8 +862,10 @@ const BK_ACTOR_APPENDAGES = {
     // Mumbo switch: 1 = 2 unless it is blinking (unk38_0): src/core2/code_4C020.c chMumboSwitch_draw.
     0x23D: { 1: 2 },
     // ---- SM
-    // Vegetables: 3 off until met: src/SM/ch/vegetables.c.
-    0x164: { 3: 0 }, 0x165: { 3: 0 }, 0x166: { 3: 0 }, 0x36D: { 3: 0 }, 0x36E: { 3: 0 }, 0x36F: { 3: 0 },
+    // Vegetables: the draw sets 3 = -7 (branches 0-2 on: the leaves / tops)
+    // while has_met_before, which init sets and only the death state clears:
+    // src/SM/ch/vegetables.c.
+    0x164: { 3: -7 }, 0x165: { 3: -7 }, 0x166: { 3: -7 }, 0x36D: { 3: -7 }, 0x36E: { 3: -7 }, 0x36F: { 3: -7 },
     // ---- MM
     // Mumbo's Mountain hut: 1 = not destroyed: src/MM/ch/hut.c.
     0x9: { 1: 1 },
@@ -1167,12 +1170,6 @@ const hitboxMaterials = {
     enemy: new THREE.MeshBasicMaterial({ color: 0xff4a4a, wireframe: true, transparent: true, opacity: 0.6 }),
     touch: new THREE.MeshBasicMaterial({ color: 0x2ee6ff, wireframe: true, transparent: true, opacity: 0.6 }),
 };
-// The broad-phase radius around a volume list, drawn fainter so the real
-// volumes inside it stand out. Too faint to be worth occluding anything.
-const hitboxBoundsMaterials = {
-    enemy: new THREE.MeshBasicMaterial({ color: 0xff4a4a, wireframe: true, transparent: true, opacity: 0.12, depthWrite: false }),
-    touch: new THREE.MeshBasicMaterial({ color: 0x2ee6ff, wireframe: true, transparent: true, opacity: 0.12, depthWrite: false }),
-};
 const hitboxEdgeMaterials = {
     enemy: new THREE.LineBasicMaterial({ color: 0xff4a4a, transparent: true, opacity: 0.8 }),
     touch: new THREE.LineBasicMaterial({ color: 0x2ee6ff, transparent: true, opacity: 0.8 }),
@@ -1181,13 +1178,16 @@ const hitboxBoxEdges = new THREE.EdgesGeometry(new THREE.BoxGeometry(1, 1, 1));
 const hitboxCylinderGeometry = new THREE.CylinderGeometry(1, 1, 1, 12, 1);
 const hitboxSphereGeometry = new THREE.SphereGeometry(1, 8, 6);
 
+// Hitboxes are not pickable (selection.js skips `unselectable`): clicking
+// through a wireframe selects what is behind it. Their details go onto the
+// host actor's own description instead (and its textured children, which
+// copied the description when they were attached).
 function registerHitbox(obj, kind, host, info) {
     obj.visible = !!actorHitboxCheckboxes[kind]?.checked;
     obj.userData.hitboxKind = kind;
-    obj.traverse(child => {
-        child.userData.bkInfo = host.userData.bkInfo + info;
-        child.userData.bkProp = host.userData.bkProp;
-    });
+    obj.traverse(child => { child.userData.unselectable = true; });
+    const hostInfo = host.userData.bkInfo;
+    host.traverse(child => { if (child.userData.bkInfo === hostInfo) child.userData.bkInfo = hostInfo + info; });
     actorHitboxes.push(obj);
 }
 
@@ -1213,7 +1213,9 @@ const boneText = bone => bone >= 0 ? ` bone ${bone}` : '';
 /**
  * A model actor's hit volume list, in the actor's transform (`host` is the
  * placed model mesh: same position, rotation and scale the game feeds
- * func_80330974). Volumes pinned to a bone are drawn in the rest pose.
+ * func_80330974). Volumes pinned to a bone are drawn in the rest pose. The
+ * list's broad-phase radius is only an early-out around the volumes, so it
+ * is reported in the description but not drawn.
  */
 function addActorHitVolumes(group, kind, volumes, host) {
     const root = new THREE.Group();
@@ -1223,12 +1225,6 @@ function addActorHitVolumes(group, kind, volumes, host) {
 
     const lines = [`\n  ${kind} hitbox: ${volumes.boxes.length} box, ${volumes.cylinders.length} cylinder, ` +
         `${volumes.spheres.length} sphere (broad-phase r=${volumes.radius})`];
-
-    if (volumes.radius > 0) {
-        const bounds = new THREE.Mesh(hitboxSphereGeometry, hitboxBoundsMaterials[kind]);
-        bounds.scale.setScalar(volumes.radius);
-        root.add(bounds);
-    }
     for (const box of volumes.boxes) {
         // [min, max] is axis-aligned in a frame rotated about `pivot`.
         const pivot = new THREE.Object3D();

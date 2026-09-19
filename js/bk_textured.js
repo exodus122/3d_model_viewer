@@ -10,37 +10,42 @@ import { getBTTextureBank } from './bt_textures.js';
 // display-list) geometry in a flat colour. This module builds a second,
 // textured mesh for the same model from its display lists and textures
 // (parseBKModelTextured), attaches it as a child of the plain mesh, and lets
-// the "View" dropdown swap between the two. Being a child, the textured mesh
-// follows the plain mesh's transform, its row checkbox, and selection.
+// the "Textures" checkbox swap between the two. Being a child, the textured
+// mesh follows the plain mesh's transform, its row checkbox, and selection.
 //
-// The three views:
-//   textured            - textured meshes only
-//   textured-collision  - textured meshes, plus each prop's / actor's plain
-//                         collision mesh drawn over its textured one, since
-//                         the two differ (often a hitbox against the full
-//                         model) and seeing both is the point. It is drawn
-//                         translucent so the model shows through it, and
-//                         depth-tested like everything else, so only the
-//                         parts outside the model (and not behind the map)
-//                         are visible.
-//   collision           - plain meshes only (the flat-colour collision view)
+// Two checkboxes:
+//   Textures        - on: textured meshes; off: plain meshes only (the
+//                     flat-colour collision view: the map's collision mesh,
+//                     and each prop's geometry as picked below).
+//   Prop collision  - each prop's / actor's collision list rather than its
+//                     display-list triangles (bk_setup.js pickGeometry), since
+//                     the two differ (often a hitbox against the full model).
+//                     With textures on, the plain collision mesh is drawn
+//                     over the textured one, translucent so the model shows
+//                     through it and depth-tested like everything else, so
+//                     only the parts outside the model (and not behind the
+//                     map) are visible.
 // The map's collision mesh is never drawn over its textured mesh: it would
 // cover the textures.
 
-const viewModeSelect = document.getElementById('bkViewMode');
+const texturesCheckbox = document.getElementById('bkTextures');
+const propCollisionCheckbox = document.getElementById('bkPropCollision');
 const wireframeCheckbox = document.getElementById('wireframe');
 
 // { plain: Mesh, textured: Object3D, edges: Object3D | null }
 const texturedPairs = [];
 
 export function isTexturedMode() {
-    return viewModeSelect?.value !== 'collision';
+    return texturesCheckbox ? texturesCheckbox.checked : true;
 }
 
 /** Props / actors show their collision list rather than their display-list triangles. */
 export function isPropCollisionShown() {
-    return viewModeSelect?.value !== 'textured';
+    return propCollisionCheckbox ? propCollisionCheckbox.checked : false;
 }
+
+/** The view checkboxes, for the listeners that must skip their own events. */
+export const VIEW_CONTROLS = [texturesCheckbox, propCollisionCheckbox];
 
 function wrapMode(bits) {
     if (bits & 2) return THREE.ClampToEdgeWrapping;
@@ -287,13 +292,13 @@ export function refreshTexturedMode() {
     for (const pair of texturedPairs) applyTexturedMode(pair);
 }
 
-viewModeSelect?.addEventListener('change', refreshTexturedMode);
+for (const control of VIEW_CONTROLS) control?.addEventListener('change', refreshTexturedMode);
 
 // The wireframe checkbox and the row / group checkboxes turn edges back on
 // through their own handlers in render.js; keep them off for the plain meshes
 // that are hidden while textured. Both fire bubbling change events inside
 // .controls.
 document.querySelector('.controls')?.addEventListener('change', (e) => {
-    if (e.target === viewModeSelect || !isTexturedMode()) return;
+    if (VIEW_CONTROLS.includes(e.target) || !isTexturedMode()) return;
     for (const pair of texturedPairs) if (pair.edges && !plainShown(pair)) pair.edges.visible = false;
 });
