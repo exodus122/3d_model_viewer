@@ -5,7 +5,8 @@ index written by banjo-tooie/tools/extract_maps.py).
 
 usage: generate_bt_map_list.py [models/BT/maps.json] [js/model_list.js]
 
-Maps are grouped by world in the order the game presents them, then by map id.
+Maps are grouped by world in the order the game presents them; within a world
+the main map(s) come first (MAIN_MAPS), then the rest by map id.
 """
 
 import json
@@ -16,13 +17,28 @@ import sys
 ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..")
 
 # Prefix of the MAP_ enum name -> display order. Anything else goes last.
-WORLD_ORDER = ["SM", "JV", "IOH", "MT", "GGM", "WW", "JRL", "TDL", "GI", "HP", "CCL", "CK",
-               "MP", "GL", "GAME", "CS", "BOB", "MEANWHILE", "JINGALING", "ENERGY"]
+# GL_ENTRANCE (the gruntilda's lair entrance you walk out of into Spiral
+# Mountain's rock face) sits with SM.
+WORLD_ORDER = ["SM", "GL", "JV", "IOH", "MT", "GGM", "WW", "JRL", "TDL", "GI", "HP", "CCL", "CK",
+               "MP", "GAME", "CS", "BOB", "MEANWHILE", "JINGALING", "ENERGY"]
+
+# The main map(s) of each world, listed first in that world; the rest of a
+# world follows by map id. JRL's three top-level lagoon maps go together.
+MAIN_MAPS = ["SM_SPIRAL_MOUNTAIN", "MT_MAYAHEM_TEMPLE", "GGM_GLITTER_GULCH_MINE", "WW_WITCHYWORLD",
+             "JRL_JOLLY_ROGERS_LAGOON", "JRL_ATLANTIS", "JRL_SEA_BOTTOM", "TDL_TERRYDACTYLAND",
+             "GI_OUTSIDE", "HP_LAVA_SIDE", "CCL_CLOUD_CUCKOOLAND", "CK_CAULDRON_KEEP",
+             "JV_JINJO_VILLAGE", "IOH_WOODED_HOLLOW"]
 
 
 def world_rank(name):
     prefix = name.split("_")[0]
     return WORLD_ORDER.index(prefix) if prefix in WORLD_ORDER else len(WORLD_ORDER)
+
+
+def sort_key(m):
+    name = m["map"]
+    main = MAIN_MAPS.index(name) if name in MAIN_MAPS else len(MAIN_MAPS)
+    return (world_rank(name), main, m["map_id"])
 
 
 def js_entry(m):
@@ -51,7 +67,7 @@ def main():
     for m in maps:
         if not m["map"]:
             m["map"] = "MAP_%X" % m["map_id"]
-    maps.sort(key=lambda m: (world_rank(m["map"]), m["map_id"]))
+    maps.sort(key=sort_key)
 
     header = (
         "// Each BT map lives in models/BT/<dir>/ as extracted by banjo-tooie/tools/extract_maps.py:\n"

@@ -1740,8 +1740,8 @@
   },
   {
     "map_id": 202,
-    "map": "MT_KICKBALL_3",
-    "dir": "0CA_MT_KICKBALL_3",
+    "map": "GGM_FUEL_DEPOT",
+    "dir": "0CA_GGM_FUEL_DEPOT",
     "extra": [
       0,
       0,
@@ -1775,8 +1775,8 @@
   },
   {
     "map_id": 203,
-    "map": "MT_KICKBALL_3",
-    "dir": "0CB_MT_KICKBALL_3",
+    "map": "GGM_CRUSHING_SHED",
+    "dir": "0CB_GGM_CRUSHING_SHED",
     "extra": [
       0,
       0,
@@ -1810,8 +1810,8 @@
   },
   {
     "map_id": 204,
-    "map": "MT_KICKBALL_3",
-    "dir": "0CC_MT_KICKBALL_3",
+    "map": "GGM_FLOODED_CAVES",
+    "dir": "0CC_GGM_FLOODED_CAVES",
     "extra": [
       0,
       0,
@@ -1845,8 +1845,8 @@
   },
   {
     "map_id": 205,
-    "map": "MT_KICKBALL_3",
-    "dir": "0CD_MT_KICKBALL_3",
+    "map": "GGM_WATER_STORAGE",
+    "dir": "0CD_GGM_WATER_STORAGE",
     "extra": [
       0,
       0,
@@ -1880,8 +1880,8 @@
   },
   {
     "map_id": 206,
-    "map": "MT_KICKBALL_3",
-    "dir": "0CE_MT_KICKBALL_3",
+    "map": "GGM_WATERFALL_CAVERN",
+    "dir": "0CE_GGM_WATERFALL_CAVERN",
     "extra": [
       0,
       0,
@@ -4685,8 +4685,8 @@
   },
   {
     "map_id": 369,
-    "map": "GGM_MUMBO",
-    "dir": "171_GGM_MUMBO",
+    "map": "TDL_MUMBO",
+    "dir": "171_TDL_MUMBO",
     "extra": [
       0,
       0,

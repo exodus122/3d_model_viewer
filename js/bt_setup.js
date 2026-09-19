@@ -169,7 +169,7 @@ const BT_ACTOR_SCALES = {
 /** The scale an actor node is drawn at: the setup scale, then its code's change. */
 function actorScale(node) {
     if (node.takenProp) return node.takenProp.scale || 1;
-    const spawned = (node.scale === 0 || node.setupActorId !== undefined) ? 1 : node.scale / 100;
+    const spawned = (node.scale === 0 || node.scaleIgnored) ? 1 : node.scale / 100;
     const change = BT_ACTOR_SCALES[node.actorId];
     if (!change) return spawned;
     return change.set !== undefined ? change.set : spawned * change.mul;
@@ -492,7 +492,7 @@ const FIRE_STYLE = {
 // the core spawn (0x80108C90) directly, skipping gspropsDll's step that
 // applies the node's scale field, so the actor spawns at scale 1 whatever
 // that field holds (often junk, e.g. 6000). The setup id is kept in
-// setupActorId for the description.
+// setupActorId, and who spawned it in spawnedBy, for the description.
 const BT_COLLECTIBLE_SPAWNS = {
     0x1F5: 0x1F4,   // chjinjo
     0x1F6: 0x21F,   // chjigsaw (Jiggy)
@@ -502,6 +502,47 @@ const BT_COLLECTIBLE_SPAWNS = {
     0x29D: 0x4E5,   // chdoubloon
     0x4E6: 0x3C6,   // chbigtopticket
 };
+
+// Minigame target slots: id 0x2BA is another id with no marker-table entry.
+// The map's minigame controller collects every 0x2BA node
+// (gccubesearch_entrypoint_9) and spawns its own actor at each, at the
+// node's position and yaw (0x801085CC -> the core spawn, so at scale 1):
+//   chclinker#1 / #2 (0x2BF / 0x2C0, GI Clinker's Cavern; func_8080045C)
+//     spawn a Clinker (0x2C1) and then store node.scale * 0.01 (R_808012F4)
+//     as its scale, so the setup scale does apply to these;
+//   chtntmineshoot#1 / #2 (0x2BC / 0x2BD, GGM Ordnance Storage; 0x80801658)
+//     spawn a TNT box (0x2BE), up to 20;
+//   chfpsgame (0x2C4, the multiplayer Ordnance Storage / shooting maps;
+//     func_8080019C) spawns an egg nest whose type bsfirstp_entrypoint_3
+//     reads from a per-map table by the game's option byte
+//     (gcstatusDll_entrypoint_19) and the node's selector - 50: option 1
+//     (the tables' first row, 0x8080ACF8 / AD4C / ADA0 in bsfirstp) puts a
+//     gold nest in slot 0 and blue egg nests in slots 1-20, the rows after
+//     it mix in the other types. Row 1 is shown.
+const MINIGAME_SLOT = 0x2BA;
+const FPS_NEST_TYPES = [0, 0x1C8, 0x1C9, 0x1CA, 0x1CB, 0x1CC, 0x2B8, 0x1CD];   // bsfirstp_entrypoint_3's result
+const fpsNest = node => FPS_NEST_TYPES[node.selectorOrRadius - 50 === 0 ? 7 : 1];
+const BT_MINIGAME_SPAWNERS = [
+    { controllers: [0x2BF, 0x2C0], spawns: () => 0x2C1, by: 'chclinker', scaleIgnored: false },
+    { controllers: [0x2BC, 0x2BD], spawns: () => 0x2BE, by: 'chtntmineshoot', scaleIgnored: true },
+    { controllers: [0x2C4], spawns: fpsNest, by: 'chfpsgame (nest type for game option 1)', scaleIgnored: true },
+];
+
+/** Turn the map's 0x2BA slots into what its minigame controller spawns there. */
+function applyMinigameSpawners(actorNodes) {
+    const present = new Set(actorNodes.map(n => n.actorId));
+    const spawner = BT_MINIGAME_SPAWNERS.find(sp => sp.controllers.some(id => present.has(id)));
+    if (!spawner) return;
+    for (const node of actorNodes) {
+        if (node.actorId !== MINIGAME_SLOT) continue;
+        const spawned = spawner.spawns(node);
+        if (!spawned) continue;
+        node.setupActorId = node.actorId;
+        node.actorId = spawned;
+        node.spawnedBy = spawner.by;
+        node.scaleIgnored = spawner.scaleIgnored;
+    }
+}
 
 // Actors that move another actor onto themselves once spawned, so the
 // setup file's position for the moved one is only a rough placeholder.
@@ -774,7 +815,7 @@ function describeNode(node) {
     const sprite = BT_Actor_Sprites[node.actorId];
     const what = node.category === NODE_CATEGORY_ACTOR
         ? `ACTOR ${actorName(node.actorId, node.runtimeModel)}` +
-          (node.setupActorId !== undefined ? ` (setup id ${hex(node.setupActorId)}, spawned by gccollectDll)` : '') +
+          (node.setupActorId !== undefined ? ` (setup id ${hex(node.setupActorId)}, spawned by ${node.spawnedBy})` : '') +
           (node.extraModel ? ` ${node.extraModel.label}` : '') +
           (model ? ` model ${hex(model)}${node.runtimeModel ? ' (picked by its code)' : ''}${node.geometrySource ? ' ' + node.geometrySource : ''}` : '') +
           (sprite && !node.extraModel ? ` sprite ${hex(sprite)}` : '') +
@@ -783,8 +824,8 @@ function describeNode(node) {
         : `NODE ${cat} id=${hex(node.actorId)}`;
     const scale = node.category === NODE_CATEGORY_ACTOR && BT_ACTOR_SCALES[node.actorId]
         ? `${node.scale / 100} (drawn at ${+actorScale(node).toFixed(4)}: set by its code on spawn)`
-        : node.setupActorId !== undefined
-            ? `${node.scale / 100} (ignored: gccollectDll spawns at 1)`
+        : node.scaleIgnored
+            ? `${node.scale / 100} (ignored: ${node.spawnedBy} spawns at 1)`
             : `${node.scale / 100}`;
     const pos = node.heldBy
         ? `${node.position.map(v => +v.toFixed(2)).join(', ')} (moved by its ${actorName(node.heldBy.actorId)} from ${node.setupPosition.join(', ')})`
@@ -949,8 +990,14 @@ export async function renderBTSetup(scene, buffer, mapId = -1, mapName = '') {
     const actorNodes = setup.nodes.filter(n => n.category === NODE_CATEGORY_ACTOR);
     for (const node of actorNodes) {
         const spawned = BT_COLLECTIBLE_SPAWNS[node.actorId];
-        if (spawned !== undefined) { node.setupActorId = node.actorId; node.actorId = spawned; }
+        if (spawned !== undefined) {
+            node.setupActorId = node.actorId;
+            node.actorId = spawned;
+            node.spawnedBy = 'gccollectDll';
+            node.scaleIgnored = true;
+        }
     }
+    applyMinigameSpawners(actorNodes);
     applyActorHolders(actorNodes);
     applyActorPlacements(actorNodes);
     const otherNodes = setup.nodes.filter(n => n.category !== NODE_CATEGORY_ACTOR);
