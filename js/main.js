@@ -16,7 +16,7 @@ import { renderZeldaObjectBinary } from './render_actors.js';
 import { renderBKSetup } from './bk_setup.js';
 import { renderBTSetup } from './bt_setup.js';
 import { renderSky, drawSky } from './sky.js';
-import { loadBTTextureBank } from './bt_textures.js';
+import { loadBTTextureBank, getBTTextureBank } from './bt_textures.js';
 import { addModelCheckbox, buildTest } from './render.js';
 
 ////////////////////////////////////////
@@ -38,6 +38,21 @@ const backfaceCheckbox = document.getElementById('backface');
 const camPosEl = document.getElementById('cam-pos');
 const camRotEl = document.getElementById('cam-rot');
 const statusEl = document.getElementById('status');
+const loadingEl = document.getElementById('loading');
+const loadingTextEl = document.getElementById('loadingText');
+
+// Loading overlay over the canvas. Map parsing runs synchronously on the main
+// thread (a first BT map also indexes the 9 MB texture bank), so after
+// changing the message this yields a frame, otherwise the browser never gets
+// to paint it before the work starts.
+async function showLoading(message) {
+    loadingTextEl.textContent = message;
+    loadingEl.hidden = false;
+    await new Promise(resolve => requestAnimationFrame(() => setTimeout(resolve, 0)));
+}
+function hideLoading() {
+    loadingEl.hidden = true;
+}
 const controlModeSel = document.getElementById('control-mode');
 const gameSel = document.getElementById('selected-game');
 const subdivisionSelectorContainer = document.getElementById("subdivisionSelectorContainer");
@@ -308,7 +323,16 @@ function getMapProperty(game, mapName, prop) {
 // Load selected map
 loadMap.addEventListener('click', async (e) => {
     const game = document.getElementById("selected-game").value;
-    
+    const mapLabel = document.getElementById("mapDropdown").value;
+    await showLoading(`Loading ${mapLabel}…`);
+    try {
+        await loadSelectedMap(game);
+    } finally {
+        hideLoading();
+    }
+});
+
+async function loadSelectedMap(game) {
     if (game == "BK"){
         // models/BK/<dir>/{opa,xlu}.model.bin, see BK_Maps in model_list.js
         const mapName = document.getElementById("mapDropdown").value;
@@ -320,6 +344,7 @@ loadMap.addEventListener('click', async (e) => {
             const res1 = await fetch('./models/BK/' + mapDir + '/opa.model.bin');
             const buffer1 = await res1.arrayBuffer();
             console.log(mapDir+"/opa.model.bin: Binary file length:", buffer1.byteLength);
+            await showLoading(`${mapName}: map model…`);
             parseBKModelBinary(scene, buffer1, true, undefined, mapId);
 
             if (hasXlu) {
@@ -336,6 +361,7 @@ loadMap.addEventListener('click', async (e) => {
             const res3 = await fetch('./models/BK/' + mapDir + '/setup.bin');
             const buffer3 = await res3.arrayBuffer();
             console.log(mapDir+"/setup.bin: Binary file length:", buffer3.byteLength);
+            await showLoading(`${mapName}: actors and props…`);
             await renderBKSetup(scene, buffer3, mapId);
         } catch (err) {
             console.error(err);
@@ -363,12 +389,14 @@ loadMap.addEventListener('click', async (e) => {
 
         try {
             // Textures are looked up by id in the shared bank (bt_textures.js)
+            if (!getBTTextureBank()) await showLoading('Loading the BT texture bank (once per session)…');
             await loadBTTextureBank();
             for (let i = 0; i < files.length; i++) {
                 const [filename, label, offset] = files[i];
                 const res = await fetch('./models/BT/' + mapDir + '/' + filename);
                 const buffer = await res.arrayBuffer();
                 console.log(mapDir + "/" + filename + ": Binary file length:", buffer.byteLength);
+                await showLoading(`${mapName}: ${label ?? 'map model'}…`);
                 parseBKModelBinary(scene, buffer, i === 0, label, undefined, offset);
             }
 
@@ -379,6 +407,7 @@ loadMap.addEventListener('click', async (e) => {
             const res3 = await fetch('./models/BT/' + mapDir + '/setup.bin');
             const buffer3 = await res3.arrayBuffer();
             console.log(mapDir + "/setup.bin: Binary file length:", buffer3.byteLength);
+            await showLoading(`${mapName}: actors and props…`);
             await renderBTSetup(scene, buffer3, mapId, mapName);
         } catch (err) {
             console.error(err);
@@ -392,6 +421,7 @@ loadMap.addEventListener('click', async (e) => {
             const res1 = await fetch('./models/' + game + '/' + mapFilename);
             const buffer1 = await res1.arrayBuffer();
             console.log(mapFilename+": Binary file length:", buffer1.byteLength);
+            await showLoading(`${mapName}: scene…`);
             parseZeldaSceneBinary(scene, buffer1, true, mapName, mapFilename);
             
 
@@ -418,7 +448,7 @@ loadMap.addEventListener('click', async (e) => {
             console.error(err);
         }
     }
-});
+}
 
 // Get actor property
 function getActorProperty(game, id, prop) {
