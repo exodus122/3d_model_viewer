@@ -3,12 +3,13 @@ import { addModelCheckbox, getModelGroup, resetGroupModelState } from './render.
 import { isTexturedMode, VIEW_CONTROLS } from './bk_textured.js';
 
 ////////////////////////////////////////
-// System: Ocarina of Time textured map rendering
+// System: Ocarina of Time / Majora's Mask textured map rendering
 ////////////////////////////////////////
 //
-// An OoT scene file (segment 2) holds the collision that the rest of the
-// viewer draws; what the game actually shows is in the scene's room files
-// (segment 3, models/OOT/<scene>_room_<n>, see tools/oot/import_oot_rooms.py).
+// A scene file (segment 2) holds the collision that the rest of the viewer
+// draws; what the game actually shows is in the scene's room files (segment
+// 3, models/OOT/<scene>_room_<n> and models/MM/<scene>_room_<nn>, see
+// tools/oot/import_oot_rooms.py and tools/mm/import_mm_rooms.py).
 // Each room header's ROOM_SHAPE command (0x0A) lists display-list pairs
 // (opaque, translucent) that Room_Draw runs through the F3DZEX microcode
 // with segment 2 pointing at the scene and 3 at the room (z_room.c). This
@@ -18,12 +19,15 @@ import { isTexturedMode, VIEW_CONTROLS } from './bk_textured.js';
 // rooms under a "Textured Rooms" group in the sidebar. The "Textures"
 // checkbox (shared with BK / BT) shows or hides the lot.
 //
-// The rooms are drawn as the game draws them at frame 0 of the day: the
+// The rooms are drawn as the game draws them at frame 0 of the day: OoT's
 // scene draw configs (z_scene_table.c) that scroll or swap textures through
 // segments 8-D are reduced to their first choice (OOT_Scene_Segments in
-// js/oot_scene_data.js, generated from the decomp), the texture scrolls
-// stand still, and a display list that branches on the distance to the
-// camera (LOD) takes the near branch. Nothing else animates. The
+// js/oot_scene_data.js, generated from the decomp), MM's animated material
+// list (scene command 0x1A, z_scene_proc.c) is evaluated at step 0 (its
+// colour keyframes and texture cycles; segment 6 holds the region's
+// scene_texture file), the texture scrolls stand still, and a display list
+// that branches on the distance to the camera (LOD) takes the near branch.
+// Nothing else animates. The
 // pre-rendered backgrounds of the RoomShapeImage rooms (shops, houses) are
 // not drawn -- only their bit of real geometry.
 //
@@ -42,7 +46,15 @@ const CMD_ROOM_SHAPE = 0x0A;
 const CMD_LIGHT_SETTINGS = 0x0F;
 const CMD_SKYBOX_SETTINGS = 0x11;
 const CMD_END = 0x14;
+const CMD_ANIMATED_MATERIALS = 0x1A; // MM
 const LIGHT_MODE_TIME = 0;
+
+// MM AnimatedMaterial { s8 segment; s16 type; void* params }: the list ends
+// with a negative segment, and the segment used is |segment| + 7.
+const ANIM_MAT_SIZE = 8;
+const ANIM_MAT_SEGMENT_BASE = 7;
+const ANIM_MAT_COLOR = 2, ANIM_MAT_COLOR_LERP = 3, ANIM_MAT_COLOR_NONLINEAR = 4, ANIM_MAT_TEX_CYCLE = 5;
+const SEG_AREA_TEXTURES = 0x06; // MM: the scene's scene_texture_<nn> file
 
 // Outdoor scenes (LIGHT_MODE_TIME) take their ambient and light colours from
 // the light setting the time of day selects -- setting 1 from 8:00 to 16:00
@@ -116,7 +128,10 @@ function walkHeader(dv, fn) {
  */
 export function parseZeldaSceneInfo(buffer) {
     const dv = new DataView(buffer);
-    const info = { numRooms: 0, light: null };
+    // areaTextureIndex (MM): which scene_texture_<nn> file goes in segment 6
+    // (0: none). animatedMaterials (MM): [{ segment, type, params }] with
+    // params a scene offset.
+    const info = { numRooms: 0, light: null, areaTextureIndex: 0, animatedMaterials: [] };
     let lightMode = LIGHT_MODE_TIME, lightList = 0, numLightSettings = 0;
     walkHeader(dv, (cmd, off) => {
         if (cmd === CMD_ROOM_LIST) {
@@ -125,7 +140,19 @@ export function parseZeldaSceneInfo(buffer) {
             numLightSettings = dv.getUint8(off + 1);
             lightList = dv.getUint32(off + 4, false) & 0xFFFFFF;
         } else if (cmd === CMD_SKYBOX_SETTINGS) {
+            info.areaTextureIndex = dv.getUint8(off + 1);
             lightMode = dv.getUint8(off + 6);
+        } else if (cmd === CMD_ANIMATED_MATERIALS) {
+            let p = dv.getUint32(off + 4, false) & 0xFFFFFF;
+            for (let n = 0; n < 64 && p + ANIM_MAT_SIZE <= dv.byteLength; n++, p += ANIM_MAT_SIZE) {
+                const segment = dv.getInt8(p);
+                info.animatedMaterials.push({
+                    segment: Math.abs(segment) + ANIM_MAT_SEGMENT_BASE,
+                    type: dv.getInt16(p + 2, false),
+                    params: dv.getUint32(p + 4, false) & 0xFFFFFF,
+                });
+                if (segment < 0) break;
+            }
         }
     });
     if (!numLightSettings) return info;
@@ -348,7 +375,7 @@ function combinerTexels(mux, twoCycle) {
 function replayRoom(entries, segments, light, caches) {
     const resolve = (addr) => {
         const seg = segments[(addr >>> 24) & 0xF];
-        if (!seg) return null;
+        if (!seg || !seg.dv) return null;
         const off = seg.base + (addr & 0xFFFFFF);
         return off < seg.dv.byteLength ? { dv: seg.dv, off, key: seg.key + ':' + off.toString(16) } : null;
     };
@@ -593,10 +620,21 @@ function replayRoom(entries, segments, light, caches) {
             switch (w0 >>> 24) {
                 case G_ENDDL:
                     return;
-                case G_DL:
+                case G_DL: {
+                    // MM's colour-animation segments stand for a
+                    // "set prim (and env) colour" list (AnimatedMat_SetColor).
+                    const colour = segments[(w1 >>> 24) & 0xF]?.colour;
+                    if (colour) {
+                        primLodFrac = colour.lodFrac;
+                        prim.splice(0, 4, ...colour.prim);
+                        if (colour.env) env.splice(0, 4, ...colour.env);
+                        invalidate();
+                        break;
+                    }
                     if (((w0 >>> 16) & 0xFF) === 1) { run(w1, depth + 1); return; } // branch
                     run(w1, depth + 1);
                     break;
+                }
                 case G_RDPHALF_1:
                     half1 = w1;
                     break;
@@ -805,19 +843,86 @@ function makeRoomMesh(batches, caches) {
 const ROOM_GROUP_KEY = 'oot-rooms';
 let texturedRoot = null;
 
+/** models/<game>/ file name of a scene's room (the decomp's naming). */
+export function zeldaRoomFileName(game, sceneName, index) {
+    if (game === "MM") return `${sceneName}_room_${String(index).padStart(2, '0')}`;
+    return `${sceneName.replace(/_scene$/, '')}_room_${index}`;
+}
+
+/** MM: models/MM/ file name of the scene's area texture file, or null. */
+export function zeldaAreaTextureFileName(game, sceneBuffer) {
+    if (game !== "MM") return null;
+    const index = parseZeldaSceneInfo(sceneBuffer).areaTextureIndex;
+    return index ? `scene_texture_${String(index).padStart(2, '0')}` : null;
+}
+
+// MM: the segments the scene's animated material list sets, at step 0
+// (AnimatedMat_DrawMain): colour keyframe types become a colour segment
+// (their first prim / env colour), a texture cycle points its segment at
+// its first texture, and texture scrolls change nothing here.
+function animatedMaterialSegments(info, sceneDv, sceneName) {
+    const segments = {};
+    for (const mat of info.animatedMaterials) {
+        const p = mat.params;
+        if (mat.type === ANIM_MAT_COLOR || mat.type === ANIM_MAT_COLOR_LERP || mat.type === ANIM_MAT_COLOR_NONLINEAR) {
+            // AnimatedMatColorParams { u16 keyFrameLength; u16 keyFrameCount; F3DPrimColor* primColors; F3DEnvColor* envColors; u16* keyFrames }
+            if (p + 16 > sceneDv.byteLength) continue;
+            const primAddr = sceneDv.getUint32(p + 4, false), envAddr = sceneDv.getUint32(p + 8, false);
+            const primOff = primAddr & 0xFFFFFF, envOff = envAddr & 0xFFFFFF;
+            if ((primAddr >>> 24) !== SEG_SCENE || primOff + 5 > sceneDv.byteLength) continue;
+            const c = (o, i) => sceneDv.getUint8(o + i) / 255;
+            const colour = {
+                prim: [c(primOff, 0), c(primOff, 1), c(primOff, 2), c(primOff, 3)],
+                lodFrac: sceneDv.getUint8(primOff + 4) / 256,
+                env: (envAddr && (envAddr >>> 24) === SEG_SCENE && envOff + 4 <= sceneDv.byteLength)
+                    ? [c(envOff, 0), c(envOff, 1), c(envOff, 2), c(envOff, 3)] : null,
+            };
+            segments[mat.segment] = { colour };
+        } else if (mat.type === ANIM_MAT_TEX_CYCLE) {
+            // AnimatedMatTexCycleParams { u16 keyFrameLength; TexturePtr* textureList; u8* textureIndexList }
+            if (p + 12 > sceneDv.byteLength) continue;
+            const listAddr = sceneDv.getUint32(p + 4, false), indexAddr = sceneDv.getUint32(p + 8, false);
+            if ((listAddr >>> 24) !== SEG_SCENE || (indexAddr >>> 24) !== SEG_SCENE) continue;
+            const first = sceneDv.getUint8(indexAddr & 0xFFFFFF);
+            const texAddr = sceneDv.getUint32((listAddr & 0xFFFFFF) + first * 4, false);
+            if ((texAddr >>> 24) !== SEG_SCENE) continue;
+            segments[mat.segment] = { dv: sceneDv, base: texAddr & 0xFFFFFF, key: sceneName };
+        }
+    }
+    return segments;
+}
+
 /**
  * Build the textured rooms of a scene and add them to the sidebar.
- * sceneName: the scene file name (OOT_Maps .file), which keys OOT_Scene_Segments.
+ * sceneName: the scene file name (OOT_Maps / MM_Maps .file), which keys OOT_Scene_Segments.
  * rooms: [{ index, buffer }] the room files that could be fetched.
+ * options.game: "OOT" (default) or "MM".
+ * options.areaTextures: MM, the scene's scene_texture file (ArrayBuffer), or null.
  */
-export function renderZeldaSceneTextured(scene, sceneBuffer, rooms, sceneName) {
+export function renderZeldaSceneTextured(scene, sceneBuffer, rooms, sceneName, options = {}) {
+    const game = options.game === "MM" ? "MM" : "OOT";
     const info = parseZeldaSceneInfo(sceneBuffer);
     const sceneDv = new DataView(sceneBuffer);
     const files = new Map([[sceneName, sceneDv]]);
-    const base = sceneName.replace(/_scene$/, '');
-    for (const r of rooms) files.set(`${base}_room_${r.index}`, new DataView(r.buffer));
+    for (const r of rooms) files.set(zeldaRoomFileName(game, sceneName, r.index), new DataView(r.buffer));
 
-    const extraSegments = (typeof OOT_Scene_Segments !== 'undefined' && OOT_Scene_Segments[sceneName]) || {};
+    const extraSegments = {};
+    if (game === "OOT") {
+        const table = (typeof OOT_Scene_Segments !== 'undefined' && OOT_Scene_Segments[sceneName]) || {};
+        for (const [seg, e] of Object.entries(table)) {
+            const dv = files.get(e.file);
+            if (dv) extraSegments[seg] = { dv, base: e.offset, key: e.file };
+        }
+    } else {
+        Object.assign(extraSegments, animatedMaterialSegments(info, sceneDv, sceneName));
+        if (options.areaTextures) {
+            extraSegments[SEG_AREA_TEXTURES] = { dv: new DataView(options.areaTextures), base: 0, key: 'area' };
+        } else {
+            // Great Bay Temple's draw config points segment 6 at "prim colour
+            // white, lod fraction 0" lists for its pipes (z_scene_proc.c).
+            extraSegments[SEG_AREA_TEXTURES] = { colour: { prim: [1, 1, 1, 1], lodFrac: 0, env: null } };
+        }
+    }
     const caches = { textures: new Map(), dataTextures: new Map() };
 
     resetGroupModelState(ROOM_GROUP_KEY);
@@ -830,14 +935,11 @@ export function renderZeldaSceneTextured(scene, sceneBuffer, rooms, sceneName) {
     let group = null;
     let totalTriangles = 0, totalMissing = 0;
     for (const r of rooms) {
-        const roomDv = files.get(`${base}_room_${r.index}`);
+        const roomDv = files.get(zeldaRoomFileName(game, sceneName, r.index));
         const segments = new Array(16).fill(null);
         segments[SEG_SCENE] = { dv: sceneDv, base: 0, key: sceneName };
         segments[SEG_ROOM] = { dv: roomDv, base: 0, key: `room${r.index}` };
-        for (const [seg, e] of Object.entries(extraSegments)) {
-            const dv = files.get(e.file);
-            if (dv) segments[seg] = { dv, base: e.offset, key: e.file };
-        }
+        for (const [seg, e] of Object.entries(extraSegments)) segments[seg] = e;
 
         let result;
         try {

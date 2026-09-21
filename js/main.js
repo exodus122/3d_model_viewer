@@ -17,7 +17,7 @@ import { renderBKSetup } from './bk_setup.js';
 import { renderBTSetup } from './bt_setup.js';
 import { renderSky, drawSky } from './sky.js';
 import { loadBTTextureBank, getBTTextureBank } from './bt_textures.js';
-import { renderZeldaSceneTextured, parseZeldaSceneInfo } from './zelda_textured.js';
+import { renderZeldaSceneTextured, parseZeldaSceneInfo, zeldaRoomFileName, zeldaAreaTextureFileName } from './zelda_textured.js';
 import { addModelCheckbox, buildTest } from './render.js';
 
 ////////////////////////////////////////
@@ -268,9 +268,9 @@ gameSel.addEventListener('change',(e)=>{
         });
     }
     
-    // "Textures" also covers OOT's rooms (zelda_textured.js); "Prop
-    // collision" is a BK / BT thing.
-    bkViewModeLabel.style.display = (game == "BK" || game == "BT" || game == "OOT") ? "block" : "none";
+    // "Textures" also covers OOT's and MM's rooms (zelda_textured.js);
+    // "Prop collision" is a BK / BT thing.
+    bkViewModeLabel.style.display = (game == "BK" || game == "BT" || game == "OOT" || game == "MM") ? "block" : "none";
     bkPropCollisionLabel.style.display = (game == "BK" || game == "BT") ? "" : "none";
     bkActorHitboxesLabel.style.display = (game == "BK" || game == "BT") ? "block" : "none";
 
@@ -431,19 +431,27 @@ async function loadSelectedMap(game) {
             await showLoading(`${mapName}: scene…`);
             parseZeldaSceneBinary(scene, buffer1, true, mapName, mapFilename);
 
-            // OOT: the rooms' display lists, textured (zelda_textured.js).
-            // models/OOT/<scene>_room_<n>, see tools/oot/import_oot_rooms.py.
-            if (game == "OOT") {
+            // OOT / MM: the rooms' display lists, textured (zelda_textured.js).
+            // models/<game>/<scene>_room_<n>, see tools/oot/import_oot_rooms.py
+            // and tools/mm/import_mm_rooms.py.
+            if (game == "OOT" || game == "MM") {
                 const { numRooms } = parseZeldaSceneInfo(buffer1);
-                const base = mapFilename.replace(/_scene$/, '');
                 const rooms = [];
                 for (let i = 0; i < numRooms; i++) {
-                    const res = await fetch(`./models/OOT/${base}_room_${i}`);
-                    if (!res.ok) { console.warn(`${base}_room_${i}: ${res.status}`); continue; }
+                    const file = zeldaRoomFileName(game, mapFilename, i);
+                    const res = await fetch(`./models/${game}/${file}`);
+                    if (!res.ok) { console.warn(`${file}: ${res.status}`); continue; }
                     rooms.push({ index: i, buffer: await res.arrayBuffer() });
                 }
+                let areaTextures = null;
+                const areaFile = zeldaAreaTextureFileName(game, buffer1);
+                if (areaFile) {
+                    const res = await fetch(`./models/${game}/${areaFile}`);
+                    if (res.ok) areaTextures = await res.arrayBuffer();
+                    else console.warn(`${areaFile}: ${res.status}`);
+                }
                 await showLoading(`${mapName}: textured rooms…`);
-                renderZeldaSceneTextured(scene, buffer1, rooms, mapFilename);
+                renderZeldaSceneTextured(scene, buffer1, rooms, mapFilename, { game, areaTextures });
             }
 
 
