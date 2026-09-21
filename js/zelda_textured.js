@@ -382,6 +382,10 @@ function replayRoom(entries, segments, light, caches) {
 
     const batches = new Map();
     let missingTextures = 0;
+    const wrapFor = (clampMirror, mask) => {
+        if (mask === 0 || (clampMirror & 2)) return THREE.ClampToEdgeWrapping;
+        return (clampMirror & 1) ? THREE.MirroredRepeatWrapping : THREE.RepeatWrapping;
+    };
 
     // One command buffer's worth of display lists (all the opaque lists of
     // the room, then all the translucent ones), each starting from the
@@ -461,28 +465,6 @@ function replayRoom(entries, segments, light, caches) {
         }
         return tex;
     };
-    // Bake `out = t0 * (1 - f) + t1 * f` (f per channel) or `t0 * t1` into one texture.
-    const combineTextures = (t0, t1, mode, f) => {
-        const key = `${t0.key}~${t1.key}~${mode}~${f.map(x => x.toFixed(3)).join(',')}`;
-        let tex = caches.textures.get(key);
-        if (tex) return tex;
-        const { width, height } = t0;
-        const rgba = new Uint8Array(width * height * 4);
-        for (let y = 0; y < height; y++) {
-            const y1 = Math.floor(y * t1.height / height);
-            for (let x = 0; x < width; x++) {
-                const x1 = Math.floor(x * t1.width / width);
-                const o0 = (y * width + x) * 4, o1 = (y1 * t1.width + x1) * 4;
-                for (let ch = 0; ch < 4; ch++) {
-                    const a = t0.rgba[o0 + ch], b = t1.rgba[o1 + ch];
-                    rgba[o0 + ch] = mode === 'mul' ? (a * b) / 255 : a + (b - a) * f[ch];
-                }
-            }
-        }
-        tex = { key, width, height, rgba };
-        caches.textures.set(key, tex);
-        return tex;
-    };
     const opaqueAlpha = (t) => {
         const key = t.key + '~opaque';
         let tex = caches.textures.get(key);
@@ -494,14 +476,33 @@ function replayRoom(entries, segments, light, caches) {
         return tex;
     };
 
-    // The texture (decoded, possibly a baked blend of two) the current
-    // combiner shows, with the tile whose coordinates it is mapped by.
-    const currentTexture = () => {
-        if (!texOn) return { tex: null, tile: renderTile };
+    // The tile's texel-coordinate transform: the vertex s/t (after the
+    // G_TEXTURE scale) are shifted by the tile's shift, offset by its
+    // upper-left corner and divided by the texture size to give 0..1 UVs.
+    // Kept per layer, since a second tile usually maps the same vertex
+    // coordinates at another scale (a detail texture under a large mask).
+    const shiftScale = (shift) => (shift === 0 ? 1 : (shift <= 10 ? 1 / (1 << shift) : (1 << (16 - shift))));
+    const layerFor = (tex, tileIndex) => {
+        const t = tiles[tileIndex];
+        return {
+            tex,
+            wrapS: wrapFor(t.cms, t.masks), wrapT: wrapFor(t.cmt, t.maskt),
+            repeat: [shiftScale(t.shifts) / tex.width, shiftScale(t.shiftt) / tex.height],
+            offset: [-t.uls / tex.width, -t.ult / tex.height],
+        };
+    };
+
+    // The texture layers the current combiner shows: [] for none, one, or
+    // two blended as `blend` says -- lerp (mix by a per-channel factor) or
+    // mul. A second tile with the texture at another scale (MM's ground: a
+    // 64x64 intensity mask times a 32x32 dirt texture at 1/16 scale) is why
+    // the layers stay separate down to the shader (makeRoomMesh).
+    const currentLayers = () => {
+        if (!texOn) return { layers: [], blend: null };
         const use = combinerTexels(mux, twoCycle());
         const t0 = use.texel0 ? textureForTile(renderTile) : null;
         const t1 = use.texel1 ? textureForTile((renderTile + 1) & 7) : null;
-        let tex = null, tile = renderTile;
+        let layers = [], blend = null;
         if (t0 && t1) {
             // Cycle 1 colour: (a - b) * c + d
             const c = twoCycle() ? mux : mux.slice(8);
@@ -513,52 +514,46 @@ function replayRoom(entries, segments, light, caches) {
                     case 10: return [prim[3], prim[3], prim[3], prim[3]];
                     case 12: return [env[3], env[3], env[3], env[3]];
                     case 14: return [primLodFrac, primLodFrac, primLodFrac, primLodFrac];
-                    default: return [0.5, 0.5, 0.5, 0.5];
+                    default: return [0.5, 0.5, 0.5, 0.5]; // LOD_FRACTION: between mip levels
                 }
             };
-            if (a === CC_TEXEL1 && b === CC_TEXEL0 && d === CC_TEXEL0) tex = combineTextures(t0, t1, 'lerp', factor(cc));
-            else if (a === CC_TEXEL0 && b === CC_TEXEL1 && d === CC_TEXEL1) tex = combineTextures(t0, t1, 'lerp', factor(cc).map(x => 1 - x));
-            else if ((a === CC_TEXEL0 && cc === CC_TEXEL1) || (a === CC_TEXEL1 && cc === CC_TEXEL0)) tex = combineTextures(t0, t1, 'mul', [0, 0, 0, 0]);
-            else tex = t0;
+            layers = [layerFor(t0, renderTile), layerFor(t1, (renderTile + 1) & 7)];
+            if (a === CC_TEXEL1 && b === CC_TEXEL0 && d === CC_TEXEL0) blend = { mode: 'lerp', factor: factor(cc) };
+            else if (a === CC_TEXEL0 && b === CC_TEXEL1 && d === CC_TEXEL1) blend = { mode: 'lerp', factor: factor(cc).map(x => 1 - x) };
+            else if ((a === CC_TEXEL0 && cc === CC_TEXEL1) || (a === CC_TEXEL1 && cc === CC_TEXEL0)) blend = { mode: 'mul', factor: [0, 0, 0, 0] };
+            else layers = [layers[0]];
         } else if (t0) {
-            tex = t0;
+            layers = [layerFor(t0, renderTile)];
         } else if (t1) {
-            tex = t1;
-            tile = (renderTile + 1) & 7;
+            layers = [layerFor(t1, (renderTile + 1) & 7)];
         }
-        if (tex && !use.alpha) tex = opaqueAlpha(tex);
-        return { tex, tile };
+        if (!use.alpha) for (const l of layers) l.tex = opaqueAlpha(l.tex);
+        return { layers, blend };
     };
 
     // ---- batches
     let batchState = null; // recomputed when the RDP state changes
     const invalidate = () => { batchState = null; };
-    const wrapFor = (clampMirror, mask) => {
-        if (mask === 0 || (clampMirror & 2)) return THREE.ClampToEdgeWrapping;
-        return (clampMirror & 1) ? THREE.MirroredRepeatWrapping : THREE.RepeatWrapping;
-    };
+    const layerKey = (l) => `${l.tex.key}:${l.wrapS}:${l.wrapT}:${l.repeat.map(x => x.toPrecision(6)).join(',')}:${l.offset.map(x => x.toPrecision(6)).join(',')}`;
     const batchFor = () => {
         if (batchState) return batchState;
-        const { tex, tile } = currentTexture();
-        const t = tiles[tile];
+        const { layers, blend } = currentLayers();
         const cull = (geometryMode & G_CULL_BACK) ? ((geometryMode & G_CULL_FRONT) ? 'none' : 'back')
                    : ((geometryMode & G_CULL_FRONT) ? 'front' : 'double');
-        const blend = (othermodeL & FORCE_BL) !== 0;
+        const translucent = (othermodeL & FORCE_BL) !== 0;
         const depthWrite = (othermodeL & Z_UPD) !== 0;
         const decal = (othermodeL & ZMODE_MASK) === ZMODE_DEC;
         const texEdge = (othermodeL & CVG_X_ALPHA) !== 0;
-        const wrapS = tex ? wrapFor(t.cms, t.masks) : 0, wrapT = tex ? wrapFor(t.cmt, t.maskt) : 0;
-        const key = [tex ? tex.key : '-', wrapS, wrapT, cull, blend ? 1 : 0, depthWrite ? 1 : 0, decal ? 1 : 0, texEdge ? 1 : 0].join('|');
+        const key = [layers.map(layerKey).join('~'), blend ? blend.mode + blend.factor.map(x => x.toFixed(3)).join(',') : '-',
+                     cull, translucent ? 1 : 0, depthWrite ? 1 : 0, decal ? 1 : 0, texEdge ? 1 : 0].join('|');
         let b = batches.get(key);
         if (!b) {
-            b = { tex, wrapS, wrapT, cull, blend, depthWrite, decal, texEdge, positions: [], uvs: [], colors: [] };
+            b = { layers, blend, cull, translucent, depthWrite, decal, texEdge, positions: [], uvs: [], colors: [] };
             batches.set(key, b);
         }
-        batchState = { batch: b, tile: t, tex };
+        batchState = { batch: b, textured: layers.length > 0 };
         return batchState;
     };
-
-    const shiftCoord = (v, shift) => (shift === 0 ? v : (shift <= 10 ? v / (1 << shift) : v * (1 << (16 - shift))));
 
     // Per-vertex colour through the combiner (texels white), in linear space.
     const shadeOf = (dv, o, lit) => {
@@ -580,9 +575,15 @@ function replayRoom(entries, segments, light, caches) {
     };
 
     const emit = (ia, ib, ic) => {
-        const { batch, tile, tex } = batchFor();
+        const { batch, textured } = batchFor();
         const lit = (geometryMode & G_LIGHTING) !== 0;
         const texGen = lit && (geometryMode & G_TEXTURE_GEN) !== 0;
+        if (texGen && textured && !batch.texGen) {
+            // Environment mapping: the UVs are already 0..1, so the layer
+            // transforms must not scale them.
+            batch.texGen = true;
+            for (const l of batch.layers) { l.repeat = [1, 1]; l.offset = [0, 0]; }
+        }
         const cyc2 = twoCycle();
         for (const slot of [ia, ib, ic]) {
             const dv = cacheDv[slot], o = cache[slot];
@@ -593,12 +594,10 @@ function replayRoom(entries, segments, light, caches) {
             batch.positions.push(dv.getInt16(o, false), dv.getInt16(o + 2, false), dv.getInt16(o + 4, false));
             if (texGen) {
                 batch.uvs.push(0.5 + dv.getInt8(o + 12) / 254, 0.5 - dv.getInt8(o + 13) / 254);
-            } else if (tex) {
-                let s = (dv.getInt16(o + 8, false) / 32) * texScaleS;
-                let t = (dv.getInt16(o + 10, false) / 32) * texScaleT;
-                s = shiftCoord(s, tile.shifts) - tile.uls;
-                t = shiftCoord(t, tile.shiftt) - tile.ult;
-                batch.uvs.push(s / tex.width, t / tex.height);
+            } else if (textured) {
+                // Vtx.tc is s10.5 texels, scaled by G_TEXTURE's 0.16 factors;
+                // each layer's tile transform takes it from there.
+                batch.uvs.push((dv.getInt16(o + 8, false) / 32) * texScaleS, (dv.getInt16(o + 10, false) / 32) * texScaleT);
             } else {
                 batch.uvs.push(0, 0);
             }
@@ -773,6 +772,59 @@ function replayRoom(entries, segments, light, caches) {
 // Between the collision mesh (factor 1, units 1) and its wireframe (none).
 const ROOM_POLYGON_OFFSET = 0.5;
 
+// A three.js texture for a layer: one DataTexture per decoded texture,
+// cloned per (wrap, transform) combination; the clones share the pixels.
+function layerTexture(layer, caches) {
+    const key = `${layer.tex.key}:${layer.wrapS}:${layer.wrapT}:${layer.repeat}:${layer.offset}`;
+    let dt = caches.dataTextures.get(key);
+    if (dt) return dt;
+    const base = caches.dataTextures.get(layer.tex.key);
+    if (base) {
+        dt = base.clone();
+    } else {
+        dt = new THREE.DataTexture(layer.tex.rgba, layer.tex.width, layer.tex.height, THREE.RGBAFormat);
+        dt.flipY = false;
+        dt.colorSpace = THREE.SRGBColorSpace;
+        dt.magFilter = THREE.LinearFilter;
+        dt.minFilter = THREE.LinearFilter;
+        dt.generateMipmaps = false;
+        caches.dataTextures.set(layer.tex.key, dt);
+    }
+    dt.wrapS = layer.wrapS;
+    dt.wrapT = layer.wrapT;
+    dt.repeat.set(layer.repeat[0], layer.repeat[1]);
+    dt.offset.set(layer.offset[0], layer.offset[1]);
+    dt.needsUpdate = true;
+    caches.dataTextures.set(key, dt);
+    return dt;
+}
+
+// Two-layer materials: MeshBasicMaterial with a second sampler patched into
+// its map lookup. The first layer goes through the material's own map (and
+// its uv transform); the second is sampled at that same uv re-transformed
+// into its own tile's space, and the two are combined as the colour
+// combiner's first cycle does.
+function patchTwoLayers(material, layer0, layer1, tex1, blend) {
+    // vMapUv = uv * r0 + o0, so uv1 = uv * r1 + o1 = vMapUv * (r1 / r0) + (o1 - o0 * r1 / r0)
+    const rs = layer1.repeat[0] / layer0.repeat[0], rt = layer1.repeat[1] / layer0.repeat[1];
+    const uv1 = new THREE.Vector4(rs, rt, layer1.offset[0] - layer0.offset[0] * rs, layer1.offset[1] - layer0.offset[1] * rt);
+    const factor = new THREE.Vector4(...blend.factor);
+    material.onBeforeCompile = (shader) => {
+        shader.uniforms.map1 = { value: tex1 };
+        shader.uniforms.map1Uv = { value: uv1 };
+        shader.uniforms.blendFactor = { value: factor };
+        shader.fragmentShader = shader.fragmentShader
+            .replace('#include <map_pars_fragment>',
+                '#include <map_pars_fragment>\nuniform sampler2D map1; uniform vec4 map1Uv; uniform vec4 blendFactor;')
+            .replace('#include <map_fragment>',
+                'vec4 texel0 = texture2D( map, vMapUv );\n' +
+                'vec4 texel1 = texture2D( map1, vMapUv * map1Uv.xy + map1Uv.zw );\n' +
+                (blend.mode === 'mul' ? 'diffuseColor *= texel0 * texel1;' : 'diffuseColor *= mix( texel0, texel1, blendFactor );'));
+    };
+    // Distinct shader programs per blend mode
+    material.customProgramCacheKey = () => 'zelda2layer:' + blend.mode;
+}
+
 function makeRoomMesh(batches, caches) {
     const geometry = new THREE.BufferGeometry();
     const positions = [], uvs = [], colors = [], materials = [];
@@ -781,7 +833,7 @@ function makeRoomMesh(batches, caches) {
         const count = batch.positions.length / 3;
         positions.push(...batch.positions);
         uvs.push(...batch.uvs);
-        if (batch.blend) {
+        if (batch.translucent) {
             colors.push(...batch.colors);
         } else {
             for (let i = 0; i < batch.colors.length; i += 4) colors.push(batch.colors[i], batch.colors[i + 1], batch.colors[i + 2], 1);
@@ -792,36 +844,19 @@ function makeRoomMesh(batches, caches) {
         const material = new THREE.MeshBasicMaterial({
             vertexColors: true,
             side: batch.cull === 'back' ? THREE.FrontSide : (batch.cull === 'front' ? THREE.BackSide : THREE.DoubleSide),
-            transparent: batch.blend,
+            transparent: batch.translucent,
             depthWrite: batch.depthWrite,
-            alphaTest: batch.blend ? 0.01 : (batch.texEdge ? 0.5 : 0),
+            alphaTest: batch.translucent ? 0.01 : (batch.texEdge ? 0.5 : 0),
             polygonOffset: true,
             polygonOffsetFactor: batch.decal ? -1 : ROOM_POLYGON_OFFSET,
             polygonOffsetUnits: batch.decal ? -1 : ROOM_POLYGON_OFFSET,
         });
         if (batch.cull === 'none') material.visible = false; // G_CULL_BOTH draws nothing
-        if (batch.tex) {
-            const key = batch.tex.key + ':' + batch.wrapS + ':' + batch.wrapT;
-            let dt = caches.dataTextures.get(key);
-            if (!dt) {
-                const base = caches.dataTextures.get(batch.tex.key);
-                if (base) {
-                    dt = base.clone();
-                } else {
-                    dt = new THREE.DataTexture(batch.tex.rgba, batch.tex.width, batch.tex.height, THREE.RGBAFormat);
-                    dt.flipY = false;
-                    dt.colorSpace = THREE.SRGBColorSpace;
-                    dt.magFilter = THREE.LinearFilter;
-                    dt.minFilter = THREE.LinearFilter;
-                    dt.generateMipmaps = false;
-                    caches.dataTextures.set(batch.tex.key, dt);
-                }
-                dt.wrapS = batch.wrapS;
-                dt.wrapT = batch.wrapT;
-                dt.needsUpdate = true;
-                caches.dataTextures.set(key, dt);
+        if (batch.layers.length) {
+            material.map = layerTexture(batch.layers[0], caches);
+            if (batch.layers.length > 1) {
+                patchTwoLayers(material, batch.layers[0], batch.layers[1], layerTexture(batch.layers[1], caches), batch.blend);
             }
-            material.map = dt;
         }
         materials.push(material);
     }
