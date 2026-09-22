@@ -38,8 +38,20 @@ Init. This script reads that out of each actor's C source:
     or the SkelAnime_Draw* in Draw   -> ops applied on top of the actor matrix
   * gDPSetPrimColor / gDPSetEnvColor with literal colours before them
                                      -> prim / env the list is drawn with
+  * if (params == X) { ... } else { ... } / switch (type) { case X: ... }
+    around a list in Draw            -> `when`: the params tests it is drawn
+                                        under; a branch on other state (an
+                                        action function, a flag) is dropped
+                                        when its chain has an else to fall to,
+                                        and a cutscene (csCtx) branch always;
+                                        a `draw = X` Init installs inside a
+                                        params branch tags X's lists the same
   * if (limbIndex == N) { ... } / switch (limbIndex) { case N: ... } in a
     SkelAnime limb callback           -> the list drawn in place of limb N
+                                        (*dList = ...) or next to it (add:
+                                        gSPDisplayList, as a post-limb draw
+                                        does); N may be the object header's
+                                        limb enum
   * gSPSegment(POLY_*_DISP++, 0x08..0x0F, SEGMENTED_TO_VIRTUAL(tex)) in Draw
                                           -> the texture a segment stands for
                                              (eyes, mouths), first choice; with
@@ -76,7 +88,7 @@ KEEP_OBJECTS = ["gameplay_keep", "gameplay_field_keep", "gameplay_dangeon_keep"]
 
 # Files only the hand overrides in js/oot_actors.js reach (models drawn
 # through code this does not follow, such as GetItem_Draw's tables).
-EXTRA_FILES = ["object_gi_heart"]
+EXTRA_FILES = ["object_gi_heart", "object_jya_door", "object_ganon_objects", "object_haka_door", "object_ouke_haka"]
 
 
 def strip_comments(text):
@@ -274,8 +286,8 @@ def param_selector(expr):
 
 
 def function_names(text):
-    """Every function defined in the file."""
-    return set(re.findall(r"\b(\w+)\s*\([^;{}]*\)\s*\{", text))
+    """Every function defined in the file (not an `if (...) {` / `while (...) {`)."""
+    return set(re.findall(r"\b(\w+)\s*\([^;{}]*\)\s*\{", text)) - {"if", "while", "for", "switch", "return", "sizeof"}
 
 
 DL_RX = re.compile(r"(?:Gfx_DrawDList(Opa|Xlu)\s*\(\s*play\s*,\s*|gSPDisplayList\s*\(\s*POLY_(OPA|XLU)_DISP\+\+\s*,\s*)([^;]+?)\)\s*;")
@@ -411,6 +423,24 @@ def matrix_ops_before(body, pos):
 COLOR_RX = re.compile(r"gDP(Set(?:Prim|Env)Color)\s*\(\s*POLY_(?:OPA|XLU)_DISP\+\+\s*,\s*([^;]*?)\)\s*;")
 
 
+# gDPSetCombineLERP(POLY_*_DISP++, a0, b0, c0, d0, Aa0, Ab0, Ac0, Ad0, a1, ...)
+COMBINE_RX = re.compile(r"gDPSetCombineLERP\s*\(\s*POLY_(?:OPA|XLU)_DISP\+\+\s*,\s*([^;]*?)\)\s*;")
+_CC_COLOR = {"COMBINED": 0, "TEXEL0": 1, "TEXEL1": 2, "PRIMITIVE": 3, "SHADE": 4, "ENVIRONMENT": 5}
+_CC_ALPHA = {"COMBINED": 0, "TEXEL0": 1, "TEXEL1": 2, "PRIMITIVE": 3, "SHADE": 4, "ENVIRONMENT": 5, "1": 6, "0": 7}
+# The mux code of each LERP argument by its slot (colour a, b, c, d, alpha a, b, c, d).
+CC_CODES = [
+    dict(_CC_COLOR, **{"1": 6, "NOISE": 7, "0": 15}),
+    dict(_CC_COLOR, **{"CENTER": 6, "K4": 7, "0": 15}),
+    dict(_CC_COLOR, **{"SCALE": 6, "COMBINED_ALPHA": 7, "TEXEL0_ALPHA": 8, "TEXEL1_ALPHA": 9, "PRIMITIVE_ALPHA": 10,
+                       "SHADE_ALPHA": 11, "ENV_ALPHA": 12, "LOD_FRACTION": 13, "PRIM_LOD_FRAC": 14, "K5": 15, "0": 31}),
+    dict(_CC_COLOR, **{"1": 6, "0": 7}),
+    _CC_ALPHA,
+    _CC_ALPHA,
+    {"LOD_FRACTION": 0, "TEXEL0": 1, "TEXEL1": 2, "PRIMITIVE": 3, "SHADE": 4, "ENVIRONMENT": 5, "PRIM_LOD_FRAC": 6, "0": 7},
+    _CC_ALPHA,
+]
+
+
 def colors_before(body, pos):
     """
     {"prim": [r, g, b, a], "env": [...]} from the last literal
@@ -419,9 +449,18 @@ def colors_before(body, pos):
     colour from the Draw rather than from the list itself.
     """
     out = {}
+    for m in COMBINE_RX.finditer(body[:pos]):
+        names = [a.strip() for a in split_args(m.group(1))]
+        if len(names) == 16:
+            codes = [CC_CODES[i % 8].get(n) for i, n in enumerate(names)]
+            if None not in codes:
+                out["combine"] = codes
     for m in COLOR_RX.finditer(body[:pos]):
         args = split_args(m.group(2))
         if m.group(1) == "SetPrimColor":
+            lod = literal_number(args[1]) if len(args) > 1 else None
+            if lod:
+                out["primLod"] = int(lod)
             args = args[2:]
         if len(args) != 4:
             continue
@@ -433,6 +472,223 @@ def colors_before(body, pos):
     return out
 
 
+# ---- if / else and switch branches in a Draw
+#
+# A Draw often picks what it issues by the actor's type: `if (params ==
+# WEB_WALL) { wall } else { floor }`, `if (thisx->params == 3) { tent
+# entrance }`. Each list is tagged with the params tests of the branches it
+# sits in (`when`), so that a spawn draws only its own; a branch on some
+# other state (an action function, a timer, a flag) is not the placed
+# actor's default when its chain has an else, so its lists are dropped.
+
+
+def branch_chains(body):
+    """
+    [[{cond, start, end}]]: every if / else if / else chain and switch in
+    body, one entry per branch, with the text range its statements cover.
+    cond is the condition text; None for an else (or a switch's default),
+    ("case", expr, [labels]) for a switch case.
+    """
+    chains = []
+    open_chains = {}  # end of a chain's last branch -> chain, for an else to continue
+    for m in re.finditer(r"\b(else\s+if|if|else|switch)\b", body):
+        kw = re.sub(r"\s+", " ", m.group(1))
+        i = m.end()
+        cond = None
+        if kw in ("if", "else if", "switch"):
+            while i < len(body) and body[i].isspace():
+                i += 1
+            if i >= len(body) or body[i] != "(":
+                continue
+            cond = balanced_paren(body, i)
+            i += len(cond) + 2
+        while i < len(body) and body[i].isspace():
+            i += 1
+        if kw == "else" and body.startswith("if", i):
+            continue  # `else if` is matched as a whole
+        if i < len(body) and body[i] == "{":
+            block = balanced_block(body, i)
+            start, end = i + 1, i + 1 + len(block)
+        else:
+            semi = body.find(";", i)
+            start, end = i, (semi + 1 if semi >= 0 else len(body))
+        if kw == "switch":
+            # case labels that share statements (fall-through) share a branch
+            chain, pending = [], []
+            labels = list(re.finditer(r"\b(?:case\s+([^:]+?)|default)\s*:", body[start:end]))
+            for k, lm in enumerate(labels):
+                stmt_start = start + lm.end()
+                stmt_end = start + labels[k + 1].start() if k + 1 < len(labels) else end
+                pending.append(lm.group(1).strip() if lm.group(1) else None)
+                if body[stmt_start:stmt_end].strip():
+                    chain.append({"cond": ("case", cond, pending), "start": stmt_start, "end": stmt_end})
+                    pending = []
+            if chain:
+                chains.append(chain)
+            continue
+        entry = {"cond": cond, "start": start, "end": end}
+        # An else / else if continues the chain whose last branch ended just before it.
+        chain = None
+        if kw != "if":
+            chain = next((c for e, c in open_chains.items() if e <= m.start() and not body[e:m.start()].strip()), None)
+        if chain is None:
+            chain = []
+            chains.append(chain)
+        chain.append(entry)
+        open_chains = {e: c for e, c in open_chains.items() if c is not chain}
+        open_chains[end + (1 if end < len(body) and body[end] == "}" else 0)] = chain
+    return chains
+
+
+def constant_value(expr, consts):
+    """An integer constant: a literal, an enumerator or a #define, or None."""
+    expr = expr.strip().strip("()").strip()
+    if expr in consts:
+        return consts[expr]
+    try:
+        return int(expr.rstrip("uU"), 0)
+    except ValueError:
+        return None
+
+
+def params_atom(expr, assigned, consts):
+    """`<params expr> <op> <constant>` -> [shift, mask, op, value], or None."""
+    # (not the > of a ->, nor a shift)
+    m = re.match(r"^(.+?)\s*(==|!=|<=|>=|(?<![-<>])<(?![<=])|(?<![-<>])>(?![>=]))\s*(.+)$", expr.strip(), flags=re.S)
+    if not m:
+        return None
+    lhs, op, rhs = m.group(1), m.group(2), m.group(3)
+    # this->actionFunc == F: known once Init's starting action is (the
+    # placed actor is in it), true or false.
+    if re.search(r"\bactionFunc\s*$", lhs.strip()) and re.match(r"^\w+$", rhs.strip()) and op in ("==", "!="):
+        start = consts.get("__init_action__")
+        if start is None:
+            return None
+        return (rhs.strip() == start) == (op == "==")
+    value = constant_value(rhs, consts)
+    if value is None:
+        value = constant_value(lhs, consts)
+        lhs = rhs
+        op = {"<": ">", ">": "<", "<=": ">=", ">=": "<="}.get(op, op)
+        if value is None:
+            return None
+    lhs = lhs.strip()
+    while lhs.startswith("(") and lhs.endswith(")") and balanced_paren(lhs, 0) == lhs[1:-1]:
+        lhs = lhs[1:-1].strip()
+    sel = index_selector(lhs, assigned)
+    if not sel or sel == (0, 0):
+        return None
+    return [sel[0], sel[1], op, value]
+
+
+def split_top(expr, sep):
+    """expr split on a top-level operator (&& or ||)."""
+    parts, depth, cur, i = [], 0, "", 0
+    while i < len(expr):
+        ch = expr[i]
+        depth += ch == "("
+        depth -= ch == ")"
+        if depth == 0 and expr.startswith(sep, i):
+            parts.append(cur)
+            cur, i = "", i + len(sep)
+            continue
+        cur += ch
+        i += 1
+    parts.append(cur)
+    return [p.strip() for p in parts]
+
+
+def params_condition(cond, assigned, consts):
+    """A branch condition as a params test ({any|all: [...]} of atoms), or None when it tests anything else."""
+    cond = cond.strip()
+    while cond.startswith("(") and cond.endswith(")") and balanced_paren(cond, 0) == cond[1:-1]:
+        cond = cond[1:-1].strip()
+    for sep, key in (("||", "any"), ("&&", "all")):
+        parts = split_top(cond, sep)
+        if len(parts) > 1:
+            subs = [params_condition(p, assigned, consts) for p in parts]
+            if None in subs:
+                return None
+            # true / false parts (an actionFunc test) fold away
+            decided = key == "any"
+            if decided in subs:
+                return decided
+            subs = [c for c in subs if c is not (not decided)]
+            return (not decided) if not subs else subs[0] if len(subs) == 1 else {key: subs}
+    return params_atom(cond, assigned, consts)
+
+
+def branch_path(body, pos, chains, assigned, consts):
+    """
+    (when, drop, hidden) for the code at pos: `when` the params tests of the
+    branches around it ([] for none), drop True when it sits in a branch on
+    some other state that has an else to fall to, hidden the ranges of the
+    branches not taken on the way there (for the matrix / colour scan).
+    """
+    when, drop, hidden = [], False, []
+    for chain in chains:
+        taken = next((k for k, b in enumerate(chain) if b["start"] <= pos < b["end"]), None)
+        if taken is None:
+            # A chain passed on the way: its else is the default taken.
+            if chain[-1]["end"] <= pos and chain[-1]["cond"] is None:
+                hidden.extend((b["start"], b["end"]) for b in chain[:-1])
+            elif chain[-1]["end"] <= pos:
+                # No else: an `if` on an action the actor is not in is not
+                # run; one on its type is run for those params only, handed
+                # back as (start, end, test) for the caller to split on
+                # (En_Bombf's flower raises the bomb, Bg_Bdan_Objects' big
+                # octo platform sinks, the other types do neither).
+                for b in chain:
+                    if isinstance(b["cond"], str):
+                        c = params_condition(b["cond"], assigned, consts)
+                        if c is False:
+                            hidden.append((b["start"], b["end"]))
+                        elif c is not None and c is not True:
+                            hidden.append((b["start"], b["end"], c))
+            continue
+        hidden.extend((b["start"], b["end"]) for k, b in enumerate(chain) if k != taken and b["end"] <= pos)
+        if isinstance(chain[0]["cond"], tuple):
+            _, expr, labels = chain[taken]["cond"]
+            atoms = [params_atom("%s == %s" % (expr, l), assigned, consts) for l in labels if l is not None]
+            if None in labels or None in atoms or not atoms:
+                continue  # default, or not a params switch
+            when.append(atoms[0] if len(atoms) == 1 else {"any": atoms})
+            continue
+        has_else = chain[-1]["cond"] is None
+        for k in range(taken + 1):
+            cond = chain[k]["cond"]
+            if cond is None:
+                continue
+            if k == taken and "csCtx" in cond:
+                drop = True  # only while a cutscene runs
+            c = params_condition(cond, assigned, consts)
+            if c is None:
+                if k == taken and has_else:
+                    drop = True
+                continue
+            if isinstance(c, bool):
+                # decided: this branch is taken (true) or not (false), and
+                # an earlier branch that is taken shuts out this one
+                if c != (k == taken):
+                    drop = True
+                continue
+            when.append(c if k == taken else {"not": c})
+    return when, drop, hidden
+
+
+def without(body, pos, hidden):
+    """body[:pos] with the hidden ranges blanked out."""
+    text = list(body[:pos])
+    for s, e in (h[:2] for h in hidden):
+        for i in range(s, min(e, pos)):
+            text[i] = " "
+    return "".join(text)
+
+
+# A matrix or colour set in a block (for a list issued after it)
+STATE_RX = re.compile(r"Matrix_(?:Translate|Scale|Rotate[XYZ])\s*\(|gDPSet(?:Prim|Env)Color\s*\(|gDPSetCombineLERP\s*\(")
+
+
 def lists_in(text, body, arrays, symbols, functions, seen):
     """
     The display lists a function body issues: [{sym, layer}] for plain
@@ -440,8 +696,20 @@ def lists_in(text, body, arrays, symbols, functions, seen):
     params-indexed array of lists or of draw functions. Calls into other
     functions of the file are followed; functions passed as arguments
     (SkelAnime limb callbacks) are not, since those draw inside a limb.
+    A list inside a params branch carries its tests as `when`.
     """
     lists = []
+    chains = branch_chains(body)
+
+    def tagged(found, pos):
+        when, drop, _ = branch_path(body, pos, chains, functions.assigned, functions.consts)
+        if drop:
+            return []
+        if when:
+            for r in found:
+                r["when"] = when + r.get("when", [])
+        return found
+
     for m in DL_RX.finditer(body):
         layer = (m.group(1) or m.group(2)).lower()
         expr = m.group(3).strip()
@@ -449,11 +717,30 @@ def lists_in(text, body, arrays, symbols, functions, seen):
             continue
         r = resolve_list_expr(expr, arrays, symbols, functions.assigned, layer)
         if r:
-            ops = matrix_ops_before(body, m.start())
-            if ops:
-                r["ops"] = ops
-            r.update(colors_before(body, m.start()))
-            lists.append(r)
+            _, _, hidden = branch_path(body, m.start(), chains, functions.assigned, functions.consts)
+            fixed = [h for h in hidden if len(h) == 2]
+            # params branches passed on the way that set a matrix or colour:
+            # one copy of the list per outcome, tagged with it
+            optional = [h for h in hidden if len(h) == 3 and STATE_RX.search(body[h[0]:h[1]])][:3]
+            fixed += [h[:2] for h in hidden if len(h) == 3 and h not in optional]
+            outcomes = []
+            for mask in range(1 << len(optional)):
+                hid = fixed + [h[:2] for i, h in enumerate(optional) if not (mask >> i) & 1]
+                before = without(body, m.start(), hid)
+                state = colors_before(before, m.start())
+                ops = matrix_ops_before(before, m.start())
+                if ops:
+                    state["ops"] = ops
+                outcomes.append((state, [h[2] if (mask >> i) & 1 else {"not": h[2]} for i, h in enumerate(optional)]))
+            if all(o[0] == outcomes[0][0] for o in outcomes):
+                outcomes = [(outcomes[0][0], [])]
+            found = []
+            for state, extra in outcomes:
+                copy = {**r, **state}
+                if extra:
+                    copy["when"] = extra + r.get("when", [])
+                found.append(copy)
+            lists.extend(tagged(found, m.start()))
     # sDrawFuncs[PARAMS_GET_U(...)](this, play): one variant per function
     for m in re.finditer(r"\b(\w+)\s*\[(.+?)\]\s*\(\s*this", body):
         items = arrays.get(m.group(1))
@@ -465,13 +752,13 @@ def lists_in(text, body, arrays, symbols, functions, seen):
                     continue
                 seen.add(fn)
                 variants.append(lists_in(text, function_body(text, fn), arrays, symbols, functions, seen))
-            lists.append({"variants": variants, "select": index_selector(m.group(2), functions.assigned)})
+            lists.extend(tagged([{"variants": variants, "select": index_selector(m.group(2), functions.assigned)}], m.start()))
     for m in re.finditer(r"\b(\w+)\s*\(", body):
         fn = m.group(1)
         if fn in seen or fn not in functions:
             continue
         seen.add(fn)
-        lists.extend(lists_in(text, function_body(text, fn), arrays, symbols, functions, seen))
+        lists.extend(tagged(lists_in(text, function_body(text, fn), arrays, symbols, functions, seen), m.start()))
     return lists
 
 
@@ -515,11 +802,14 @@ def balanced_block(text, start):
 
 def limb_lists(text, arrays, symbols, enums):
     """
-    {limbIndex: [symbol]}: the display lists a SkelAnime limb callback
-    (a function passed to SkelAnime_Draw*) issues, or substitutes into the
-    limb (*dList = ...), inside an `if (limbIndex == N)` block. limbIndex is
-    the callback's 1-based index. The first list of a block is taken, which
-    is the default branch of a type switch inside it.
+    {limbIndex: [{sym, add, ops}]}: the display lists a SkelAnime limb
+    callback (a function passed to SkelAnime_Draw*) substitutes into the limb
+    (*dList = ...), or issues next to it (gSPDisplayList: add, drawn under
+    the limb's matrix and the literal Matrix_* ops before it -- En_Ge1's
+    hair, Wallmaster's finger), inside an `if (limbIndex == N)` block.
+    limbIndex is the callback's 1-based index (the object header's limb
+    enum). The first list of a block is taken, which is the default branch
+    of a type switch inside it.
     """
     callbacks = set()
     for m in re.finditer(r"SkelAnime_Draw\w*\s*\(([^;]*)\)\s*;", text):
@@ -544,12 +834,15 @@ def limb_lists(text, arrays, symbols, enums):
             if sym in arrays:
                 sym = arrays[sym][0]
             if sym in symbols and symbols[sym]["kind"] == "DList":
+                entry = {"sym": sym, "add": not dm.group(0).startswith("*"), "ops": []}
+                if entry["add"]:
+                    entry["ops"] = [op for op in matrix_ops_before(block, dm.start()) if op != ["new"]]
                 limbs.setdefault(idx, [])
-                if sym not in limbs[idx]:
-                    limbs[idx].append(sym)
+                if entry not in limbs[idx]:
+                    limbs[idx].append(entry)
                 return
 
-    for fn in callbacks:
+    for fn in sorted(callbacks):
         body = function_body(text, fn)
         for m in re.finditer(r"limbIndex\s*==\s*(\w+)\s*\)\s*\{", body):
             idx = limb_index(m.group(1))
@@ -572,20 +865,86 @@ def limb_lists(text, arrays, symbols, enums):
     return limbs
 
 
+def constants(text, enums):
+    """{name: value}: the enumerators and the plain numeric #defines."""
+    consts = dict(enums)
+    for m in re.finditer(r"#define\s+(\w+)\s+\(?\s*(-?(?:0x[0-9A-Fa-f]+|\d+))\s*\)?\s*$", text, flags=re.M):
+        consts[m.group(1)] = int(m.group(2), 0)
+    return consts
+
+
+def init_action(text, init_body, functions, depth=0):
+    """The action function Init leaves the actor in: its first `actionFunc = F` / Xxx_SetupAction(this, F), following calls into the file's setup functions."""
+    for m in re.finditer(r"actionFunc\s*=\s*(\w+)\s*;|\w*SetupAction\s*\(\s*this\s*,\s*(\w+)\s*\)|\b(\w+)\s*\(", init_body):
+        if m.group(1) or m.group(2):
+            return m.group(1) or m.group(2)
+        fn = m.group(3)
+        if depth < 2 and fn in functions:
+            found = init_action(text, function_body(text, fn), functions, depth + 1)
+            if found:
+                return found
+    return None
+
+
 class FileFunctions(set):
-    """The file's function names, carrying its variable assignments too."""
-    def __init__(self, text):
+    """The file's function names, carrying its variable assignments and constants too."""
+    def __init__(self, text, enums):
         super().__init__(function_names(text))
         self.assigned = assignments(text)
+        self.consts = constants(text, enums)
 
 
-def draw_lists(text, draw_fns, arrays, symbols):
-    functions = FileFunctions(text)
+def draw_lists(text, draw_fns, arrays, symbols, functions, fn_when):
+    """The lists of every draw function, those installed for some params only tagged with that `when`."""
     seen = set(draw_fns)
     lists = []
     for fn in draw_fns:
-        lists.extend(lists_in(text, function_body(text, fn), arrays, symbols, functions, seen))
+        found = lists_in(text, function_body(text, fn), arrays, symbols, functions, seen)
+        if fn_when.get(fn):
+            for r in found:
+                r["when"] = fn_when[fn] + r.get("when", [])
+        lists.extend(found)
     return lists
+
+
+DRAW_ASSIGN_RX = re.compile(r"(?:actor|thisx|dyna\.actor)\s*(?:\.|->)\s*draw\s*=\s*(\w+)\s*;")
+
+
+def draw_function_conditions(text, init_body, draw_fn, draw_fns, functions):
+    """
+    {draw function: when}: a draw function Init installs only for some
+    params (`case 3: thisx->draw = func_808ACCB8;`) is drawn only for those,
+    and the profile's own Draw then only for the rest. A function installed
+    anywhere outside Init, or unconditionally, is not tagged.
+    """
+    chains = branch_chains(init_body)
+    tests = {}
+    for m in DRAW_ASSIGN_RX.finditer(init_body):
+        when, _, _ = branch_path(init_body, m.start(), chains, functions.assigned, functions.consts)
+        tests.setdefault(m.group(1), []).append(when)
+    everywhere = DRAW_ASSIGN_RX.findall(text)
+    out = {}
+    for fn, whens in tests.items():
+        if fn in ("NULL", draw_fn) or not all(whens) or everywhere.count(fn) != len(whens):
+            continue
+        out[fn] = [{"any": [{"all": w} for w in whens]}] if len(whens) > 1 else whens[0]
+    others = [f for f in draw_fns if f != draw_fn]
+    if draw_fn in draw_fns and others and all(f in out for f in others):
+        out[draw_fn] = [{"not": {"any": [{"all": out[f]} for f in others]}}]
+    return out
+
+
+def reachable_functions(text, fns, functions):
+    """fns and every function of the file they call, in order (helpers set segments too)."""
+    order, queue = [], list(fns)
+    while queue:
+        fn = queue.pop(0)
+        if fn in order:
+            continue
+        order.append(fn)
+        queue.extend(m.group(1) for m in re.finditer(r"\b(\w+)\s*\(", function_body(text, fn))
+                     if m.group(1) in functions and m.group(1) not in order)
+    return order
 
 
 # A literal, or a product / quotient of two (36.0f * 0.001f, 1.0f / 75.0f).
@@ -626,8 +985,15 @@ def find_y_offset(text, init_body):
     """
     shape.yOffset, which Actor_Draw adds (times scale.y) to the position the
     model is drawn at: ActorShape_Init's second argument or a direct store,
-    in Init first, else anywhere in the file. None when never set (0).
+    in Init first, else anywhere in the file. None when never set (0). An
+    Init that sets it (even to 0) wins over a store in some later state
+    (En_Vm's -5000 while it is blown up).
     """
+    m = re.search(r"shape\.yOffset\s*=\s*" + SCALE_LITERAL + r"\s*;", init_body)
+    if not m:
+        m = re.search(r"ActorShape_Init\s*\([^,]+,\s*" + SCALE_LITERAL + r"\s*,", init_body)
+    if m:
+        return literal_value(m.group(1)) or None
     for body in (init_body, text):
         m = re.search(r"ActorShape_Init\s*\([^,]+,\s*" + SCALE_LITERAL + r"\s*,", body)
         if m and literal_value(m.group(1)):
@@ -784,7 +1150,18 @@ def internal_actor_sources(oot):
     return sources
 
 
-def read_actor(oot, name, symbols, object_table, internal):
+def object_header_text(oot, version, text):
+    """The object headers the actor includes (assets/objects/X/X.h), for their limb enums."""
+    out = ""
+    for inc in sorted(set(re.findall(r'#include\s+"(assets/objects/[^"]+\.h)"', text))):
+        path = os.path.join(oot, "extracted", version, inc)
+        if os.path.isfile(path):
+            with open(path, encoding="utf-8", errors="replace") as f:
+                out += "\n" + f.read()
+    return strip_comments(out)
+
+
+def read_actor(oot, name, symbols, object_table, internal, version):
     src_dir = os.path.join(oot, "src", "overlays", "actors", "ovl_" + name)
     if os.path.isdir(src_dir):
         paths = sorted(glob.glob(os.path.join(src_dir, "*.c")))
@@ -819,7 +1196,16 @@ def read_actor(oot, name, symbols, object_table, internal):
     for m in re.finditer(r"(?:actor|thisx|dyna\.actor)\s*(?:\.|->)\s*draw\s*=\s*(\w+)\s*;", text):
         if m.group(1) not in draw_fns and m.group(1) != "NULL":
             draw_fns.append(m.group(1))
+    enums = enum_values(text + object_header_text(oot, version, text))
+    functions = FileFunctions(text, enums)
+    functions.consts["__init_action__"] = init_action(text, init_body, functions)
     draw_body = "\n".join(function_body(text, fn) for fn in draw_fns)
+    # Segment setups may also sit in a helper the Draw calls that draws one
+    # of the model's lists (ObjLightswitch_DrawOpa) -- not in an effect
+    # helper, whose segments are its own.
+    helpers = [fn for fn in reachable_functions(text, draw_fns, functions)[len(draw_fns):]
+               if lists_in(text, function_body(text, fn), arrays, symbols, functions, set(draw_fns) | {fn})]
+    helper_body = "\n".join(function_body(text, fn) for fn in helpers)
 
     skel, anim = find_skeleton(text, arrays, symbols)
     skel_ops, skel_colors = [], {}
@@ -830,11 +1216,17 @@ def read_actor(oot, name, symbols, object_table, internal):
             skel_ops = matrix_ops_before(fbody, dm.start())
             skel_colors = colors_before(fbody, dm.start())
             break
-    lists = draw_lists(text, draw_fns, arrays, symbols) if draw_fns else []
-    limbs = limb_lists(text, arrays, symbols, enum_values(text)) if skel else {}
+    fn_when = draw_function_conditions(text, init_body, draw_fn, draw_fns, functions)
+    lists = draw_lists(text, draw_fns, arrays, symbols, functions, fn_when) if draw_fns else []
+    limbs = limb_lists(text, arrays, symbols, enums) if skel else {}
     segs = find_segments(draw_body, arrays, symbols, text, object_table) if draw_body else {}
     for seg, tiles in (find_scroll_segments(draw_body) if draw_body else {}).items():
         segs.setdefault(seg, ("scroll", tiles))
+    if helper_body:
+        for seg, ref in find_segments(helper_body, arrays, symbols, text, object_table).items():
+            segs.setdefault(seg, ref)
+        for seg, tiles in find_scroll_segments(helper_body).items():
+            segs.setdefault(seg, ("scroll", tiles))
 
     return {
         "object": obj[1] if obj else None,
@@ -883,11 +1275,18 @@ def fmt_list(l):
     if "variants" in l:
         sel = ("[%d, 0x%X]" % tuple(l["select"])) if l["select"] else "null"
         variants = ", ".join("[" + ", ".join(fmt_list(x) for x in v) + "]" for v in l["variants"])
-        return "{ select: %s, variants: [%s] }" % (sel, variants)
+        when = (", when: " + json.dumps(l["when"])) if l.get("when") else ""
+        return "{ select: %s, variants: [%s]%s }" % (sel, variants, when)
     extra = (", ops: " + fmt_ops(l["ops"])) if l.get("ops") else ""
-    for k in ("prim", "env"):
+    for k in ("prim", "env", "combine"):
         if l.get(k):
             extra += ", %s: [%s]" % (k, ", ".join(str(v) for v in l[k]))
+    if l.get("primLod"):
+        extra += ", primLod: %d" % l["primLod"]
+    if l.get("add"):
+        extra += ", add: true"
+    if l.get("when"):
+        extra += ", when: " + json.dumps(l["when"])
     return '{ %s, layer: "%s"%s } /* %s */' % (fmt_ref(l)[2:-2], l["layer"], extra, l["name"])
 
 
@@ -907,7 +1306,7 @@ def main():
     files = set(KEEP_OBJECTS + EXTRA_FILES)
     stats = {"skeleton": 0, "lists": 0, "nothing": 0, "noDraw": 0, "unknownScale": 0}
     for actor_id, name in actors:
-        info = read_actor(oot, name, symbols, object_table, internal)
+        info = read_actor(oot, name, symbols, object_table, internal, version)
         if info is None:
             continue
         entry = {"name": name, "object": info["object"]}
@@ -930,11 +1329,16 @@ def main():
             stats["skeleton"] += 1
         def to_ref(l):
             if "variants" in l:
-                return {"variants": [[to_ref(x) for x in v] for v in l["variants"]], "select": l["select"]}
+                # ops / colours set before an indexed list are every variant's
+                inherit = {k: l[k] for k in ("ops", "prim", "env", "combine", "primLod") if l.get(k)}
+                ref = {"variants": [[to_ref({**inherit, **x}) for x in v] for v in l["variants"]], "select": l["select"]}
+                if l.get("when"):
+                    ref["when"] = l["when"]
+                return ref
             ref = js_ref(symbols, l["sym"])
             ref["layer"] = l["layer"]
             ref["name"] = l["sym"]
-            for k in ("ops", "prim", "env"):
+            for k in ("ops", "prim", "env", "combine", "primLod", "when"):
                 if l.get(k):
                     ref[k] = l[k]
             files.add(ref["file"])
@@ -954,11 +1358,15 @@ def main():
                 stats["lists"] += 1
         if info["limbLists"]:
             entry["limbLists"] = {}
-            for idx, syms in sorted(info["limbLists"].items()):
+            for idx, found in sorted(info["limbLists"].items()):
                 refs = []
-                for sym in syms:
-                    ref = js_ref(symbols, sym)
-                    ref["layer"], ref["name"] = "opa", sym
+                for f in found:
+                    ref = js_ref(symbols, f["sym"])
+                    ref["layer"], ref["name"] = "opa", f["sym"]
+                    if f["ops"]:
+                        ref["ops"] = f["ops"]
+                    if f["add"]:
+                        ref["add"] = True
                     refs.append(ref)
                     files.add(ref["file"])
                 entry["limbLists"][idx] = refs
@@ -1000,7 +1408,10 @@ def main():
         "// matrix before issuing it: [\"t\", x, y, z], [\"s\", x, y, z], [\"ry\", rad];",
         "// a leading [\"new\"] means the matrix was rebuilt without the actor's scale.",
         "// prim / env (skelPrim / skelEnv) are the literal gDPSetPrimColor / EnvColor",
-        "// the Draw issues before it, [r, g, b, a].",
+        "// the Draw issues before it, [r, g, b, a]. when: the params tests of the",
+        "// if / switch branches the list sits in (all must hold): [shift, mask, op,",
+        "// value] or { any | all | not }. A limb list with add: true is drawn after",
+        "// the limb's own list rather than in its place.",
         "// Files are",
         "// models/OOT/actors/objects/<file> or, with a vram, .../overlays/<file>.",
         "// js/oot_actors.js applies its own overrides on top of this.",

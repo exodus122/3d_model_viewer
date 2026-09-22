@@ -59,15 +59,18 @@ const wireframeCheckbox = document.getElementById('wireframe');
 //
 // Keyed by actor name. Each entry can set: scale (number, [x, y, z] or a
 // function of (params, sceneName)), yOffset (number or a function of params), model (a
-// function of (params, sceneName, minedSpec) returning a model spec to use
+// function of (params, sceneName, minedSpec, spawnRot) returning a model spec to use
 // instead of the mined one, or null for a marker), rot (a function of
-// (rot, params) returning the shape.rot the actor's Init sets), and
+// (rot, params) returning the shape.rot the actor's Init sets), place (a
+// function of (instance, sceneCollision) returning { position?, rot? } for
+// an Init that moves the actor against the scene's collision), and
 // marker: true to force the marker.
 //
 // A model spec is { object, skeleton?, anim?, lists?, segments?, limbLists? }
 // as generated, with limbLists: { limbIndex: [list refs] } for lists a limb
-// callback draws in place of a limb's own (limbIndex as the callback sees
-// it, counting from 1).
+// callback draws in place of a limb's own, or after it with add: true
+// (limbIndex as the callback sees it, counting from 1), and a segment
+// { matrices: [ops] } for an Mtx array the Draw builds (En_Rr).
 const OOT_ACTOR_OVERRIDES = {
     // z_en_box.c EnBox_Init: type = params >> 12; ENBOX_TYPE_SMALL (5),
     // TYPE_6, ROOM_CLEAR_SMALL (7) and SWITCH_FLAG_FALL_SMALL (8) are scale
@@ -80,12 +83,6 @@ const OOT_ACTOR_OVERRIDES = {
 
     // z_en_ishi.c sRockScales[params & 1]: small rock 0.1, silver boulder 0.4.
     "En_Ishi": { scale: (params) => ((params & 1) ? 0.4 : 0.1) },
-
-    // z_obj_timeblock.c sSizeOptions[(params >> 8) & 1].scale.
-    "Obj_Timeblock": { scale: (params) => (((params >> 8) & 1) ? 0.6 : 1.0) },
-
-    // z_obj_oshihiki.c sScales[params & 0xF].
-    "Obj_Oshihiki": { scale: (params) => [1 / 10, 1 / 6, 1 / 5, 1 / 3, 1 / 10, 1 / 6, 1 / 5, 1 / 3][params & 0xF] ?? 0.1 },
 
     // z_en_wood02.c EnWood02_Init: params & 0xFF is the WOOD_ type. The
     // large trees and bushes (and their spawners / spawned copies) are 1.5,
@@ -121,8 +118,19 @@ const OOT_ACTOR_OVERRIDES = {
     // z_en_st.c EnSt_Init: 0.04, times 1.4 for params == 1 (the big one).
     "En_St": { scale: (params) => (params === 1 ? 0.056 : 0.04) },
 
-    // z_en_rr.c EnRr_Init: x/z 0.014, y 0.013.
-    "En_Rr": { scale: [0.014, 0.013, 0.014] },
+    // z_en_rr.c EnRr_Init: x/z 0.014, y 0.013. gLikeLikeDL loads each of
+    // its four body rings' matrix from segment 0xC, which EnRr_Draw fills:
+    // ring i is Translate(0, height + 1000) * RotateZYX(rot) * Scale(scale)
+    // on top of ring i - 1, and at rest (EnRr_InitBodySegments) height and
+    // rot are 0 and scale 1. Unmapped, every ring collapses onto the base.
+    "En_Rr": {
+        scale: [0.014, 0.013, 0.014],
+        segments: { 0x0C: { matrices: [1, 2, 3, 4].map(i => [['t', 0, 1000 * i, 0]]) } },
+    },
+
+    // z_bg_spot09_obj.c BgSpot09Obj_Init: the carpenters' tent (params 3)
+    // is 0.1, the Gerudo Valley bridges 1.0.
+    "Bg_Spot09_Obj": { scale: (params) => ((params & 0xFF) === 3 ? 0.1 : 1.0) },
 
     // z_en_peehat.c EnPeehat_Init: 0.036; the larva (params == 1) is
     // 0.006 / 0.003 / 0.006.
@@ -145,7 +153,8 @@ const OOT_ACTOR_OVERRIDES = {
     // byte is the collectible flag). Init sets a scale and yOffset per type;
     // Draw dispatches on it: rupees are gRupeeDL with segment 8 at
     // sRupeeTex[type, or type - 0x10 for orange / purple], the heart piece
-    // and container are gHeartPieceExteriorDL over an XLU interior, the
+    // is gHeartPieceInteriorDL alone (XLU), the container
+    // gHeartPieceExteriorDL over gHeartContainerInteriorDL, the
     // recovery heart is GetItem_Draw's gGiRecoveryHeartDL (object_gi_heart,
     // XLU), the ammo / nuts / sticks / magic / key drops are gItemDropDL
     // with segment 8 at sItemDropTex[]. Shields, tunics and "flexible" have
@@ -188,16 +197,121 @@ const OOT_ACTOR_OVERRIDES = {
     // selector cannot read that macro.
     "Bg_Mori_Hineri": { model: (params, sceneName, base) => ({ ...base, lists: base.lists.map(l => l.variants ? { ...l, select: [14, 2] } : l) }) },
 
-    // z_en_sw.c: (params >> 13) & 7 is the type -- 0 a Skullwalltula, 1-3
-    // a Gold Skulltula (bit 15 set means "+1", the same three types). Only
-    // the gold ones swap the limb lists for the gold body
-    // (EnSw_OverrideLimbDraw's switch) and tilt the skeleton back 80
-    // degrees / 200 out of the wall in Draw; the mining applies both to
-    // every type.
+    // z_en_sw.c: (params >> 13) & 7 is the type -- 0 a Skullwalltula, 1-4
+    // a Gold Skulltula (bit 15 set means "+1"). Only the gold ones swap the
+    // limb lists for the gold body (EnSw_OverrideLimbDraw's switch) and tilt
+    // the skeleton back 80 degrees / 200 out of the wall in Draw; the mining
+    // applies both to every type. A Skullwalltula's Init zeroes rot x / z; a
+    // gold one's (func_80B0C0CC) line-tests the collision and stands on the
+    // polygon it finds, "up" along its normal.
     "En_Sw": {
+        model: (params, sceneName, base) => (enSwType(params) ? base : { ...base, skelOps: [], limbLists: null }),
+        rot: (rot, params) => (enSwType(params) ? rot : [0, rot[1], 0]),
+        place: (inst, collision) => (enSwType(inst.params) ? enSwStandOnPoly(inst, collision) : {}),
+    },
+
+    // z_bg_ice_turara.c BgIceTurara_Init: a stalagmite (type 0) stands as
+    // is; the stalactites hang: shape.rot.x -0x8000, yOffset 1200.
+    "Bg_Ice_Turara": {
+        yOffset: (params) => (params === 0 ? 0 : 1200),
+        rot: (rot, params) => (params === 0 ? rot : [-0x8000, rot[1], rot[2]]),
+    },
+
+    // z_obj_timeblock.c: sSizeOptions[(params >> 8) & 1].scale. Init zeroes
+    // shape.rot.z, which the spawn uses as the colour: sPrimColors[home.rot.z
+    // & 7] multiplies the block (the list's combiner is COMBINED * PRIMITIVE).
+    "Obj_Timeblock": {
+        scale: (params) => (((params >> 8) & 1) ? 0.6 : 1.0),
+        rot: (rot) => [rot[0], rot[1], 0],
+        model: (params, sceneName, base, rot) => {
+            const c = TIMEBLOCK_PRIM[(rot?.[2] ?? 0) & 7];
+            return { ...base, lists: base.lists.map(l => ({ ...l, prim: [...c, 255] })) };
+        },
+    },
+
+    // z_obj_oshihiki.c: sScales[params & 0xF]. ObjOshihiki_SetTexture puts
+    // gPushBlockSilverTex (small / medium), gPushBlockBaseTex (large) or gPushBlockGrayTex (huge)
+    // in segment 8 by (params & 0xF) & 3; ObjOshihiki_SetColor tints it (env)
+    // with sColors[scene][(params >> 6) & 3], white outside those dungeons.
+    "Obj_Oshihiki": {
+        scale: (params) => [1 / 10, 1 / 6, 1 / 5, 1 / 3, 1 / 10, 1 / 6, 1 / 5, 1 / 3][params & 0xF] ?? 0.1,
+        model: (params, sceneName) => {
+            const tex = [0x3350, 0x3350, 0x3B50, 0x4350][params & 3];
+            const colour = OSHIHIKI_COLORS[sceneName]?.[(params >> 6) & 3] ?? [255, 255, 255];
+            return {
+                object: 'gameplay_dangeon_keep',
+                lists: [{ file: 'gameplay_dangeon_keep', offset: 0x4CD0, layer: 'opa', env: [...colour, 255] }],
+                segments: { 8: { file: 'gameplay_dangeon_keep', offset: tex } },
+            };
+        },
+    },
+
+    // z_en_dekubaba.c at rest (EnDekubaba_SetupWait): size 2.5 for the big
+    // one (params 1), else 1; the head is scaled size * 0.005, raised 14 *
+    // size and tipped rot.x -0x4000 (here as skelOps, so the lists below keep
+    // the plain yaw); the retracted stem top is drawn 6 * size below home,
+    // tipped the same, and the base leaves at home, both at size * 0.01.
+    "En_Dekubaba": {
+        scale: (params) => (params === 1 ? 2.5 : 1) * 0.005,
+        model: (params, sceneName, base) => ({
+            ...base,
+            skelOps: [['t', 0, 2800, 0], ['rx', -Math.PI / 2]],
+            lists: [
+                { file: 'object_dekubaba', offset: 0x10F0, layer: 'opa', ops: [['s', 2, 2, 2]] },
+                { file: 'object_dekubaba', offset: 0x1330, layer: 'opa', ops: [['t', 0, -1200, 0], ['rx', -Math.PI / 2], ['s', 2, 2, 2]] },
+            ],
+        }),
+    },
+
+    // z_door_shutter.c: the door's look is sStyleInfo[style], the style
+    // sTypeStyles[type] ((params >> 6) & 0xF) or, for the plain shutters,
+    // the scene's (sSceneInfo); its gfx is gfxType1 for a SHUTTER, else
+    // gfxType2. A door barred at rest (front clear / front switch types)
+    // draws its bars barsOffsetZ in front. Jabu-Jabu's is eight rotated
+    // sections at 0.1; a boss door takes its scene's texture in segment 8.
+    "Door_Shutter": {
+        scale: (params, sceneName) => (doorShutterGfx(params, sceneName) === 3 ? 0.1 : 1),
+        model: (params, sceneName) => doorShutterModel(params, sceneName),
+    },
+
+    // z_en_ge1.c: EnGe1_PostLimbDraw draws sHairstyleDLists[hairstyle] on
+    // the head, and Init picks the hairstyle by type (params & 0xFF): the
+    // gate guard spiky, the gate operator / normal / training-ground guards
+    // a straight fringe, the valley-floor and horseback-archery ones a bob.
+    "En_Ge1": {
         model: (params, sceneName, base) => {
-            const gold = ((params >> 13) & 7) !== 0 || (params & 0x8000) !== 0;
-            return gold ? base : { ...base, skelOps: [], limbLists: null };
+            const type = params & 0xFF;
+            const hair = type === 0x00 ? 0x9690 : [0x01, 0x04, 0x46].includes(type) ? 0x9430 : 0x9198;
+            return { ...base, limbLists: { ...(base.limbLists ?? {}), 15: [{ file: 'object_ge1', offset: hair, layer: 'opa', add: true }] } };
+        },
+    },
+
+    // z_en_vm.c: the Beamos laser is scaled by beamScale, which is 0 until
+    // it fires; at rest only the skeleton shows.
+    "En_Vm": { lists: [] },
+
+    // z_obj_lightswitch.c ObjLightswitch_DrawOpa: the face and both flame
+    // rings multiply by env, which is this->color: (155, 125, 255) from
+    // Init until the switch is lit.
+    "Obj_Lightswitch": {
+        model: (params, sceneName, base) => ({ ...base, lists: base.lists.map(l => ({ ...l, env: [155, 125, 255, 255] })) }),
+    },
+
+    // z_en_g_switch.c EnGSwitch_Init by type ((params >> 12) & 0xF): the
+    // silver-rupee tracker draws nothing, a silver rupee is gRupeeDL with
+    // sRupeeTextures[5] (silver) at 0.03, the horseback-archery pot is
+    // object_tsubo's pot at 0.25 / 0.45 / 0.25, the shooting-gallery rupee
+    // gRupeeDL at 0.05 (colorIdx 0, green, until it is shot).
+    "En_G_Switch": {
+        scale: (params) => [null, 0.03, [0.25, 0.45, 0.25], 0.05][(params >> 12) & 0xF] ?? 0.01,
+        yOffset: (params) => ([1, 3].includes((params >> 12) & 0xF) ? 700 : 0),
+        model: (params) => {
+            const type = (params >> 12) & 0xF;
+            if (type === 1 || type === 3) {
+                return { object: 'gameplay_keep', lists: [keep(0x45150)], segments: { 8: keepTex(type === 1 ? 0x44EF0 : 0x44E50) } };
+            }
+            if (type === 2) return { object: 'object_tsubo', lists: [{ file: 'object_tsubo', offset: 0x17C0, layer: 'opa' }] };
+            return null;
         },
     },
 
@@ -210,6 +324,134 @@ const OOT_ACTOR_OVERRIDES = {
 };
 
 const keep = (offset, layer = 'opa') => ({ file: 'gameplay_keep', offset, layer });
+
+// z_obj_timeblock.c sPrimColors.
+const TIMEBLOCK_PRIM = [
+    [100, 120, 140], [80, 140, 200], [100, 150, 200], [100, 200, 240],
+    [80, 110, 140], [70, 160, 225], [80, 100, 130], [100, 110, 190],
+];
+
+// z_obj_oshihiki.c sColors, by the scene (sSceneIds) it is in.
+const OSHIHIKI_COLORS = {
+    ydan_scene: [[110, 86, 40], [110, 86, 40], [110, 86, 40], [110, 86, 40]],
+    ddan_scene: [[106, 120, 110], [104, 80, 20], [0, 0, 0], [0, 0, 0]],
+    Bmori1_scene: [[142, 99, 86], [72, 118, 96], [0, 0, 0], [0, 0, 0]],
+    HIDAN_scene: [[210, 150, 80], [210, 170, 80], [0, 0, 0], [0, 0, 0]],
+    MIZUsin_scene: [[102, 144, 182], [176, 167, 100], [100, 167, 100], [117, 97, 96]],
+    jyasinzou_scene: [[232, 210, 176], [232, 210, 176], [232, 210, 176], [232, 210, 176]],
+    HAKAdan_scene: [[135, 125, 95], [135, 125, 95], [135, 125, 95], [135, 125, 95]],
+    ganon_scene: [[255, 255, 255], [255, 255, 255], [255, 255, 255], [255, 255, 255]],
+    men_scene: [[232, 210, 176], [232, 210, 176], [232, 210, 176], [232, 210, 176]],
+};
+
+// z_en_sw.c: the type after Init folds bit 15 into it.
+function enSwType(params) {
+    return (params & 0x8000) ? (((params - 0x8000) >> 13) & 7) + 1 : (params >> 13) & 7;
+}
+
+// z_en_sw.c func_80B0C0CC(this, play, 1) from Init: up (0, 1, 0), right and
+// forward from the yaw. Line-test 18 above to 18 below; on a hit, look 24
+// forward from the top for a wall to prefer; with no hit (or for the falling
+// types 3-4) look 24 back, right and left from the bottom. func_80B0BE20
+// then turns the frame so up is the polygon's normal and the actor stands
+// at the hit.
+function enSwStandOnPoly(inst, collision) {
+    const V = (x, y, z) => new THREE.Vector3(x, y, z);
+    const yaw = inst.rot[1] * BINANG_TO_RAD;
+    const up = V(0, 1, 0), right = V(Math.sin(yaw + Math.PI / 2), 0, Math.cos(yaw + Math.PI / 2)), fwd = V(Math.sin(yaw), 0, Math.cos(yaw));
+    const pos = V(...inst.position);
+    const top = pos.clone().addScaledVector(up, 18), bottom = pos.clone().addScaledVector(up, -18);
+    let hit = null;
+    const falling = enSwType(inst.params) >= 3;
+    const first = falling ? null : collision.lineTest(top, bottom);
+    if (first) {
+        hit = collision.lineTest(top, top.clone().addScaledVector(fwd, 24)) ?? first;
+    } else {
+        for (const dir of [fwd.clone().negate(), right, right.clone().negate()]) {
+            hit = collision.lineTest(bottom, bottom.clone().addScaledVector(dir, 24));
+            if (hit) break;
+        }
+    }
+    if (!hit) return {};
+    const n = hit.normal.clone().normalize();
+    const axis = up.clone().cross(n);
+    const r = right.clone();
+    if (axis.lengthSq() > 1e-8) r.applyMatrix4(new THREE.Matrix4().makeRotationAxis(axis.normalize(), Math.acos(Math.min(1, Math.max(-1, up.dot(n))))));
+    const f = r.clone().cross(n);
+    if (f.lengthSq() < 1e-6) return {};
+    f.normalize();
+    const e = new THREE.Euler().setFromRotationMatrix(new THREE.Matrix4().makeBasis(r, n, f), 'YXZ');
+    return {
+        position: [hit.point.x, hit.point.y, hit.point.z],
+        rot: [Math.round(e.x / BINANG_TO_RAD), Math.round(e.y / BINANG_TO_RAD), Math.round(e.z / BINANG_TO_RAD)],
+    };
+}
+
+// z_door_shutter.c tables. Styles: [object's file, gfxType1, gfxType2].
+const DOOR_STYLES = [
+    [4, 4], [5, 5], [0, 1], [2, 2], [3, 3], [8, 8], [7, 7], [8, 8], [9, 10], [11, 11],
+    [6, 6], [12, 13], [14, 15], [16, 16], [17, 17], [18, 18], [19, 19],
+];
+const DOOR_TYPE_STYLES = [-1, -1, -1, -1, 0, 6, 1, -1, 0, -1, -1, -1];
+const DOOR_SCENE_STYLES = {
+    ydan_scene: 2, ddan_scene: 3, ddan_boss_scene: 3, bdan_scene: 4, Bmori1_scene: 5, HIDAN_scene: 8,
+    ganon_scene: 9, ganon_boss_scene: 9, jyasinzou_scene: 10, jyasinboss_scene: 10, MIZUsin_scene: 11,
+    HAKAdan_scene: 12, HAKAdanCH_scene: 12, ice_doukutu_scene: 13, men_scene: 14, ganontika_scene: 15,
+    hakaana_ouke_scene: 16,
+};
+// sGfxInfo: [door list, bars list, barsOffsetZ].
+const dl = (file, offset) => ({ file, offset, layer: 'opa' });
+const KEEP_BARS = dl('gameplay_keep', 0x50600);
+const DOOR_GFX = [
+    [dl('object_ydan_objects', 0x67A0), KEEP_BARS, 12], [dl('object_ydan_objects', 0x6910), KEEP_BARS, 12],
+    [dl('object_ddan_objects', 0xC0), dl('object_ddan_objects', 0x1F0), 14],
+    [null, dl('object_bdan_objects', 0x6460), 110],
+    [dl('object_gnd', 0x12AB0), null, 12], [dl('object_goma', 0x1D820), null, 12],
+    [dl('object_jya_door', 0x100), dl('object_jya_door', 0x1F0), 14], [dl('object_bdoor', 0x10C0), null, 12],
+    [dl('gameplay_keep', 0x4F510), KEEP_BARS, 12],
+    [dl('object_hidan_objects', 0x10CB0), KEEP_BARS, 12], [dl('object_hidan_objects', 0x11F20), KEEP_BARS, 12],
+    [dl('object_ganon_objects', 0xC0), KEEP_BARS, 12],
+    [dl('object_mizu_objects', 0x5D90), KEEP_BARS, 12], [dl('object_mizu_objects', 0x7000), KEEP_BARS, 12],
+    [dl('object_haka_door', 0x2620), KEEP_BARS, 12], [dl('object_haka_door', 0x3890), KEEP_BARS, 12],
+    [dl('object_ice_objects', 0x1D10), KEEP_BARS, 12], [dl('object_menkuri_objects', 0x10D0), KEEP_BARS, 12],
+    [dl('object_demo_kekkai', 0x20D0), KEEP_BARS, 12], [dl('object_ouke_haka', 0xC0), KEEP_BARS, 12],
+];
+// sBossDoorInfo -> sBossDoorTextures (object_bdoor), by dungeon or boss scene.
+const BOSS_DOOR_TEX = {
+    HIDAN_scene: 0x35C0, FIRE_bs_scene: 0x35C0, MIZUsin_scene: 0x55C0, MIZUsin_bs_scene: 0x55C0,
+    HAKAdan_scene: 0x45C0, HAKAdan_bs_scene: 0x45C0, ganon_scene: 0x0, ganon_boss_scene: 0x0,
+    Bmori1_scene: 0x25C0, moribossroom_scene: 0x25C0, jyasinzou_scene: 0x15C0, jyasinboss_scene: 0x15C0,
+};
+// sJabuDoorDLists (object_bdan_objects).
+const JABU_SECTIONS = [0x590, 0xBF0, 0x2BD0, 0x18B0, 0x1F10, 0x18B0, 0x1250, 0xBF0];
+
+function doorShutterGfx(params, sceneName) {
+    const type = (params >> 6) & 0xF;
+    let style = DOOR_TYPE_STYLES[type] ?? -1;
+    if (style < 0) style = DOOR_SCENE_STYLES[sceneName] ?? 7;
+    return DOOR_STYLES[style][type === 0 ? 0 : 1];
+}
+
+function doorShutterModel(params, sceneName) {
+    const type = (params >> 6) & 0xF;
+    const gfx = doorShutterGfx(params, sceneName);
+    const [door, bars, barsZ] = DOOR_GFX[gfx];
+    const lists = [];
+    if (gfx === 3) {
+        // DoorShutter_DrawJabuJabuDoor: section i turned -i * 45 degrees
+        // about z and pushed out along y.
+        JABU_SECTIONS.forEach((offset, i) => {
+            const y = i % 2 === 0 ? 800 : (i === 1 || i === 7) ? 848.52 : 989.94;
+            lists.push({ ...dl('object_bdan_objects', offset), ops: [['rz', -i * Math.PI / 4], ['t', 0, y, 0]] });
+        });
+    } else {
+        lists.push(door);
+    }
+    // Barred until the room is cleared / the switch is set.
+    if (bars && [1, 2, 7].includes(type)) lists.push({ ...bars, ops: [['t', 0, 0, barsZ]] });
+    const segments = gfx === 7 ? { 8: { file: 'object_bdoor', offset: BOSS_DOOR_TEX[sceneName] ?? 0x65C0 } } : {};
+    return { object: lists[0].file, lists, segments };
+}
 const keepTex = (offset) => ({ file: 'gameplay_keep', offset });
 
 // gameplay_keep sDLists[] of z_en_a_keep.c, by A_OBJ_ type. Type 6's
@@ -228,7 +470,9 @@ const A_OBJ_LISTS = [
 
 // z_en_item00.c per ITEM00_ type: EnItem00_Init's scale and yOffset, and
 // the lists of the draw function the type dispatches to.
-const RUPEE_TEX = [0x44E50, 0x44E70, 0x44E90, 0x44EB0, 0x44ED0]; // sRupeeTex: green, blue, red, pink, orange
+// sRupeeTex: gRupeeGreenTex, Blue, Red, Pink (0x44ED0, drawn by the orange
+// rupee), Orange (0x44EB0, drawn by the purple one), in the game's order.
+const RUPEE_TEX = [0x44E50, 0x44E70, 0x44E90, 0x44ED0, 0x44EB0];
 const DROP_TEX = [0x40D80, 0x3F580, 0x3E580, 0x3DD80, 0x3ED80, 0x3F580, 0x42E50, 0x43E50, 0x44650, 0x42650, 0x43650, 0x41E50]; // sItemDropTex
 const rupee = (texIndex, scale) => ({ scale, yOffset: 750, model: { object: 'gameplay_keep', lists: [keep(0x45150)], segments: { 8: keepTex(RUPEE_TEX[texIndex]) } } });
 const drop = (texIndex, scale, yOffset) => ({ scale, yOffset, model: { object: 'gameplay_keep', lists: [keep(0x41D80)], segments: { 8: keepTex(DROP_TEX[texIndex]) } } });
@@ -238,7 +482,7 @@ const ITEM00_TYPES = {
     // The recovery heart is drawn under Matrix_Scale(16) on top of its 0.02.
     0x03: { scale: 0.32, yOffset: 430, model: { object: 'object_gi_heart', lists: [{ file: 'object_gi_heart', offset: 0xE0, layer: 'xlu' }] } },
     0x04: drop(1, 0.03, 320), 0x05: drop(2, 0.02, 400),
-    0x06: { scale: 0.02, yOffset: 650, model: { object: 'gameplay_keep', lists: [keep(0x3C3D0), keep(0x3B860, 'xlu')] } },
+    0x06: { scale: 0.02, yOffset: 650, model: { object: 'gameplay_keep', lists: [keep(0x3B860, 'xlu')] } },
     0x07: { scale: 0.02, yOffset: 430, model: { object: 'gameplay_keep', lists: [keep(0x3C3D0), keep(0x3C508, 'xlu')] } },
     0x08: drop(2, 0.035, 250), 0x09: drop(3, 0.035, 250), 0x0A: drop(4, 0.035, 250),
     0x0B: drop(5, 0.03, 320), 0x0C: drop(6, 0.03, 320), 0x0D: drop(7, 0.03, 320),
@@ -274,6 +518,96 @@ function sceneKeepObject(sceneDv) {
         if (cmd === CMD_SPECIAL_FILES) return sceneDv.getUint32(off + 4, false);
     }
     return 0;
+}
+
+const CMD_COL_HEADER = 0x03, CMD_TRANSITION_ACTOR_LIST = 0x0E, CMD_ALTERNATE_HEADER_LIST = 0x18;
+
+// The offset of a scene header's commands for a setup: 0 for setup 0, else
+// the alternate header list's entry (the main header when it is empty).
+function sceneHeaderOffset(sceneDv, setupID) {
+    if (!setupID) return 0;
+    for (let off = 0; off + 8 <= sceneDv.byteLength; off += 8) {
+        const cmd = sceneDv.getUint8(off);
+        if (cmd === CMD_END) break;
+        if (cmd === CMD_ALTERNATE_HEADER_LIST) {
+            const list = sceneDv.getUint32(off + 4, false) & 0xFFFFFF;
+            const at = list + (setupID - 1) * 4;
+            if (at + 4 > sceneDv.byteLength) return 0;
+            return sceneDv.getUint32(at, false) & 0xFFFFFF;
+        }
+    }
+    return 0;
+}
+
+function sceneCommand(sceneDv, headerOff, want) {
+    for (let off = headerOff; off + 8 <= sceneDv.byteLength; off += 8) {
+        const cmd = sceneDv.getUint8(off);
+        if (cmd === CMD_END) break;
+        if (cmd === want) return { count: sceneDv.getUint8(off + 1), addr: sceneDv.getUint32(off + 4, false) & 0xFFFFFF };
+    }
+    return null;
+}
+
+/** The setup's transition actors (TransitionActorEntry, 0x10 bytes each). */
+function transitionActors(sceneDv, setupID) {
+    const cmd = sceneCommand(sceneDv, sceneHeaderOffset(sceneDv, setupID), CMD_TRANSITION_ACTOR_LIST)
+        ?? sceneCommand(sceneDv, 0, CMD_TRANSITION_ACTOR_LIST);
+    const out = [];
+    if (!cmd) return out;
+    for (let i = 0; i < cmd.count; i++) {
+        const o = cmd.addr + i * 0x10;
+        if (o + 0x10 > sceneDv.byteLength) break;
+        out.push({
+            frontRoom: sceneDv.getInt8(o), backRoom: sceneDv.getInt8(o + 2),
+            id: sceneDv.getInt16(o + 4, false),
+            position: [sceneDv.getInt16(o + 6, false), sceneDv.getInt16(o + 8, false), sceneDv.getInt16(o + 10, false)],
+            rotY: sceneDv.getInt16(o + 12, false), params: sceneDv.getUint16(o + 14, false),
+        });
+    }
+    return out.filter(t => t.id >= 0);
+}
+
+/**
+ * The scene's static collision as triangles ({ a, b, c, normal }) with a
+ * line test, BgCheck_EntityLineTest1's closest hit on either face:
+ * lineTest(from, to) -> { point, normal } or null.
+ */
+function sceneCollision(sceneDv) {
+    const tris = [];
+    const cmd = sceneCommand(sceneDv, 0, CMD_COL_HEADER);
+    if (cmd && cmd.addr + 0x2C <= sceneDv.byteLength) {
+        const h = cmd.addr;
+        const numVerts = sceneDv.getUint16(h + 0x0C, false), vtx = sceneDv.getUint32(h + 0x10, false) & 0xFFFFFF;
+        const numPolys = sceneDv.getUint16(h + 0x14, false), polys = sceneDv.getUint32(h + 0x18, false) & 0xFFFFFF;
+        const vert = (i) => {
+            const o = vtx + (i & 0x1FFF) * 6;
+            return o + 6 <= sceneDv.byteLength && (i & 0x1FFF) < numVerts
+                ? new THREE.Vector3(sceneDv.getInt16(o, false), sceneDv.getInt16(o + 2, false), sceneDv.getInt16(o + 4, false)) : null;
+        };
+        for (let i = 0; i < numPolys; i++) {
+            const o = polys + i * 0x10;
+            if (o + 0x10 > sceneDv.byteLength) break;
+            const a = vert(sceneDv.getUint16(o + 2, false)), b = vert(sceneDv.getUint16(o + 4, false)), c = vert(sceneDv.getUint16(o + 6, false));
+            if (!a || !b || !c) continue;
+            const normal = new THREE.Vector3(sceneDv.getInt16(o + 8, false), sceneDv.getInt16(o + 10, false), sceneDv.getInt16(o + 12, false)).divideScalar(0x7FFF);
+            tris.push({ a, b, c, normal });
+        }
+    }
+    const ray = new THREE.Ray(), hit = new THREE.Vector3(), dir = new THREE.Vector3();
+    const lineTest = (from, to) => {
+        dir.subVectors(to, from);
+        const len = dir.length();
+        if (len === 0) return null;
+        ray.set(from, dir.divideScalar(len));
+        let best = null, bestDist = len;
+        for (const t of tris) {
+            if (!ray.intersectTriangle(t.a, t.b, t.c, false, hit)) continue;
+            const d = hit.distanceTo(from);
+            if (d <= bestDist) { bestDist = d; best = { point: hit.clone(), normal: t.normal }; }
+        }
+        return best;
+    };
+    return { lineTest };
 }
 
 // A segment entry for a file reference ({ file, offset, vram? }).
@@ -396,7 +730,9 @@ function animationFrame0(segments, ref, limbCount) {
  * Pose a skeleton: the display lists to run, each under its limb's model
  * space matrix, in SkelAnime_Draw* traversal order, plus the flex matrix
  * buffer (one entry per limb with a list). limbLists substitutes lists for
- * limbs an override callback fills in.
+ * limbs an override callback fills in, or (add: true) draws them after the
+ * limb's own, as a post-limb callback does, under the limb's matrix times
+ * the list's ops.
  */
 function poseSkeleton(skel, joints, limbLists, root = null) {
     const items = [];
@@ -417,13 +753,17 @@ function poseSkeleton(skel, joints, limbLists, root = null) {
         const world = parent ? parent.clone().multiply(local) : (root ? root.clone().multiply(local) : local.clone());
 
         // limbLists is keyed by the callback's limbIndex, which counts from 1.
-        const lists = limbLists?.[index + 1];
-        if (lists) {
-            for (const ref of lists) items.push({ addr: refAddress(ref), matrix: world, layer: ref.layer ?? 'opa' });
-            matrices.push(world);
+        const lists = limbLists?.[index + 1] ?? [];
+        const replaced = lists.filter(l => !l.add);
+        if (replaced.length) {
+            for (const ref of replaced) items.push({ addr: refAddress(ref), matrix: world, layer: ref.layer ?? 'opa' });
         } else if (limb.dl) {
             items.push({ addr: limb.dl, matrix: world, layer: 'opa' });
-            matrices.push(world);
+        }
+        if (replaced.length || limb.dl) matrices.push(world);
+        for (const ref of lists.filter(l => l.add)) {
+            const ops = opsMatrix(ref.ops, [1, 1, 1]);
+            items.push({ addr: refAddress(ref), matrix: ops ? world.clone().multiply(ops) : world, layer: ref.layer ?? 'opa' });
         }
         if (limb.child !== LIMB_DONE) visit(limb.child, world, false);
         if (!isRoot && limb.sibling !== LIMB_DONE) visit(limb.sibling, parent, false);
@@ -436,11 +776,37 @@ function poseSkeleton(skel, joints, limbLists, root = null) {
 // Model specs
 ////////////////////////////////////////
 
+// A generated `when` test on the params: [shift, mask, op, value] (a
+// full-word field compares as the s16 the actor sees), or { any | all |
+// not } of those.
+function paramsTest(test, params) {
+    if (Array.isArray(test)) {
+        const [shift, mask, op, value] = test;
+        let v = (params >> shift) & mask;
+        if (shift === 0 && mask === 0xFFFF && v >= 0x8000) v -= 0x10000;
+        switch (op) {
+            case '==': return v === value;
+            case '!=': return v !== value;
+            case '<': return v < value;
+            case '>': return v > value;
+            case '<=': return v <= value;
+            case '>=': return v >= value;
+            default: return true;
+        }
+    }
+    if (test.any) return test.any.some(t => paramsTest(t, params));
+    if (test.all) return test.all.every(t => paramsTest(t, params));
+    if (test.not) return !paramsTest(test.not, params);
+    return true;
+}
+
 // The lists a spec draws for these params: a { select, variants } entry
-// picks variants[(params >> shift) & mask].
+// picks variants[(params >> shift) & mask]; an entry with `when` is only
+// drawn when its params tests hold (the Draw's `if (params == ...)`).
 function selectLists(lists, params) {
     const out = [];
     for (const l of lists ?? []) {
+        if (l.when && !l.when.every(t => paramsTest(t, params))) continue;
         if (l.variants) {
             const i = l.select ? (params >> l.select[0]) & l.select[1] : 0;
             out.push(...selectLists(l.variants[i] ?? [], params));
@@ -461,10 +827,10 @@ function scaleOf(spec, override, params, sceneName) {
  * Everything needed to draw an actor at these params: the object file
  * set, the posed lists and a cache key. Null when the actor has no model.
  */
-function modelSpec(actorName, base, override, params, sceneName, scale) {
+function modelSpec(actorName, base, override, params, sceneName, scale, rot) {
     if (override?.marker) return null;
     let spec = base;
-    if (override?.model) spec = override.model(params, sceneName, base);
+    if (override?.model) spec = override.model(params, sceneName, base, rot);
     if (!spec) return null;
     if (override?.lists) spec = { ...spec, lists: override.lists };
     if (override?.limbLists) spec = { ...spec, limbLists: override.limbLists };
@@ -489,8 +855,8 @@ function modelSpec(actorName, base, override, params, sceneName, scale) {
     // on the scale when a list is drawn without it (a "new" op).
     const rebuilt = [spec.skelOps, ...lists.map(l => l.ops)].some(ops => ops?.[0]?.[0] === 'new');
     const key = [actorName, skeleton ? `${skeleton.file}@${skeleton.offset}` : '-',
-                 spec.anim ? spec.anim.offset : '-', JSON.stringify(spec.skelOps ?? null),
-                 lists.map(l => `${l.file}@${l.offset}${l.layer === 'xlu' ? 'x' : ''}${l.ops ? JSON.stringify(l.ops) : ''}${l.prim ?? ''}${l.env ?? ''}`).join(','),
+                 spec.anim ? spec.anim.offset : '-', JSON.stringify(spec.skelOps ?? null), JSON.stringify(spec.limbLists ?? null),
+                 lists.map(l => `${l.file}@${l.offset}${l.layer === 'xlu' ? 'x' : ''}${l.ops ? JSON.stringify(l.ops) : ''}${l.prim ?? ''}${l.env ?? ''}${l.combine ?? ''}${l.primLod ?? ''}`).join(','),
                  rebuilt ? scale.join(',') : ''].join('|');
     return { spec, skeleton, anim: spec.anim ?? null, lists, segments: spec.segments ?? {},
              limbLists: spec.limbLists ?? null, files: [...files], key, scale };
@@ -534,6 +900,10 @@ function buildModel(model, ctx) {
             }
         }
         for (const [seg, ref] of Object.entries(model.segments)) {
+            if (ref.matrices) {
+                segments[Number(seg)] = { matrices: ref.matrices.map(ops => opsMatrix(ops, model.scale) ?? new THREE.Matrix4()) };
+                continue;
+            }
             if (ref.scroll) {
                 segments[Number(seg)] = scrollSegment(ref.scroll);
                 continue;
@@ -564,7 +934,7 @@ function buildModel(model, ctx) {
                 segs.vram = segments.vram;
                 segs[SEG_OBJECT] = segmentFor(dvs.get(l.file), l);
             }
-            lists[l.layer === 'xlu' ? 'xlu' : 'opa'].push({ addr: refAddress(l), matrix: opsMatrix(l.ops, model.scale), segments: segs, prim: l.prim, env: l.env });
+            lists[l.layer === 'xlu' ? 'xlu' : 'opa'].push({ addr: refAddress(l), matrix: opsMatrix(l.ops, model.scale), segments: segs, prim: l.prim, env: l.env, combine: l.combine, primLod: l.primLod });
         }
 
         const result = replayDisplayLists(lists, segments, ctx.light, ctx.caches);
@@ -679,6 +1049,7 @@ export async function renderOOTActors(scene, sceneBuffer, sceneName) {
 
     const sceneDv = new DataView(sceneBuffer);
     const keepFile = sceneKeepObject(sceneDv) === OBJECT_GAMEPLAY_DANGEON_KEEP ? 'gameplay_dangeon_keep' : 'gameplay_field_keep';
+    const collision = sceneCollision(sceneDv);
     const ctx = {
         sceneSegment: { dv: sceneDv, base: 0, key: sceneName },
         keepFile,
@@ -689,23 +1060,33 @@ export async function renderOOTActors(scene, sceneBuffer, sceneName) {
 
     // ---- decode every spawn
     const instances = [];
+    const addInstance = (entry, spawn, roomIndex) => {
+        const base = OOT_Actor_Models[spawn.actorId] ?? null;
+        const name = base?.name ?? `Actor ${hex(spawn.actorId, 3)}`;
+        const override = OOT_ACTOR_OVERRIDES[name] ?? null;
+        const rot = override?.rot ? override.rot(spawn.rot, spawn.params) : spawn.rot;
+        const scale = scaleOf(base, override, spawn.params, sceneName);
+        const model = base ? modelSpec(name, base, override, spawn.params, sceneName, scale, spawn.rot) : null;
+        const inst = {
+            actorId: spawn.actorId, name, params: spawn.params, room: roomIndex,
+            position: entry.position, rot, rotRaw: spawn.rotRaw,
+            scale,
+            yOffset: (typeof override?.yOffset === 'function' ? override.yOffset(spawn.params) : override?.yOffset) ?? base?.yOffset ?? 0,
+            model,
+        };
+        if (override?.place) Object.assign(inst, override.place(inst, collision));
+        instances.push(inst);
+    };
     setup.rooms.forEach((room, roomIndex) => {
-        for (const entry of room.actors) {
-            const spawn = decodeActorSpawnEntry(entry, 'OOT');
-            const base = OOT_Actor_Models[spawn.actorId] ?? null;
-            const name = base?.name ?? `Actor ${hex(spawn.actorId, 3)}`;
-            const override = OOT_ACTOR_OVERRIDES[name] ?? null;
-            const rot = override?.rot ? override.rot(spawn.rot, spawn.params) : spawn.rot;
-            const scale = scaleOf(base, override, spawn.params, sceneName);
-            const model = base ? modelSpec(name, base, override, spawn.params, sceneName, scale) : null;
-            instances.push({
-                actorId: spawn.actorId, name, params: spawn.params, room: roomIndex,
-                position: entry.position, rot, rotRaw: spawn.rotRaw,
-                scale,
-                yOffset: (typeof override?.yOffset === 'function' ? override.yOffset(spawn.params) : override?.yOffset) ?? base?.yOffset ?? 0,
-                model,
-            });
-        }
+        for (const entry of room.actors) addInstance(entry, decodeActorSpawnEntry(entry, 'OOT'), roomIndex);
+    });
+    // Doors and other transition actors: the scene's own list, spawned with
+    // rot (0, rotY, 0) and the entry's index in params bits 10-15.
+    transitionActors(sceneDv, setupID).forEach((t, i) => {
+        const params = ((i << 10) + t.params) & 0xFFFF;
+        addInstance({ position: t.position }, {
+            actorId: t.id & 0x1FFF, params, rot: [0, t.rotY, 0], rotRaw: [0, t.rotY & 0xFFFF, 0],
+        }, t.frontRoom);
     });
 
     // ---- build every distinct model up front, so rows come out in name order

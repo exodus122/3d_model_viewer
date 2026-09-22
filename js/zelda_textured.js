@@ -395,8 +395,9 @@ function replayRoom(entries, segments, light, caches, colours = {}) {
  *   given, replaces the shared table for that list; prim / env ([r, g, b, a]
  *   0-255) set the colours before it runs.
  * segments: segment index -> { dv, base, key } (a file), { colour } (MM's
- *   colour lists), { matrices: [Matrix4] } (SEG_FLEX_MATRICES, a skeleton's
- *   limb matrices), or for an overlay { dv, vram, key } resolved by VRAM
+ *   colour lists), { matrices: [Matrix4] } (the Mtx array a gSPMatrix
+ *   into that segment indexes: SEG_FLEX_MATRICES for a skeleton's limb
+ *   matrices, or one an actor's Draw builds), or for an overlay { dv, vram, key } resolved by VRAM
  *   address under segments.vram.
  * light: the scene's light setting (parseZeldaSceneInfo), or null.
  * caches: { textures: Map, dataTextures: Map } shared across a scene.
@@ -495,8 +496,12 @@ export function replayDisplayLists(lists, segments, light, caches) {
         const load = tmemLoads.get(tile.tmem);
         if (!load) return null;
         if (!load.src) { missingTextures++; return null; }
-        const width = Math.max(1, Math.round(tile.lrs - tile.uls) + 1);
-        const height = Math.max(1, Math.round(tile.lrt - tile.ult) + 1);
+        // A tile larger than its mask (a Gfx_TwoTexScroll size of 32x16 over
+        // En_Rr's 16x16 textures) wraps at the mask: only 2^mask texels exist.
+        let width = Math.max(1, Math.round(tile.lrs - tile.uls) + 1);
+        let height = Math.max(1, Math.round(tile.lrt - tile.ult) + 1);
+        if (tile.masks) width = Math.min(width, 1 << tile.masks);
+        if (tile.maskt) height = Math.min(height, 1 << tile.maskt);
         if (width > 1024 || height > 1024) return null;
         const bits = BITS[tile.siz];
         let rowBytes, origin;
@@ -585,26 +590,45 @@ export function replayDisplayLists(lists, segments, light, caches) {
         // The effect combiner -- fire, lava, magic: cycle 2 colour is
         // (PRIM - ENV) * COMBINED + ENV, an intensity texture picking a
         // colour between env and prim. The material can't do that with a
-        // texture times a vertex colour, so the texel is baked through it
-        // (with cycle 1's mix of two textures approximated by the first)
-        // and the vertex colour left white.
+        // texture times a vertex colour, so each texel is baked through
+        // both cycles (cycle 1 per texel, with the second tile's texel at
+        // the same spot when it is the same size, else the first's) and the
+        // vertex colour left white.
         let bakedRGB = false;
         if (layers.length && twoCycle() && mux[8] === CC_PRIM && mux[9] === CC_ENV && mux[10] === CC_COMBINED && mux[11] === CC_ENV
             && [0, 1, 2].some(k => Math.abs(prim[k] - env[k]) > 0.01)) {
-            layers = [{ ...layers[0], tex: gradientBake(layers[0].tex) }];
+            const base = layers[0].tex;
+            const second = t0 && t1 && t1.width === base.width && t1.height === base.height ? t1 : base;
+            layers = [{ ...layers[0], tex: gradientBake(base, second) }];
             blend = null;
             bakedRGB = true;
         }
         return { layers, blend, bakedRGB };
     };
-    const gradientBake = (t) => {
-        const key = t.key + '~grad:' + prim.slice(0, 3).map(x => x.toFixed(3)).join(',') + '/' + env.slice(0, 3).map(x => x.toFixed(3)).join(',');
+    // Cycle 1's colour for one texel pair (texels as 0..1 [r, g, b, a]),
+    // shade taken as white: the vertex colour is not part of the bake.
+    const cycle1Texel = (k, tx0, tx1) => {
+        const v = { combined: [0, 0, 0, 0], shade: [1, 1, 1, 1], prim, env, lodFrac: primLodFrac };
+        const input = (slot, code) => {
+            if (code === CC_TEXEL0) return tx0[k];
+            if (code === CC_TEXEL1) return tx1[k];
+            if (slot === 'c' && code === 8) return tx0[3];
+            if (slot === 'c' && code === 9) return tx1[3];
+            return combinerInput(slot, code, k, v);
+        };
+        return clamp01((input('a', mux[0]) - input('b', mux[1])) * input('c', mux[2]) + input('d', mux[3]));
+    };
+    const gradientBake = (t, t1 = t) => {
+        const key = t.key + '|' + t1.key + '~grad:' + prim.map(x => x.toFixed(3)).join(',') + '/' + env.slice(0, 3).map(x => x.toFixed(3)).join(',')
+            + '/' + mux.slice(0, 4).join(',') + '/' + primLodFrac.toFixed(3);
         let tex = caches.textures.get(key);
         if (tex) return tex;
         const rgba = new Uint8Array(t.rgba);
+        const tx0 = [0, 0, 0, 0], tx1 = [0, 0, 0, 0];
         for (let i = 0; i < rgba.length; i += 4) {
+            for (let k = 0; k < 4; k++) { tx0[k] = t.rgba[i + k] / 255; tx1[k] = t1.rgba[i + k] / 255; }
             for (let k = 0; k < 3; k++) {
-                const c = t.rgba[i + k] / 255;
+                const c = cycle1Texel(k, tx0, tx1);
                 rgba[i + k] = Math.round(clamp01(env[k] + c * (prim[k] - env[k])) * 255);
             }
         }
@@ -754,9 +778,10 @@ export function replayDisplayLists(lists, segments, light, caches) {
                 case G_MTX: {
                     const params = (w0 & 0xFF) ^ G_MTX_PUSH;
                     if (params & G_MTX_PROJECTION) break;
-                    const flex = curSegments[SEG_FLEX_MATRICES]?.matrices;
-                    const m = (flex && ((w1 >>> 24) & 0xF) === SEG_FLEX_MATRICES)
-                        ? (flex[(w1 & 0xFFFFFF) >>> 6] ?? null) : readMtx(w1);
+                    // A segment of matrices the Draw builds (a flex
+                    // skeleton's limbs in 0xD, En_Rr's body rings in 0xC).
+                    const built = (w1 >>> 31) ? null : curSegments[(w1 >>> 24) & 0xF]?.matrices;
+                    const m = built ? (built[(w1 & 0xFFFFFF) >>> 6] ?? null) : readMtx(w1);
                     if (params & G_MTX_PUSH) mtxStack.push(mtx);
                     if (params & G_MTX_LOAD) mtx = m ? m.clone() : null;
                     else if (m) mtx = mtx ? mtx.clone().multiply(m) : m.clone();
@@ -876,6 +901,9 @@ export function replayDisplayLists(lists, segments, light, caches) {
         // Colours the issuing code set before the list (an actor's Draw).
         if (item.prim) { prim.splice(0, 4, ...item.prim.map(c => c / 255)); invalidate(); }
         if (item.env) { env.splice(0, 4, ...item.env.map(c => c / 255)); invalidate(); }
+        // A combiner / prim LOD fraction the Draw sets before the list (En_Fz).
+        if (item.primLod != null) { primLodFrac = item.primLod / 256; invalidate(); }
+        if (item.combine) { mux = item.combine.slice(); invalidate(); }
         run(item.addr, 0);
     }
     };

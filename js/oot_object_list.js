@@ -15,7 +15,10 @@
 // matrix before issuing it: ["t", x, y, z], ["s", x, y, z], ["ry", rad];
 // a leading ["new"] means the matrix was rebuilt without the actor's scale.
 // prim / env (skelPrim / skelEnv) are the literal gDPSetPrimColor / EnvColor
-// the Draw issues before it, [r, g, b, a].
+// the Draw issues before it, [r, g, b, a]. when: the params tests of the
+// if / switch branches the list sits in (all must hold): [shift, mask, op,
+// value] or { any | all | not }. A limb list with add: true is drawn after
+// the limb's own list rather than in its place.
 // Files are
 // models/OOT/actors/objects/<file> or, with a vram, .../overlays/<file>.
 // js/oot_actors.js applies its own overrides on top of this.
@@ -59,7 +62,6 @@ const OOT_Actor_Models = {
         skeleton: { file: "gameplay_keep", offset: 0x10418, type: "Normal", limbType: "Standard" },
         anim: { file: "gameplay_keep", offset: 0xEBF8 },
         lists: [
-            { file: "gameplay_keep", offset: 0xF2A0, layer: "opa" } /* gDoorRightDL */,
             { file: "gameplay_keep", offset: 0xF158, layer: "opa" } /* gDoorLeftDL */
         ]
     },
@@ -70,7 +72,7 @@ const OOT_Actor_Models = {
         skeleton: { file: "object_box", offset: 0x47D8, type: "Flex", limbType: "Standard" },
         anim: { file: "object_box", offset: 0x24C },
         skelEnv: [0, 0, 0, 255],
-        limbLists: { 1: [{ file: "object_box", offset: 0x6F0, layer: "opa" } /* gTreasureChestChestFrontDL */], 3: [{ file: "object_box", offset: 0x10C0, layer: "opa" } /* gTreasureChestChestSideAndLidDL */] }
+        limbLists: { 1: [{ file: "object_box", offset: 0x6F0, layer: "opa", add: true } /* gTreasureChestChestFrontDL */], 3: [{ file: "object_box", offset: 0x10C0, layer: "opa", add: true } /* gTreasureChestChestSideAndLidDL */] }
     },
     0x00B: {
         name: "Bg_Dy_Yoseizo",
@@ -93,7 +95,6 @@ const OOT_Actor_Models = {
         name: "En_Poh",
         object: "gameplay_keep",
         scale: 0.01,
-        yOffset: 1500.0,
         skeleton: { file: "object_poh", offset: 0x50D0, type: "Normal", limbType: "Standard" },
         anim: { file: "object_poh", offset: 0xA60 },
         lists: [
@@ -111,7 +112,7 @@ const OOT_Actor_Models = {
         skeleton: { file: "object_okuta", offset: 0x3660, type: "Normal", limbType: "Standard" },
         anim: { file: "object_okuta", offset: 0x3C64 },
         lists: [
-            { file: "object_okuta", offset: 0x3380, layer: "opa" } /* gOctorokProjectileDL */
+            { file: "object_okuta", offset: 0x3380, layer: "opa", when: [{"not": [0, 255, "==", 0]}] } /* gOctorokProjectileDL */
         ]
     },
     0x00F: {
@@ -119,10 +120,8 @@ const OOT_Actor_Models = {
         object: "object_ydan_objects",
         scale: 0.1,
         lists: [
-            { file: "object_ydan_objects", offset: 0x5F40, layer: "xlu" } /* gDTWebWallDL */,
-            { file: "object_ydan_objects", offset: 0x61B0, layer: "xlu" } /* gDTWebFloorDL */,
-            { file: "object_ydan_objects", offset: 0x3850, layer: "xlu", ops: [["t", 0.0, 700.0, -900.0], ["s", 3.5, 5.0, 1.0]] } /* gDTUnknownWebDL */,
-            { file: "object_ydan_objects", offset: 0x61B0, layer: "xlu", ops: [["t", 0.0, 700.0, -900.0], ["s", 3.5, 5.0, 1.0]] } /* gDTWebFloorDL */
+            { file: "object_ydan_objects", offset: 0x5F40, layer: "xlu", when: [[12, 15, "==", 1]] } /* gDTWebWallDL */,
+            { file: "object_ydan_objects", offset: 0x61B0, layer: "xlu", when: [{"not": [12, 15, "==", 1]}] } /* gDTWebFloorDL */
         ]
     },
     0x010: {
@@ -131,8 +130,8 @@ const OOT_Actor_Models = {
         scale: 0.01,
         yOffset: 700.0,
         lists: [
-            { file: "gameplay_keep", offset: 0x7A50, layer: "opa" } /* gBombCapDL */,
-            { file: "gameplay_keep", offset: 0x7860, layer: "opa" } /* gBombBodyDL */
+            { file: "gameplay_keep", offset: 0x7A50, layer: "opa", when: [[0, 65535, "==", 0]] } /* gBombCapDL */,
+            { file: "gameplay_keep", offset: 0x7860, layer: "opa", when: [[0, 65535, "==", 0]] } /* gBombBodyDL */
         ]
     },
     0x011: {
@@ -141,7 +140,7 @@ const OOT_Actor_Models = {
         scale: 0.01,
         skeleton: { file: "object_wallmaster", offset: 0x8FB0, type: "Flex", limbType: "Standard" },
         anim: { file: "object_wallmaster", offset: 0x9DB0 },
-        limbLists: { 2: [{ file: "object_wallmaster", offset: 0x8688, layer: "opa" } /* gWallmasterFingerDL */] }
+        limbLists: { 2: [{ file: "object_wallmaster", offset: 0x8688, layer: "opa", ops: [["t", 1600.0, -700.0, -1700.0], ["ry", 1.047198], ["rz", 0.261799], ["s", 2.0, 2.0, 2.0]], add: true } /* gWallmasterFingerDL */] }
     },
     0x012: {
         name: "En_Dodongo",
@@ -173,7 +172,8 @@ const OOT_Actor_Models = {
             { file: "gameplay_keep", offset: 0x3C3D0, layer: "opa" } /* gHeartPieceExteriorDL */,
             { file: "gameplay_keep", offset: 0x3C508, layer: "xlu" } /* gHeartContainerInteriorDL */,
             { file: "gameplay_keep", offset: 0x41D80, layer: "opa" } /* gItemDropDL */
-        ]
+        ],
+        segments: { 0x08: { file: "gameplay_keep", offset: 0x44E50 } }
     },
     0x016: {
         name: "En_Arrow",
@@ -243,7 +243,6 @@ const OOT_Actor_Models = {
         name: "En_Fish",
         object: "gameplay_keep",
         scale: 0.001,
-        yOffset: 600.0,
         skeleton: { file: "gameplay_keep", offset: 0x19480, type: "Flex", limbType: "Standard" },
         anim: { file: "gameplay_keep", offset: 0x1953C }
     },
@@ -303,10 +302,7 @@ const OOT_Actor_Models = {
     0x02A: {
         name: "En_Viewer",
         object: "gameplay_keep",
-        scale: 0.3,
-        lists: [
-            { select: null, variants: [[], [], [], []] }
-        ]
+        scale: 0.3
     },
     0x02B: {
         name: "En_Goma",
@@ -379,15 +375,14 @@ const OOT_Actor_Models = {
         object: "object_tp",
         scale: 1.5,
         lists: [
-            { file: "object_tp", offset: 0x8D0, layer: "opa" } /* gTailpasaranHeadDL */,
-            { file: "object_tp", offset: 0x0, layer: "xlu", ops: [["t", 0.0, 0.0, 8.0]] } /* gTailpasaranTailSegmentDL */
+            { file: "object_tp", offset: 0x8D0, layer: "opa", when: [{"any": [[0, 65535, "<=", -1], [0, 65535, "==", 12]]}] } /* gTailpasaranHeadDL */,
+            { file: "object_tp", offset: 0x0, layer: "xlu", combine: [3, 5, 1, 5, 3, 5, 1, 5, 3, 5, 1, 5, 3, 5, 1, 5], when: [{"not": {"any": [[0, 65535, "<=", -1], [0, 65535, "==", 12]]}}] } /* gTailpasaranTailSegmentDL */
         ],
         segments: { 0x08: { file: "object_tp", offset: 0xC68 } }
     },
     0x037: {
         name: "En_St",
         object: "object_st",
-        yOffset: 400.0,
         scaleUnknown: true,
         skeleton: { file: "object_st", offset: 0x5298, type: "Normal", limbType: "Standard" },
         anim: { file: "object_st", offset: 0x304 }
@@ -405,7 +400,7 @@ const OOT_Actor_Models = {
         object: "gameplay_keep",
         scale: 0.025,
         lists: [
-            { select: [0, 0xFF], variants: [[{ file: "gameplay_keep", offset: 0x3A430, layer: "opa" } /* gFlatBlockDL */], [{ file: "gameplay_keep", offset: 0x3A430, layer: "opa" } /* gFlatBlockDL */], [{ file: "gameplay_keep", offset: 0x3A430, layer: "opa" } /* gFlatBlockDL */], [{ file: "gameplay_keep", offset: 0x3AB00, layer: "opa" } /* gFlatRotBlockDL */], [{ file: "gameplay_keep", offset: 0x3AB00, layer: "opa" } /* gFlatRotBlockDL */], [{ file: "gameplay_keep", offset: 0x3AE60, layer: "opa" } /* gSmallCubeDL */], [{ file: "object_d_hsblock", offset: 0x210, layer: "opa" } /* gHookshotPostDL */], [{ file: "gameplay_keep", offset: 0x3B3B0, layer: "opa" } /* gGrassBladesDL */], [{ file: "gameplay_keep", offset: 0x3B1E0, layer: "opa" } /* gTreeStumpDL */], [{ file: "gameplay_keep", offset: 0x3D560, layer: "opa" } /* gSignRectangularDL */], [{ file: "gameplay_keep", offset: 0x3DAC0, layer: "opa" } /* gSignDirectionalDL */], [{ file: "gameplay_keep", offset: 0xD7E0, layer: "opa" } /* gBoulderFragmentsDL */]] }
+            { select: [0, 0xFF], variants: [[{ file: "gameplay_keep", offset: 0x3A430, layer: "opa", prim: [60, 60, 60, 50], primLod: 1 } /* gFlatBlockDL */], [{ file: "gameplay_keep", offset: 0x3A430, layer: "opa", prim: [60, 60, 60, 50], primLod: 1 } /* gFlatBlockDL */], [{ file: "gameplay_keep", offset: 0x3A430, layer: "opa", prim: [60, 60, 60, 50], primLod: 1 } /* gFlatBlockDL */], [{ file: "gameplay_keep", offset: 0x3AB00, layer: "opa", prim: [60, 60, 60, 50], primLod: 1 } /* gFlatRotBlockDL */], [{ file: "gameplay_keep", offset: 0x3AB00, layer: "opa", prim: [60, 60, 60, 50], primLod: 1 } /* gFlatRotBlockDL */], [{ file: "gameplay_keep", offset: 0x3AE60, layer: "opa", prim: [60, 60, 60, 50], primLod: 1 } /* gSmallCubeDL */], [{ file: "object_d_hsblock", offset: 0x210, layer: "opa", prim: [60, 60, 60, 50], primLod: 1 } /* gHookshotPostDL */], [{ file: "gameplay_keep", offset: 0x3B3B0, layer: "opa", prim: [60, 60, 60, 50], primLod: 1 } /* gGrassBladesDL */], [{ file: "gameplay_keep", offset: 0x3B1E0, layer: "opa", prim: [60, 60, 60, 50], primLod: 1 } /* gTreeStumpDL */], [{ file: "gameplay_keep", offset: 0x3D560, layer: "opa", prim: [60, 60, 60, 50], primLod: 1 } /* gSignRectangularDL */], [{ file: "gameplay_keep", offset: 0x3DAC0, layer: "opa", prim: [60, 60, 60, 50], primLod: 1 } /* gSignDirectionalDL */], [{ file: "gameplay_keep", offset: 0xD7E0, layer: "opa", prim: [60, 60, 60, 50], primLod: 1 } /* gBoulderFragmentsDL */]] }
         ]
     },
     0x03A: {
@@ -456,8 +451,8 @@ const OOT_Actor_Models = {
         object: "object_hidan_objects",
         scale: 0.1,
         lists: [
-            { file: "object_hidan_objects", offset: 0xBBF0, layer: "opa" } /* gFireTempleHammerableTotemBodyDL */,
-            { file: "object_hidan_objects", offset: 0xBDF0, layer: "opa" } /* gFireTempleHammerableTotemHeadDL */
+            { file: "object_hidan_objects", offset: 0xBBF0, layer: "opa", when: [[0, 255, "==", 0]] } /* gFireTempleHammerableTotemBodyDL */,
+            { file: "object_hidan_objects", offset: 0xBDF0, layer: "opa", when: [{"not": [0, 255, "==", 0]}] } /* gFireTempleHammerableTotemHeadDL */
         ]
     },
     0x041: {
@@ -478,10 +473,11 @@ const OOT_Actor_Models = {
         object: "object_hidan_objects",
         scale: 0.1,
         lists: [
-            { file: "object_hidan_objects", offset: 0xC100, layer: "opa" } /* gFireTempleStoneBlock1DL */,
-            { file: "object_hidan_objects", offset: 0xC1F0, layer: "opa" } /* gFireTempleStoneBlock2DL */,
+            { file: "object_hidan_objects", offset: 0xC100, layer: "opa", when: [[0, 255, "==", 0]] } /* gFireTempleStoneBlock1DL */,
+            { file: "object_hidan_objects", offset: 0xC1F0, layer: "opa", when: [{"not": [0, 255, "==", 0]}] } /* gFireTempleStoneBlock2DL */,
             { file: "object_hidan_objects", offset: 0xCA10, layer: "xlu", ops: [["t", -10.5, 0.0, 0.0]], prim: [255, 255, 0, 150], env: [255, 0, 0, 255] } /* gFireTempleBigVerticalFlameDL */
-        ]
+        ],
+        segments: { 0x08: { file: "object_hidan_objects", offset: 0x12120 } }
     },
     0x044: {
         name: "Bg_Hidan_Rsekizou",
@@ -496,8 +492,8 @@ const OOT_Actor_Models = {
         object: "object_hidan_objects",
         scale: 0.1,
         lists: [
-            { file: "object_hidan_objects", offset: 0xB0F8, layer: "opa" } /* gFireTempleStationaryFlamethrowerShortDL */,
-            { file: "object_hidan_objects", offset: 0xABC8, layer: "opa" } /* gFireTempleStationaryFlamethrowerTallDL */
+            { file: "object_hidan_objects", offset: 0xB0F8, layer: "opa", when: [[0, 65535, "==", 0]] } /* gFireTempleStationaryFlamethrowerShortDL */,
+            { file: "object_hidan_objects", offset: 0xABC8, layer: "opa", when: [{"not": [0, 65535, "==", 0]}] } /* gFireTempleStationaryFlamethrowerTallDL */
         ]
     },
     0x046: {
@@ -505,8 +501,8 @@ const OOT_Actor_Models = {
         object: "object_hidan_objects",
         scale: 0.1,
         lists: [
-            { file: "object_hidan_objects", offset: 0xC338, layer: "opa" } /* gFireTempleStonePlatform1DL */,
-            { file: "object_hidan_objects", offset: 0xC470, layer: "opa" } /* gFireTempleStonePlatform2DL */
+            { file: "object_hidan_objects", offset: 0xC338, layer: "opa", when: [[0, 65535, "==", 0]] } /* gFireTempleStonePlatform1DL */,
+            { file: "object_hidan_objects", offset: 0xC470, layer: "opa", when: [{"not": [0, 65535, "==", 0]}] } /* gFireTempleStonePlatform2DL */
         ]
     },
     0x047: {
@@ -538,8 +534,8 @@ const OOT_Actor_Models = {
         object: "object_spot00_objects",
         scale: 1.0,
         lists: [
-            { file: "object_spot00_objects", offset: 0x430, layer: "opa" } /* gHyruleFieldCastleDrawbridgeDL */,
-            { file: "object_spot00_objects", offset: 0xC0, layer: "opa" } /* gHyruleFieldCastleDrawbridgeChainsDL */
+            { file: "object_spot00_objects", offset: 0x430, layer: "opa", when: [[0, 65535, "==", -1]] } /* gHyruleFieldCastleDrawbridgeDL */,
+            { file: "object_spot00_objects", offset: 0xC0, layer: "opa", when: [{"not": [0, 65535, "==", -1]}] } /* gHyruleFieldCastleDrawbridgeChainsDL */
         ]
     },
     0x04B: {
@@ -554,9 +550,10 @@ const OOT_Actor_Models = {
         object: "object_bombf",
         scale: 0.01,
         lists: [
-            { file: "object_bombf", offset: 0x340, layer: "opa" } /* gBombFlowerLeavesDL */,
-            { file: "object_bombf", offset: 0x530, layer: "opa" } /* gBombFlowerBaseLeavesDL */,
-            { file: "object_bombf", offset: 0x408, layer: "opa", ops: [["t", 0.0, 1000.0, 0.0]], prim: [200, 255, 200, 255] } /* gBombFlowerBombAndSparkDL */
+            { file: "object_bombf", offset: 0x340, layer: "opa", when: [[0, 65535, "<=", 0], [0, 65535, "!=", 0]] } /* gBombFlowerLeavesDL */,
+            { file: "object_bombf", offset: 0x530, layer: "opa", when: [[0, 65535, "<=", 0], [0, 65535, "!=", 0]] } /* gBombFlowerBaseLeavesDL */,
+            { file: "object_bombf", offset: 0x408, layer: "opa", prim: [200, 255, 200, 255], when: [[0, 65535, "<=", 0], {"not": [0, 65535, "!=", 0]}] } /* gBombFlowerBombAndSparkDL */,
+            { file: "object_bombf", offset: 0x408, layer: "opa", ops: [["t", 0.0, 1000.0, 0.0]], prim: [200, 255, 200, 255], when: [[0, 65535, "<=", 0], [0, 65535, "!=", 0]] } /* gBombFlowerBombAndSparkDL */
         ]
     },
     0x04D: {
@@ -567,7 +564,7 @@ const OOT_Actor_Models = {
         lists: [
             { select: null, variants: [[], [], []] }
         ],
-        limbLists: { 10: [{ file: "object_zl2", offset: 0xBAE8, layer: "opa" } /* gZelda2OcarinaDL */] }
+        limbLists: { 10: [{ file: "object_zl2", offset: 0xBAE8, layer: "opa", add: true } /* gZelda2OcarinaDL */] }
     },
     0x04E: {
         name: "Bg_Hidan_Fslift",
@@ -586,8 +583,8 @@ const OOT_Actor_Models = {
         object: "object_ydan_objects",
         scale: 0.15,
         lists: [
-            { select: [0, 0xFF], variants: [[{ file: "object_ydan_objects", offset: 0x7508, layer: "opa" } /* gDTSlidingPlatformDL */], [{ file: "object_ydan_objects", offset: 0x5DE0, layer: "opa" } /* gDTWaterPlaneDL */], [{ file: "object_ydan_objects", offset: 0x5018, layer: "opa" } /* gDTRisingPlatformsDL */]] },
-            { file: "object_ydan_objects", offset: 0x5DE0, layer: "xlu" } /* gDTWaterPlaneDL */
+            { select: [0, 0xFF], variants: [[{ file: "object_ydan_objects", offset: 0x7508, layer: "opa" } /* gDTSlidingPlatformDL */], [{ file: "object_ydan_objects", offset: 0x5DE0, layer: "opa" } /* gDTWaterPlaneDL */], [{ file: "object_ydan_objects", offset: 0x5018, layer: "opa" } /* gDTRisingPlatformsDL */]], when: [{"any": [[0, 255, "==", 0], [0, 255, "==", 2]]}] },
+            { file: "object_ydan_objects", offset: 0x5DE0, layer: "xlu", when: [{"not": {"any": [[0, 255, "==", 0], [0, 255, "==", 2]]}}] } /* gDTWaterPlaneDL */
         ],
         segments: { 0x08: { scroll: [[0, 32, 32], [1, 32, 32]] } }
     },
@@ -596,8 +593,8 @@ const OOT_Actor_Models = {
         object: "object_ydan_objects",
         scale: 0.1,
         lists: [
-            { file: "object_ydan_objects", offset: 0x8D88, layer: "opa" } /* gDTRollingSpikeTrapDL */,
-            { file: "object_ydan_objects", offset: 0x6570, layer: "opa" } /* gDTFallingLadderDL */
+            { file: "object_ydan_objects", offset: 0x8D88, layer: "opa", when: [[8, 255, "==", 0]] } /* gDTRollingSpikeTrapDL */,
+            { file: "object_ydan_objects", offset: 0x6570, layer: "opa", when: [{"not": [8, 255, "==", 0]}] } /* gDTFallingLadderDL */
         ]
     },
     0x052: {
@@ -620,15 +617,11 @@ const OOT_Actor_Models = {
         name: "En_Dekubaba",
         object: "object_dekubaba",
         scale: 0.03,
-        yOffset: 1000.0,
         skeleton: { file: "object_dekubaba", offset: 0x2A40, type: "Normal", limbType: "Standard" },
         anim: { file: "object_dekubaba", offset: 0x2B8 },
         lists: [
             { file: "object_dekubaba", offset: 0x10F0, layer: "opa" } /* gDekuBabaBaseLeavesDL */,
-            { file: "object_dekubaba", offset: 0x3070, layer: "opa", ops: [["t", 0.0, 0.0, 200.0]] } /* gDekuBabaStickDropDL */,
-            { file: "object_dekubaba", offset: 0x1330, layer: "opa" } /* gDekuBabaStemTopDL */,
-            { select: null, variants: [[{ file: "object_dekubaba", offset: 0x1330, layer: "opa" } /* gDekuBabaStemTopDL */], [{ file: "object_dekubaba", offset: 0x1628, layer: "opa" } /* gDekuBabaStemMiddleDL */], [{ file: "object_dekubaba", offset: 0x1828, layer: "opa" } /* gDekuBabaStemBaseDL */]] },
-            { file: "object_dekubaba", offset: 0x1828, layer: "opa" } /* gDekuBabaStemBaseDL */
+            { file: "object_dekubaba", offset: 0x1330, layer: "opa" } /* gDekuBabaStemTopDL */
         ]
     },
     0x056: {
@@ -690,12 +683,12 @@ const OOT_Actor_Models = {
         name: "Door_Warp1",
         object: "object_warp1",
         scale: 0.0499,
-        yOffset: 1.0,
         skeleton: { file: "object_warp1", offset: 0x2CA8, type: "Normal", limbType: "Standard" },
         anim: { file: "object_warp1", offset: 0x1374 },
         lists: [
-            { file: "object_warp1", offset: 0x1A0, layer: "xlu", prim: [255, 255, 255, 255], env: [255, 50, 0, 255] } /* gWarpPortalDL */
-        ]
+            { file: "object_warp1", offset: 0x1A0, layer: "xlu", prim: [255, 255, 255, 255], env: [255, 50, 0, 255], when: [[0, 65535, "==", -1]] } /* gWarpPortalDL */
+        ],
+        segments: { 0x08: { scroll: [[0, 256, 256], [1, 256, 256]] } }
     },
     0x05E: {
         name: "Obj_Syokudai",
@@ -711,8 +704,6 @@ const OOT_Actor_Models = {
         object: "object_gi_hearts",
         scaleUnknown: true,
         lists: [
-            { file: "object_gi_hearts", offset: 0x1290, layer: "xlu" } /* gGiHeartBorderDL */,
-            { file: "object_gi_hearts", offset: 0x1470, layer: "xlu" } /* gGiHeartContainerDL */,
             { file: "object_gi_hearts", offset: 0x1290, layer: "opa" } /* gGiHeartBorderDL */,
             { file: "object_gi_hearts", offset: 0x1470, layer: "opa" } /* gGiHeartContainerDL */
         ]
@@ -724,7 +715,7 @@ const OOT_Actor_Models = {
         skeleton: { file: "object_dekunuts", offset: 0x3268, type: "Normal", limbType: "Standard" },
         anim: { file: "object_dekunuts", offset: 0xE6C },
         lists: [
-            { file: "object_dekunuts", offset: 0x2298, layer: "opa" } /* gDekuNutsFlowerDL */
+            { file: "object_dekunuts", offset: 0x2298, layer: "opa", when: [[0, 255, "==", 10]] } /* gDekuNutsFlowerDL */
         ]
     },
     0x061: {
@@ -815,12 +806,12 @@ const OOT_Actor_Models = {
         object: "object_toki_objects",
         scale: 1.0,
         lists: [
-            { file: "object_toki_objects", offset: 0x8190, layer: "opa" } /* object_toki_objects_DL_008190 */,
-            { file: "object_toki_objects", offset: 0x7E20, layer: "opa" } /* object_toki_objects_DL_007E20 */,
-            { file: "object_toki_objects", offset: 0x7EE0, layer: "xlu" } /* object_toki_objects_DL_007EE0 */,
-            { file: "object_toki_objects", offset: 0x880, layer: "xlu" } /* object_toki_objects_DL_000880 */,
-            { file: "object_toki_objects", offset: 0x9C0, layer: "xlu", prim: [255, 255, 255, 255] } /* object_toki_objects_DL_0009C0 */
-        ]
+            { file: "object_toki_objects", offset: 0x7E20, layer: "opa", when: [[0, 65535, "==", 0]] } /* object_toki_objects_DL_007E20 */,
+            { file: "object_toki_objects", offset: 0x7EE0, layer: "xlu", when: [[0, 65535, "==", 0]] } /* object_toki_objects_DL_007EE0 */,
+            { file: "object_toki_objects", offset: 0x880, layer: "xlu", when: [[0, 65535, "==", 1]] } /* object_toki_objects_DL_000880 */,
+            { file: "object_toki_objects", offset: 0x9C0, layer: "xlu", prim: [255, 255, 255, 255], when: [[0, 65535, "==", 1]] } /* object_toki_objects_DL_0009C0 */
+        ],
+        segments: { 0x08: { scroll: [[0, 64, 32]] }, 0x09: { scroll: [[0, 64, 32]] } }
     },
     0x06B: {
         name: "En_Yukabyun",
@@ -846,9 +837,9 @@ const OOT_Actor_Models = {
         object: "object_fhg",
         scale: 7.0,
         lists: [
-            { file: "object_fhg", offset: 0x10D60, layer: "xlu", prim: [255, 255, 255, 255], env: [165, 255, 75, 0] } /* gPhantomEnergyBallDL */,
-            { file: "object_fhg", offset: 0xE6A0, layer: "xlu", prim: [0, 0, 0, 255], env: [90, 50, 95, 255] } /* gPhantomWarpDL */,
-            { file: "object_fhg", offset: 0xF1E0, layer: "xlu", ops: [["t", 0.0, -100.0, 0.0]], prim: [255, 255, 255, 255], env: [0, 255, 30, 0] } /* gPhantomLightningDL */
+            { file: "object_fhg", offset: 0x10D60, layer: "xlu", prim: [255, 255, 255, 255], env: [165, 255, 75, 0], when: [{"not": [0, 65535, "==", 36]}, {"any": [[0, 65535, "==", 38], [0, 65535, "==", 50]]}] } /* gPhantomEnergyBallDL */,
+            { file: "object_fhg", offset: 0xE6A0, layer: "xlu", prim: [0, 0, 0, 255], env: [90, 50, 95, 255], when: [{"not": [0, 65535, "==", 36]}, {"not": {"any": [[0, 65535, "==", 38], [0, 65535, "==", 50]]}}, {"any": [[0, 65535, "==", 39], [0, 65535, "==", 40], [0, 65535, "==", 41]]}] } /* gPhantomWarpDL */,
+            { file: "object_fhg", offset: 0xF1E0, layer: "xlu", ops: [["t", 0.0, -100.0, 0.0]], prim: [255, 255, 255, 255], env: [0, 255, 30, 0], when: [{"not": [0, 65535, "==", 36]}, {"not": {"any": [[0, 65535, "==", 38], [0, 65535, "==", 50]]}}, {"not": {"any": [[0, 65535, "==", 39], [0, 65535, "==", 40], [0, 65535, "==", 41]]}}] } /* gPhantomLightningDL */
         ],
         segments: { 0x08: { scroll: [[0, 64, 64], [1, 64, 64]] } }
     },
@@ -878,8 +869,8 @@ const OOT_Actor_Models = {
         object: "object_hidan_objects",
         scale: 0.1,
         lists: [
-            { file: "object_hidan_objects", offset: 0xA668, layer: "opa" } /* gFireTempleStoneStep1DL */,
-            { file: "object_hidan_objects", offset: 0xA548, layer: "opa" } /* gFireTempleStoneStep2DL */
+            { file: "object_hidan_objects", offset: 0xA668, layer: "opa", when: [[0, 255, "==", 0]] } /* gFireTempleStoneStep1DL */,
+            { file: "object_hidan_objects", offset: 0xA548, layer: "opa", when: [{"not": [0, 255, "==", 0]}] } /* gFireTempleStoneStep2DL */
         ]
     },
     0x072: {
@@ -895,10 +886,8 @@ const OOT_Actor_Models = {
         object: "object_wood02",
         scaleUnknown: true,
         lists: [
-            { file: "object_wood02", offset: 0x700, layer: "opa" } /* object_wood02_DL_000700 */,
-            { select: null, variants: [[{ file: "object_wood02", offset: 0x78D0, layer: "opa" } /* object_wood02_DL_0078D0 */], [{ file: "object_wood02", offset: 0x7CA0, layer: "opa" } /* object_wood02_DL_007CA0 */], [{ file: "object_wood02", offset: 0x80D0, layer: "opa" } /* object_wood02_DL_0080D0 */], [{ file: "object_wood02", offset: 0x90, layer: "opa" } /* object_wood02_DL_000090 */], [{ file: "object_wood02", offset: 0x340, layer: "opa" } /* object_wood02_DL_000340 */], [{ file: "object_wood02", offset: 0x340, layer: "opa" } /* object_wood02_DL_000340 */], [{ file: "object_wood02", offset: 0x700, layer: "opa" } /* object_wood02_DL_000700 */]] },
-            { select: null, variants: [[{ file: "object_wood02", offset: 0x7968, layer: "xlu" } /* object_wood02_DL_007968 */], [{ file: "object_wood02", offset: 0x7D38, layer: "xlu" } /* object_wood02_DL_007D38 */], [{ file: "object_wood02", offset: 0x81A8, layer: "xlu" } /* object_wood02_DL_0081A8 */], [], [], [], [{ file: "object_wood02", offset: 0x7AD0, layer: "xlu" } /* object_wood02_DL_007AD0 */], [{ file: "object_wood02", offset: 0x7E20, layer: "xlu" } /* object_wood02_DL_007E20 */], [{ file: "object_wood02", offset: 0x8350, layer: "xlu" } /* object_wood02_DL_008350 */], [{ file: "object_wood02", offset: 0x160, layer: "xlu" } /* object_wood02_DL_000160 */], [{ file: "object_wood02", offset: 0x440, layer: "xlu" } /* object_wood02_DL_000440 */], [{ file: "object_wood02", offset: 0x700, layer: "xlu" } /* object_wood02_DL_000700 */]] },
-            { select: null, variants: [[{ file: "object_wood02", offset: 0x78D0, layer: "xlu" } /* object_wood02_DL_0078D0 */], [{ file: "object_wood02", offset: 0x7CA0, layer: "xlu" } /* object_wood02_DL_007CA0 */], [{ file: "object_wood02", offset: 0x80D0, layer: "xlu" } /* object_wood02_DL_0080D0 */], [{ file: "object_wood02", offset: 0x90, layer: "xlu" } /* object_wood02_DL_000090 */], [{ file: "object_wood02", offset: 0x340, layer: "xlu" } /* object_wood02_DL_000340 */], [{ file: "object_wood02", offset: 0x340, layer: "xlu" } /* object_wood02_DL_000340 */], [{ file: "object_wood02", offset: 0x700, layer: "xlu" } /* object_wood02_DL_000700 */]] }
+            { file: "object_wood02", offset: 0x700, layer: "opa", when: [{"any": [[0, 255, "==", 23], [0, 255, "==", 24]]}] } /* object_wood02_DL_000700 */,
+            { select: null, variants: [[{ file: "object_wood02", offset: 0x78D0, layer: "xlu" } /* object_wood02_DL_0078D0 */], [{ file: "object_wood02", offset: 0x7CA0, layer: "xlu" } /* object_wood02_DL_007CA0 */], [{ file: "object_wood02", offset: 0x80D0, layer: "xlu" } /* object_wood02_DL_0080D0 */], [{ file: "object_wood02", offset: 0x90, layer: "xlu" } /* object_wood02_DL_000090 */], [{ file: "object_wood02", offset: 0x340, layer: "xlu" } /* object_wood02_DL_000340 */], [{ file: "object_wood02", offset: 0x340, layer: "xlu" } /* object_wood02_DL_000340 */], [{ file: "object_wood02", offset: 0x700, layer: "xlu" } /* object_wood02_DL_000700 */]], when: [{"not": {"any": [[0, 255, "==", 23], [0, 255, "==", 24]]}}] }
         ]
     },
     0x07C: {
@@ -998,7 +987,6 @@ const OOT_Actor_Models = {
         name: "En_Vm",
         object: "object_vm",
         scale: 0.014,
-        yOffset: -5000.0,
         skeleton: { file: "object_vm", offset: 0x3F60, type: "Normal", limbType: "Standard" },
         anim: { file: "object_vm", offset: 0x68 },
         lists: [
@@ -1016,11 +1004,10 @@ const OOT_Actor_Models = {
         object: "gameplay_keep",
         scaleUnknown: true,
         lists: [
-            { file: "object_efc_star_field", offset: 0x80, layer: "xlu", ops: [["rx", 3.141593]], prim: [200, 255, 255, 255], env: [0, 150, 255, 255] } /* object_efc_star_field_DL_000080 */,
-            { file: "object_efc_star_field", offset: 0xDE0, layer: "opa", prim: [255, 155, 55, 255], env: [155, 255, 55, 255] } /* object_efc_star_field_DL_000DE0 */,
-            { file: "object_toki_objects", offset: 0x7440, layer: "opa" } /* object_toki_objects_DL_007440 */,
-            { file: "object_toki_objects", offset: 0x7578, layer: "opa" } /* object_toki_objects_DL_007578 */,
-            { file: "object_toki_objects", offset: 0x8390, layer: "xlu" } /* object_toki_objects_DL_008390 */
+            { file: "object_efc_star_field", offset: 0x80, layer: "xlu", ops: [["rx", 3.141593]], prim: [200, 255, 255, 255], env: [0, 150, 255, 255], when: [{"any": [[0, 65535, "==", 0], [0, 65535, "==", 1]]}] } /* object_efc_star_field_DL_000080 */,
+            { file: "object_efc_star_field", offset: 0xDE0, layer: "opa", prim: [255, 155, 55, 255], env: [155, 255, 55, 255], when: [{"any": [[0, 65535, "==", 2], [0, 65535, "==", 3], [0, 65535, "==", 4], [0, 65535, "==", 5], [0, 65535, "==", 6]]}] } /* object_efc_star_field_DL_000DE0 */,
+            { file: "object_toki_objects", offset: 0x7440, layer: "opa", when: [[0, 65535, "==", 13]] } /* object_toki_objects_DL_007440 */,
+            { file: "object_toki_objects", offset: 0x7578, layer: "opa", when: [[0, 65535, "==", 13]] } /* object_toki_objects_DL_007578 */
         ]
     },
     0x08D: {
@@ -1038,7 +1025,7 @@ const OOT_Actor_Models = {
         scale: 0.004,
         skeleton: { file: "object_wallmaster", offset: 0x8FB0, type: "Flex", limbType: "Standard" },
         anim: { file: "object_wallmaster", offset: 0x9DB0 },
-        limbLists: { 2: [{ file: "object_wallmaster", offset: 0x8688, layer: "opa" } /* gWallmasterFingerDL */] }
+        limbLists: { 2: [{ file: "object_wallmaster", offset: 0x8688, layer: "opa", ops: [["t", 1600.0, -700.0, -1700.0], ["ry", 1.047198], ["rz", 0.261799], ["s", 2.0, 2.0, 2.0]], add: true } /* gWallmasterFingerDL */] }
     },
     0x08F: {
         name: "En_Heishi1",
@@ -1059,7 +1046,6 @@ const OOT_Actor_Models = {
         name: "En_Po_Sisters",
         object: "object_po_sisters",
         scale: 0.007,
-        yOffset: -6000.0,
         skeleton: { file: "object_po_sisters", offset: 0x65C8, type: "Normal", limbType: "Standard" },
         anim: { file: "object_po_sisters", offset: 0x14CC },
         lists: [
@@ -1073,9 +1059,9 @@ const OOT_Actor_Models = {
         object: "object_heavy_object",
         scale: 1.0,
         lists: [
-            { file: "object_heavy_object", offset: 0x13C0, layer: "opa" } /* gHeavyBlockEntirePillarDL */,
-            { file: "object_heavy_object", offset: 0x18A0, layer: "opa", ops: [["t", 50.0, -260.0, -20.0]] } /* gHeavyBlockBigPieceDL */,
-            { file: "object_heavy_object", offset: 0x1A30, layer: "opa", ops: [["t", 50.0, -260.0, -20.0], ["t", 45.0, -280.0, -5.0]] } /* gHeavyBlockSmallPieceDL */
+            { file: "object_heavy_object", offset: 0x13C0, layer: "opa", when: [{"not": {"any": [{"all": [{"any": [{"all": [[0, 255, "==", 2]]}, {"all": [[0, 255, "==", 3]]}]}]}]}}] } /* gHeavyBlockEntirePillarDL */,
+            { file: "object_heavy_object", offset: 0x18A0, layer: "opa", ops: [["t", 50.0, -260.0, -20.0]], when: [{"any": [{"all": [[0, 255, "==", 2]]}, {"all": [[0, 255, "==", 3]]}]}, [0, 255, "==", 2]] } /* gHeavyBlockBigPieceDL */,
+            { file: "object_heavy_object", offset: 0x1A30, layer: "opa", ops: [["t", 45.0, -280.0, -5.0]], when: [{"any": [{"all": [[0, 255, "==", 2]]}, {"all": [[0, 255, "==", 3]]}]}, [0, 255, "==", 3]] } /* gHeavyBlockSmallPieceDL */
         ]
     },
     0x093: {
@@ -1083,7 +1069,8 @@ const OOT_Actor_Models = {
         object: "object_po_sisters",
         scale: 1.0,
         lists: [
-            { select: [8, 0xF], variants: [[{ file: "object_po_sisters", offset: 0x75A0, layer: "opa" } /* gPoSistersAmyBlockDL */], [{ file: "object_po_sisters", offset: 0x79E0, layer: "opa" } /* gPoSistersAmyBethBlockDL */], [{ file: "object_po_sisters", offset: 0x6830, layer: "opa" } /* gPoSistersJoellePaintingDL */], [{ file: "object_po_sisters", offset: 0x6D60, layer: "opa" } /* gPoSistersBethPaintingDL */], [{ file: "object_po_sisters", offset: 0x7230, layer: "opa" } /* gPoSistersAmyPaintingDL */]] }
+            { select: [8, 0xF], variants: [[{ file: "object_po_sisters", offset: 0x75A0, layer: "opa" } /* gPoSistersAmyBlockDL */], [{ file: "object_po_sisters", offset: 0x79E0, layer: "opa" } /* gPoSistersAmyBethBlockDL */], [{ file: "object_po_sisters", offset: 0x6830, layer: "opa" } /* gPoSistersJoellePaintingDL */], [{ file: "object_po_sisters", offset: 0x6D60, layer: "opa" } /* gPoSistersBethPaintingDL */], [{ file: "object_po_sisters", offset: 0x7230, layer: "opa" } /* gPoSistersAmyPaintingDL */]], when: [{"not": {"any": [[8, 15, "==", 3], [8, 15, "==", 2]]}}] },
+            { select: [8, 0xF], variants: [[{ file: "object_po_sisters", offset: 0x75A0, layer: "opa", env: [255, 255, 255, 255] } /* gPoSistersAmyBlockDL */], [{ file: "object_po_sisters", offset: 0x79E0, layer: "opa", env: [255, 255, 255, 255] } /* gPoSistersAmyBethBlockDL */], [{ file: "object_po_sisters", offset: 0x6830, layer: "opa", env: [255, 255, 255, 255] } /* gPoSistersJoellePaintingDL */], [{ file: "object_po_sisters", offset: 0x6D60, layer: "opa", env: [255, 255, 255, 255] } /* gPoSistersBethPaintingDL */], [{ file: "object_po_sisters", offset: 0x7230, layer: "opa", env: [255, 255, 255, 255] } /* gPoSistersAmyPaintingDL */]], when: [{"any": [[8, 15, "==", 3], [8, 15, "==", 2]]}] }
         ]
     },
     0x094: {
@@ -1106,10 +1093,6 @@ const OOT_Actor_Models = {
         skeleton: { file: "object_fd", offset: 0x10260, type: "Normal", limbType: "Standard" },
         anim: { file: "object_fd", offset: 0x101E4 },
         lists: [
-            { select: null, variants: [[{ file: "object_fd", offset: 0x79A0, layer: "opa" } /* gVolvagiaBodySeg1DL */], [{ file: "object_fd", offset: 0x7AC0, layer: "opa" } /* gVolvagiaBodySeg2DL */], [{ file: "object_fd", offset: 0x7B70, layer: "opa" } /* gVolvagiaBodySeg3DL */], [{ file: "object_fd", offset: 0x7BD0, layer: "opa" } /* gVolvagiaBodySeg4DL */], [{ file: "object_fd", offset: 0x7C30, layer: "opa" } /* gVolvagiaBodySeg5DL */], [{ file: "object_fd", offset: 0x7C90, layer: "opa" } /* gVolvagiaBodySeg6DL */], [{ file: "object_fd", offset: 0x7CF0, layer: "opa" } /* gVolvagiaBodySeg7DL */], [{ file: "object_fd", offset: 0x7D50, layer: "opa" } /* gVolvagiaBodySeg8DL */], [{ file: "object_fd", offset: 0x7DB0, layer: "opa" } /* gVolvagiaBodySeg9DL */], [{ file: "object_fd", offset: 0x7E10, layer: "opa" } /* gVolvagiaBodySeg10DL */], [{ file: "object_fd", offset: 0x7E70, layer: "opa" } /* gVolvagiaBodySeg11DL */], [{ file: "object_fd", offset: 0x7ED0, layer: "opa" } /* gVolvagiaBodySeg12DL */], [{ file: "object_fd", offset: 0x7F30, layer: "opa" } /* gVolvagiaBodySeg13DL */], [{ file: "object_fd", offset: 0x7F90, layer: "opa" } /* gVolvagiaBodySeg14DL */], [{ file: "object_fd", offset: 0x7FF0, layer: "opa" } /* gVolvagiaBodySeg15DL */], [{ file: "object_fd", offset: 0x8038, layer: "opa" } /* gVolvagiaBodySeg16DL */], [{ file: "object_fd", offset: 0x8080, layer: "opa" } /* gVolvagiaBodySeg17DL */], [{ file: "object_fd", offset: 0x80D8, layer: "opa" } /* gVolvagiaBodySeg18DL */]] },
-            { file: "object_fd", offset: 0xB2F8, layer: "opa", ops: [["t", 0.0, 0.0, 35.0], ["t", 0.0, 0.0, -1100.0], ["ry", -3.141593], ["s", 0.1, 0.1, 0.1]], prim: [255, 255, 255, 255], env: [255, 255, 255, 255] } /* gVolvagiaRibsDL */,
-            { file: "object_fd", offset: 0x9168, layer: "xlu", prim: [255, 255, 255, 255], env: [255, 255, 255, 255] } /* gVolvagiaManeMaterialDL */,
-            { file: "object_fd", offset: 0x91E8, layer: "xlu", ops: [["new"]] } /* gVolvagiaManeModelDL */,
             { file: "object_fd", offset: 0xA880, layer: "xlu" } /* gVolvagiaEmberMaterialDL */,
             { file: "object_fd", offset: 0xA900, layer: "xlu" } /* gVolvagiaEmberModelDL */,
             { file: "object_fd", offset: 0xD3A0, layer: "opa" } /* gVolvagiaDebrisMaterialDL */,
@@ -1121,18 +1104,19 @@ const OOT_Actor_Models = {
             { file: "object_fd", offset: 0xD668, layer: "xlu", prim: [255, 255, 0, 255], env: [255, 10, 0, 255] } /* gVolvagiaSkullPieceMaterialDL */,
             { file: "object_fd", offset: 0xD6E8, layer: "xlu", prim: [255, 255, 0, 255], env: [255, 10, 0, 255] } /* gVolvagiaSkullPieceModelDL */
         ],
-        limbLists: { 2: [{ file: "object_fd", offset: 0xD0A0, layer: "opa" } /* gVolvagiaJawboneDL */], 6: [{ file: "object_fd", offset: 0xCBC8, layer: "opa" } /* gVolvagiaSkullDL */] }
+        limbLists: { 2: [{ file: "object_fd", offset: 0xD0A0, layer: "opa" } /* gVolvagiaJawboneDL */], 6: [{ file: "object_fd", offset: 0xCBC8, layer: "opa" } /* gVolvagiaSkullDL */] },
+        segments: { 0x08: { file: "gameplay_keep", offset: 0x572E0 }, 0x09: { file: "object_fd", offset: 0x38A8 } }
     },
     0x097: {
         name: "Object_Kankyo",
         object: "gameplay_keep",
         scaleUnknown: true,
         lists: [
-            { file: "gameplay_keep", offset: 0x52690, layer: "xlu" } /* gKokiriDustMoteMaterialDL */,
-            { file: "gameplay_keep", offset: 0x526D8, layer: "xlu", prim: [255, 255, 255, 255], env: [0, 100, 255, 255] } /* gKokiriDustMoteModelDL */,
-            { file: "object_spot02_objects", offset: 0x9620, layer: "xlu" } /* object_spot02_objects_DL_009620 */,
-            { file: "object_demo_kekkai", offset: 0x5FF0, layer: "xlu" } /* gDemoKekkaiDL_005FF0 */
-        ]
+            { file: "gameplay_keep", offset: 0x52690, layer: "xlu", when: [[0, 65535, "==", 0]] } /* gKokiriDustMoteMaterialDL */,
+            { file: "gameplay_keep", offset: 0x526D8, layer: "xlu", prim: [255, 255, 255, 255], env: [0, 100, 255, 255], when: [[0, 65535, "==", 0]] } /* gKokiriDustMoteModelDL */,
+            { file: "object_demo_kekkai", offset: 0x5FF0, layer: "xlu", primLod: 128, when: [[0, 65535, "==", 5]] } /* gDemoKekkaiDL_005FF0 */
+        ],
+        segments: { 0x08: { file: "gameplay_keep", offset: 0x51690 } }
     },
     0x098: {
         name: "En_Du",
@@ -1174,9 +1158,7 @@ const OOT_Actor_Models = {
         object: "object_spot02_objects",
         scale: 0.1,
         lists: [
-            { select: [0, 0xFF], variants: [[{ file: "object_spot02_objects", offset: 0x12A50, layer: "opa" } /* object_spot02_objects_DL_012A50 */], [{ file: "object_spot02_objects", offset: 0x127C0, layer: "opa" } /* object_spot02_objects_DL_0127C0 */], [{ file: "object_spot02_objects", offset: 0x130B0, layer: "opa" } /* object_spot02_objects_DL_0130B0 */]] },
-            { file: "object_spot02_objects", offset: 0x126F0, layer: "xlu", ops: [["new"]] } /* object_spot02_objects_DL_0126F0 */,
-            { file: "object_spot02_objects", offset: 0x13F0, layer: "xlu", ops: [["new"]], prim: [255, 255, 170, 128], env: [150, 120, 0, 128] } /* object_spot02_objects_DL_0013F0 */
+            { select: [0, 0xFF], variants: [[{ file: "object_spot02_objects", offset: 0x12A50, layer: "opa" } /* object_spot02_objects_DL_012A50 */], [{ file: "object_spot02_objects", offset: 0x127C0, layer: "opa" } /* object_spot02_objects_DL_0127C0 */], [{ file: "object_spot02_objects", offset: 0x130B0, layer: "opa" } /* object_spot02_objects_DL_0130B0 */]], when: [{"not": {"any": [{"all": [[0, 255, "==", 3]]}, {"all": [[0, 255, "==", 4]]}]}}] }
         ],
         segments: { 0x08: { file: "object_spot02_objects", offset: 0x96B0 } }
     },
@@ -1198,14 +1180,13 @@ const OOT_Actor_Models = {
         object: "gameplay_keep",
         scaleUnknown: true,
         lists: [
-            { file: "ovl_Arrow_Fire", offset: 0x1C10, vram: 0x80A5E890, layer: "xlu", ops: [["s", 0.15, 0.15, 0.15]], prim: [255, 200, 0, 255], env: [255, 0, 0, 255] } /* sMaterialDL */,
-            { file: "ovl_Arrow_Fire", offset: 0x1CC0, vram: 0x80A5E890, layer: "xlu", ops: [["s", 0.15, 0.15, 0.15]], prim: [255, 200, 0, 255], env: [255, 0, 0, 255] } /* sModelDL */
+            { file: "ovl_Arrow_Fire", offset: 0x1C10, vram: 0x80A5E890, layer: "xlu", ops: [["s", 0.15, 0.15, 0.15]], prim: [255, 200, 0, 255], env: [255, 0, 0, 255], primLod: 128 } /* sMaterialDL */,
+            { file: "ovl_Arrow_Fire", offset: 0x1CC0, vram: 0x80A5E890, layer: "xlu", ops: [["s", 0.15, 0.15, 0.15]], prim: [255, 200, 0, 255], env: [255, 0, 0, 255], primLod: 128 } /* sModelDL */
         ]
     },
     0x0A1: {
         name: "En_Ru1",
         object: "object_ru1",
-        yOffset: -10000.0,
         scaleUnknown: true,
         skeleton: { file: "object_ru1", offset: 0x12700, type: "Flex", limbType: "Standard" },
         anim: { file: "object_ru1", offset: 0x12E94 },
@@ -1236,7 +1217,6 @@ const OOT_Actor_Models = {
         name: "En_Dh",
         object: "object_dh",
         scale: 0.01,
-        yOffset: -15000.0,
         skeleton: { file: "object_dh", offset: 0x7E88, type: "Flex", limbType: "Standard" },
         anim: { file: "object_dh", offset: 0x5880 },
         skelEnv: [0, 0, 0, 255],
@@ -1269,7 +1249,6 @@ const OOT_Actor_Models = {
     0x0A8: {
         name: "Demo_Du",
         object: "object_du",
-        yOffset: -10000.0,
         scaleUnknown: true,
         skeleton: { file: "object_du", offset: 0x122A8, type: "Flex", limbType: "Standard" },
         anim: { file: "object_du", offset: 0x74B0 },
@@ -1280,7 +1259,6 @@ const OOT_Actor_Models = {
     0x0A9: {
         name: "Demo_Im",
         object: "object_im",
-        yOffset: -10000.0,
         scaleUnknown: true,
         skeleton: { file: "object_im", offset: 0xF788, type: "Flex", limbType: "Standard" },
         anim: { file: "object_im", offset: 0x1868 },
@@ -1301,7 +1279,8 @@ const OOT_Actor_Models = {
         lists: [
             { file: "object_fw", offset: 0x7928, layer: "xlu" } /* gFlareDancerDL_7928 */,
             { file: "object_fw", offset: 0x7938, layer: "xlu", prim: [170, 130, 90, 255], env: [100, 60, 20, 0] } /* gFlareDancerSquareParticleDL */
-        ]
+        ],
+        segments: { 0x08: { file: "gameplay_keep", offset: 0x58EE0 } }
     },
     0x0AC: {
         name: "Bg_Vb_Sima",
@@ -1320,9 +1299,8 @@ const OOT_Actor_Models = {
         object: "gameplay_keep",
         scale: 0.1,
         lists: [
-            { select: [0, 0xFFFF], variants: [[{ file: "object_hakach_objects", offset: 0x1060, layer: "xlu" } /* gBotwFakeWallsAndFloorsDL */], [{ file: "object_hakach_objects", offset: 0x1920, layer: "xlu" } /* gBotwThreeFakeFloorsDL */], [{ file: "object_hakach_objects", offset: 0x3F0, layer: "xlu" } /* gBotwHoleTrap2DL */], [{ file: "object_haka_objects", offset: 0x40F0, layer: "xlu" } /* object_haka_objects_DL_0040F0 */], [{ file: "object_haka_objects", offset: 0x43B0, layer: "xlu" } /* object_haka_objects_DL_0043B0 */], [{ file: "object_haka_objects", offset: 0x1120, layer: "xlu" } /* object_haka_objects_DL_001120 */], [{ file: "object_haka_objects", offset: 0x45A0, layer: "xlu" } /* object_haka_objects_DL_0045A0 */], [{ file: "object_haka_objects", offset: 0x47F0, layer: "xlu" } /* object_haka_objects_DL_0047F0 */], [{ file: "object_haka_objects", offset: 0x18F0, layer: "xlu" } /* object_haka_objects_DL_0018F0 */], [{ file: "object_haka_objects", offset: 0x49B0, layer: "xlu" } /* object_haka_objects_DL_0049B0 */], [{ file: "object_haka_objects", offset: 0x3CF0, layer: "xlu" } /* object_haka_objects_DL_003CF0 */], [{ file: "object_haka_objects", offset: 0x4B70, layer: "xlu" } /* object_haka_objects_DL_004B70 */], [{ file: "object_haka_objects", offset: 0x2ED0, layer: "xlu" } /* object_haka_objects_DL_002ED0 */]] },
             { select: [0, 0xFFFF], variants: [[{ file: "object_hakach_objects", offset: 0x1060, layer: "opa" } /* gBotwFakeWallsAndFloorsDL */], [{ file: "object_hakach_objects", offset: 0x1920, layer: "opa" } /* gBotwThreeFakeFloorsDL */], [{ file: "object_hakach_objects", offset: 0x3F0, layer: "opa" } /* gBotwHoleTrap2DL */], [{ file: "object_haka_objects", offset: 0x40F0, layer: "opa" } /* object_haka_objects_DL_0040F0 */], [{ file: "object_haka_objects", offset: 0x43B0, layer: "opa" } /* object_haka_objects_DL_0043B0 */], [{ file: "object_haka_objects", offset: 0x1120, layer: "opa" } /* object_haka_objects_DL_001120 */], [{ file: "object_haka_objects", offset: 0x45A0, layer: "opa" } /* object_haka_objects_DL_0045A0 */], [{ file: "object_haka_objects", offset: 0x47F0, layer: "opa" } /* object_haka_objects_DL_0047F0 */], [{ file: "object_haka_objects", offset: 0x18F0, layer: "opa" } /* object_haka_objects_DL_0018F0 */], [{ file: "object_haka_objects", offset: 0x49B0, layer: "opa" } /* object_haka_objects_DL_0049B0 */], [{ file: "object_haka_objects", offset: 0x3CF0, layer: "opa" } /* object_haka_objects_DL_003CF0 */], [{ file: "object_haka_objects", offset: 0x4B70, layer: "opa" } /* object_haka_objects_DL_004B70 */], [{ file: "object_haka_objects", offset: 0x2ED0, layer: "opa" } /* object_haka_objects_DL_002ED0 */]] },
-            { file: "object_hakach_objects", offset: 0x1250, layer: "xlu" } /* gBotwBloodSplatterDL */
+            { file: "object_hakach_objects", offset: 0x1250, layer: "xlu", when: [[0, 65535, "==", 0]] } /* gBotwBloodSplatterDL */
         ]
     },
     0x0AF: {
@@ -1330,8 +1308,8 @@ const OOT_Actor_Models = {
         object: "object_haka_objects",
         scale: 0.1,
         lists: [
-            { file: "object_haka_objects", offset: 0x8EB0, layer: "xlu" } /* object_haka_objects_DL_008EB0 */,
-            { select: [0, 0xFF], variants: [[{ file: "object_haka_objects", offset: 0x8EB0, layer: "opa" } /* object_haka_objects_DL_008EB0 */], [{ file: "object_haka_objects", offset: 0xA1A0, layer: "opa" } /* object_haka_objects_DL_00A1A0 */], [{ file: "object_haka_objects", offset: 0x5000, layer: "opa" } /* object_haka_objects_DL_005000 */], [{ file: "object_haka_objects", offset: 0x40, layer: "opa" } /* object_haka_objects_DL_000040 */]] }
+            { file: "object_haka_objects", offset: 0x8EB0, layer: "xlu", when: [[0, 255, "==", 0]] } /* object_haka_objects_DL_008EB0 */,
+            { select: [0, 0xFF], variants: [[{ file: "object_haka_objects", offset: 0x8EB0, layer: "opa" } /* object_haka_objects_DL_008EB0 */], [{ file: "object_haka_objects", offset: 0xA1A0, layer: "opa" } /* object_haka_objects_DL_00A1A0 */], [{ file: "object_haka_objects", offset: 0x5000, layer: "opa" } /* object_haka_objects_DL_005000 */], [{ file: "object_haka_objects", offset: 0x40, layer: "opa" } /* object_haka_objects_DL_000040 */]], when: [{"not": [0, 255, "==", 0]}] }
         ]
     },
     0x0B0: {
@@ -1339,10 +1317,10 @@ const OOT_Actor_Models = {
         object: "object_haka_objects",
         scale: 0.1,
         lists: [
-            { file: "object_haka_objects", offset: 0xD330, layer: "opa" } /* object_haka_objects_DL_00D330 */,
-            { file: "object_haka_objects", offset: 0x5A70, layer: "opa", ops: [["t", -3670.0, 620.0, 1150.0]] } /* object_haka_objects_DL_005A70 */,
-            { file: "object_haka_objects", offset: 0x5A70, layer: "opa", ops: [["t", -3670.0, 620.0, 1150.0], ["t", 0.0, 0.0, -2300.0]] } /* object_haka_objects_DL_005A70 */,
-            { file: "object_haka_objects", offset: 0xE910, layer: "opa", ops: [["t", -3670.0, 620.0, 1150.0], ["t", 0.0, 0.0, -2300.0]] } /* object_haka_objects_DL_00E910 */
+            { file: "object_haka_objects", offset: 0xD330, layer: "opa", when: [[0, 255, "==", 0]] } /* object_haka_objects_DL_00D330 */,
+            { file: "object_haka_objects", offset: 0x5A70, layer: "opa", ops: [["t", -3670.0, 620.0, 1150.0]], when: [[0, 255, "==", 0]] } /* object_haka_objects_DL_005A70 */,
+            { file: "object_haka_objects", offset: 0x5A70, layer: "opa", ops: [["t", -3670.0, 620.0, 1150.0], ["t", 0.0, 0.0, -2300.0]], when: [[0, 255, "==", 0]] } /* object_haka_objects_DL_005A70 */,
+            { file: "object_haka_objects", offset: 0xE910, layer: "opa", when: [{"not": [0, 255, "==", 0]}] } /* object_haka_objects_DL_00E910 */
         ]
     },
     0x0B1: {
@@ -1350,9 +1328,9 @@ const OOT_Actor_Models = {
         object: "gameplay_keep",
         scale: 0.1,
         lists: [
-            { file: "object_haka_objects", offset: 0xBF20, layer: "xlu" } /* object_haka_objects_DL_00BF20 */,
-            { file: "object_haka_objects", offset: 0xBF20, layer: "opa" } /* object_haka_objects_DL_00BF20 */,
-            { file: "object_ice_objects", offset: 0x21F0, layer: "opa" } /* object_ice_objects_DL_0021F0 */
+            { file: "object_haka_objects", offset: 0xBF20, layer: "xlu", when: [[0, 255, "!=", 0]] } /* object_haka_objects_DL_00BF20 */,
+            { file: "object_haka_objects", offset: 0xBF20, layer: "opa", when: [{"not": [0, 255, "!=", 0]}, [8, 255, "==", 0]] } /* object_haka_objects_DL_00BF20 */,
+            { file: "object_ice_objects", offset: 0x21F0, layer: "opa", when: [{"not": [0, 255, "!=", 0]}, {"not": [8, 255, "==", 0]}] } /* object_ice_objects_DL_0021F0 */
         ]
     },
     0x0B3: {
@@ -1362,8 +1340,8 @@ const OOT_Actor_Models = {
         skeleton: { file: "object_sd", offset: 0xBAC8, type: "Normal", limbType: "Standard" },
         anim: { file: "object_sd", offset: 0x5C30 },
         lists: [
-            { file: "object_link_child", offset: 0x2B060, layer: "opa", ops: [["t", -570.0, 0.0, 0.0], ["rz", 1.22173]] } /* gLinkChildKeatonMaskDL */,
-            { file: "object_sd", offset: 0x2C10, layer: "opa" } /* gHeishiKingGuardDL */
+            { file: "object_link_child", offset: 0x2B060, layer: "opa", ops: [["t", -570.0, 0.0, 0.0], ["rz", 1.22173]], when: [{"not": {"any": [{"all": [{"any": [[0, 255, "==", 6], [0, 255, "==", 9]]}]}]}}] } /* gLinkChildKeatonMaskDL */,
+            { file: "object_sd", offset: 0x2C10, layer: "opa", when: [{"any": [[0, 255, "==", 6], [0, 255, "==", 9]]}] } /* gHeishiKingGuardDL */
         ]
     },
     0x0B4: {
@@ -1404,7 +1382,7 @@ const OOT_Actor_Models = {
         scale: 0.1,
         lists: [
             { select: [0, 0xFF], variants: [[{ file: "object_spot09_obj", offset: 0x100, layer: "opa" } /* gValleyBridgeSidesDL */], [{ file: "object_spot09_obj", offset: 0x3970, layer: "opa" } /* gValleyBrokenBridgeDL */], [{ file: "object_spot09_obj", offset: 0x1120, layer: "opa" } /* gValleyBridgeChildDL */], [{ file: "object_spot09_obj", offset: 0x7D40, layer: "opa" } /* gCarpentersTentDL */], [{ file: "object_spot09_obj", offset: 0x6210, layer: "opa" } /* gValleyRepairedBridgeDL */]] },
-            { file: "object_spot09_obj", offset: 0x8010, layer: "xlu" } /* gCarpentersTentEntranceDL */
+            { file: "object_spot09_obj", offset: 0x8010, layer: "xlu", when: [[0, 255, "==", 3]] } /* gCarpentersTentEntranceDL */
         ]
     },
     0x0B9: {
@@ -1424,8 +1402,8 @@ const OOT_Actor_Models = {
             { file: "object_bv", offset: 0x10338, layer: "xlu", prim: [230, 230, 230, 255], env: [130, 130, 30, 0] } /* gBarinadeDL_011738 */,
             { file: "object_bv", offset: 0x10368, layer: "xlu", prim: [230, 230, 230, 255], env: [130, 130, 30, 0] } /* gBarinadeDL_011768 */,
             { file: "object_bv", offset: 0x8030, layer: "xlu", prim: [230, 230, 230, 255], env: [130, 130, 30, 0] } /* gBarinadeDL_009430 */,
-            { file: "object_bv", offset: 0x8068, layer: "xlu", ops: [["rx", 1.570796]], prim: [0, 150, 0, 255], env: [0, 100, 0, 255] } /* gBarinadeDL_009468 */,
-            { file: "object_bv", offset: 0x114B8, layer: "opa", ops: [["rx", 1.570796]], prim: [0, 150, 0, 255], env: [0, 0, 0, 255] } /* gBarinadeDL_0128B8 */,
+            { file: "object_bv", offset: 0x8068, layer: "xlu", prim: [0, 150, 0, 255], env: [0, 100, 0, 255] } /* gBarinadeDL_009468 */,
+            { file: "object_bv", offset: 0x114B8, layer: "opa", prim: [0, 150, 0, 255], env: [0, 0, 0, 255] } /* gBarinadeDL_0128B8 */,
             { file: "object_bv", offset: 0x11548, layer: "opa", prim: [0, 150, 0, 255], env: [0, 0, 0, 255] } /* gBarinadeDL_012948 */,
             { file: "object_bv", offset: 0x117A0, layer: "opa", prim: [0, 150, 0, 255], env: [0, 0, 0, 255] } /* gBarinadeDL_012BA0 */,
             { file: "object_bv", offset: 0x11850, layer: "opa", prim: [0, 150, 0, 255], env: [255, 255, 255, 255] } /* gBarinadeDL_012C50 */,
@@ -1436,7 +1414,7 @@ const OOT_Actor_Models = {
             { file: "object_bv", offset: 0x7B70, layer: "xlu", prim: [255, 255, 255, 255], env: [255, 255, 100, 0] } /* gBarinadeDL_008F70 */,
             { select: null, variants: [[{ file: "object_bv", offset: 0x18FE8, layer: "opa" } /* gBarinadeDoorPiece1DL */], [{ file: "object_bv", offset: 0x19AE8, layer: "opa" } /* gBarinadeDoorPiece2DL */], [{ file: "object_bv", offset: 0x1A5E8, layer: "opa" } /* gBarinadeDoorPiece3DL */], [{ file: "object_bv", offset: 0x1B0E8, layer: "opa" } /* gBarinadeDoorPiece4DL */], [{ file: "object_bv", offset: 0x1BBE8, layer: "opa" } /* gBarinadeDoorPiece5DL */], [{ file: "object_bv", offset: 0x1C6E8, layer: "opa" } /* gBarinadeDoorPiece6DL */], [{ file: "object_bv", offset: 0x1D1E8, layer: "opa" } /* gBarinadeDoorPiece7DL */], [{ file: "object_bv", offset: 0x1DCE8, layer: "opa" } /* gBarinadeDoorPiece8DL */]] }
         ],
-        limbLists: { 2: [{ file: "object_bv", offset: 0xFA0, layer: "opa" } /* gBarinadeDL_000FA0 */], 25: [{ file: "object_bv", offset: 0x7970, layer: "opa" } /* gBarinadeDL_008D70 */] },
+        limbLists: { 2: [{ file: "object_bv", offset: 0xFA0, layer: "opa", add: true } /* gBarinadeDL_000FA0 */], 25: [{ file: "object_bv", offset: 0x7970, layer: "opa", add: true } /* gBarinadeDL_008D70 */] },
         segments: { 0x08: { scroll: [[0, 8, 16], [1, 16, 16]] }, 0x09: { scroll: [[0, 16, 32], [1, 16, 32]] } }
     },
     0x0BB: {
@@ -1500,29 +1478,28 @@ const OOT_Actor_Models = {
     0x0C3: {
         name: "En_Nb",
         object: "object_nb",
-        yOffset: -10000.0,
         scaleUnknown: true,
         skeleton: { file: "object_nb", offset: 0x181C8, type: "Flex", limbType: "Standard" },
         anim: { file: "object_nb", offset: 0x9694 },
         lists: [
             { select: null, variants: [[], [], [], [], []] }
-        ]
+        ],
+        limbLists: { 15: [{ file: "object_nb", offset: 0x13158, layer: "opa" } /* gNabooruHeadMouthOpenDL */] }
     },
     0x0C4: {
         name: "Boss_Mo",
         object: "object_mo",
         scale: 0.01,
         lists: [
-            { file: "object_mo", offset: 0x6800, layer: "xlu" } /* gMorphaTentacleBaseDL */,
-            { select: null, variants: [[{ file: "object_mo", offset: 0x6878, layer: "xlu" } /* gMorphaTentaclePart0DL */], [{ file: "object_mo", offset: 0x6938, layer: "xlu" } /* gMorphaTentaclePart1DL */], [{ file: "object_mo", offset: 0x6988, layer: "xlu" } /* gMorphaTentaclePart2DL */], [{ file: "object_mo", offset: 0x69D0, layer: "xlu" } /* gMorphaTentaclePart3DL */], [{ file: "object_mo", offset: 0x6A18, layer: "xlu" } /* gMorphaTentaclePart4DL */], [{ file: "object_mo", offset: 0x6A60, layer: "xlu" } /* gMorphaTentaclePart5DL */], [{ file: "object_mo", offset: 0x6AA8, layer: "xlu" } /* gMorphaTentaclePart6DL */], [{ file: "object_mo", offset: 0x6AF0, layer: "xlu" } /* gMorphaTentaclePart7DL */], [{ file: "object_mo", offset: 0x6B38, layer: "xlu" } /* gMorphaTentaclePart8DL */], [{ file: "object_mo", offset: 0x6B80, layer: "xlu" } /* gMorphaTentaclePart9DL */], [{ file: "object_mo", offset: 0x6BC8, layer: "xlu" } /* gMorphaTentaclePart10DL */], [{ file: "object_mo", offset: 0x6C10, layer: "xlu" } /* gMorphaTentaclePart11DL */], [{ file: "object_mo", offset: 0x6C58, layer: "xlu" } /* gMorphaTentaclePart12DL */], [{ file: "object_mo", offset: 0x6CA0, layer: "xlu" } /* gMorphaTentaclePart13DL */], [{ file: "object_mo", offset: 0x6CE8, layer: "xlu" } /* gMorphaTentaclePart14DL */], [{ file: "object_mo", offset: 0x6D30, layer: "xlu" } /* gMorphaTentaclePart15DL */], [{ file: "object_mo", offset: 0x6D78, layer: "xlu" } /* gMorphaTentaclePart16DL */], [{ file: "object_mo", offset: 0x6DC0, layer: "xlu" } /* gMorphaTentaclePart17DL */], [{ file: "object_mo", offset: 0x6E08, layer: "xlu" } /* gMorphaTentaclePart18DL */], [{ file: "object_mo", offset: 0x6E50, layer: "xlu" } /* gMorphaTentaclePart19DL */], [{ file: "object_mo", offset: 0x6E98, layer: "xlu" } /* gMorphaTentaclePart20DL */], [{ file: "object_mo", offset: 0x6EE0, layer: "xlu" } /* gMorphaTentaclePart21DL */], [{ file: "object_mo", offset: 0x6F28, layer: "xlu" } /* gMorphaTentaclePart22DL */], [{ file: "object_mo", offset: 0x6F70, layer: "xlu" } /* gMorphaTentaclePart23DL */], [{ file: "object_mo", offset: 0x6FB8, layer: "xlu" } /* gMorphaTentaclePart24DL */], [{ file: "object_mo", offset: 0x7000, layer: "xlu" } /* gMorphaTentaclePart25DL */], [{ file: "object_mo", offset: 0x7048, layer: "xlu" } /* gMorphaTentaclePart26DL */], [{ file: "object_mo", offset: 0x7090, layer: "xlu" } /* gMorphaTentaclePart27DL */], [{ file: "object_mo", offset: 0x70D8, layer: "xlu" } /* gMorphaTentaclePart28DL */], [{ file: "object_mo", offset: 0x7120, layer: "xlu" } /* gMorphaTentaclePart29DL */], [{ file: "object_mo", offset: 0x7168, layer: "xlu" } /* gMorphaTentaclePart30DL */], [{ file: "object_mo", offset: 0x71B0, layer: "xlu" } /* gMorphaTentaclePart31DL */], [{ file: "object_mo", offset: 0x71F8, layer: "xlu" } /* gMorphaTentaclePart32DL */], [{ file: "object_mo", offset: 0x7240, layer: "xlu" } /* gMorphaTentaclePart33DL */], [{ file: "object_mo", offset: 0x7288, layer: "xlu" } /* gMorphaTentaclePart34DL */], [{ file: "object_mo", offset: 0x72D0, layer: "xlu" } /* gMorphaTentaclePart35DL */], [{ file: "object_mo", offset: 0x7318, layer: "xlu" } /* gMorphaTentaclePart36DL */], [{ file: "object_mo", offset: 0x7360, layer: "xlu" } /* gMorphaTentaclePart37DL */], [{ file: "object_mo", offset: 0x73A8, layer: "xlu" } /* gMorphaTentaclePart38DL */], [{ file: "object_mo", offset: 0x73F0, layer: "xlu" } /* gMorphaTentaclePart39DL */], [{ file: "object_mo", offset: 0x7438, layer: "xlu" } /* gMorphaTentaclePart40DL */]] },
-            { file: "object_mo", offset: 0x140, layer: "opa" } /* gMorphaBubbleDL */,
-            { file: "object_mo", offset: 0x3850, layer: "xlu", ops: [["new"], ["s", 0.825, 1.175, 0.825], ["s", 0.05, 1.0, 0.05]], prim: [200, 255, 255, 255], env: [0, 100, 255, 255] } /* gMorphaWaterDL */,
-            { file: "object_mo", offset: 0x3850, layer: "xlu", ops: [["new"], ["s", 0.5, 1.0, 0.5]], prim: [200, 255, 255, 255], env: [0, 100, 255, 80] } /* gMorphaWaterDL */,
-            { file: "object_mo", offset: 0xF20, layer: "xlu", prim: [255, 255, 255, 255], env: [155, 155, 255, 0] } /* gMorphaDropletMaterialDL */,
-            { file: "object_mo", offset: 0xF70, layer: "xlu", prim: [255, 255, 255, 255], env: [250, 250, 255, 0] } /* gMorphaDropletModelDL */,
-            { file: "object_mo", offset: 0xF20, layer: "xlu", prim: [255, 255, 255, 255], env: [250, 250, 255, 0] } /* gMorphaDropletMaterialDL */,
-            { file: "object_mo", offset: 0xFC8, layer: "xlu", prim: [255, 255, 255, 255], env: [250, 250, 255, 0] } /* gMorphaWetSpotModelDL */,
-            { file: "object_mo", offset: 0x140, layer: "opa", prim: [255, 255, 255, 255], env: [150, 150, 150, 0] } /* gMorphaBubbleDL */
+            { select: null, variants: [[{ file: "object_mo", offset: 0x6878, layer: "xlu" } /* gMorphaTentaclePart0DL */], [{ file: "object_mo", offset: 0x6938, layer: "xlu" } /* gMorphaTentaclePart1DL */], [{ file: "object_mo", offset: 0x6988, layer: "xlu" } /* gMorphaTentaclePart2DL */], [{ file: "object_mo", offset: 0x69D0, layer: "xlu" } /* gMorphaTentaclePart3DL */], [{ file: "object_mo", offset: 0x6A18, layer: "xlu" } /* gMorphaTentaclePart4DL */], [{ file: "object_mo", offset: 0x6A60, layer: "xlu" } /* gMorphaTentaclePart5DL */], [{ file: "object_mo", offset: 0x6AA8, layer: "xlu" } /* gMorphaTentaclePart6DL */], [{ file: "object_mo", offset: 0x6AF0, layer: "xlu" } /* gMorphaTentaclePart7DL */], [{ file: "object_mo", offset: 0x6B38, layer: "xlu" } /* gMorphaTentaclePart8DL */], [{ file: "object_mo", offset: 0x6B80, layer: "xlu" } /* gMorphaTentaclePart9DL */], [{ file: "object_mo", offset: 0x6BC8, layer: "xlu" } /* gMorphaTentaclePart10DL */], [{ file: "object_mo", offset: 0x6C10, layer: "xlu" } /* gMorphaTentaclePart11DL */], [{ file: "object_mo", offset: 0x6C58, layer: "xlu" } /* gMorphaTentaclePart12DL */], [{ file: "object_mo", offset: 0x6CA0, layer: "xlu" } /* gMorphaTentaclePart13DL */], [{ file: "object_mo", offset: 0x6CE8, layer: "xlu" } /* gMorphaTentaclePart14DL */], [{ file: "object_mo", offset: 0x6D30, layer: "xlu" } /* gMorphaTentaclePart15DL */], [{ file: "object_mo", offset: 0x6D78, layer: "xlu" } /* gMorphaTentaclePart16DL */], [{ file: "object_mo", offset: 0x6DC0, layer: "xlu" } /* gMorphaTentaclePart17DL */], [{ file: "object_mo", offset: 0x6E08, layer: "xlu" } /* gMorphaTentaclePart18DL */], [{ file: "object_mo", offset: 0x6E50, layer: "xlu" } /* gMorphaTentaclePart19DL */], [{ file: "object_mo", offset: 0x6E98, layer: "xlu" } /* gMorphaTentaclePart20DL */], [{ file: "object_mo", offset: 0x6EE0, layer: "xlu" } /* gMorphaTentaclePart21DL */], [{ file: "object_mo", offset: 0x6F28, layer: "xlu" } /* gMorphaTentaclePart22DL */], [{ file: "object_mo", offset: 0x6F70, layer: "xlu" } /* gMorphaTentaclePart23DL */], [{ file: "object_mo", offset: 0x6FB8, layer: "xlu" } /* gMorphaTentaclePart24DL */], [{ file: "object_mo", offset: 0x7000, layer: "xlu" } /* gMorphaTentaclePart25DL */], [{ file: "object_mo", offset: 0x7048, layer: "xlu" } /* gMorphaTentaclePart26DL */], [{ file: "object_mo", offset: 0x7090, layer: "xlu" } /* gMorphaTentaclePart27DL */], [{ file: "object_mo", offset: 0x70D8, layer: "xlu" } /* gMorphaTentaclePart28DL */], [{ file: "object_mo", offset: 0x7120, layer: "xlu" } /* gMorphaTentaclePart29DL */], [{ file: "object_mo", offset: 0x7168, layer: "xlu" } /* gMorphaTentaclePart30DL */], [{ file: "object_mo", offset: 0x71B0, layer: "xlu" } /* gMorphaTentaclePart31DL */], [{ file: "object_mo", offset: 0x71F8, layer: "xlu" } /* gMorphaTentaclePart32DL */], [{ file: "object_mo", offset: 0x7240, layer: "xlu" } /* gMorphaTentaclePart33DL */], [{ file: "object_mo", offset: 0x7288, layer: "xlu" } /* gMorphaTentaclePart34DL */], [{ file: "object_mo", offset: 0x72D0, layer: "xlu" } /* gMorphaTentaclePart35DL */], [{ file: "object_mo", offset: 0x7318, layer: "xlu" } /* gMorphaTentaclePart36DL */], [{ file: "object_mo", offset: 0x7360, layer: "xlu" } /* gMorphaTentaclePart37DL */], [{ file: "object_mo", offset: 0x73A8, layer: "xlu" } /* gMorphaTentaclePart38DL */], [{ file: "object_mo", offset: 0x73F0, layer: "xlu" } /* gMorphaTentaclePart39DL */], [{ file: "object_mo", offset: 0x7438, layer: "xlu" } /* gMorphaTentaclePart40DL */]], when: [{"not": {"any": [{"all": [[0, 65535, "!=", 100]]}]}}] },
+            { file: "object_mo", offset: 0x140, layer: "opa", when: [{"not": {"any": [{"all": [[0, 65535, "!=", 100]]}]}}] } /* gMorphaBubbleDL */,
+            { file: "object_mo", offset: 0x3850, layer: "xlu", ops: [["new"], ["s", 0.825, 1.175, 0.825], ["s", 0.05, 1.0, 0.05]], prim: [200, 255, 255, 255], env: [0, 100, 255, 255], when: [[0, 65535, "!=", 100]] } /* gMorphaWaterDL */,
+            { file: "object_mo", offset: 0x3850, layer: "xlu", ops: [["new"], ["s", 0.5, 1.0, 0.5]], prim: [200, 255, 255, 255], env: [0, 100, 255, 80], when: [[0, 65535, "!=", 100]] } /* gMorphaWaterDL */,
+            { file: "object_mo", offset: 0xF20, layer: "xlu", prim: [255, 255, 255, 255], env: [155, 155, 255, 0], when: [[0, 65535, "!=", 100]] } /* gMorphaDropletMaterialDL */,
+            { file: "object_mo", offset: 0xF70, layer: "xlu", prim: [255, 255, 255, 255], env: [250, 250, 255, 0], when: [[0, 65535, "!=", 100]] } /* gMorphaDropletModelDL */,
+            { file: "object_mo", offset: 0xF20, layer: "xlu", prim: [255, 255, 255, 255], env: [250, 250, 255, 0], when: [[0, 65535, "!=", 100]] } /* gMorphaDropletMaterialDL */,
+            { file: "object_mo", offset: 0xFC8, layer: "xlu", prim: [255, 255, 255, 255], env: [250, 250, 255, 0], when: [[0, 65535, "!=", 100]] } /* gMorphaWetSpotModelDL */,
+            { file: "object_mo", offset: 0x140, layer: "opa", prim: [255, 255, 255, 255], env: [150, 150, 150, 0], when: [[0, 65535, "!=", 100]] } /* gMorphaBubbleDL */
         ],
         segments: { 0x08: { scroll: [[0, 32, 32], [1, 32, 32]] }, 0x09: { scroll: [[0, 32, 32], [1, 32, 32]] }, 0x0D: { scroll: [[0, 32, 32], [1, 32, 32]] } }
     },
@@ -1546,15 +1523,12 @@ const OOT_Actor_Models = {
         name: "En_Karebaba",
         object: "object_dekubaba",
         scale: 0.005,
-        yOffset: 1000.0,
         skeleton: { file: "object_dekubaba", offset: 0x2A40, type: "Normal", limbType: "Standard" },
         anim: { file: "object_dekubaba", offset: 0x2B8 },
         skelOps: [["t", 0.0, 0.0, 200.0]],
         lists: [
-            { file: "object_dekubaba", offset: 0x3070, layer: "opa", ops: [["t", 0.0, 0.0, 200.0]] } /* gDekuBabaStickDropDL */,
-            { select: null, variants: [[{ file: "object_dekubaba", offset: 0x1330, layer: "opa" } /* gDekuBabaStemTopDL */], [{ file: "object_dekubaba", offset: 0x1628, layer: "opa" } /* gDekuBabaStemMiddleDL */], [{ file: "object_dekubaba", offset: 0x1828, layer: "opa" } /* gDekuBabaStemBaseDL */]] },
-            { file: "object_dekubaba", offset: 0x10F0, layer: "opa" } /* gDekuBabaBaseLeavesDL */,
-            { file: "object_dekubaba", offset: 0x1828, layer: "opa" } /* gDekuBabaStemBaseDL */
+            { select: null, variants: [[{ file: "object_dekubaba", offset: 0x1330, layer: "opa", ops: [["t", 0.0, 0.0, -2000.0]] } /* gDekuBabaStemTopDL */], [{ file: "object_dekubaba", offset: 0x1628, layer: "opa", ops: [["t", 0.0, 0.0, -2000.0]] } /* gDekuBabaStemMiddleDL */], [{ file: "object_dekubaba", offset: 0x1828, layer: "opa", ops: [["t", 0.0, 0.0, -2000.0]] } /* gDekuBabaStemBaseDL */]] },
+            { file: "object_dekubaba", offset: 0x10F0, layer: "opa" } /* gDekuBabaBaseLeavesDL */
         ]
     },
     0x0C8: {
@@ -1562,14 +1536,13 @@ const OOT_Actor_Models = {
         object: "object_bdan_objects",
         scale: 0.1,
         lists: [
-            { file: "object_bdan_objects", offset: 0x38E8, layer: "xlu", ops: [["t", 0.0, -50.0, 0.0]] } /* gJabuWaterDL */,
-            { select: [0, 0xFF], variants: [[{ file: "object_bdan_objects", offset: 0x8618, layer: "opa" } /* gJabuObjectsLargeRotatingSpikePlatformDL */], [{ file: "object_bdan_objects", offset: 0x4BE8, layer: "opa" } /* gJabuElevatorPlatformDL */], [{ file: "object_bdan_objects", offset: 0x38E8, layer: "opa" } /* gJabuWaterDL */], [{ file: "object_bdan_objects", offset: 0x5200, layer: "opa" } /* gJabuFallingPlatformDL */]] }
+            { file: "object_bdan_objects", offset: 0x38E8, layer: "xlu", when: [[0, 255, "==", 2]] } /* gJabuWaterDL */,
+            { select: [0, 0xFF], variants: [[{ file: "object_bdan_objects", offset: 0x8618, layer: "opa" } /* gJabuObjectsLargeRotatingSpikePlatformDL */], [{ file: "object_bdan_objects", offset: 0x4BE8, layer: "opa" } /* gJabuElevatorPlatformDL */], [{ file: "object_bdan_objects", offset: 0x38E8, layer: "opa" } /* gJabuWaterDL */], [{ file: "object_bdan_objects", offset: 0x5200, layer: "opa" } /* gJabuFallingPlatformDL */]], when: [{"not": [0, 255, "==", 2]}] }
         ]
     },
     0x0C9: {
         name: "Demo_Sa",
         object: "object_sa",
-        yOffset: -10000.0,
         scaleUnknown: true,
         skeleton: { file: "object_sa", offset: 0xB1A0, type: "Flex", limbType: "Standard" },
         anim: { file: "object_sa", offset: 0x21D8 },
@@ -1608,7 +1581,8 @@ const OOT_Actor_Models = {
         object: "object_spot16_obj",
         scale: 0.4,
         lists: [
-            { file: "object_spot16_obj", offset: 0xC20, layer: "opa" } /* gDodongosCavernRock3DL */
+            { file: "object_spot16_obj", offset: 0xC20, layer: "opa", when: [[0, 255, "==", 255]] } /* gDodongosCavernRock3DL */,
+            { file: "object_spot16_obj", offset: 0xC20, layer: "opa", when: [{"not": [0, 255, "==", 255]}] } /* gDodongosCavernRock3DL */
         ]
     },
     0x0CF: {
@@ -1638,7 +1612,6 @@ const OOT_Actor_Models = {
     0x0D2: {
         name: "En_Ru2",
         object: "object_ru2",
-        yOffset: -10000.0,
         scaleUnknown: true,
         skeleton: { file: "object_ru2", offset: 0xC700, type: "Flex", limbType: "Standard" },
         anim: { file: "object_ru2", offset: 0xDE8 },
@@ -1666,12 +1639,12 @@ const OOT_Actor_Models = {
         object: "object_spot06_objects",
         scale: 0.1,
         lists: [
-            { file: "object_spot06_objects", offset: 0xE10, layer: "opa" } /* gLakeHyliaWaterTempleGateDL */,
-            { file: "object_spot06_objects", offset: 0x2490, layer: "opa" } /* gLakeHyliaWaterTempleKeyDL */,
-            { file: "object_spot06_objects", offset: 0x1160, layer: "opa" } /* gLakeHyliaZoraShortcutIceblockDL */,
-            { file: "object_spot06_objects", offset: 0x120, layer: "xlu", env: [255, 255, 255, 128] } /* gLakeHyliaLowWaterDL */,
-            { file: "object_spot06_objects", offset: 0x470, layer: "xlu", env: [255, 255, 255, 128] } /* gLakeHyliaHighWaterDL */
-        ]
+            { file: "object_spot06_objects", offset: 0xE10, layer: "opa", when: [[8, 255, "==", 0]] } /* gLakeHyliaWaterTempleGateDL */,
+            { file: "object_spot06_objects", offset: 0x2490, layer: "opa", when: [[8, 255, "==", 1]] } /* gLakeHyliaWaterTempleKeyDL */,
+            { file: "object_spot06_objects", offset: 0x1160, layer: "opa", when: [[8, 255, "==", 3]] } /* gLakeHyliaZoraShortcutIceblockDL */,
+            { file: "object_spot06_objects", offset: 0x470, layer: "xlu", env: [255, 255, 255, 128], when: [[8, 255, "==", 2]] } /* gLakeHyliaHighWaterDL */
+        ],
+        segments: { 0x08: { scroll: [[0, 32, 32], [1, 32, 32]] }, 0x09: { scroll: [[0, 32, 32], [1, 32, 32]] } }
     },
     0x0D6: {
         name: "Bg_Ice_Objects",
@@ -1718,11 +1691,11 @@ const OOT_Actor_Models = {
         skeleton: { file: "object_tw", offset: 0x70E0, type: "Flex", limbType: "Standard" },
         anim: { file: "object_tw", offset: 0x6F28 },
         lists: [
-            { file: "object_tw", offset: 0x1A528, layer: "xlu" } /* gTwinrovaMagicParticleMaterialDL */,
-            { file: "object_tw", offset: 0x1A5A8, layer: "xlu" } /* gTwinrovaMagicParticleModelDL */
+            { file: "object_tw", offset: 0x1A528, layer: "xlu", when: [{"not": [0, 65535, "==", 0]}, {"not": [0, 65535, "==", 1]}] } /* gTwinrovaMagicParticleMaterialDL */,
+            { file: "object_tw", offset: 0x1A5A8, layer: "xlu", when: [{"not": [0, 65535, "==", 0]}, {"not": [0, 65535, "==", 1]}] } /* gTwinrovaMagicParticleModelDL */
         ],
         limbLists: { 14: [{ file: "object_tw", offset: 0x12B38, layer: "opa" } /* gTwinrovaKotakeBroomDL */], 19: [{ file: "object_tw", offset: 0x2D940, layer: "opa" } /* gTwinrovaLeftHairBunDL */], 20: [{ file: "object_tw", offset: 0x2D890, layer: "opa" } /* gTwinrovaRightHairBunDL */], 21: [{ file: "object_tw", offset: 0x12CE0, layer: "opa" } /* gTwinrovaKotakeHeadDL */] },
-        segments: { 0x08: { scroll: [[0, 32, 32], [1, 32, 64]] }, 0x09: { scroll: [[0, 32, 64]] }, 0x0A: { file: "object_tw", offset: 0xA438 } }
+        segments: { 0x08: { scroll: [[0, 32, 32], [1, 32, 64]] }, 0x09: { scroll: [[0, 32, 64]] }, 0x0A: { file: "object_tw", offset: 0xA438 }, 0x0D: { scroll: [[0, 32, 64], [1, 16, 16]] } }
     },
     0x0DD: {
         name: "En_Rr",
@@ -1738,8 +1711,8 @@ const OOT_Actor_Models = {
         object: "object_bxa",
         scale: 0.01,
         lists: [
-            { file: "object_bxa", offset: 0x890, layer: "opa" } /* object_bxa_DL_000890 */,
-            { file: "object_bxa", offset: 0x1D80, layer: "opa", prim: [255, 125, 100, 255] } /* object_bxa_DL_001D80 */
+            { file: "object_bxa", offset: 0x890, layer: "opa", when: [[0, 255, "<", 3]] } /* object_bxa_DL_000890 */,
+            { file: "object_bxa", offset: 0x1D80, layer: "opa", prim: [255, 125, 100, 255], when: [{"not": [0, 255, "<", 3]}] } /* object_bxa_DL_001D80 */
         ],
         segments: { 0x08: { file: "object_bxa", offset: 0x24F0 }, 0x09: { scroll: [[0, 16, 16], [1, 32, 32]] } }
     },
@@ -1758,7 +1731,8 @@ const OOT_Actor_Models = {
         scale: 0.015,
         yOffset: -4230.0,
         skeleton: { file: "object_anubice", offset: 0x3990, type: "Normal", limbType: "Standard" },
-        anim: { file: "object_anubice", offset: 0xF74 }
+        anim: { file: "object_anubice", offset: 0xF74 },
+        limbLists: { 13: [{ file: "object_anubice", offset: 0x3468, layer: "opa", add: true } /* gAnubiceEyesDL */] }
     },
     0x0E1: {
         name: "En_Anubice_Fire",
@@ -1774,8 +1748,8 @@ const OOT_Actor_Models = {
         object: "object_mori_objects",
         scale: 1.0,
         lists: [
-            { file: "object_mori_objects", offset: 0x4770, layer: "opa" } /* gMoriHashigoClaspDL */,
-            { file: "object_mori_objects", offset: 0x36B0, layer: "opa" } /* gMoriHashigoLadderDL */
+            { file: "object_mori_objects", offset: 0x4770, layer: "opa", when: [[0, 65535, "==", -1]] } /* gMoriHashigoClaspDL */,
+            { file: "object_mori_objects", offset: 0x36B0, layer: "opa", when: [[0, 65535, "==", 0]] } /* gMoriHashigoLadderDL */
         ],
         segments: { 0x08: { file: "object_mori_tex", offset: 0x0 } }
     },
@@ -1802,8 +1776,8 @@ const OOT_Actor_Models = {
         object: "object_efc_doughnut",
         scale: 0.1,
         lists: [
-            { file: "object_efc_doughnut", offset: 0x660, layer: "xlu", env: [255, 0, 0, 255] } /* gDeathMountainCloudCircleFieryDL */,
-            { file: "object_efc_doughnut", offset: 0xFC0, layer: "xlu", prim: [255, 255, 255, 255], env: [255, 255, 255, 255] } /* gDeathMountainCloudCircleNormalDL */
+            { file: "object_efc_doughnut", offset: 0xFC0, layer: "xlu", prim: [255, 255, 255, 255], env: [255, 255, 255, 255], when: [{"not": {"any": [{"all": [{"any": [[0, 65535, "==", 1], [0, 65535, "==", 2], [0, 65535, "==", 3], [0, 65535, "==", 4]]}]}]}}] } /* gDeathMountainCloudCircleNormalDL */,
+            { file: "object_efc_doughnut", offset: 0xFC0, layer: "xlu", prim: [255, 255, 255, 255], env: [255, 255, 255, 255], when: [{"any": [[0, 65535, "==", 1], [0, 65535, "==", 2], [0, 65535, "==", 3], [0, 65535, "==", 4]]}] } /* gDeathMountainCloudCircleNormalDL */
         ],
         segments: { 0x08: { scroll: [[0, 16, 32], [1, 16, 32]] } }
     },
@@ -1824,41 +1798,40 @@ const OOT_Actor_Models = {
         name: "Boss_Ganon",
         object: "object_ganon",
         scale: 0.01,
-        yOffset: -7000.0,
         skeleton: { file: "object_ganon", offset: 0x100E8, type: "Flex", limbType: "Standard" },
         anim: { file: "object_ganon_anime2", offset: 0x5FFC },
         lists: [
-            { file: "ovl_Boss_Ganon", offset: 0xF958, vram: 0x809F1D00, layer: "opa" } /* gGanondorfWindowShardMaterialDL */,
-            { file: "ovl_Boss_Ganon", offset: 0xFA00, vram: 0x809F1D00, layer: "opa", prim: [255, 255, 255, 255] } /* gGanondorfWindowShardModelDL */,
-            { file: "ovl_Boss_Ganon", offset: 0x11258, vram: 0x809F1D00, layer: "xlu", prim: [255, 255, 255, 255], env: [255, 255, 0, 0] } /* gGanondorfLightBallMaterialDL */,
-            { file: "ovl_Boss_Ganon", offset: 0x112C8, vram: 0x809F1D00, layer: "xlu", prim: [255, 255, 255, 255], env: [255, 255, 0, 0] } /* gGanondorfSquareDL */,
-            { file: "ovl_Boss_Ganon", offset: 0x112C8, vram: 0x809F1D00, layer: "xlu", ops: [["rx", 1.570796]], prim: [255, 255, 255, 255], env: [255, 255, 0, 0] } /* gGanondorfSquareDL */,
-            { file: "ovl_Boss_Ganon", offset: 0x1FFD0, vram: 0x809F1D00, layer: "xlu", prim: [255, 255, 255, 255], env: [255, 255, 0, 0] } /* gGanondorfShockDL */,
-            { file: "ovl_Boss_Ganon", offset: 0x1A320, vram: 0x809F1D00, layer: "xlu", prim: [255, 255, 255, 255], env: [255, 255, 0, 0] } /* gGanondorfLightningDL */,
-            { file: "ovl_Boss_Ganon", offset: 0x1D938, vram: 0x809F1D00, layer: "xlu", prim: [0, 0, 0, 255], env: [100, 70, 0, 128] } /* gGanondorfImpactDarkDL */,
-            { file: "ovl_Boss_Ganon", offset: 0x1DA50, vram: 0x809F1D00, layer: "xlu", prim: [255, 255, 255, 255], env: [200, 100, 0, 128] } /* gGanondorfImpactLightDL */,
-            { file: "ovl_Boss_Ganon", offset: 0x1CAA0, vram: 0x809F1D00, layer: "xlu", ops: [["new"]], prim: [255, 255, 170, 255], env: [150, 255, 0, 128] } /* gGanondorfShockwaveDL */,
-            { file: "ovl_Boss_Ganon", offset: 0x1C038, vram: 0x809F1D00, layer: "xlu", prim: [150, 170, 0, 255], env: [255, 255, 255, 128] } /* gGanondorfDotDL */,
-            { file: "ovl_Boss_Ganon", offset: 0x1EBA8, vram: 0x809F1D00, layer: "xlu", prim: [200, 255, 170, 255], env: [255, 255, 0, 128] } /* gGanondorfShockGlowDL */,
-            { file: "ovl_Boss_Ganon", offset: 0x112C8, vram: 0x809F1D00, layer: "xlu", prim: [200, 255, 170, 255], env: [255, 255, 0, 128] } /* gGanondorfSquareDL */,
-            { file: "ovl_Boss_Ganon", offset: 0x11258, vram: 0x809F1D00, layer: "xlu", prim: [255, 255, 255, 255], env: [100, 255, 0, 0] } /* gGanondorfLightBallMaterialDL */,
-            { file: "ovl_Boss_Ganon", offset: 0x112C8, vram: 0x809F1D00, layer: "xlu", prim: [255, 255, 255, 255], env: [100, 255, 0, 0] } /* gGanondorfSquareDL */,
-            { file: "ovl_Boss_Ganon", offset: 0x1FF08, vram: 0x809F1D00, layer: "xlu", prim: [255, 255, 155, 255], env: [100, 255, 0, 0] } /* gGanondorfLightCoreDL */,
-            { file: "ovl_Boss_Ganon", offset: 0x1BEA0, vram: 0x809F1D00, layer: "xlu", prim: [255, 255, 170, 255], env: [200, 255, 0, 128] } /* gGanondorfLightFlecksDL */,
-            { file: "ovl_Boss_Ganon", offset: 0x1BF90, vram: 0x809F1D00, layer: "xlu", prim: [255, 0, 100, 255], env: [200, 255, 0, 128] } /* gGanondorfBigMagicBGCircleDL */,
-            { file: "ovl_Boss_Ganon", offset: 0x1C038, vram: 0x809F1D00, layer: "xlu", prim: [150, 170, 0, 255], env: [200, 255, 0, 128] } /* gGanondorfDotDL */,
-            { file: "ovl_Boss_Ganon", offset: 0x11258, vram: 0x809F1D00, layer: "xlu", prim: [255, 255, 255, 255], env: [255, 255, 100, 0] } /* gGanondorfLightBallMaterialDL */,
-            { file: "ovl_Boss_Ganon", offset: 0x112C8, vram: 0x809F1D00, layer: "xlu", prim: [255, 255, 255, 255], env: [255, 255, 100, 0] } /* gGanondorfSquareDL */,
-            { file: "ovl_Boss_Ganon", offset: 0x1A448, vram: 0x809F1D00, layer: "xlu", ops: [["t", 0.0, 0.0, 50.0], ["s", 4.0, 4.0, 1.0]], prim: [255, 255, 255, 255], env: [200, 255, 0, 0] } /* gGanondorfLightRayTriDL */,
-            { file: "ovl_Boss_Ganon", offset: 0x1FF08, vram: 0x809F1D00, layer: "xlu", prim: [255, 255, 155, 255] } /* gGanondorfLightCoreDL */,
-            { file: "ovl_Boss_Ganon", offset: 0x11258, vram: 0x809F1D00, layer: "xlu", prim: [255, 255, 155, 255] } /* gGanondorfLightBallMaterialDL */,
-            { select: null, variants: [[{ file: "ovl_Boss_Ganon", offset: 0x1FC38, vram: 0x809F1D00, layer: "xlu" } /* gGanondorfLightStreak12DL */], [{ file: "ovl_Boss_Ganon", offset: 0x1FC00, vram: 0x809F1D00, layer: "xlu" } /* gGanondorfLightStreak11DL */], [{ file: "ovl_Boss_Ganon", offset: 0x1FBC8, vram: 0x809F1D00, layer: "xlu" } /* gGanondorfLightStreak10DL */], [{ file: "ovl_Boss_Ganon", offset: 0x1FB90, vram: 0x809F1D00, layer: "xlu" } /* gGanondorfLightStreak9DL */], [{ file: "ovl_Boss_Ganon", offset: 0x1FB58, vram: 0x809F1D00, layer: "xlu" } /* gGanondorfLightStreak8DL */], [{ file: "ovl_Boss_Ganon", offset: 0x1FB20, vram: 0x809F1D00, layer: "xlu" } /* gGanondorfLightStreak7DL */], [{ file: "ovl_Boss_Ganon", offset: 0x1FAE8, vram: 0x809F1D00, layer: "xlu" } /* gGanondorfLightStreak6DL */], [{ file: "ovl_Boss_Ganon", offset: 0x1FAB0, vram: 0x809F1D00, layer: "xlu" } /* gGanondorfLightStreak5DL */], [{ file: "ovl_Boss_Ganon", offset: 0x1FA78, vram: 0x809F1D00, layer: "xlu" } /* gGanondorfLightStreak4DL */], [{ file: "ovl_Boss_Ganon", offset: 0x1FA40, vram: 0x809F1D00, layer: "xlu" } /* gGanondorfLightStreak3DL */], [{ file: "ovl_Boss_Ganon", offset: 0x1FA08, vram: 0x809F1D00, layer: "xlu" } /* gGanondorfLightStreak2DL */], [{ file: "ovl_Boss_Ganon", offset: 0x1F9D0, vram: 0x809F1D00, layer: "xlu" } /* gGanondorfLightStreak1DL */]] },
-            { file: "ovl_Boss_Ganon", offset: 0x11258, vram: 0x809F1D00, layer: "xlu", ops: [["new"], ["s", 10.0, 10.0, 10.0]], prim: [255, 255, 255, 255], env: [150, 255, 0, 128] } /* gGanondorfLightBallMaterialDL */,
-            { file: "ovl_Boss_Ganon", offset: 0x112C8, vram: 0x809F1D00, layer: "xlu", ops: [["new"], ["s", 10.0, 10.0, 10.0]], prim: [255, 255, 255, 255], env: [150, 255, 0, 128] } /* gGanondorfSquareDL */,
-            { file: "ovl_Boss_Ganon", offset: 0x112C8, vram: 0x809F1D00, layer: "xlu", ops: [["new"]], prim: [255, 255, 255, 255], env: [255, 255, 0, 0] } /* gGanondorfSquareDL */
+            { file: "ovl_Boss_Ganon", offset: 0xF958, vram: 0x809F1D00, layer: "opa", when: [{"not": {"any": [{"all": [{"any": [{"all": [{"not": [0, 65535, "<", 100]}, [0, 65535, ">=", 200], [0, 65535, "==", 300]]}, {"all": [{"not": [0, 65535, "<", 100]}, [0, 65535, ">=", 200], {"not": [0, 65535, "==", 300]}, [0, 65535, "==", 400]]}, {"all": [{"not": [0, 65535, "<", 100]}, {"not": [0, 65535, ">=", 200]}]}]}]}, {"all": [{"any": [{"all": [{"not": [0, 65535, "<", 100]}, [0, 65535, ">=", 200], {"not": [0, 65535, "==", 300]}, {"not": [0, 65535, "==", 400]}, [0, 65535, ">=", 260]]}, {"all": [{"not": [0, 65535, "<", 100]}, [0, 65535, ">=", 200], {"not": [0, 65535, "==", 300]}, {"not": [0, 65535, "==", 400]}, {"not": [0, 65535, ">=", 260]}, [0, 65535, ">=", 250]]}]}]}, {"all": [{"not": [0, 65535, "<", 100]}, [0, 65535, ">=", 200], {"not": [0, 65535, "==", 300]}, {"not": [0, 65535, "==", 400]}, {"not": [0, 65535, ">=", 260]}, {"not": [0, 65535, ">=", 250]}]}]}}] } /* gGanondorfWindowShardMaterialDL */,
+            { file: "ovl_Boss_Ganon", offset: 0xFA00, vram: 0x809F1D00, layer: "opa", prim: [255, 255, 255, 255], when: [{"not": {"any": [{"all": [{"any": [{"all": [{"not": [0, 65535, "<", 100]}, [0, 65535, ">=", 200], [0, 65535, "==", 300]]}, {"all": [{"not": [0, 65535, "<", 100]}, [0, 65535, ">=", 200], {"not": [0, 65535, "==", 300]}, [0, 65535, "==", 400]]}, {"all": [{"not": [0, 65535, "<", 100]}, {"not": [0, 65535, ">=", 200]}]}]}]}, {"all": [{"any": [{"all": [{"not": [0, 65535, "<", 100]}, [0, 65535, ">=", 200], {"not": [0, 65535, "==", 300]}, {"not": [0, 65535, "==", 400]}, [0, 65535, ">=", 260]]}, {"all": [{"not": [0, 65535, "<", 100]}, [0, 65535, ">=", 200], {"not": [0, 65535, "==", 300]}, {"not": [0, 65535, "==", 400]}, {"not": [0, 65535, ">=", 260]}, [0, 65535, ">=", 250]]}]}]}, {"all": [{"not": [0, 65535, "<", 100]}, [0, 65535, ">=", 200], {"not": [0, 65535, "==", 300]}, {"not": [0, 65535, "==", 400]}, {"not": [0, 65535, ">=", 260]}, {"not": [0, 65535, ">=", 250]}]}]}}] } /* gGanondorfWindowShardModelDL */,
+            { file: "ovl_Boss_Ganon", offset: 0x11258, vram: 0x809F1D00, layer: "xlu", prim: [255, 255, 255, 255], env: [255, 255, 0, 0], when: [{"not": {"any": [{"all": [{"any": [{"all": [{"not": [0, 65535, "<", 100]}, [0, 65535, ">=", 200], [0, 65535, "==", 300]]}, {"all": [{"not": [0, 65535, "<", 100]}, [0, 65535, ">=", 200], {"not": [0, 65535, "==", 300]}, [0, 65535, "==", 400]]}, {"all": [{"not": [0, 65535, "<", 100]}, {"not": [0, 65535, ">=", 200]}]}]}]}, {"all": [{"any": [{"all": [{"not": [0, 65535, "<", 100]}, [0, 65535, ">=", 200], {"not": [0, 65535, "==", 300]}, {"not": [0, 65535, "==", 400]}, [0, 65535, ">=", 260]]}, {"all": [{"not": [0, 65535, "<", 100]}, [0, 65535, ">=", 200], {"not": [0, 65535, "==", 300]}, {"not": [0, 65535, "==", 400]}, {"not": [0, 65535, ">=", 260]}, [0, 65535, ">=", 250]]}]}]}, {"all": [{"not": [0, 65535, "<", 100]}, [0, 65535, ">=", 200], {"not": [0, 65535, "==", 300]}, {"not": [0, 65535, "==", 400]}, {"not": [0, 65535, ">=", 260]}, {"not": [0, 65535, ">=", 250]}]}]}}] } /* gGanondorfLightBallMaterialDL */,
+            { file: "ovl_Boss_Ganon", offset: 0x112C8, vram: 0x809F1D00, layer: "xlu", prim: [255, 255, 255, 255], env: [255, 255, 0, 0], when: [{"not": {"any": [{"all": [{"any": [{"all": [{"not": [0, 65535, "<", 100]}, [0, 65535, ">=", 200], [0, 65535, "==", 300]]}, {"all": [{"not": [0, 65535, "<", 100]}, [0, 65535, ">=", 200], {"not": [0, 65535, "==", 300]}, [0, 65535, "==", 400]]}, {"all": [{"not": [0, 65535, "<", 100]}, {"not": [0, 65535, ">=", 200]}]}]}]}, {"all": [{"any": [{"all": [{"not": [0, 65535, "<", 100]}, [0, 65535, ">=", 200], {"not": [0, 65535, "==", 300]}, {"not": [0, 65535, "==", 400]}, [0, 65535, ">=", 260]]}, {"all": [{"not": [0, 65535, "<", 100]}, [0, 65535, ">=", 200], {"not": [0, 65535, "==", 300]}, {"not": [0, 65535, "==", 400]}, {"not": [0, 65535, ">=", 260]}, [0, 65535, ">=", 250]]}]}]}, {"all": [{"not": [0, 65535, "<", 100]}, [0, 65535, ">=", 200], {"not": [0, 65535, "==", 300]}, {"not": [0, 65535, "==", 400]}, {"not": [0, 65535, ">=", 260]}, {"not": [0, 65535, ">=", 250]}]}]}}] } /* gGanondorfSquareDL */,
+            { file: "ovl_Boss_Ganon", offset: 0x112C8, vram: 0x809F1D00, layer: "xlu", ops: [["rx", 1.570796]], prim: [255, 255, 255, 255], env: [255, 255, 0, 0], when: [{"not": {"any": [{"all": [{"any": [{"all": [{"not": [0, 65535, "<", 100]}, [0, 65535, ">=", 200], [0, 65535, "==", 300]]}, {"all": [{"not": [0, 65535, "<", 100]}, [0, 65535, ">=", 200], {"not": [0, 65535, "==", 300]}, [0, 65535, "==", 400]]}, {"all": [{"not": [0, 65535, "<", 100]}, {"not": [0, 65535, ">=", 200]}]}]}]}, {"all": [{"any": [{"all": [{"not": [0, 65535, "<", 100]}, [0, 65535, ">=", 200], {"not": [0, 65535, "==", 300]}, {"not": [0, 65535, "==", 400]}, [0, 65535, ">=", 260]]}, {"all": [{"not": [0, 65535, "<", 100]}, [0, 65535, ">=", 200], {"not": [0, 65535, "==", 300]}, {"not": [0, 65535, "==", 400]}, {"not": [0, 65535, ">=", 260]}, [0, 65535, ">=", 250]]}]}]}, {"all": [{"not": [0, 65535, "<", 100]}, [0, 65535, ">=", 200], {"not": [0, 65535, "==", 300]}, {"not": [0, 65535, "==", 400]}, {"not": [0, 65535, ">=", 260]}, {"not": [0, 65535, ">=", 250]}]}]}}] } /* gGanondorfSquareDL */,
+            { file: "ovl_Boss_Ganon", offset: 0x1FFD0, vram: 0x809F1D00, layer: "xlu", prim: [255, 255, 255, 255], env: [255, 255, 0, 0], when: [{"not": {"any": [{"all": [{"any": [{"all": [{"not": [0, 65535, "<", 100]}, [0, 65535, ">=", 200], [0, 65535, "==", 300]]}, {"all": [{"not": [0, 65535, "<", 100]}, [0, 65535, ">=", 200], {"not": [0, 65535, "==", 300]}, [0, 65535, "==", 400]]}, {"all": [{"not": [0, 65535, "<", 100]}, {"not": [0, 65535, ">=", 200]}]}]}]}, {"all": [{"any": [{"all": [{"not": [0, 65535, "<", 100]}, [0, 65535, ">=", 200], {"not": [0, 65535, "==", 300]}, {"not": [0, 65535, "==", 400]}, [0, 65535, ">=", 260]]}, {"all": [{"not": [0, 65535, "<", 100]}, [0, 65535, ">=", 200], {"not": [0, 65535, "==", 300]}, {"not": [0, 65535, "==", 400]}, {"not": [0, 65535, ">=", 260]}, [0, 65535, ">=", 250]]}]}]}, {"all": [{"not": [0, 65535, "<", 100]}, [0, 65535, ">=", 200], {"not": [0, 65535, "==", 300]}, {"not": [0, 65535, "==", 400]}, {"not": [0, 65535, ">=", 260]}, {"not": [0, 65535, ">=", 250]}]}]}}] } /* gGanondorfShockDL */,
+            { file: "ovl_Boss_Ganon", offset: 0x1A320, vram: 0x809F1D00, layer: "xlu", prim: [255, 255, 255, 255], env: [255, 255, 0, 0], when: [{"not": {"any": [{"all": [{"any": [{"all": [{"not": [0, 65535, "<", 100]}, [0, 65535, ">=", 200], [0, 65535, "==", 300]]}, {"all": [{"not": [0, 65535, "<", 100]}, [0, 65535, ">=", 200], {"not": [0, 65535, "==", 300]}, [0, 65535, "==", 400]]}, {"all": [{"not": [0, 65535, "<", 100]}, {"not": [0, 65535, ">=", 200]}]}]}]}, {"all": [{"any": [{"all": [{"not": [0, 65535, "<", 100]}, [0, 65535, ">=", 200], {"not": [0, 65535, "==", 300]}, {"not": [0, 65535, "==", 400]}, [0, 65535, ">=", 260]]}, {"all": [{"not": [0, 65535, "<", 100]}, [0, 65535, ">=", 200], {"not": [0, 65535, "==", 300]}, {"not": [0, 65535, "==", 400]}, {"not": [0, 65535, ">=", 260]}, [0, 65535, ">=", 250]]}]}]}, {"all": [{"not": [0, 65535, "<", 100]}, [0, 65535, ">=", 200], {"not": [0, 65535, "==", 300]}, {"not": [0, 65535, "==", 400]}, {"not": [0, 65535, ">=", 260]}, {"not": [0, 65535, ">=", 250]}]}]}}] } /* gGanondorfLightningDL */,
+            { file: "ovl_Boss_Ganon", offset: 0x1D938, vram: 0x809F1D00, layer: "xlu", prim: [0, 0, 0, 255], env: [100, 70, 0, 128], when: [{"not": {"any": [{"all": [{"any": [{"all": [{"not": [0, 65535, "<", 100]}, [0, 65535, ">=", 200], [0, 65535, "==", 300]]}, {"all": [{"not": [0, 65535, "<", 100]}, [0, 65535, ">=", 200], {"not": [0, 65535, "==", 300]}, [0, 65535, "==", 400]]}, {"all": [{"not": [0, 65535, "<", 100]}, {"not": [0, 65535, ">=", 200]}]}]}]}, {"all": [{"any": [{"all": [{"not": [0, 65535, "<", 100]}, [0, 65535, ">=", 200], {"not": [0, 65535, "==", 300]}, {"not": [0, 65535, "==", 400]}, [0, 65535, ">=", 260]]}, {"all": [{"not": [0, 65535, "<", 100]}, [0, 65535, ">=", 200], {"not": [0, 65535, "==", 300]}, {"not": [0, 65535, "==", 400]}, {"not": [0, 65535, ">=", 260]}, [0, 65535, ">=", 250]]}]}]}, {"all": [{"not": [0, 65535, "<", 100]}, [0, 65535, ">=", 200], {"not": [0, 65535, "==", 300]}, {"not": [0, 65535, "==", 400]}, {"not": [0, 65535, ">=", 260]}, {"not": [0, 65535, ">=", 250]}]}]}}] } /* gGanondorfImpactDarkDL */,
+            { file: "ovl_Boss_Ganon", offset: 0x1DA50, vram: 0x809F1D00, layer: "xlu", prim: [255, 255, 255, 255], env: [200, 100, 0, 128], when: [{"not": {"any": [{"all": [{"any": [{"all": [{"not": [0, 65535, "<", 100]}, [0, 65535, ">=", 200], [0, 65535, "==", 300]]}, {"all": [{"not": [0, 65535, "<", 100]}, [0, 65535, ">=", 200], {"not": [0, 65535, "==", 300]}, [0, 65535, "==", 400]]}, {"all": [{"not": [0, 65535, "<", 100]}, {"not": [0, 65535, ">=", 200]}]}]}]}, {"all": [{"any": [{"all": [{"not": [0, 65535, "<", 100]}, [0, 65535, ">=", 200], {"not": [0, 65535, "==", 300]}, {"not": [0, 65535, "==", 400]}, [0, 65535, ">=", 260]]}, {"all": [{"not": [0, 65535, "<", 100]}, [0, 65535, ">=", 200], {"not": [0, 65535, "==", 300]}, {"not": [0, 65535, "==", 400]}, {"not": [0, 65535, ">=", 260]}, [0, 65535, ">=", 250]]}]}]}, {"all": [{"not": [0, 65535, "<", 100]}, [0, 65535, ">=", 200], {"not": [0, 65535, "==", 300]}, {"not": [0, 65535, "==", 400]}, {"not": [0, 65535, ">=", 260]}, {"not": [0, 65535, ">=", 250]}]}]}}] } /* gGanondorfImpactLightDL */,
+            { file: "ovl_Boss_Ganon", offset: 0x1CAA0, vram: 0x809F1D00, layer: "xlu", ops: [["new"]], prim: [255, 255, 170, 255], env: [150, 255, 0, 128], when: [{"not": {"any": [{"all": [{"any": [{"all": [{"not": [0, 65535, "<", 100]}, [0, 65535, ">=", 200], [0, 65535, "==", 300]]}, {"all": [{"not": [0, 65535, "<", 100]}, [0, 65535, ">=", 200], {"not": [0, 65535, "==", 300]}, [0, 65535, "==", 400]]}, {"all": [{"not": [0, 65535, "<", 100]}, {"not": [0, 65535, ">=", 200]}]}]}]}, {"all": [{"any": [{"all": [{"not": [0, 65535, "<", 100]}, [0, 65535, ">=", 200], {"not": [0, 65535, "==", 300]}, {"not": [0, 65535, "==", 400]}, [0, 65535, ">=", 260]]}, {"all": [{"not": [0, 65535, "<", 100]}, [0, 65535, ">=", 200], {"not": [0, 65535, "==", 300]}, {"not": [0, 65535, "==", 400]}, {"not": [0, 65535, ">=", 260]}, [0, 65535, ">=", 250]]}]}]}, {"all": [{"not": [0, 65535, "<", 100]}, [0, 65535, ">=", 200], {"not": [0, 65535, "==", 300]}, {"not": [0, 65535, "==", 400]}, {"not": [0, 65535, ">=", 260]}, {"not": [0, 65535, ">=", 250]}]}]}}] } /* gGanondorfShockwaveDL */,
+            { file: "ovl_Boss_Ganon", offset: 0x1C038, vram: 0x809F1D00, layer: "xlu", prim: [150, 170, 0, 255], env: [255, 255, 255, 128], when: [{"not": {"any": [{"all": [{"any": [{"all": [{"not": [0, 65535, "<", 100]}, [0, 65535, ">=", 200], [0, 65535, "==", 300]]}, {"all": [{"not": [0, 65535, "<", 100]}, [0, 65535, ">=", 200], {"not": [0, 65535, "==", 300]}, [0, 65535, "==", 400]]}, {"all": [{"not": [0, 65535, "<", 100]}, {"not": [0, 65535, ">=", 200]}]}]}]}, {"all": [{"any": [{"all": [{"not": [0, 65535, "<", 100]}, [0, 65535, ">=", 200], {"not": [0, 65535, "==", 300]}, {"not": [0, 65535, "==", 400]}, [0, 65535, ">=", 260]]}, {"all": [{"not": [0, 65535, "<", 100]}, [0, 65535, ">=", 200], {"not": [0, 65535, "==", 300]}, {"not": [0, 65535, "==", 400]}, {"not": [0, 65535, ">=", 260]}, [0, 65535, ">=", 250]]}]}]}, {"all": [{"not": [0, 65535, "<", 100]}, [0, 65535, ">=", 200], {"not": [0, 65535, "==", 300]}, {"not": [0, 65535, "==", 400]}, {"not": [0, 65535, ">=", 260]}, {"not": [0, 65535, ">=", 250]}]}]}}] } /* gGanondorfDotDL */,
+            { file: "ovl_Boss_Ganon", offset: 0x11258, vram: 0x809F1D00, layer: "xlu", prim: [255, 255, 255, 255], env: [100, 255, 0, 0], when: [{"not": {"any": [{"all": [{"any": [{"all": [{"not": [0, 65535, "<", 100]}, [0, 65535, ">=", 200], [0, 65535, "==", 300]]}, {"all": [{"not": [0, 65535, "<", 100]}, [0, 65535, ">=", 200], {"not": [0, 65535, "==", 300]}, [0, 65535, "==", 400]]}, {"all": [{"not": [0, 65535, "<", 100]}, {"not": [0, 65535, ">=", 200]}]}]}]}, {"all": [{"any": [{"all": [{"not": [0, 65535, "<", 100]}, [0, 65535, ">=", 200], {"not": [0, 65535, "==", 300]}, {"not": [0, 65535, "==", 400]}, [0, 65535, ">=", 260]]}, {"all": [{"not": [0, 65535, "<", 100]}, [0, 65535, ">=", 200], {"not": [0, 65535, "==", 300]}, {"not": [0, 65535, "==", 400]}, {"not": [0, 65535, ">=", 260]}, [0, 65535, ">=", 250]]}]}]}, {"all": [{"not": [0, 65535, "<", 100]}, [0, 65535, ">=", 200], {"not": [0, 65535, "==", 300]}, {"not": [0, 65535, "==", 400]}, {"not": [0, 65535, ">=", 260]}, {"not": [0, 65535, ">=", 250]}]}]}}] } /* gGanondorfLightBallMaterialDL */,
+            { file: "ovl_Boss_Ganon", offset: 0x112C8, vram: 0x809F1D00, layer: "xlu", prim: [255, 255, 255, 255], env: [100, 255, 0, 0], when: [{"not": {"any": [{"all": [{"any": [{"all": [{"not": [0, 65535, "<", 100]}, [0, 65535, ">=", 200], [0, 65535, "==", 300]]}, {"all": [{"not": [0, 65535, "<", 100]}, [0, 65535, ">=", 200], {"not": [0, 65535, "==", 300]}, [0, 65535, "==", 400]]}, {"all": [{"not": [0, 65535, "<", 100]}, {"not": [0, 65535, ">=", 200]}]}]}]}, {"all": [{"any": [{"all": [{"not": [0, 65535, "<", 100]}, [0, 65535, ">=", 200], {"not": [0, 65535, "==", 300]}, {"not": [0, 65535, "==", 400]}, [0, 65535, ">=", 260]]}, {"all": [{"not": [0, 65535, "<", 100]}, [0, 65535, ">=", 200], {"not": [0, 65535, "==", 300]}, {"not": [0, 65535, "==", 400]}, {"not": [0, 65535, ">=", 260]}, [0, 65535, ">=", 250]]}]}]}, {"all": [{"not": [0, 65535, "<", 100]}, [0, 65535, ">=", 200], {"not": [0, 65535, "==", 300]}, {"not": [0, 65535, "==", 400]}, {"not": [0, 65535, ">=", 260]}, {"not": [0, 65535, ">=", 250]}]}]}}] } /* gGanondorfSquareDL */,
+            { file: "ovl_Boss_Ganon", offset: 0x1FF08, vram: 0x809F1D00, layer: "xlu", prim: [255, 255, 155, 255], env: [100, 255, 0, 0], when: [{"not": {"any": [{"all": [{"any": [{"all": [{"not": [0, 65535, "<", 100]}, [0, 65535, ">=", 200], [0, 65535, "==", 300]]}, {"all": [{"not": [0, 65535, "<", 100]}, [0, 65535, ">=", 200], {"not": [0, 65535, "==", 300]}, [0, 65535, "==", 400]]}, {"all": [{"not": [0, 65535, "<", 100]}, {"not": [0, 65535, ">=", 200]}]}]}]}, {"all": [{"any": [{"all": [{"not": [0, 65535, "<", 100]}, [0, 65535, ">=", 200], {"not": [0, 65535, "==", 300]}, {"not": [0, 65535, "==", 400]}, [0, 65535, ">=", 260]]}, {"all": [{"not": [0, 65535, "<", 100]}, [0, 65535, ">=", 200], {"not": [0, 65535, "==", 300]}, {"not": [0, 65535, "==", 400]}, {"not": [0, 65535, ">=", 260]}, [0, 65535, ">=", 250]]}]}]}, {"all": [{"not": [0, 65535, "<", 100]}, [0, 65535, ">=", 200], {"not": [0, 65535, "==", 300]}, {"not": [0, 65535, "==", 400]}, {"not": [0, 65535, ">=", 260]}, {"not": [0, 65535, ">=", 250]}]}]}}] } /* gGanondorfLightCoreDL */,
+            { file: "ovl_Boss_Ganon", offset: 0x1BEA0, vram: 0x809F1D00, layer: "xlu", prim: [255, 255, 170, 255], env: [200, 255, 0, 128], when: [{"not": {"any": [{"all": [{"any": [{"all": [{"not": [0, 65535, "<", 100]}, [0, 65535, ">=", 200], [0, 65535, "==", 300]]}, {"all": [{"not": [0, 65535, "<", 100]}, [0, 65535, ">=", 200], {"not": [0, 65535, "==", 300]}, [0, 65535, "==", 400]]}, {"all": [{"not": [0, 65535, "<", 100]}, {"not": [0, 65535, ">=", 200]}]}]}]}, {"all": [{"any": [{"all": [{"not": [0, 65535, "<", 100]}, [0, 65535, ">=", 200], {"not": [0, 65535, "==", 300]}, {"not": [0, 65535, "==", 400]}, [0, 65535, ">=", 260]]}, {"all": [{"not": [0, 65535, "<", 100]}, [0, 65535, ">=", 200], {"not": [0, 65535, "==", 300]}, {"not": [0, 65535, "==", 400]}, {"not": [0, 65535, ">=", 260]}, [0, 65535, ">=", 250]]}]}]}, {"all": [{"not": [0, 65535, "<", 100]}, [0, 65535, ">=", 200], {"not": [0, 65535, "==", 300]}, {"not": [0, 65535, "==", 400]}, {"not": [0, 65535, ">=", 260]}, {"not": [0, 65535, ">=", 250]}]}]}}] } /* gGanondorfLightFlecksDL */,
+            { file: "ovl_Boss_Ganon", offset: 0x1BF90, vram: 0x809F1D00, layer: "xlu", prim: [255, 0, 100, 255], env: [200, 255, 0, 128], when: [{"not": {"any": [{"all": [{"any": [{"all": [{"not": [0, 65535, "<", 100]}, [0, 65535, ">=", 200], [0, 65535, "==", 300]]}, {"all": [{"not": [0, 65535, "<", 100]}, [0, 65535, ">=", 200], {"not": [0, 65535, "==", 300]}, [0, 65535, "==", 400]]}, {"all": [{"not": [0, 65535, "<", 100]}, {"not": [0, 65535, ">=", 200]}]}]}]}, {"all": [{"any": [{"all": [{"not": [0, 65535, "<", 100]}, [0, 65535, ">=", 200], {"not": [0, 65535, "==", 300]}, {"not": [0, 65535, "==", 400]}, [0, 65535, ">=", 260]]}, {"all": [{"not": [0, 65535, "<", 100]}, [0, 65535, ">=", 200], {"not": [0, 65535, "==", 300]}, {"not": [0, 65535, "==", 400]}, {"not": [0, 65535, ">=", 260]}, [0, 65535, ">=", 250]]}]}]}, {"all": [{"not": [0, 65535, "<", 100]}, [0, 65535, ">=", 200], {"not": [0, 65535, "==", 300]}, {"not": [0, 65535, "==", 400]}, {"not": [0, 65535, ">=", 260]}, {"not": [0, 65535, ">=", 250]}]}]}}] } /* gGanondorfBigMagicBGCircleDL */,
+            { file: "ovl_Boss_Ganon", offset: 0x1C038, vram: 0x809F1D00, layer: "xlu", prim: [150, 170, 0, 255], env: [200, 255, 0, 128], when: [{"not": {"any": [{"all": [{"any": [{"all": [{"not": [0, 65535, "<", 100]}, [0, 65535, ">=", 200], [0, 65535, "==", 300]]}, {"all": [{"not": [0, 65535, "<", 100]}, [0, 65535, ">=", 200], {"not": [0, 65535, "==", 300]}, [0, 65535, "==", 400]]}, {"all": [{"not": [0, 65535, "<", 100]}, {"not": [0, 65535, ">=", 200]}]}]}]}, {"all": [{"any": [{"all": [{"not": [0, 65535, "<", 100]}, [0, 65535, ">=", 200], {"not": [0, 65535, "==", 300]}, {"not": [0, 65535, "==", 400]}, [0, 65535, ">=", 260]]}, {"all": [{"not": [0, 65535, "<", 100]}, [0, 65535, ">=", 200], {"not": [0, 65535, "==", 300]}, {"not": [0, 65535, "==", 400]}, {"not": [0, 65535, ">=", 260]}, [0, 65535, ">=", 250]]}]}]}, {"all": [{"not": [0, 65535, "<", 100]}, [0, 65535, ">=", 200], {"not": [0, 65535, "==", 300]}, {"not": [0, 65535, "==", 400]}, {"not": [0, 65535, ">=", 260]}, {"not": [0, 65535, ">=", 250]}]}]}}] } /* gGanondorfDotDL */,
+            { file: "ovl_Boss_Ganon", offset: 0x11258, vram: 0x809F1D00, layer: "xlu", prim: [255, 255, 255, 255], env: [255, 255, 100, 0], when: [{"not": {"any": [{"all": [{"any": [{"all": [{"not": [0, 65535, "<", 100]}, [0, 65535, ">=", 200], [0, 65535, "==", 300]]}, {"all": [{"not": [0, 65535, "<", 100]}, [0, 65535, ">=", 200], {"not": [0, 65535, "==", 300]}, [0, 65535, "==", 400]]}, {"all": [{"not": [0, 65535, "<", 100]}, {"not": [0, 65535, ">=", 200]}]}]}]}, {"all": [{"any": [{"all": [{"not": [0, 65535, "<", 100]}, [0, 65535, ">=", 200], {"not": [0, 65535, "==", 300]}, {"not": [0, 65535, "==", 400]}, [0, 65535, ">=", 260]]}, {"all": [{"not": [0, 65535, "<", 100]}, [0, 65535, ">=", 200], {"not": [0, 65535, "==", 300]}, {"not": [0, 65535, "==", 400]}, {"not": [0, 65535, ">=", 260]}, [0, 65535, ">=", 250]]}]}]}, {"all": [{"not": [0, 65535, "<", 100]}, [0, 65535, ">=", 200], {"not": [0, 65535, "==", 300]}, {"not": [0, 65535, "==", 400]}, {"not": [0, 65535, ">=", 260]}, {"not": [0, 65535, ">=", 250]}]}]}}] } /* gGanondorfLightBallMaterialDL */,
+            { file: "ovl_Boss_Ganon", offset: 0x112C8, vram: 0x809F1D00, layer: "xlu", prim: [255, 255, 255, 255], env: [255, 255, 100, 0], when: [{"not": {"any": [{"all": [{"any": [{"all": [{"not": [0, 65535, "<", 100]}, [0, 65535, ">=", 200], [0, 65535, "==", 300]]}, {"all": [{"not": [0, 65535, "<", 100]}, [0, 65535, ">=", 200], {"not": [0, 65535, "==", 300]}, [0, 65535, "==", 400]]}, {"all": [{"not": [0, 65535, "<", 100]}, {"not": [0, 65535, ">=", 200]}]}]}]}, {"all": [{"any": [{"all": [{"not": [0, 65535, "<", 100]}, [0, 65535, ">=", 200], {"not": [0, 65535, "==", 300]}, {"not": [0, 65535, "==", 400]}, [0, 65535, ">=", 260]]}, {"all": [{"not": [0, 65535, "<", 100]}, [0, 65535, ">=", 200], {"not": [0, 65535, "==", 300]}, {"not": [0, 65535, "==", 400]}, {"not": [0, 65535, ">=", 260]}, [0, 65535, ">=", 250]]}]}]}, {"all": [{"not": [0, 65535, "<", 100]}, [0, 65535, ">=", 200], {"not": [0, 65535, "==", 300]}, {"not": [0, 65535, "==", 400]}, {"not": [0, 65535, ">=", 260]}, {"not": [0, 65535, ">=", 250]}]}]}}] } /* gGanondorfSquareDL */,
+            { file: "ovl_Boss_Ganon", offset: 0x1A448, vram: 0x809F1D00, layer: "xlu", ops: [["t", 0.0, 0.0, 50.0], ["s", 4.0, 4.0, 1.0]], prim: [255, 255, 255, 255], env: [200, 255, 0, 0], when: [{"not": {"any": [{"all": [{"any": [{"all": [{"not": [0, 65535, "<", 100]}, [0, 65535, ">=", 200], [0, 65535, "==", 300]]}, {"all": [{"not": [0, 65535, "<", 100]}, [0, 65535, ">=", 200], {"not": [0, 65535, "==", 300]}, [0, 65535, "==", 400]]}, {"all": [{"not": [0, 65535, "<", 100]}, {"not": [0, 65535, ">=", 200]}]}]}]}, {"all": [{"any": [{"all": [{"not": [0, 65535, "<", 100]}, [0, 65535, ">=", 200], {"not": [0, 65535, "==", 300]}, {"not": [0, 65535, "==", 400]}, [0, 65535, ">=", 260]]}, {"all": [{"not": [0, 65535, "<", 100]}, [0, 65535, ">=", 200], {"not": [0, 65535, "==", 300]}, {"not": [0, 65535, "==", 400]}, {"not": [0, 65535, ">=", 260]}, [0, 65535, ">=", 250]]}]}]}, {"all": [{"not": [0, 65535, "<", 100]}, [0, 65535, ">=", 200], {"not": [0, 65535, "==", 300]}, {"not": [0, 65535, "==", 400]}, {"not": [0, 65535, ">=", 260]}, {"not": [0, 65535, ">=", 250]}]}]}}] } /* gGanondorfLightRayTriDL */,
+            { file: "ovl_Boss_Ganon", offset: 0x1FF08, vram: 0x809F1D00, layer: "xlu", prim: [255, 255, 155, 255], when: [{"any": [{"all": [{"not": [0, 65535, "<", 100]}, [0, 65535, ">=", 200], [0, 65535, "==", 300]]}, {"all": [{"not": [0, 65535, "<", 100]}, [0, 65535, ">=", 200], {"not": [0, 65535, "==", 300]}, [0, 65535, "==", 400]]}, {"all": [{"not": [0, 65535, "<", 100]}, {"not": [0, 65535, ">=", 200]}]}]}] } /* gGanondorfLightCoreDL */,
+            { file: "ovl_Boss_Ganon", offset: 0x11258, vram: 0x809F1D00, layer: "xlu", prim: [255, 255, 155, 255], when: [{"any": [{"all": [{"not": [0, 65535, "<", 100]}, [0, 65535, ">=", 200], [0, 65535, "==", 300]]}, {"all": [{"not": [0, 65535, "<", 100]}, [0, 65535, ">=", 200], {"not": [0, 65535, "==", 300]}, [0, 65535, "==", 400]]}, {"all": [{"not": [0, 65535, "<", 100]}, {"not": [0, 65535, ">=", 200]}]}]}] } /* gGanondorfLightBallMaterialDL */,
+            { file: "ovl_Boss_Ganon", offset: 0x112C8, vram: 0x809F1D00, layer: "xlu", prim: [255, 255, 255, 255], env: [255, 255, 0, 0], when: [{"any": [{"all": [{"not": [0, 65535, "<", 100]}, [0, 65535, ">=", 200], [0, 65535, "==", 300]]}, {"all": [{"not": [0, 65535, "<", 100]}, [0, 65535, ">=", 200], {"not": [0, 65535, "==", 300]}, [0, 65535, "==", 400]]}, {"all": [{"not": [0, 65535, "<", 100]}, {"not": [0, 65535, ">=", 200]}]}]}] } /* gGanondorfSquareDL */,
+            { select: null, variants: [[{ file: "ovl_Boss_Ganon", offset: 0x1FC38, vram: 0x809F1D00, layer: "xlu", ops: [["ry", 1.570796]], prim: [255, 255, 255, 255], env: [150, 255, 0, 128] } /* gGanondorfLightStreak12DL */], [{ file: "ovl_Boss_Ganon", offset: 0x1FC00, vram: 0x809F1D00, layer: "xlu", ops: [["ry", 1.570796]], prim: [255, 255, 255, 255], env: [150, 255, 0, 128] } /* gGanondorfLightStreak11DL */], [{ file: "ovl_Boss_Ganon", offset: 0x1FBC8, vram: 0x809F1D00, layer: "xlu", ops: [["ry", 1.570796]], prim: [255, 255, 255, 255], env: [150, 255, 0, 128] } /* gGanondorfLightStreak10DL */], [{ file: "ovl_Boss_Ganon", offset: 0x1FB90, vram: 0x809F1D00, layer: "xlu", ops: [["ry", 1.570796]], prim: [255, 255, 255, 255], env: [150, 255, 0, 128] } /* gGanondorfLightStreak9DL */], [{ file: "ovl_Boss_Ganon", offset: 0x1FB58, vram: 0x809F1D00, layer: "xlu", ops: [["ry", 1.570796]], prim: [255, 255, 255, 255], env: [150, 255, 0, 128] } /* gGanondorfLightStreak8DL */], [{ file: "ovl_Boss_Ganon", offset: 0x1FB20, vram: 0x809F1D00, layer: "xlu", ops: [["ry", 1.570796]], prim: [255, 255, 255, 255], env: [150, 255, 0, 128] } /* gGanondorfLightStreak7DL */], [{ file: "ovl_Boss_Ganon", offset: 0x1FAE8, vram: 0x809F1D00, layer: "xlu", ops: [["ry", 1.570796]], prim: [255, 255, 255, 255], env: [150, 255, 0, 128] } /* gGanondorfLightStreak6DL */], [{ file: "ovl_Boss_Ganon", offset: 0x1FAB0, vram: 0x809F1D00, layer: "xlu", ops: [["ry", 1.570796]], prim: [255, 255, 255, 255], env: [150, 255, 0, 128] } /* gGanondorfLightStreak5DL */], [{ file: "ovl_Boss_Ganon", offset: 0x1FA78, vram: 0x809F1D00, layer: "xlu", ops: [["ry", 1.570796]], prim: [255, 255, 255, 255], env: [150, 255, 0, 128] } /* gGanondorfLightStreak4DL */], [{ file: "ovl_Boss_Ganon", offset: 0x1FA40, vram: 0x809F1D00, layer: "xlu", ops: [["ry", 1.570796]], prim: [255, 255, 255, 255], env: [150, 255, 0, 128] } /* gGanondorfLightStreak3DL */], [{ file: "ovl_Boss_Ganon", offset: 0x1FA08, vram: 0x809F1D00, layer: "xlu", ops: [["ry", 1.570796]], prim: [255, 255, 255, 255], env: [150, 255, 0, 128] } /* gGanondorfLightStreak2DL */], [{ file: "ovl_Boss_Ganon", offset: 0x1F9D0, vram: 0x809F1D00, layer: "xlu", ops: [["ry", 1.570796]], prim: [255, 255, 255, 255], env: [150, 255, 0, 128] } /* gGanondorfLightStreak1DL */]], when: [{"any": [{"all": [{"not": [0, 65535, "<", 100]}, [0, 65535, ">=", 200], {"not": [0, 65535, "==", 300]}, {"not": [0, 65535, "==", 400]}, [0, 65535, ">=", 260]]}, {"all": [{"not": [0, 65535, "<", 100]}, [0, 65535, ">=", 200], {"not": [0, 65535, "==", 300]}, {"not": [0, 65535, "==", 400]}, {"not": [0, 65535, ">=", 260]}, [0, 65535, ">=", 250]]}]}] },
+            { file: "ovl_Boss_Ganon", offset: 0x11258, vram: 0x809F1D00, layer: "xlu", ops: [["new"], ["s", 10.0, 10.0, 10.0]], prim: [255, 255, 255, 255], env: [150, 255, 0, 128], when: [{"any": [{"all": [{"not": [0, 65535, "<", 100]}, [0, 65535, ">=", 200], {"not": [0, 65535, "==", 300]}, {"not": [0, 65535, "==", 400]}, [0, 65535, ">=", 260]]}, {"all": [{"not": [0, 65535, "<", 100]}, [0, 65535, ">=", 200], {"not": [0, 65535, "==", 300]}, {"not": [0, 65535, "==", 400]}, {"not": [0, 65535, ">=", 260]}, [0, 65535, ">=", 250]]}]}] } /* gGanondorfLightBallMaterialDL */,
+            { file: "ovl_Boss_Ganon", offset: 0x112C8, vram: 0x809F1D00, layer: "xlu", ops: [["new"], ["s", 10.0, 10.0, 10.0]], prim: [255, 255, 255, 255], env: [150, 255, 0, 128], when: [{"any": [{"all": [{"not": [0, 65535, "<", 100]}, [0, 65535, ">=", 200], {"not": [0, 65535, "==", 300]}, {"not": [0, 65535, "==", 400]}, [0, 65535, ">=", 260]]}, {"all": [{"not": [0, 65535, "<", 100]}, [0, 65535, ">=", 200], {"not": [0, 65535, "==", 300]}, {"not": [0, 65535, "==", 400]}, {"not": [0, 65535, ">=", 260]}, [0, 65535, ">=", 250]]}]}] } /* gGanondorfSquareDL */,
+            { file: "ovl_Boss_Ganon", offset: 0x11258, vram: 0x809F1D00, layer: "xlu", prim: [255, 255, 255, 255], env: [255, 255, 0, 0], when: [{"not": [0, 65535, "<", 100]}, [0, 65535, ">=", 200], {"not": [0, 65535, "==", 300]}, {"not": [0, 65535, "==", 400]}, {"not": [0, 65535, ">=", 260]}, {"not": [0, 65535, ">=", 250]}] } /* gGanondorfLightBallMaterialDL */,
+            { file: "ovl_Boss_Ganon", offset: 0x112C8, vram: 0x809F1D00, layer: "xlu", ops: [["new"]], prim: [255, 255, 255, 255], env: [255, 255, 0, 0], when: [{"not": [0, 65535, "<", 100]}, [0, 65535, ">=", 200], {"not": [0, 65535, "==", 300]}, {"not": [0, 65535, "==", 400]}, {"not": [0, 65535, ">=", 260]}, {"not": [0, 65535, ">=", 250]}] } /* gGanondorfSquareDL */
         ],
         limbLists: { 10: [{ file: "object_ganon", offset: 0xC9E8, layer: "opa" } /* gGanondorfRightHandOpenDL */] },
-        segments: { 0x08: { file: "object_ganon", offset: 0x9A20 } }
+        segments: { 0x08: { file: "object_ganon", offset: 0x9A20 }, 0x09: { scroll: [[0, 32, 32], [1, 32, 32]] }, 0x0A: { scroll: [[0, 32, 32], [1, 64, 64]] } }
     },
     0x0E9: {
         name: "Boss_Sst",
@@ -1905,9 +1878,9 @@ const OOT_Actor_Models = {
         object: "object_ice_objects",
         scaleUnknown: true,
         lists: [
-            { file: "object_ice_objects", offset: 0x6F0, layer: "xlu", env: [255, 0, 0, 255] } /* gRedIceBlockDL */,
-            { file: "object_ice_objects", offset: 0x12A0, layer: "xlu", env: [255, 0, 0, 255] } /* gRedIcePlatformDL */,
-            { file: "object_ice_objects", offset: 0x2640, layer: "xlu", env: [255, 0, 0, 255] } /* gRedIceWallDL */
+            { file: "object_ice_objects", offset: 0x6F0, layer: "xlu", env: [255, 0, 0, 255], when: [{"any": [[8, 7, "==", 0], [8, 7, "==", 1], [8, 7, "==", 4]]}] } /* gRedIceBlockDL */,
+            { file: "object_ice_objects", offset: 0x12A0, layer: "xlu", env: [255, 0, 0, 255], when: [[8, 7, "==", 2]] } /* gRedIcePlatformDL */,
+            { file: "object_ice_objects", offset: 0x2640, layer: "xlu", env: [255, 0, 0, 255], when: [[8, 7, "==", 3]] } /* gRedIceWallDL */
         ],
         segments: { 0x08: { scroll: [[0, 32, 32], [1, 32, 32]] }, 0x09: { scroll: [[0, 64, 64], [1, 64, 64]] } }
     },
@@ -1936,7 +1909,7 @@ const OOT_Actor_Models = {
         object: "gameplay_keep",
         scale: 1.0,
         lists: [
-            { file: "gameplay_keep", offset: 0x15C20, layer: "xlu", env: [255, 200, 0, 255] } /* gGlowCircleSmallDL */
+            { file: "gameplay_keep", offset: 0x15C20, layer: "xlu", env: [255, 200, 0, 255], when: [[0, 65535, "==", 13]] } /* gGlowCircleSmallDL */
         ]
     },
     0x0F6: {
@@ -1948,10 +1921,9 @@ const OOT_Actor_Models = {
         object: "object_haka_objects",
         scale: 0.1,
         lists: [
-            { file: "object_haka_objects", offset: 0xF1B0, layer: "xlu" } /* object_haka_objects_DL_00F1B0 */,
-            { file: "object_haka_objects", offset: 0x10A10, layer: "opa", ops: [["t", 0.0, 0.0, -2000.0], ["t", 0.0, 0.0, 2000.0]] } /* object_haka_objects_DL_010A10 */,
-            { file: "object_haka_objects", offset: 0x10C10, layer: "opa", ops: [["t", 0.0, 0.0, 2000.0], ["t", 0.0, 0.0, -2000.0]] } /* object_haka_objects_DL_010C10 */,
-            { select: [0, 0xFF], variants: [[{ file: "object_haka_objects", offset: 0x12270, layer: "opa" } /* object_haka_objects_DL_012270 */], [{ file: "object_haka_objects", offset: 0x10A10, layer: "opa" } /* object_haka_objects_DL_010A10 */], [{ file: "object_haka_objects", offset: 0xA860, layer: "opa" } /* object_haka_objects_DL_00A860 */], [{ file: "object_haka_objects", offset: 0xF1B0, layer: "opa" } /* object_haka_objects_DL_00F1B0 */]] }
+            { file: "object_haka_objects", offset: 0x10A10, layer: "opa", ops: [["t", 0.0, 0.0, -2000.0], ["t", 0.0, 0.0, 2000.0]], when: [[0, 255, "==", 1]] } /* object_haka_objects_DL_010A10 */,
+            { file: "object_haka_objects", offset: 0x10C10, layer: "opa", ops: [["t", 0.0, 0.0, 2000.0], ["t", 0.0, 0.0, -2000.0]], when: [[0, 255, "==", 1]] } /* object_haka_objects_DL_010C10 */,
+            { select: [0, 0xFF], variants: [[{ file: "object_haka_objects", offset: 0x12270, layer: "opa" } /* object_haka_objects_DL_012270 */], [{ file: "object_haka_objects", offset: 0x10A10, layer: "opa" } /* object_haka_objects_DL_010A10 */], [{ file: "object_haka_objects", offset: 0xA860, layer: "opa" } /* object_haka_objects_DL_00A860 */], [{ file: "object_haka_objects", offset: 0xF1B0, layer: "opa" } /* object_haka_objects_DL_00F1B0 */]], when: [{"not": [0, 255, "==", 1]}] }
         ]
     },
     0x0F8: {
@@ -2004,43 +1976,41 @@ const OOT_Actor_Models = {
         skeleton: { file: "object_fish", offset: 0x85F8, type: "Flex", limbType: "Standard" },
         anim: { file: "object_fish", offset: 0x453C },
         lists: [
-            { file: "object_fish", offset: 0x153D0, layer: "opa", ops: [["new"], ["s", 0.08, 0.12, 0.14]] } /* gFishingAquariumBottomDL */,
-            { file: "object_fish", offset: 0x15470, layer: "xlu", ops: [["new"], ["s", 0.08, 0.12, 0.14]] } /* gFishingAquariumContainerDL */,
-            { file: "object_fish", offset: 0x14030, layer: "xlu" } /* gFishingReedMaterialDL */,
-            { file: "object_fish", offset: 0x140B0, layer: "xlu" } /* gFishingReedModelDL */,
-            { file: "object_fish", offset: 0x13F50, layer: "opa" } /* gFishingWoodPostMaterialDL */,
-            { file: "object_fish", offset: 0x13FD0, layer: "opa" } /* gFishingWoodPostModelDL */,
-            { file: "object_fish", offset: 0x13330, layer: "xlu" } /* gFishingLilyPadMaterialDL */,
-            { file: "object_fish", offset: 0x133B0, layer: "xlu", ops: [["t", 0.0, 0.0, 20.0]] } /* gFishingLilyPadModelDL */,
-            { file: "object_fish", offset: 0x13590, layer: "opa", ops: [["t", 0.0, 0.0, 20.0]] } /* gFishingRockMaterialDL */,
-            { file: "object_fish", offset: 0x13610, layer: "opa" } /* gFishingRockModelDL */,
-            { file: "object_fish", offset: 0x8610, layer: "xlu" } /* gFishingRippleMaterialDL */,
-            { file: "object_fish", offset: 0x8678, layer: "xlu", prim: [255, 255, 255, 255], env: [155, 155, 155, 0] } /* gFishingRippleModelDL */,
-            { file: "object_fish", offset: 0x3610, layer: "xlu", prim: [255, 255, 255, 255], env: [155, 155, 155, 0] } /* gFishingDustSplashMaterialDL */,
-            { file: "object_fish", offset: 0x3680, layer: "xlu", prim: [180, 180, 180, 255], env: [200, 200, 200, 0] } /* gFishingDustSplashModelDL */,
-            { file: "object_fish", offset: 0x88C0, layer: "opa", prim: [180, 180, 180, 255], env: [200, 200, 200, 0] } /* gFishingWaterDustMaterialDL */,
-            { file: "object_fish", offset: 0x8970, layer: "opa", prim: [40, 90, 80, 255], env: [40, 90, 80, 128] } /* gFishingWaterDustModelDL */,
-            { file: "object_fish", offset: 0x3460, layer: "xlu", prim: [40, 90, 80, 255], env: [40, 90, 80, 128] } /* gFishingBubbleMaterialDL */,
-            { file: "object_fish", offset: 0x34C0, layer: "xlu", prim: [255, 255, 255, 255], env: [150, 150, 150, 0] } /* gFishingBubbleModelDL */,
-            { file: "object_fish", offset: 0x3760, layer: "xlu", ops: [["new"], ["s", 0.002, 1.0, 0.1]], prim: [150, 255, 255, 30], env: [150, 150, 150, 0] } /* gFishingRainDropModelDL */,
-            { file: "object_fish", offset: 0x8610, layer: "xlu", ops: [["new"], ["s", 0.002, 1.0, 0.1]], prim: [150, 255, 255, 30], env: [150, 150, 150, 0] } /* gFishingRippleMaterialDL */,
-            { file: "object_fish", offset: 0x8678, layer: "xlu", prim: [255, 255, 255, 130], env: [155, 155, 155, 0] } /* gFishingRippleModelDL */,
-            { file: "object_fish", offset: 0x39A8, layer: "xlu", prim: [255, 255, 255, 130], env: [155, 155, 155, 0] } /* gFishingRainSplashMaterialDL */,
-            { file: "object_fish", offset: 0x3A18, layer: "xlu", prim: [255, 255, 255, 255], env: [155, 155, 155, 0] } /* gFishingRainSplashModelDL */,
-            { file: "object_fish", offset: 0x74C8, layer: "opa", ops: [["t", -1250.0, 0.0, 0.0], ["rx", 1.570796]], prim: [255, 255, 255, 255], env: [155, 155, 155, 0] } /* gFishingOwnerHatDL */,
-            { file: "object_fish", offset: 0xC220, layer: "opa" } /* gFishingGroupFishMaterialDL */,
-            { file: "object_fish", offset: 0xC298, layer: "opa", prim: [155, 155, 155, 255] } /* gFishingGroupFishModelDL */,
-            { file: "object_fish", offset: 0x113D0, layer: "opa" } /* gFishingRodMaterialDL */,
-            { file: "object_fish", offset: 0x11410, layer: "opa", prim: [255, 155, 0, 255] } /* gFishingRodSegmentDL */,
-            { file: "object_fish", offset: 0x121F0, layer: "opa", ops: [["new"], ["s", 0.004, 0.004, 0.004], ["rz", 1.570796], ["ry", 1.570796]] } /* gFishingLureFloatDL */,
-            { file: "object_fish", offset: 0x3710, layer: "xlu", prim: [255, 255, 255, 55] } /* gFishingLineModelDL */,
-            { file: "object_fish", offset: 0xB950, layer: "opa" } /* gFishingSinkingLureSegmentMaterialDL */,
-            { file: "object_fish", offset: 0xB9C0, layer: "opa" } /* gFishingSinkingLureSegmentModelDL */,
-            { file: "object_fish", offset: 0xB950, layer: "xlu" } /* gFishingSinkingLureSegmentMaterialDL */,
-            { file: "object_fish", offset: 0xB9C0, layer: "xlu" } /* gFishingSinkingLureSegmentModelDL */,
-            { file: "object_fish", offset: 0x12160, layer: "opa", ops: [["new"], ["s", 0.004, 0.004, 0.005], ["ry", 3.141593]] } /* gFishingLureHookDL */,
-            { file: "object_fish", offset: 0x12160, layer: "opa", ops: [["new"], ["s", 0.004, 0.004, 0.005], ["ry", 3.141593], ["rz", 1.570796]] } /* gFishingLureHookDL */,
-            { file: "object_fish", offset: 0x74C8, layer: "opa", ops: [["t", -1250.0, 0.0, 0.0], ["rx", 1.570796]] } /* gFishingOwnerHatDL */
+            { file: "object_fish", offset: 0x153D0, layer: "opa", ops: [["new"], ["s", 0.08, 0.12, 0.14]], when: [[0, 65535, "<", 100]] } /* gFishingAquariumBottomDL */,
+            { file: "object_fish", offset: 0x15470, layer: "xlu", ops: [["new"], ["s", 0.08, 0.12, 0.14]], when: [[0, 65535, "<", 100]] } /* gFishingAquariumContainerDL */,
+            { file: "object_fish", offset: 0x14030, layer: "xlu", when: [[0, 65535, "<", 100]] } /* gFishingReedMaterialDL */,
+            { file: "object_fish", offset: 0x140B0, layer: "xlu", when: [[0, 65535, "<", 100]] } /* gFishingReedModelDL */,
+            { file: "object_fish", offset: 0x13F50, layer: "opa", when: [[0, 65535, "<", 100]] } /* gFishingWoodPostMaterialDL */,
+            { file: "object_fish", offset: 0x13FD0, layer: "opa", when: [[0, 65535, "<", 100]] } /* gFishingWoodPostModelDL */,
+            { file: "object_fish", offset: 0x13330, layer: "xlu", when: [[0, 65535, "<", 100]] } /* gFishingLilyPadMaterialDL */,
+            { file: "object_fish", offset: 0x133B0, layer: "xlu", ops: [["t", 0.0, 0.0, 20.0]], when: [[0, 65535, "<", 100]] } /* gFishingLilyPadModelDL */,
+            { file: "object_fish", offset: 0x13590, layer: "opa", ops: [["t", 0.0, 0.0, 20.0]], when: [[0, 65535, "<", 100]] } /* gFishingRockMaterialDL */,
+            { file: "object_fish", offset: 0x13610, layer: "opa", when: [[0, 65535, "<", 100]] } /* gFishingRockModelDL */,
+            { file: "object_fish", offset: 0x8610, layer: "xlu", when: [[0, 65535, "<", 100]] } /* gFishingRippleMaterialDL */,
+            { file: "object_fish", offset: 0x8678, layer: "xlu", prim: [255, 255, 255, 255], env: [155, 155, 155, 0], when: [[0, 65535, "<", 100]] } /* gFishingRippleModelDL */,
+            { file: "object_fish", offset: 0x3610, layer: "xlu", prim: [255, 255, 255, 255], env: [155, 155, 155, 0], when: [[0, 65535, "<", 100]] } /* gFishingDustSplashMaterialDL */,
+            { file: "object_fish", offset: 0x3680, layer: "xlu", prim: [180, 180, 180, 255], env: [200, 200, 200, 0], when: [[0, 65535, "<", 100]] } /* gFishingDustSplashModelDL */,
+            { file: "object_fish", offset: 0x88C0, layer: "opa", prim: [180, 180, 180, 255], env: [200, 200, 200, 0], when: [[0, 65535, "<", 100]] } /* gFishingWaterDustMaterialDL */,
+            { file: "object_fish", offset: 0x8970, layer: "opa", prim: [40, 90, 80, 255], env: [40, 90, 80, 128], when: [[0, 65535, "<", 100]] } /* gFishingWaterDustModelDL */,
+            { file: "object_fish", offset: 0x3460, layer: "xlu", prim: [40, 90, 80, 255], env: [40, 90, 80, 128], when: [[0, 65535, "<", 100]] } /* gFishingBubbleMaterialDL */,
+            { file: "object_fish", offset: 0x34C0, layer: "xlu", prim: [255, 255, 255, 255], env: [150, 150, 150, 0], when: [[0, 65535, "<", 100]] } /* gFishingBubbleModelDL */,
+            { file: "object_fish", offset: 0x3760, layer: "xlu", ops: [["new"], ["s", 0.002, 1.0, 0.1]], prim: [150, 255, 255, 30], env: [150, 150, 150, 0], when: [[0, 65535, "<", 100]] } /* gFishingRainDropModelDL */,
+            { file: "object_fish", offset: 0x8610, layer: "xlu", ops: [["new"], ["s", 0.002, 1.0, 0.1]], prim: [150, 255, 255, 30], env: [150, 150, 150, 0], when: [[0, 65535, "<", 100]] } /* gFishingRippleMaterialDL */,
+            { file: "object_fish", offset: 0x8678, layer: "xlu", prim: [255, 255, 255, 130], env: [155, 155, 155, 0], when: [[0, 65535, "<", 100]] } /* gFishingRippleModelDL */,
+            { file: "object_fish", offset: 0x39A8, layer: "xlu", prim: [255, 255, 255, 130], env: [155, 155, 155, 0], when: [[0, 65535, "<", 100]] } /* gFishingRainSplashMaterialDL */,
+            { file: "object_fish", offset: 0x3A18, layer: "xlu", prim: [255, 255, 255, 255], env: [155, 155, 155, 0], when: [[0, 65535, "<", 100]] } /* gFishingRainSplashModelDL */,
+            { file: "object_fish", offset: 0x74C8, layer: "opa", ops: [["t", -1250.0, 0.0, 0.0], ["rx", 1.570796]], prim: [255, 255, 255, 255], env: [155, 155, 155, 0], when: [[0, 65535, "<", 100]] } /* gFishingOwnerHatDL */,
+            { file: "object_fish", offset: 0xC220, layer: "opa", when: [[0, 65535, "<", 100]] } /* gFishingGroupFishMaterialDL */,
+            { file: "object_fish", offset: 0xC298, layer: "opa", prim: [155, 155, 155, 255], when: [[0, 65535, "<", 100]] } /* gFishingGroupFishModelDL */,
+            { file: "object_fish", offset: 0x113D0, layer: "opa", when: [[0, 65535, "<", 100]] } /* gFishingRodMaterialDL */,
+            { file: "object_fish", offset: 0x11410, layer: "opa", prim: [255, 155, 0, 255], when: [[0, 65535, "<", 100]] } /* gFishingRodSegmentDL */,
+            { file: "object_fish", offset: 0x121F0, layer: "opa", ops: [["new"], ["s", 0.004, 0.004, 0.004], ["rz", 1.570796], ["ry", 1.570796]], when: [[0, 65535, "<", 100]] } /* gFishingLureFloatDL */,
+            { file: "object_fish", offset: 0x3710, layer: "xlu", prim: [255, 255, 255, 55], when: [[0, 65535, "<", 100]] } /* gFishingLineModelDL */,
+            { file: "object_fish", offset: 0xB950, layer: "xlu", when: [[0, 65535, "<", 100]] } /* gFishingSinkingLureSegmentMaterialDL */,
+            { file: "object_fish", offset: 0xB9C0, layer: "xlu", when: [[0, 65535, "<", 100]] } /* gFishingSinkingLureSegmentModelDL */,
+            { file: "object_fish", offset: 0x12160, layer: "opa", ops: [["new"], ["s", 0.004, 0.004, 0.005], ["ry", 3.141593]], when: [[0, 65535, "<", 100]] } /* gFishingLureHookDL */,
+            { file: "object_fish", offset: 0x12160, layer: "opa", ops: [["new"], ["s", 0.004, 0.004, 0.005], ["ry", 3.141593], ["rz", 1.570796]], when: [[0, 65535, "<", 100]] } /* gFishingLureHookDL */,
+            { file: "object_fish", offset: 0x74C8, layer: "opa", ops: [["t", -1250.0, 0.0, 0.0], ["rx", 1.570796]], when: [[0, 65535, "<", 100]] } /* gFishingOwnerHatDL */
         ],
         segments: { 0x08: { file: "object_fish", offset: 0x9250 } }
     },
@@ -2189,7 +2159,7 @@ const OOT_Actor_Models = {
         lists: [
             { select: null, variants: [[], [], []] }
         ],
-        limbLists: { 12: [{ file: "object_ik", offset: 0x18E78, layer: "opa" } /* gIronKnuckleHelmetDL */, { file: "object_ik", offset: 0x16D88, layer: "opa" } /* object_ik_DL_016D88 */, { file: "object_ik", offset: 0x19E08, layer: "opa" } /* gIronKnuckleHelmetMarkingDL */], 13: [{ file: "object_ik", offset: 0x16D88, layer: "opa" } /* object_ik_DL_016D88 */, { file: "object_ik", offset: 0x19100, layer: "opa" } /* gIronKnuckleGerudoHeadDL */], 22: [{ file: "object_ik", offset: 0x16F88, layer: "opa" } /* object_ik_DL_016F88 */], 24: [{ file: "object_ik", offset: 0x16EE8, layer: "opa" } /* object_ik_DL_016EE8 */], 26: [{ file: "object_ik", offset: 0x16BE0, layer: "opa" } /* gIronKnuckleArmorRivetAndSymbolDL */], 27: [{ file: "object_ik", offset: 0x16CD8, layer: "opa" } /* object_ik_DL_016CD8 */] }
+        limbLists: { 12: [{ file: "object_ik", offset: 0x18E78, layer: "opa" } /* gIronKnuckleHelmetDL */, { file: "object_ik", offset: 0x19E08, layer: "opa", add: true } /* gIronKnuckleHelmetMarkingDL */, { file: "object_ik", offset: 0x16D88, layer: "opa", add: true } /* object_ik_DL_016D88 */], 13: [{ file: "object_ik", offset: 0x19100, layer: "opa" } /* gIronKnuckleGerudoHeadDL */, { file: "object_ik", offset: 0x16D88, layer: "opa", add: true } /* object_ik_DL_016D88 */], 22: [{ file: "object_ik", offset: 0x16F88, layer: "opa", add: true } /* object_ik_DL_016F88 */], 24: [{ file: "object_ik", offset: 0x16EE8, layer: "opa", add: true } /* object_ik_DL_016EE8 */], 26: [{ file: "object_ik", offset: 0x16BE0, layer: "opa", add: true } /* gIronKnuckleArmorRivetAndSymbolDL */], 27: [{ file: "object_ik", offset: 0x16CD8, layer: "opa", add: true } /* object_ik_DL_016CD8 */] }
     },
     0x114: {
         name: "Demo_Ik",
@@ -2220,7 +2190,8 @@ const OOT_Actor_Models = {
         scale: 0.03,
         yOffset: 700.0,
         lists: [
-            { file: "gameplay_keep", offset: 0x45150, layer: "opa" } /* gRupeeDL */,
+            { file: "gameplay_keep", offset: 0x45150, layer: "opa", when: [{"any": [{"all": [[12, 15, "==", 1]]}, {"all": [[12, 15, "==", 3]]}]}] } /* gRupeeDL */,
+            { file: "gameplay_keep", offset: 0x45150, layer: "opa", when: [{"any": [{"all": [[12, 15, "==", 1]]}, {"all": [[12, 15, "==", 3]]}]}, [12, 15, "==", 3]] } /* gRupeeDL */,
             { file: "object_tsubo", offset: 0x17C0, layer: "opa" } /* object_tsubo_DL_0017C0 */
         ],
         segments: { 0x08: { file: "gameplay_keep", offset: 0x44E50 } }
@@ -2261,8 +2232,9 @@ const OOT_Actor_Models = {
         scale: 0.1,
         yOffset: -1000.0,
         lists: [
-            { file: "gameplay_dangeon_keep", offset: 0x6810, layer: "opa" } /* gEyeSwitch2DL */
-        ]
+            { file: "gameplay_dangeon_keep", offset: 0x6810, layer: "opa", when: [[0, 65535, "==", 0]] } /* gEyeSwitch2DL */
+        ],
+        segments: { 0x08: { file: "gameplay_dangeon_keep", offset: 0xB0A0 } }
     },
     0x11D: {
         name: "En_Tubo_Trap",
@@ -2293,12 +2265,10 @@ const OOT_Actor_Models = {
         object: "object_spot07_object",
         scale: 0.1,
         lists: [
-            { file: "object_spot07_object", offset: 0x1CF0, layer: "opa" } /* object_spot07_object_DL_001CF0 */,
-            { file: "object_spot07_object", offset: 0x3210, layer: "opa" } /* object_spot07_object_DL_003210 */,
-            { file: "object_spot07_object", offset: 0x460, layer: "xlu", env: [255, 255, 255, 128] } /* object_spot07_object_DL_000460 */,
-            { file: "object_spot07_object", offset: 0xBE0, layer: "xlu", env: [255, 255, 255, 128] } /* object_spot07_object_DL_000BE0 */,
-            { file: "object_spot07_object", offset: 0x1F68, layer: "xlu", env: [255, 255, 255, 128] } /* object_spot07_object_DL_001F68 */,
-            { file: "object_spot07_object", offset: 0x32D8, layer: "xlu", env: [255, 255, 255, 128] } /* object_spot07_object_DL_0032D8 */
+            { file: "object_spot07_object", offset: 0x1CF0, layer: "opa", when: [[0, 65535, "==", 0]] } /* object_spot07_object_DL_001CF0 */,
+            { file: "object_spot07_object", offset: 0x3210, layer: "opa", when: [{"not": [0, 65535, "==", 0]}] } /* object_spot07_object_DL_003210 */,
+            { file: "object_spot07_object", offset: 0x1F68, layer: "xlu", when: [[0, 65535, "==", 0]] } /* object_spot07_object_DL_001F68 */,
+            { file: "object_spot07_object", offset: 0x32D8, layer: "xlu", when: [{"not": [0, 65535, "==", 0]}] } /* object_spot07_object_DL_0032D8 */
         ],
         segments: { 0x08: { scroll: [[0, 32, 32], [1, 32, 32]] }, 0x09: { scroll: [[0, 64, 64], [1, 64, 64]] }, 0x0A: { scroll: [[0, 32, 128], [1, 32, 128]] } }
     },
@@ -2307,7 +2277,7 @@ const OOT_Actor_Models = {
         object: "object_fz",
         scale: 0.008,
         lists: [
-            { select: null, variants: [[{ file: "object_fz", offset: 0x1130, layer: "xlu" } /* gFreezardIntactDL */], [{ file: "object_fz", offset: 0x21A0, layer: "xlu" } /* gFreezardTopRightHornChippedDL */], [{ file: "object_fz", offset: 0x2CA0, layer: "xlu" } /* gFreezardHeadChippedDL */]] }
+            { select: null, variants: [[{ file: "object_fz", offset: 0x1130, layer: "xlu", prim: [155, 255, 255, 255], env: [200, 200, 200, 255], combine: [2, 3, 14, 1, 2, 1, 3, 1, 3, 5, 0, 5, 0, 7, 5, 7], primLod: 128 } /* gFreezardIntactDL */], [{ file: "object_fz", offset: 0x21A0, layer: "xlu", prim: [155, 255, 255, 255], env: [200, 200, 200, 255], combine: [2, 3, 14, 1, 2, 1, 3, 1, 3, 5, 0, 5, 0, 7, 5, 7], primLod: 128 } /* gFreezardTopRightHornChippedDL */], [{ file: "object_fz", offset: 0x2CA0, layer: "xlu", prim: [155, 255, 255, 255], env: [200, 200, 200, 255], combine: [2, 3, 14, 1, 2, 1, 3, 1, 3, 5, 0, 5, 0, 7, 5, 7], primLod: 128 } /* gFreezardHeadChippedDL */]] }
         ],
         segments: { 0x08: { scroll: [[0, 32, 32], [1, 32, 32]] } }
     },
@@ -2317,6 +2287,7 @@ const OOT_Actor_Models = {
         scaleUnknown: true,
         skeleton: { file: "object_tk", offset: 0xBE40, type: "Flex", limbType: "Standard" },
         anim: { file: "object_tk", offset: 0x3768 },
+        limbLists: { 8: [{ file: "object_tk", offset: 0xBBA0, layer: "opa", add: true } /* gDampeHaloDL */], 14: [{ file: "object_tk", offset: 0xB838, layer: "opa", add: true } /* gDampeLanternDL */] },
         segments: { 0x08: { file: "object_tk", offset: 0x3B40 } }
     },
     0x123: {
@@ -2324,8 +2295,8 @@ const OOT_Actor_Models = {
         object: "object_relay_objects",
         scale: 0.1,
         lists: [
-            { file: "object_relay_objects", offset: 0x1AB0, layer: "opa" } /* gWindmillRotatingPlatformDL */,
-            { file: "object_relay_objects", offset: 0x1A0, layer: "opa" } /* gDampeRaceDoorDL */
+            { file: "object_relay_objects", offset: 0x1AB0, layer: "opa", when: [[8, 255, "==", 0]] } /* gWindmillRotatingPlatformDL */,
+            { file: "object_relay_objects", offset: 0x1A0, layer: "opa", when: [{"not": [8, 255, "==", 0]}] } /* gDampeRaceDoorDL */
         ]
     },
     0x124: {
@@ -2343,7 +2314,6 @@ const OOT_Actor_Models = {
         scale: 0.4,
         yOffset: -6.25,
         lists: [
-            { file: "object_kusa", offset: 0x2E0, layer: "opa" } /* object_kusa_DL_0002E0 */,
             { select: [0, 0x3], variants: [[{ file: "gameplay_field_keep", offset: 0xB9D0, layer: "opa" } /* gFieldBushDL */], [{ file: "object_kusa", offset: 0x140, layer: "opa" } /* object_kusa_DL_000140 */], [{ file: "object_kusa", offset: 0x140, layer: "opa" } /* object_kusa_DL_000140 */]] }
         ]
     },
@@ -2461,6 +2431,7 @@ const OOT_Actor_Models = {
         scale: 0.01,
         skeleton: { file: "object_ge1", offset: 0x330, type: "Flex", limbType: "Standard" },
         anim: { file: "object_ge1", offset: 0x228 },
+        limbLists: { 15: [{ file: "object_ge1", offset: 0x9198, layer: "opa", add: true } /* gGerudoWhiteHairstyleBobDL */] },
         segments: { 0x08: { file: "object_ge1", offset: 0x708 } }
     },
     0x139: {
@@ -2481,10 +2452,8 @@ const OOT_Actor_Models = {
         object: "gameplay_keep",
         scale: 0.4,
         lists: [
-            { file: "ovl_En_Clear_Tag", offset: 0x6298, vram: 0x80A929D0, layer: "xlu", ops: [["t", 25.0, 0.0, 0.0]], prim: [0, 255, 0, 255] } /* gArwingLaserDL */,
-            { file: "ovl_En_Clear_Tag", offset: 0x6298, vram: 0x80A929D0, layer: "xlu", ops: [["t", 25.0, 0.0, 0.0], ["t", -50.0, 0.0, 0.0]], prim: [0, 255, 0, 255] } /* gArwingLaserDL */,
-            { file: "ovl_En_Clear_Tag", offset: 0x2600, vram: 0x80A929D0, layer: "opa", ops: [["t", 25.0, 0.0, 0.0], ["t", -50.0, 0.0, 0.0]], prim: [255, 255, 255, 255] } /* gArwingDL */,
-            { file: "ovl_En_Clear_Tag", offset: 0x6598, vram: 0x80A929D0, layer: "xlu", ops: [["t", 25.0, 0.0, 0.0], ["t", -50.0, 0.0, 0.0], ["t", 0.0, 0.0, -60.0], ["s", 2.5, 1.3, 0.0], ["s", 1.15, 1.15, 1.15]], prim: [255, 255, 200, 155], env: [255, 50, 0, 0] } /* gArwingBackfireDL */,
+            { file: "ovl_En_Clear_Tag", offset: 0x2600, vram: 0x80A929D0, layer: "opa", prim: [255, 255, 255, 255] } /* gArwingDL */,
+            { file: "ovl_En_Clear_Tag", offset: 0x6598, vram: 0x80A929D0, layer: "xlu", ops: [["t", 0.0, 0.0, -60.0], ["s", 2.5, 1.3, 0.0], ["s", 1.15, 1.15, 1.15]], prim: [255, 255, 200, 155], env: [255, 50, 0, 0] } /* gArwingBackfireDL */,
             { file: "ovl_En_Clear_Tag", offset: 0x6948, vram: 0x80A929D0, layer: "opa" } /* gArwingDebrisEffectMaterialDL */,
             { file: "ovl_En_Clear_Tag", offset: 0x69C8, vram: 0x80A929D0, layer: "opa" } /* gArwingDebrisEffectDL */,
             { file: "ovl_En_Clear_Tag", offset: 0x83C8, vram: 0x80A929D0, layer: "xlu", prim: [255, 255, 200, 255], env: [255, 255, 200, 0] } /* gArwingFlashEffectGroundDL */,
@@ -2493,7 +2462,8 @@ const OOT_Actor_Models = {
             { file: "ovl_En_Clear_Tag", offset: 0x7010, vram: 0x80A929D0, layer: "xlu", ops: [["t", 0.0, 20.0, 0.0]], prim: [255, 255, 200, 255], env: [255, 255, 200, 0] } /* gArwingFireEffectMaterialDL */,
             { file: "ovl_En_Clear_Tag", offset: 0x70B8, vram: 0x80A929D0, layer: "xlu", prim: [200, 20, 0, 255], env: [255, 215, 255, 128] } /* gArwingFireEffectDL */,
             { file: "ovl_En_Clear_Tag", offset: 0x8118, vram: 0x80A929D0, layer: "xlu", prim: [255, 255, 200, 255], env: [255, 255, 200, 0] } /* gArwingFlashEffectDL */
-        ]
+        ],
+        segments: { 0x08: { scroll: [[0, 32, 64], [1, 32, 32]] } }
     },
     0x13C: {
         name: "En_Niw_Lady",
@@ -2540,8 +2510,7 @@ const OOT_Actor_Models = {
         scale: 0.01,
         lists: [
             { file: "object_kanban", offset: 0xC30, layer: "opa" } /* object_kanban_DL_000C30 */,
-            { select: null, variants: [[{ file: "object_kanban", offset: 0xCB0, layer: "opa" } /* object_kanban_DL_000CB0 */], [{ file: "object_kanban", offset: 0xDB8, layer: "opa" } /* object_kanban_DL_000DB8 */], [{ file: "object_kanban", offset: 0xE78, layer: "opa" } /* object_kanban_DL_000E78 */], [{ file: "object_kanban", offset: 0xF38, layer: "opa" } /* object_kanban_DL_000F38 */], [{ file: "object_kanban", offset: 0xFF8, layer: "opa" } /* object_kanban_DL_000FF8 */], [{ file: "object_kanban", offset: 0x10B8, layer: "opa" } /* object_kanban_DL_0010B8 */], [{ file: "object_kanban", offset: 0x11C0, layer: "opa" } /* object_kanban_DL_0011C0 */], [{ file: "object_kanban", offset: 0x12C8, layer: "opa" } /* object_kanban_DL_0012C8 */], [{ file: "object_kanban", offset: 0x13D0, layer: "opa" } /* object_kanban_DL_0013D0 */], [{ file: "object_kanban", offset: 0x1488, layer: "opa" } /* object_kanban_DL_001488 */], [{ file: "object_kanban", offset: 0x1540, layer: "opa" } /* object_kanban_DL_001540 */]] },
-            { file: "gameplay_keep", offset: 0x3D560, layer: "opa", ops: [["t", 0.0, 0.0, -100.0]] } /* gSignRectangularDL */,
+            { select: null, variants: [[{ file: "object_kanban", offset: 0xCB0, layer: "opa", ops: [["t", 0.0, 0.0, -100.0]] } /* object_kanban_DL_000CB0 */], [{ file: "object_kanban", offset: 0xDB8, layer: "opa", ops: [["t", 0.0, 0.0, -100.0]] } /* object_kanban_DL_000DB8 */], [{ file: "object_kanban", offset: 0xE78, layer: "opa", ops: [["t", 0.0, 0.0, -100.0]] } /* object_kanban_DL_000E78 */], [{ file: "object_kanban", offset: 0xF38, layer: "opa", ops: [["t", 0.0, 0.0, -100.0]] } /* object_kanban_DL_000F38 */], [{ file: "object_kanban", offset: 0xFF8, layer: "opa", ops: [["t", 0.0, 0.0, -100.0]] } /* object_kanban_DL_000FF8 */], [{ file: "object_kanban", offset: 0x10B8, layer: "opa", ops: [["t", 0.0, 0.0, -100.0]] } /* object_kanban_DL_0010B8 */], [{ file: "object_kanban", offset: 0x11C0, layer: "opa", ops: [["t", 0.0, 0.0, -100.0]] } /* object_kanban_DL_0011C0 */], [{ file: "object_kanban", offset: 0x12C8, layer: "opa", ops: [["t", 0.0, 0.0, -100.0]] } /* object_kanban_DL_0012C8 */], [{ file: "object_kanban", offset: 0x13D0, layer: "opa", ops: [["t", 0.0, 0.0, -100.0]] } /* object_kanban_DL_0013D0 */], [{ file: "object_kanban", offset: 0x1488, layer: "opa", ops: [["t", 0.0, 0.0, -100.0]] } /* object_kanban_DL_001488 */], [{ file: "object_kanban", offset: 0x1540, layer: "opa", ops: [["t", 0.0, 0.0, -100.0]] } /* object_kanban_DL_001540 */]] },
             { file: "object_kanban", offset: 0x1630, layer: "xlu", ops: [["t", 0.0, 0.0, -100.0], ["s", 0.0, 10.0, 2.0]], prim: [255, 255, 255, 255], env: [255, 255, 150, 0] } /* object_kanban_DL_001630 */
         ]
     },
@@ -2655,13 +2624,11 @@ const OOT_Actor_Models = {
         object: "object_lightswitch",
         scale: 0.1,
         lists: [
-            { file: "object_lightswitch", offset: 0x260, layer: "xlu" } /* object_lightswitch_DL_000260 */,
-            { file: "object_lightswitch", offset: 0x398, layer: "xlu" } /* object_lightswitch_DL_000398 */,
-            { file: "object_lightswitch", offset: 0x408, layer: "xlu" } /* object_lightswitch_DL_000408 */,
             { file: "object_lightswitch", offset: 0x260, layer: "opa" } /* object_lightswitch_DL_000260 */,
             { file: "object_lightswitch", offset: 0x398, layer: "opa" } /* object_lightswitch_DL_000398 */,
             { file: "object_lightswitch", offset: 0x408, layer: "opa" } /* object_lightswitch_DL_000408 */
-        ]
+        ],
+        segments: { 0x08: { file: "object_lightswitch", offset: 0xC20 } }
     },
     0x151: {
         name: "Obj_Mure2",
@@ -2677,8 +2644,7 @@ const OOT_Actor_Models = {
         lists: [
             { file: "object_oF1d_map", offset: 0xFD40, layer: "xlu" } /* gGoronDL_00FD40 */,
             { file: "object_oF1d_map", offset: 0xFD50, layer: "xlu", prim: [170, 130, 90, 255], env: [100, 60, 20, 0] } /* gGoronDL_00FD50 */,
-            { file: "object_oF1d_map", offset: 0xBD80, layer: "opa" } /* gGoronDL_00BD80 */,
-            { file: "object_oF1d_map", offset: 0xC140, layer: "opa" } /* gGoronDL_00C140 */
+            { file: "object_oF1d_map", offset: 0xBD80, layer: "opa" } /* gGoronDL_00BD80 */
         ],
         segments: { 0x08: { file: "object_oF1d_map", offset: 0xCE80 }, 0x09: { file: "object_oF1d_map", offset: 0xDE80 } }
     },
@@ -2699,9 +2665,9 @@ const OOT_Actor_Models = {
         object: "object_jya_obj",
         scale: 0.1,
         lists: [
-            { select: null, variants: [[{ file: "object_jya_obj", offset: 0x9928, layer: "opa" } /* gMegamiPiece1DL */], [{ file: "object_jya_obj", offset: 0x9AC0, layer: "opa" } /* gMegamiPiece2DL */], [{ file: "object_jya_obj", offset: 0x9C80, layer: "opa" } /* gMegamiPiece3DL */], [{ file: "object_jya_obj", offset: 0x9DE8, layer: "opa" } /* gMegamiPiece4DL */], [{ file: "object_jya_obj", offset: 0x9F60, layer: "opa" } /* gMegamiPiece5DL */], [{ file: "object_jya_obj", offset: 0xA0A8, layer: "opa" } /* gMegamiPiece6DL */], [{ file: "object_jya_obj", offset: 0xA278, layer: "opa" } /* gMegamiPiece7DL */], [{ file: "object_jya_obj", offset: 0xA418, layer: "opa" } /* gMegamiPiece8DL */], [{ file: "object_jya_obj", offset: 0xA568, layer: "opa" } /* gMegamiPiece9DL */], [{ file: "object_jya_obj", offset: 0xA6A0, layer: "opa" } /* gMegamiPiece10DL */], [{ file: "object_jya_obj", offset: 0xA7E0, layer: "opa" } /* gMegamiPiece11DL */], [{ file: "object_jya_obj", offset: 0xA978, layer: "opa" } /* gMegamiPiece12DL */], [{ file: "object_jya_obj", offset: 0xAAC8, layer: "opa" } /* gMegamiPiece13DL */]] },
             { file: "object_jya_obj", offset: 0x5780, layer: "opa" } /* gMegami1DL */
-        ]
+        ],
+        segments: { 0x08: { file: "object_jya_obj", offset: 0xD00 }, 0x09: { file: "object_jya_obj", offset: 0x1500 } }
     },
     0x157: {
         name: "Bg_Jya_Lift",
@@ -2835,8 +2801,9 @@ const OOT_Actor_Models = {
         yOffset: -18.0,
         scaleUnknown: true,
         lists: [
-            { file: "gameplay_keep", offset: 0x41D80, layer: "opa" } /* gItemDropDL */
-        ]
+            { file: "gameplay_keep", offset: 0x41D80, layer: "opa", when: [[0, 255, "==", 15]] } /* gItemDropDL */
+        ],
+        segments: { 0x08: { file: "gameplay_keep", offset: 0x41E50 } }
     },
     0x169: {
         name: "Bg_Jya_Ironobj",
@@ -2927,8 +2894,6 @@ const OOT_Actor_Models = {
         skeleton: { file: "object_po_field", offset: 0x6A30, type: "Normal", limbType: "Standard" },
         anim: { file: "object_po_field", offset: 0x924 },
         lists: [
-            { file: "object_po_field", offset: 0x4BA0, layer: "opa" } /* gPoeFieldLanternDL */,
-            { file: "object_po_field", offset: 0x4CC0, layer: "opa" } /* gPoeFieldLanternTopDL */,
             { file: "object_po_field", offset: 0x23B0, layer: "xlu" } /* gPoeFieldSoulDL */
         ],
         limbLists: { 1: [{ file: "object_po_field", offset: 0x5900, layer: "opa" } /* gBigPoeFaceDL */], 8: [{ file: "object_po_field", offset: 0x5620, layer: "opa" } /* gBigPoeCloakDL */], 9: [{ file: "object_po_field", offset: 0x59F0, layer: "opa" } /* gBigPoeBodyDL */] },
@@ -2939,8 +2904,6 @@ const OOT_Actor_Models = {
         object: "object_efc_erupc",
         scale: 1.0,
         lists: [
-            { file: "object_efc_erupc", offset: 0x2570, layer: "xlu", ops: [["s", 0.8, 0.8, 0.8]] } /* object_efc_erupc_DL_002570 */,
-            { file: "object_efc_erupc", offset: 0x1720, layer: "xlu", ops: [["s", 3.4, 3.4, 3.4]], prim: [255, 255, 200, 255], env: [100, 0, 0, 255] } /* object_efc_erupc_DL_001720 */,
             { file: "object_efc_erupc", offset: 0x2760, layer: "xlu" } /* object_efc_erupc_DL_002760 */,
             { file: "object_efc_erupc", offset: 0x27D8, layer: "xlu", env: [150, 0, 0, 0] } /* object_efc_erupc_DL_0027D8 */
         ],
@@ -2982,7 +2945,6 @@ const OOT_Actor_Models = {
             { file: "ovl_Boss_Ganon2", offset: 0xAFF8, vram: 0x80B05470, layer: "xlu", prim: [255, 255, 255, 255], env: [100, 255, 255, 0] } /* gGanonLightOrbModelDL */,
             { file: "ovl_Boss_Ganon2", offset: 0xAF88, vram: 0x80B05470, layer: "xlu", prim: [255, 255, 255, 200], env: [255, 200, 0, 0] } /* gGanonLightOrbMaterialDL */,
             { file: "ovl_Boss_Ganon2", offset: 0xAF88, vram: 0x80B05470, layer: "xlu", prim: [255, 255, 255, 255], env: [0, 255, 255, 0] } /* gGanonLightOrbMaterialDL */,
-            { file: "ovl_Boss_Ganon2", offset: 0xB800, vram: 0x80B05470, layer: "xlu", ops: [["new"]], prim: [255, 255, 255, 255] } /* gGanonSwordTrailDL */,
             { file: "ovl_Boss_Ganon2", offset: 0x10028, vram: 0x80B05470, layer: "opa", ops: [["new"], ["s", 0.03, 0.03, 0.03]] } /* gGanonMasterSwordDL */,
             { file: "object_geff", offset: 0xEA0, layer: "opa", prim: [0, 0, 0, 255] } /* gGanonRubbleDL */
         ],
@@ -3021,7 +2983,7 @@ const OOT_Actor_Models = {
         object: "gameplay_keep",
         scaleUnknown: true,
         lists: [
-            { file: "ovl_End_Title", offset: 0x3F10, vram: 0x80B1AC40, layer: "xlu", ops: [["new"], ["t", 0.0, 150.0, 170.0], ["s", 0.13, 0.13, 0.13], ["rx", 0.287621]] } /* sTriforceDL */
+            { file: "ovl_End_Title", offset: 0x3F10, vram: 0x80B1AC40, layer: "xlu", ops: [["new"], ["t", 0.0, 150.0, 170.0], ["s", 0.13, 0.13, 0.13], ["rx", 0.287621]], when: [{"not": {"any": [{"all": [[0, 65535, "==", 1]]}]}}] } /* sTriforceDL */
         ]
     },
     0x181: {
@@ -3080,7 +3042,7 @@ const OOT_Actor_Models = {
         scale: 0.01,
         skeleton: { file: "object_ahg", offset: 0xF0, type: "Flex", limbType: "Standard" },
         anim: { file: "ovl_En_Sth", offset: 0x3E24, vram: 0x80B27B80 },
-        limbLists: { 15: [{ file: "ovl_En_Sth", offset: 0x2DF0, vram: 0x80B27B80, layer: "opa" } /* D_80B0A3C0 */, { file: "ovl_En_Sth", offset: 0x2A80, vram: 0x80B27B80, layer: "opa" } /* D_80B0A050 */] }
+        limbLists: { 15: [{ file: "ovl_En_Sth", offset: 0x2A80, vram: 0x80B27B80, layer: "opa" } /* D_80B0A050 */, { file: "ovl_En_Sth", offset: 0x2DF0, vram: 0x80B27B80, layer: "opa", add: true } /* D_80B0A3C0 */] }
     },
     0x18A: {
         name: "Oceff_Wipe",
@@ -3096,9 +3058,9 @@ const OOT_Actor_Models = {
         object: "gameplay_keep",
         scaleUnknown: true,
         lists: [
-            { file: "ovl_Oceff_Spot", offset: 0xD30, vram: 0x80B19D10, layer: "xlu", prim: [255, 255, 200, 255], env: [150, 150, 0, 128] } /* sCylinderMaterialDL */,
-            { file: "ovl_Oceff_Spot", offset: 0xDC8, vram: 0x80B19D10, layer: "xlu", prim: [255, 255, 200, 255], env: [150, 150, 0, 128] } /* sCylinderModelDL */,
-            { file: "ovl_Arrow_Fire", offset: 0x1C10, vram: 0x80A5E890, layer: "xlu", prim: [200, 200, 150, 255] } /* sMaterialDL */
+            { file: "ovl_Oceff_Spot", offset: 0xD30, vram: 0x80B19D10, layer: "xlu", prim: [255, 255, 200, 255], env: [150, 150, 0, 128], when: [{"not": {"any": [{"all": [[0, 65535, "==", 1]]}]}}] } /* sCylinderMaterialDL */,
+            { file: "ovl_Oceff_Spot", offset: 0xDC8, vram: 0x80B19D10, layer: "xlu", prim: [255, 255, 200, 255], env: [150, 150, 0, 128], when: [{"not": {"any": [{"all": [[0, 65535, "==", 1]]}]}}] } /* sCylinderModelDL */,
+            { file: "ovl_Arrow_Fire", offset: 0x1C10, vram: 0x80A5E890, layer: "xlu", prim: [200, 200, 150, 255], when: [[0, 65535, "==", 1]] } /* sMaterialDL */
         ]
     },
     0x18C: {
@@ -3157,7 +3119,7 @@ const OOT_Actor_Models = {
         skeleton: { file: "object_hintnuts", offset: 0x23B8, type: "Flex", limbType: "Standard" },
         anim: { file: "object_hintnuts", offset: 0x2F7C },
         lists: [
-            { file: "object_hintnuts", offset: 0x14E0, layer: "opa" } /* gHintNutsFlowerDL */
+            { file: "object_hintnuts", offset: 0x14E0, layer: "opa", when: [[0, 255, "==", 10]] } /* gHintNutsFlowerDL */
         ]
     },
     0x193: {
@@ -3174,8 +3136,8 @@ const OOT_Actor_Models = {
         object: "object_spot00_break",
         scale: 1.0,
         lists: [
-            { file: "object_spot00_break", offset: 0x980, layer: "opa" } /* gBarbedWireFenceDL */,
-            { file: "object_spot00_break", offset: 0x440, layer: "opa" } /* gBrokenDrawbridgeDL */
+            { file: "object_spot00_break", offset: 0x980, layer: "opa", when: [[0, 65535, "==", 1]] } /* gBarbedWireFenceDL */,
+            { file: "object_spot00_break", offset: 0x440, layer: "opa", when: [{"not": [0, 65535, "==", 1]}] } /* gBrokenDrawbridgeDL */
         ]
     },
     0x195: {
@@ -3321,10 +3283,10 @@ const OOT_Actor_Models = {
         object: "object_demo_kekkai",
         scale: 0.1,
         lists: [
-            { file: "object_demo_kekkai", offset: 0x4930, layer: "xlu", prim: [255, 170, 255, 255] } /* gTowerBarrierDL */,
-            { file: "object_demo_kekkai", offset: 0x5CB0, layer: "xlu", ops: [["t", 0.0, 1200.0, 0.0], ["t", 0.0, -1200.0, 0.0]] } /* gTrialBarrierOrbDL */,
-            { file: "object_demo_kekkai", offset: 0x4F00, layer: "xlu", prim: [50, 0, 100, 255] } /* gTrialBarrierFloorDL */,
-            { file: "object_demo_kekkai", offset: 0x5A30, layer: "xlu", prim: [50, 0, 100, 255] } /* gTrialBarrierEnergyDL */
+            { file: "object_demo_kekkai", offset: 0x4930, layer: "xlu", prim: [255, 170, 255, 255], when: [{"not": {"any": [{"all": [{"any": [[0, 65535, "==", 1], [0, 65535, "==", 2], [0, 65535, "==", 3], [0, 65535, "==", 4], [0, 65535, "==", 5], [0, 65535, "==", 6]]}]}]}}] } /* gTowerBarrierDL */,
+            { file: "object_demo_kekkai", offset: 0x5CB0, layer: "xlu", ops: [["t", 0.0, 1200.0, 0.0], ["t", 0.0, -1200.0, 0.0]], when: [{"any": [[0, 65535, "==", 1], [0, 65535, "==", 2], [0, 65535, "==", 3], [0, 65535, "==", 4], [0, 65535, "==", 5], [0, 65535, "==", 6]]}] } /* gTrialBarrierOrbDL */,
+            { file: "object_demo_kekkai", offset: 0x4F00, layer: "xlu", prim: [50, 0, 100, 255], when: [{"any": [[0, 65535, "==", 1], [0, 65535, "==", 2], [0, 65535, "==", 3], [0, 65535, "==", 4], [0, 65535, "==", 5], [0, 65535, "==", 6]]}] } /* gTrialBarrierFloorDL */,
+            { file: "object_demo_kekkai", offset: 0x5A30, layer: "xlu", prim: [50, 0, 100, 255], when: [{"any": [[0, 65535, "==", 1], [0, 65535, "==", 2], [0, 65535, "==", 3], [0, 65535, "==", 4], [0, 65535, "==", 5], [0, 65535, "==", 6]]}] } /* gTrialBarrierEnergyDL */
         ],
         segments: { 0x08: { scroll: [[0, 32, 64], [1, 32, 64]] }, 0x09: { scroll: [[0, 32, 32], [1, 32, 32]] }, 0x0A: { scroll: [[0, 32, 32], [1, 32, 32]] } }
     },
@@ -3368,15 +3330,12 @@ const OOT_Actor_Models = {
     0x1AE: {
         name: "En_Go2",
         object: "object_oF1d_map",
-        yOffset: 1800.0,
         scaleUnknown: true,
         skeleton: { file: "object_oF1d_map", offset: 0xFEF0, type: "Flex", limbType: "Standard" },
         anim: { file: "object_oF1d_map", offset: 0x4930 },
         lists: [
             { file: "object_oF1d_map", offset: 0xFD40, layer: "xlu" } /* gGoronDL_00FD40 */,
-            { file: "object_oF1d_map", offset: 0xFD50, layer: "xlu", prim: [170, 130, 90, 255], env: [100, 60, 20, 0] } /* gGoronDL_00FD50 */,
-            { file: "object_oF1d_map", offset: 0xBD80, layer: "opa" } /* gGoronDL_00BD80 */,
-            { file: "object_oF1d_map", offset: 0xC140, layer: "opa" } /* gGoronDL_00C140 */
+            { file: "object_oF1d_map", offset: 0xFD50, layer: "xlu", prim: [170, 130, 90, 255], env: [100, 60, 20, 0] } /* gGoronDL_00FD50 */
         ],
         segments: { 0x08: { file: "object_oF1d_map", offset: 0xDA80 }, 0x09: { file: "object_oF1d_map", offset: 0xDE80 } }
     },
@@ -3425,7 +3384,8 @@ const OOT_Actor_Models = {
         object: "object_demo_kekkai",
         scale: 0.1,
         lists: [
-            { file: "object_demo_kekkai", offset: 0xBEC0, layer: "xlu", prim: [198, 202, 208, 255] } /* gClearBlockDL */
+            { file: "object_demo_kekkai", offset: 0xBEC0, layer: "xlu", prim: [198, 202, 208, 255], when: [[0, 255, "==", 1], [8, 63, "==", 63]] } /* gClearBlockDL */,
+            { file: "object_demo_kekkai", offset: 0xBEC0, layer: "xlu", prim: [198, 202, 208, 255], when: [[0, 255, "==", 1], {"not": [8, 63, "==", 63]}] } /* gClearBlockDL */
         ]
     },
     0x1B5: {
@@ -3433,8 +3393,9 @@ const OOT_Actor_Models = {
         object: "object_demo_kekkai",
         scale: 0.1,
         lists: [
-            { select: [0, 0xFF], variants: [[{ file: "object_demo_kekkai", offset: 0x7C00, layer: "xlu" } /* gSpiritTrialWebDL */], [{ file: "object_demo_kekkai", offset: 0x2320, layer: "xlu" } /* gSpiritTrialLightSourceDL */], [{ file: "object_demo_kekkai", offset: 0x35A0, layer: "xlu" } /* gSpiritTrialLightFloorDL */]] },
-            { select: [0, 0xFF], variants: [[{ file: "object_demo_kekkai", offset: 0x7C00, layer: "opa" } /* gSpiritTrialWebDL */], [{ file: "object_demo_kekkai", offset: 0x2320, layer: "opa" } /* gSpiritTrialLightSourceDL */], [{ file: "object_demo_kekkai", offset: 0x35A0, layer: "opa" } /* gSpiritTrialLightFloorDL */]] }
+            { select: [0, 0xFF], variants: [[{ file: "object_demo_kekkai", offset: 0x7C00, layer: "xlu" } /* gSpiritTrialWebDL */], [{ file: "object_demo_kekkai", offset: 0x2320, layer: "xlu" } /* gSpiritTrialLightSourceDL */], [{ file: "object_demo_kekkai", offset: 0x35A0, layer: "xlu" } /* gSpiritTrialLightFloorDL */]], when: [[0, 255, "==", 0]] },
+            { select: [0, 0xFF], variants: [[{ file: "object_demo_kekkai", offset: 0x7C00, layer: "xlu" } /* gSpiritTrialWebDL */], [{ file: "object_demo_kekkai", offset: 0x2320, layer: "xlu" } /* gSpiritTrialLightSourceDL */], [{ file: "object_demo_kekkai", offset: 0x35A0, layer: "xlu" } /* gSpiritTrialLightFloorDL */]], when: [[0, 255, "==", 1]] },
+            { select: [0, 0xFF], variants: [[{ file: "object_demo_kekkai", offset: 0x7C00, layer: "opa" } /* gSpiritTrialWebDL */], [{ file: "object_demo_kekkai", offset: 0x2320, layer: "opa" } /* gSpiritTrialLightSourceDL */], [{ file: "object_demo_kekkai", offset: 0x35A0, layer: "opa" } /* gSpiritTrialLightFloorDL */]], when: [[0, 255, "==", 2]] }
         ]
     },
     0x1B6: {
@@ -3442,7 +3403,6 @@ const OOT_Actor_Models = {
         object: "object_demo_kekkai",
         scale: 0.1,
         lists: [
-            { select: [0, 0xFF], variants: [[{ file: "object_demo_kekkai", offset: 0x9230, layer: "xlu" } /* gLightTrialFakeWallDL */], [{ file: "object_demo_kekkai", offset: 0xA390, layer: "xlu" } /* gGanonsCastleUnusedFakeWallDL */], [{ file: "object_demo_kekkai", offset: 0xB4A0, layer: "xlu" } /* gGanonsCastleScrubsFakeWallDL */]] },
             { select: [0, 0xFF], variants: [[{ file: "object_demo_kekkai", offset: 0x9230, layer: "opa" } /* gLightTrialFakeWallDL */], [{ file: "object_demo_kekkai", offset: 0xA390, layer: "opa" } /* gGanonsCastleUnusedFakeWallDL */], [{ file: "object_demo_kekkai", offset: 0xB4A0, layer: "opa" } /* gGanonsCastleScrubsFakeWallDL */]] }
         ]
     },
@@ -3462,7 +3422,8 @@ const OOT_Actor_Models = {
         anim: { file: "object_ps", offset: 0x49C },
         lists: [
             { file: "object_ps", offset: 0xC0B0, layer: "xlu", ops: [["new"], ["s", 0.007, 0.007, 1.0]] } /* gPoeSellerCagedSoulDL */
-        ]
+        ],
+        segments: { 0x08: { scroll: [[0, 32, 64], [1, 32, 128]] } }
     },
     0x1B9: {
         name: "En_Gs",
@@ -3499,15 +3460,15 @@ const OOT_Actor_Models = {
         skeleton: { file: "object_daiku", offset: 0x7958, type: "Flex", limbType: "Standard" },
         anim: { file: "object_daiku", offset: 0x1AB0 },
         skelEnv: [200, 0, 150, 255],
-        limbLists: { 15: [{ file: "object_daiku", offset: 0x5BD0, layer: "opa" } /* object_daiku_DL_005BD0 */] }
+        limbLists: { 15: [{ file: "object_daiku", offset: 0x5BD0, layer: "opa", add: true } /* object_daiku_DL_005BD0 */] }
     },
     0x1BD: {
         name: "Bg_Bowl_Wall",
         object: "object_bowl",
         scaleUnknown: true,
         lists: [
-            { file: "object_bowl", offset: 0x610, layer: "opa" } /* gBowlingRound1WallDL */,
-            { file: "object_bowl", offset: 0x1390, layer: "opa" } /* gBowlingRound2WallDL */
+            { file: "object_bowl", offset: 0x610, layer: "opa", when: [[0, 65535, "==", 0]] } /* gBowlingRound1WallDL */,
+            { file: "object_bowl", offset: 0x1390, layer: "opa", when: [{"not": [0, 65535, "==", 0]}] } /* gBowlingRound2WallDL */
         ],
         segments: { 0x08: { scroll: [[0, 16, 16]] } }
     },
@@ -3616,8 +3577,8 @@ const OOT_Actor_Models = {
         object: "gameplay_keep",
         scale: 0.1,
         lists: [
-            { file: "ovl_Oceff_Wipe4", offset: 0xDD8, vram: 0x80B7AE70, layer: "xlu", ops: [["new"], ["s", 0.1, 0.1, 0.1]] } /* sUnusedMaterialDL */,
-            { file: "ovl_Arrow_Fire", offset: 0x1C10, vram: 0x80A5E890, layer: "xlu", ops: [["new"], ["s", 0.1, 0.1, 0.1]] } /* sMaterialDL */,
+            { file: "ovl_Oceff_Wipe4", offset: 0xDD8, vram: 0x80B7AE70, layer: "xlu", ops: [["new"], ["s", 0.1, 0.1, 0.1]], when: [[0, 65535, "==", 1]] } /* sUnusedMaterialDL */,
+            { file: "ovl_Arrow_Fire", offset: 0x1C10, vram: 0x80A5E890, layer: "xlu", ops: [["new"], ["s", 0.1, 0.1, 0.1]], when: [{"not": [0, 65535, "==", 1]}] } /* sMaterialDL */,
             { file: "ovl_Oceff_Wipe4", offset: 0xE40, vram: 0x80B7AE70, layer: "xlu", ops: [["new"], ["s", 0.1, 0.1, 0.1]] } /* sMaterial2DL */
         ]
     },
@@ -3630,7 +3591,6 @@ const OOT_Actor_Models = {
         object: "object_menkuri_objects",
         scale: 0.1,
         lists: [
-            { select: [0, 0xFF], variants: [[{ file: "object_menkuri_objects", offset: 0x2280, layer: "xlu" } /* gGTGFakeWallDL */], [{ file: "object_menkuri_objects", offset: 0x2BC0, layer: "xlu" } /* gGTGFakeCeilingDL */]] },
             { select: [0, 0xFF], variants: [[{ file: "object_menkuri_objects", offset: 0x2280, layer: "opa" } /* gGTGFakeWallDL */], [{ file: "object_menkuri_objects", offset: 0x2BC0, layer: "opa" } /* gGTGFakeCeilingDL */]] }
         ]
     },
