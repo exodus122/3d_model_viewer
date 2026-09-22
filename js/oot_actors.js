@@ -3,11 +3,19 @@ import { addModelCheckbox, getModelGroup, resetGroupModelState, applyGroupMaster
 import { replayDisplayLists, makeZeldaMesh, parseZeldaSceneInfo, scrollSegment, SEG_FLEX_MATRICES } from './zelda_textured.js';
 import { attachTextured, clearTexturedPairs } from './bk_textured.js';
 import { addTypeRow, makeYawLine, groupBy, ACTOR_COLOR } from './bk_setup.js';
-import { decodeActorSpawnEntry } from './render_actors.js';
+import { decodeActorSpawnEntry, actorShapeRot } from './render_actors.js';
+import { MM_ACTOR_OVERRIDES } from './mm_actor_overrides.js';
 
 ////////////////////////////////////////
-// System: Ocarina of Time actors (every spawn in the scene's actor lists)
+// System: Ocarina of Time / Majora's Mask actors (every spawn in the scene's
+// actor lists)
 ////////////////////////////////////////
+//
+// Both games draw actors the same way, so one renderer serves both: MM's
+// table is MM_Actor_Models (js/mm_object_list.js, the same generator run with
+// --mm), its hand fixes MM_ACTOR_OVERRIDES (js/mm_actor_overrides.js), its
+// files models/MM/actors/. What follows describes OoT; MM differs only in
+// how spawn and transition-actor rotations are packed.
 //
 // The scene's room actor lists (models/OOT/actors/OOT_actors_by_scene.json,
 // one ActorEntry per spawn: id, position, rotation, params) are drawn the
@@ -51,6 +59,13 @@ const BINANG_TO_RAD = Math.PI / 0x8000;
 const GROUP_MODELS = 'oot-actors';
 const GROUP_MARKERS = 'oot-actors-markers';
 
+// Per game: the generated model table (a classic script's global, so only
+// reachable by name) and the hand overrides.
+const GAMES = {
+    OOT: { models: () => (typeof OOT_Actor_Models === 'undefined' ? null : OOT_Actor_Models), overrides: () => OOT_ACTOR_OVERRIDES },
+    MM: { models: () => (typeof MM_Actor_Models === 'undefined' ? null : MM_Actor_Models), overrides: () => MM_ACTOR_OVERRIDES },
+};
+
 const wireframeCheckbox = document.getElementById('wireframe');
 
 ////////////////////////////////////////
@@ -59,11 +74,13 @@ const wireframeCheckbox = document.getElementById('wireframe');
 //
 // Keyed by actor name. Each entry can set: scale (number, [x, y, z] or a
 // function of (params, sceneName)), yOffset (number or a function of params), model (a
-// function of (params, sceneName, minedSpec, spawnRot) returning a model spec to use
-// instead of the mined one, or null for a marker), rot (a function of
+// function of (params, sceneName, minedSpec, spawnRot, keepFile) returning a model spec
+// to use instead of the mined one, or null for a marker), rot (a function of
 // (rot, params) returning the shape.rot the actor's Init sets), place (a
 // function of (instance, sceneCollision) returning { position?, rot? } for
-// an Init that moves the actor against the scene's collision), and
+// an Init that moves the actor against the scene's collision), spawns (a
+// function of the spawn { actorId, params, rot, rotRaw, position } returning
+// the spawns to draw instead -- an Init that spawns a copy of itself), and
 // marker: true to force the marker.
 //
 // A model spec is { object, skeleton?, anim?, lists?, segments?, limbLists? }
@@ -274,6 +291,33 @@ const OOT_ACTOR_OVERRIDES = {
         model: (params, sceneName) => doorShutterModel(params, sceneName),
     },
 
+    // z_en_door.c: EnDoor_OverrideLimbDraw gives limb 4 one of
+    // sDoorDLists[dListIndex] (the scene's door from sDoorInfo, else
+    // gameplay_field_keep's where that keep is loaded): the left list when the
+    // camera is behind the door, the right one in front -- each is one-sided,
+    // so both are drawn here. The list Draw adds at the actor matrix is only
+    // for a door swung open (world.rot.y != 0), which none is at rest. A
+    // locked door (type 1) adds Actor_DrawDoorLock's chains and lock. A
+    // double door (params bit 6) spawns its other half 30 to the right,
+    // turned round, and moves itself 30 to the left.
+    "En_Door": {
+        model: (params, sceneName, base, rot, keepFile) => {
+            const [file, left, right] = EN_DOOR_LISTS[sceneName]
+                ?? (keepFile === 'gameplay_field_keep' ? ['gameplay_field_keep', 0x47A0, 0x4978] : ['gameplay_keep', 0xF158, 0xF2A0]);
+            const lists = ((params >> 7) & 7) === 1 ? doorLockLists() : [];
+            return { ...base, lists, limbLists: { 4: [left, right].map(offset => ({ file, offset, layer: 'opa' })) } };
+        },
+        spawns: (spawn) => {
+            if (!(spawn.params & 0x40)) return [spawn];
+            const yaw = spawn.rot[1] * BINANG_TO_RAD, dx = Math.cos(yaw) * 30, dz = Math.sin(yaw) * 30;
+            const [x, y, z] = spawn.position, params = spawn.params & ~0x40, rotY = (spawn.rot[1] + 0x8000) << 16 >> 16;
+            return [
+                { ...spawn, params, position: [x - dx, y, z + dz] },
+                { ...spawn, params, position: [x + dx, y, z - dz], rot: [0, rotY, 0], rotRaw: [0, rotY & 0xFFFF, 0] },
+            ];
+        },
+    },
+
     // z_en_ge1.c: EnGe1_PostLimbDraw draws sHairstyleDLists[hairstyle] on
     // the head, and Init picks the hairstyle by type (params & 0xFF): the
     // gate guard spiky, the gate operator / normal / training-ground guards
@@ -319,6 +363,8 @@ const OOT_ACTOR_OVERRIDES = {
     // torch flame (gEffFire1DL, or an unused candle list for negative
     // params, which the mining picks up instead).
     "Object_Kankyo": { marker: true },
+    // z_en_holl.c: the black plane a room transition fades through.
+    "En_Holl": { marker: true },
     "Demo_Kankyo": { marker: true },
     "En_Light": { marker: true },
 };
@@ -454,6 +500,29 @@ function doorShutterModel(params, sceneName) {
 }
 const keepTex = (offset) => ({ file: 'gameplay_keep', offset });
 
+// z_en_door.c sDoorInfo -> sDoorDLists: [file, left list, right list].
+const EN_DOOR_LISTS = {
+    HIDAN_scene: ['object_hidan_objects', 0xF998, 0xF938],
+    MIZUsin_scene: ['object_mizu_objects', 0x4958, 0x4A10],
+    HAKAdan_scene: ['object_haka_door', 0x13B8, 0x1420],
+    HAKAdanCH_scene: ['object_haka_door', 0x13B8, 0x1420],
+};
+
+// z_actor.c Actor_DrawDoorLock(frame 10, DOORLOCK_NORMAL): from (0, 5000,
+// 500), four gDoorChainDL turned about z (chainRotZ stepping by pi - 2 *
+// chainAngle, then 2 * chainAngle), and gDoorLockDL at scale 1.
+function doorLockLists() {
+    const angle = 0.54, base = ['t', 0, 5000, 500];
+    const lists = [];
+    let rz = 0;
+    for (let i = 0; i < 4; i++) {
+        lists.push({ file: 'gameplay_dangeon_keep', offset: 0x11F0, layer: 'opa', ops: [base, ['rz', rz]] });
+        rz += i % 2 ? 2 * angle : Math.PI - 2 * angle;
+    }
+    lists.push({ file: 'gameplay_dangeon_keep', offset: 0x1100, layer: 'opa', ops: [base] });
+    return lists;
+}
+
 // gameplay_keep sDLists[] of z_en_a_keep.c, by A_OBJ_ type. Type 6's
 // gHookshotPostDL is in object_d_hsblock, which no A_Obj placement loads.
 const A_OBJ_LISTS = [
@@ -496,16 +565,17 @@ const ITEM00_TYPES = {
 // Files
 ////////////////////////////////////////
 
-const fileCache = new Map(); // file name -> Promise<DataView | null>
+const fileCache = new Map(); // "game/file name" -> Promise<DataView | null>
 
-function loadFile(name) {
-    let p = fileCache.get(name);
+function loadFile(game, name) {
+    const key = `${game}/${name}`;
+    let p = fileCache.get(key);
     if (!p) {
         const dir = name.startsWith('ovl_') ? 'overlays' : 'objects';
-        p = fetch(`./models/OOT/actors/${dir}/${name}`)
+        p = fetch(`./models/${game}/actors/${dir}/${name}`)
             .then(res => res.ok ? res.arrayBuffer().then(b => new DataView(b)) : null)
             .catch(() => null);
-        fileCache.set(name, p);
+        fileCache.set(key, p);
     }
     return p;
 }
@@ -548,8 +618,13 @@ function sceneCommand(sceneDv, headerOff, want) {
     return null;
 }
 
-/** The setup's transition actors (TransitionActorEntry, 0x10 bytes each). */
-function transitionActors(sceneDv, setupID) {
+/**
+ * The setup's transition actors (TransitionActorEntry, 0x10 bytes each), as
+ * Actor_SpawnTransitionActors spawns them: id & 0x1FFF, rot (0, rotY, 0),
+ * params + (index << 10). MM packs rotY as degrees in bits 7-15 (the low 7
+ * bits are a cutscene id) and keeps only params' low 10 bits.
+ */
+function transitionActors(sceneDv, setupID, game) {
     const cmd = sceneCommand(sceneDv, sceneHeaderOffset(sceneDv, setupID), CMD_TRANSITION_ACTOR_LIST)
         ?? sceneCommand(sceneDv, 0, CMD_TRANSITION_ACTOR_LIST);
     const out = [];
@@ -557,11 +632,16 @@ function transitionActors(sceneDv, setupID) {
     for (let i = 0; i < cmd.count; i++) {
         const o = cmd.addr + i * 0x10;
         if (o + 0x10 > sceneDv.byteLength) break;
+        let rotY = sceneDv.getInt16(o + 12, false), params = sceneDv.getUint16(o + 14, false);
+        if (game === 'MM') {
+            rotY = Math.trunc(((rotY >> 7) & 0x1FF) * (0x8000 / 180)) << 16 >> 16;
+            params &= 0x3FF;
+        }
         out.push({
             frontRoom: sceneDv.getInt8(o), backRoom: sceneDv.getInt8(o + 2),
             id: sceneDv.getInt16(o + 4, false),
             position: [sceneDv.getInt16(o + 6, false), sceneDv.getInt16(o + 8, false), sceneDv.getInt16(o + 10, false)],
-            rotY: sceneDv.getInt16(o + 12, false), params: sceneDv.getUint16(o + 14, false),
+            rotY, params: ((i << 10) + params) & 0xFFFF,
         });
     }
     return out.filter(t => t.id >= 0);
@@ -670,8 +750,6 @@ function opsMatrix(ops, scale) {
  * LOD limbs give their near list.
  */
 function parseSkeleton(segments, ref) {
-    const dv = segments[SEG_OBJECT]?.dv;
-    if (!dv) return null;
     const flex = ref.type === 'Flex';
     const hdr = resolveAddr(segments, refAddress(ref));
     if (!hdr || hdr.off + (flex ? 12 : 8) > hdr.dv.byteLength) return null;
@@ -827,10 +905,10 @@ function scaleOf(spec, override, params, sceneName) {
  * Everything needed to draw an actor at these params: the object file
  * set, the posed lists and a cache key. Null when the actor has no model.
  */
-function modelSpec(actorName, base, override, params, sceneName, scale, rot) {
+function modelSpec(actorName, base, override, params, sceneName, scale, rot, keepFile) {
     if (override?.marker) return null;
     let spec = base;
-    if (override?.model) spec = override.model(params, sceneName, base, rot);
+    if (override?.model) spec = override.model(params, sceneName, base, rot, keepFile);
     if (!spec) return null;
     if (override?.lists) spec = { ...spec, lists: override.lists };
     if (override?.limbLists) spec = { ...spec, limbLists: override.limbLists };
@@ -877,7 +955,8 @@ function buildModel(model, ctx) {
     if (p) return p;
     p = (async () => {
         const dvs = new Map();
-        await Promise.all(model.files.map(async f => dvs.set(f, await loadFile(f))));
+        const load = (f) => loadFile(ctx.game, f);
+        await Promise.all(model.files.map(async f => dvs.set(f, await load(f))));
 
         // Segment 6 is the object the skeleton or the lists live in --
         // usually the actor's own, but some actors draw from another object
@@ -887,9 +966,10 @@ function buildModel(model, ctx) {
         // that keep is in segment 5, so its pointers resolve.
         const segments = new Array(16).fill(null);
         segments[SEG_SCENE] = ctx.sceneSegment;
-        segments[SEG_KEEP] = segmentFor(dvs.get('gameplay_keep') ?? await loadFile('gameplay_keep'), { file: 'gameplay_keep' });
-        segments[SEG_SCENE_KEEP] = segmentFor(dvs.get(ctx.keepFile) ?? await loadFile(ctx.keepFile), { file: ctx.keepFile });
-        for (const ref of [model.skeleton, model.anim, ...model.lists]) {
+        segments[SEG_KEEP] = segmentFor(dvs.get('gameplay_keep') ?? await load('gameplay_keep'), { file: 'gameplay_keep' });
+        segments[SEG_SCENE_KEEP] = segmentFor(dvs.get(ctx.keepFile) ?? await load(ctx.keepFile), { file: ctx.keepFile });
+        const limbRefs = Object.values(model.limbLists ?? {}).flat();
+        for (const ref of [model.skeleton, model.anim, ...model.lists, ...limbRefs]) {
             if (!ref?.file || !dvs.get(ref.file)) continue;
             if (ref.vram != null) {
                 segments.vram = segments.vram ?? segmentFor(dvs.get(ref.file), ref);
@@ -911,7 +991,7 @@ function buildModel(model, ctx) {
             const dv = dvs.get(ref.file);
             if (dv) segments[Number(seg)] = { dv, base: ref.offset, key: `${ref.file}+${ref.offset}` };
         }
-        if (!segments[SEG_OBJECT] && !segments.vram && !model.lists.length) return null;
+        if (!segments[SEG_OBJECT] && !segments.vram && !model.lists.length && !model.skeleton) return null;
 
         const lists = { opa: [], xlu: [] };
         if (model.skeleton) {
@@ -1035,11 +1115,13 @@ function addModelRow(scene, groupBody, rowName, instances, built) {
 ////////////////////////////////////////
 
 /**
- * Draw every actor of the selected setup of an OoT scene.
+ * Draw every actor of the selected setup of an OoT or MM scene.
  * sceneBuffer: the scene file; sceneName: its file name (keys the actor JSON).
  */
-export async function renderOOTActors(scene, sceneBuffer, sceneName) {
-    if (typeof OOT_Actor_Models === 'undefined' || !areaActors) return;
+export async function renderOOTActors(scene, sceneBuffer, sceneName, game = 'OOT') {
+    const actorModels = GAMES[game]?.models();
+    const overrides = GAMES[game]?.overrides() ?? {};
+    if (!actorModels || !areaActors) return;
     const setupID = Number(document.getElementById('setupDropdown')?.value ?? 0);
     const setup = areaActors[setupID];
     if (!setup) return;
@@ -1051,6 +1133,7 @@ export async function renderOOTActors(scene, sceneBuffer, sceneName) {
     const keepFile = sceneKeepObject(sceneDv) === OBJECT_GAMEPLAY_DANGEON_KEEP ? 'gameplay_dangeon_keep' : 'gameplay_field_keep';
     const collision = sceneCollision(sceneDv);
     const ctx = {
+        game,
         sceneSegment: { dv: sceneDv, base: 0, key: sceneName },
         keepFile,
         light: parseZeldaSceneInfo(sceneBuffer).light,
@@ -1060,16 +1143,25 @@ export async function renderOOTActors(scene, sceneBuffer, sceneName) {
 
     // ---- decode every spawn
     const instances = [];
-    const addInstance = (entry, spawn, roomIndex) => {
-        const base = OOT_Actor_Models[spawn.actorId] ?? null;
-        const name = base?.name ?? `Actor ${hex(spawn.actorId, 3)}`;
-        const override = OOT_ACTOR_OVERRIDES[name] ?? null;
-        const rot = override?.rot ? override.rot(spawn.rot, spawn.params) : spawn.rot;
+    const addInstance = (entry, first, roomIndex) => {
+        const base = actorModels[first.actorId] ?? null;
+        const name = base?.name ?? `Actor ${hex(first.actorId, 3)}`;
+        const override = overrides[name] ?? null;
+        const spawns = override?.spawns ? override.spawns({ ...first, position: entry.position }) : [{ ...first, position: entry.position }];
+        for (const spawn of spawns) addSpawn(spawn, base, name, override, roomIndex);
+    };
+    const addSpawn = (spawn, base, name, override, roomIndex) => {
+        // The shape.rot the actor's Init leaves (MM: MM_ACTOR_INIT_SHAPE_ROT in
+        // render_actors.js, shared with the DynaPoly rows -- rot fields that
+        // carry switch flags are zeroed, Bg_Dblue_Movebg's by type), then
+        // this file's own rot override.
+        const initRot = actorShapeRot(name, spawn, game, sceneName);
+        const rot = override?.rot ? override.rot(initRot, spawn.params) : initRot;
         const scale = scaleOf(base, override, spawn.params, sceneName);
-        const model = base ? modelSpec(name, base, override, spawn.params, sceneName, scale, spawn.rot) : null;
+        const model = base ? modelSpec(name, base, override, spawn.params, sceneName, scale, spawn.rot, keepFile) : null;
         const inst = {
             actorId: spawn.actorId, name, params: spawn.params, room: roomIndex,
-            position: entry.position, rot, rotRaw: spawn.rotRaw,
+            position: spawn.position, rot, rotRaw: spawn.rotRaw,
             scale,
             yOffset: (typeof override?.yOffset === 'function' ? override.yOffset(spawn.params) : override?.yOffset) ?? base?.yOffset ?? 0,
             model,
@@ -1078,16 +1170,14 @@ export async function renderOOTActors(scene, sceneBuffer, sceneName) {
         instances.push(inst);
     };
     setup.rooms.forEach((room, roomIndex) => {
-        for (const entry of room.actors) addInstance(entry, decodeActorSpawnEntry(entry, 'OOT'), roomIndex);
+        for (const entry of room.actors) addInstance(entry, decodeActorSpawnEntry(entry, game), roomIndex);
     });
-    // Doors and other transition actors: the scene's own list, spawned with
-    // rot (0, rotY, 0) and the entry's index in params bits 10-15.
-    transitionActors(sceneDv, setupID).forEach((t, i) => {
-        const params = ((i << 10) + t.params) & 0xFFFF;
+    // Doors and other transition actors: the scene's own list.
+    for (const t of transitionActors(sceneDv, setupID, game)) {
         addInstance({ position: t.position }, {
-            actorId: t.id & 0x1FFF, params, rot: [0, t.rotY, 0], rotRaw: [0, t.rotY & 0xFFFF, 0],
+            actorId: t.id & 0x1FFF, params: t.params, rot: [0, t.rotY, 0], rotRaw: [0, t.rotY & 0xFFFF, 0],
         }, t.frontRoom);
-    });
+    }
 
     // ---- build every distinct model up front, so rows come out in name order
     const built = new Map();

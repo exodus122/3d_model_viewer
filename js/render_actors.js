@@ -669,7 +669,7 @@ const MM_ACTOR_INIT_SHAPE_ROT = {
  * Spawn rotation -> the shape.rot DynaPoly actually uses, applying the
  * actor's Init override when it has one.
  */
-function actorShapeRot(actorName, spawn, game, sceneName) {
+export function actorShapeRot(actorName, spawn, game, sceneName) {
     if (game !== "MM") {
         return spawn.rot;
     }

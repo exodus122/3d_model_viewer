@@ -3,11 +3,14 @@
 Generate js/oot_object_list.js -- what each OoT actor draws -- from the oot
 decomp, and bring the object files those models live in over to
 models/OOT/actors/objects (and overlays to models/OOT/actors/overlays).
+With --mm, the same for Majora's Mask from the mm decomp: js/mm_object_list.js
+(MM_Actor_Models) and models/MM/actors/{objects,overlays}.
 
-usage: generate_oot_actor_models.py [path/to/oot] [version]
+usage: generate_oot_actor_models.py [--mm] [path/to/decomp] [version]
 
-    path/to/oot   the oot decomp checkout (default: ../oot next to this repo)
-    version       its baseroms/<version> (default: ntsc-1.0)
+    path/to/decomp  the oot (mm) decomp checkout (default: ../oot or ../mm
+                    next to this repo)
+    version         its baseroms/<version> (default: ntsc-1.0 / n64-us)
 
 The decomp must have been extracted for that version (make setup), so that
 extracted/<version>/baserom/ holds the decompressed object and overlay files.
@@ -25,15 +28,20 @@ Init. This script reads that out of each actor's C source:
                                              frame 0 poses it (falling back to
                                              the first Animation_Play* / the
                                              first animation the file names)
-  * Gfx_DrawDListOpa / Xlu, gSPDisplayList(POLY_*_DISP++, ...) in Draw
-                                          -> static display lists; an array
+  * Gfx_DrawDListOpa / Xlu, gSPDisplayList(POLY_*_DISP++ / &gfx[n] /
+    gfx++, ...) in Draw                   -> static display lists; an array
                                              (of lists, or of structs holding
-                                             one) indexed by a PARAMS_GET_* of
-                                             the actor's params becomes a
-                                             selector; a member or variable is
-                                             followed to its first assignment;
-                                             the shared effect quads (gEff*) and
-                                             drop shadows are skipped
+                                             them -- the field named, when the
+                                             file's typedef gives the fields)
+                                             indexed by a PARAMS_GET_* of the
+                                             actor's params becomes a selector,
+                                             also through a local `info =
+                                             &sInfo[type]`; a member or
+                                             variable is followed to its first
+                                             assignment; &gDL[n] enters a list
+                                             n commands in; the shared effect
+                                             quads (gEff*) and drop shadows are
+                                             skipped
   * Matrix_Translate / Rotate* / Scale with literal arguments before a list
     or the SkelAnime_Draw* in Draw   -> ops applied on top of the actor matrix
   * gDPSetPrimColor / gDPSetEnvColor with literal colours before them
@@ -44,6 +52,8 @@ Init. This script reads that out of each actor's C source:
                                         action function, a flag) is dropped
                                         when its chain has an else to fall to,
                                         and a cutscene (csCtx) branch always;
+                                        a projectedPos.z draw-distance test
+                                        takes the near branch;
                                         a `draw = X` Init installs inside a
                                         params branch tags X's lists the same
   * if (limbIndex == N) { ... } / switch (limbIndex) { case N: ... } in a
@@ -53,6 +63,7 @@ Init. This script reads that out of each actor's C source:
                                         does); N may be the object header's
                                         limb enum
   * gSPSegment(POLY_*_DISP++, 0x08..0x0F, SEGMENTED_TO_VIRTUAL(tex)) in Draw
+    (MM: Lib_SegmentedToVirtual(tex))
                                           -> the texture a segment stands for
                                              (eyes, mouths), first choice; with
                                              play->objectCtx.slots[..].segment,
@@ -61,9 +72,10 @@ Init. This script reads that out of each actor's C source:
                                              the tile sizes that list sets
 
 Symbols are resolved to a file and offset through assets/xml/objects/*.xml
-and assets/xml/overlays/*.xml (an overlay's data starts at the start_offset
-its baseroms/<version>/config.yml entry gives, and its pointers are VRAM
-addresses from baseroms/<version>/segments.csv).
+and assets/xml/overlays/*.xml (an OoT overlay's data starts at the
+start_offset its baseroms/<version>/config.yml entry gives, and its pointers
+are VRAM addresses from baseroms/<version>/segments.csv; an MM overlay XML
+gives offsets into the whole file and its VRAM as BaseAddress).
 
 Actors whose draw is not a plain skeleton or display list (skinned horses,
 curve skeletons, effects, anything picking its model in code) come out with
@@ -79,16 +91,29 @@ import sys
 import xml.etree.ElementTree as ET
 
 ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..")
-OUT_JS = os.path.join(ROOT, "js", "oot_object_list.js")
-OBJECTS_OUT = os.path.join(ROOT, "models", "OOT", "actors", "objects")
-OVERLAYS_OUT = os.path.join(ROOT, "models", "OOT", "actors", "overlays")
 
 # Objects every actor may draw from without loading them: segment 4 and 5.
 KEEP_OBJECTS = ["gameplay_keep", "gameplay_field_keep", "gameplay_dangeon_keep"]
 
-# Files only the hand overrides in js/oot_actors.js reach (models drawn
+# Per game: the decomp and version read by default, the table written and
+# its overrides. extra: files only the hand overrides reach (models drawn
 # through code this does not follow, such as GetItem_Draw's tables).
-EXTRA_FILES = ["object_gi_heart", "object_jya_door", "object_ganon_objects", "object_haka_door", "object_ouke_haka"]
+GAMES = {
+    "OOT": {
+        "decomp": "oot", "version": "ntsc-1.0", "table": "OOT_Actor_Models", "js": "oot_object_list.js",
+        "overrides": "js/oot_actors.js",
+        "extra": ["object_gi_heart", "object_jya_door", "object_ganon_objects", "object_haka_door", "object_ouke_haka"],
+    },
+    "MM": {
+        "decomp": "mm", "version": "n64-us", "table": "MM_Actor_Models", "js": "mm_object_list.js",
+        "overrides": "js/mm_actor_overrides.js",
+        "extra": ["object_gi_heart", "object_gi_hearts", "object_numa_obj", "object_dor01", "object_dor02", "object_dor03", "object_dor04", "object_wdor01",
+                  "object_wdor02", "object_wdor03", "object_wdor04", "object_wdor05", "object_kaizoku_obj",
+                  "object_kinsta2_obj", "object_bdoor", "object_hakugin_obj", "object_dblue_object",
+                  "object_ikana_obj", "object_redead_obj", "object_ikninside_obj", "object_random_obj",
+                  "object_kinsta1_obj", "object_last_obj", "object_danpei_object", "object_bombiwa", "object_bombf"],
+    },
+}
 
 
 def strip_comments(text):
@@ -118,7 +143,13 @@ def read_object_table(oot):
         for line in f:
             m = re.match(r"\s*/\*\s*0x([0-9A-Fa-f]+)\s*\*/\s*DEFINE_OBJECT\((\w+),\s*(\w+)\)", line)
             if m:
-                objects[m.group(3)] = (int(m.group(1), 16), m.group(2))
+                # OoT names the whole enum (OBJECT_BOX), MM its suffix (BOX,
+                # GAMEPLAY_KEEP), which its profiles use as OBJECT_BOX but
+                # GAMEPLAY_KEEP.
+                entry = (int(m.group(1), 16), m.group(2))
+                objects[m.group(3)] = entry
+                if not m.group(3).startswith("OBJECT_"):
+                    objects["OBJECT_" + m.group(3)] = entry
     return objects
 
 
@@ -128,7 +159,10 @@ def read_object_table(oot):
 def read_overlay_ranges(oot, version):
     """{ovl name: (start_offset, vram)}: where an overlay's extracted data sits."""
     starts = {}
-    with open(os.path.join(oot, "baseroms", version, "config.yml"), encoding="utf-8") as f:
+    config = os.path.join(oot, "baseroms", version, "config.yml")
+    if not os.path.isfile(config):
+        return {}
+    with open(config, encoding="utf-8") as f:
         name = None
         for line in f:
             m = re.match(r"- name: overlays/(\w+)", line)
@@ -163,7 +197,10 @@ def read_symbols(oot, version):
                 continue
             for file_el in root.findall("File"):
                 fname = file_el.attrib["Name"]
-                if sub == "overlays":
+                if sub == "overlays" and "BaseAddress" in file_el.attrib:
+                    # MM: offsets into the whole file, linked at BaseAddress
+                    data_start, vram = 0, int(file_el.attrib["BaseAddress"], 16)
+                elif sub == "overlays":
                     if fname not in ranges:
                         continue
                     data_start, vram = ranges[fname]
@@ -234,6 +271,41 @@ def static_arrays(text, symbols):
     return arrays
 
 
+# {array name: [{field: token}, ...]} for the file's struct array
+# initializers whose struct typedef it can read (sBoeModelInfo[i].modelDL);
+# set per actor by read_actor.
+struct_fields = {}
+
+
+def struct_arrays(text):
+    """
+    {array name: [{field: token}]}: each element of a `StructType name[] =
+    { { a, b }, ... }` initializer, its values named by the fields of the
+    file's `typedef struct StructType { ... } StructType;`. An element whose
+    value count does not match the fields (a nested struct) is left out.
+    """
+    types = {}
+    for m in re.finditer(r"typedef\s+struct\s*\w*\s*\{([^{}]*)\}\s*(\w+)\s*;", text):
+        fields = []
+        for decl in m.group(1).split(";"):
+            fm = re.search(r"(\w+)\s*(?:\[[^\]]*\])?\s*$", decl.strip())
+            if fm and decl.strip():
+                fields.append(fm.group(1))
+        types[m.group(2)] = fields
+    out = {}
+    for m in re.finditer(r"\b(\w+)\s+(\w+)\s*\[\s*\w*\s*\]\s*=\s*\{(.*?)\}\s*;", text, flags=re.S):
+        fields = types.get(m.group(1))
+        if not fields:
+            continue
+        elements = []
+        for el in re.findall(r"\{([^{}]*)\}", m.group(3)):
+            values = [t.strip().lstrip("&").strip() for t in el.split(",") if t.strip()]
+            elements.append(dict(zip(fields, values)) if len(values) == len(fields) else None)
+        if elements and all(elements):
+            out[m.group(2)] = elements
+    return out
+
+
 def assignments(text):
     """{name: [rhs]} for every `x = rhs;` / `this->x = rhs;` in the file."""
     out = {}
@@ -270,7 +342,8 @@ def expand_macros(text):
 
 
 # A bare `thisx->params` index takes the whole word, unless the actor's Init
-# has already masked it (params &= 0xFF, the upper byte being a flag).
+# has already masked it (params &= 0xFF, the upper byte being a flag; MM's
+# En_Mkk: params &= 1).
 BARE_PARAMS_RX = re.compile(r"^[\s()]*(?:\(\w+\)\s*)?(?:this\s*->\s*(?:dyna\s*\.\s*)?actor\s*\.|thisx\s*->\s*|this\s*->\s*actor\s*\.)?params[\s()]*$")
 bare_params_mask = 0xFFFF
 
@@ -290,7 +363,9 @@ def function_names(text):
     return set(re.findall(r"\b(\w+)\s*\([^;{}]*\)\s*\{", text)) - {"if", "while", "for", "switch", "return", "sizeof"}
 
 
-DL_RX = re.compile(r"(?:Gfx_DrawDList(Opa|Xlu)\s*\(\s*play\s*,\s*|gSPDisplayList\s*\(\s*POLY_(OPA|XLU)_DISP\+\+\s*,\s*)([^;]+?)\)\s*;")
+# (MM also writes through a local: gSPDisplayList(&gfx[3], ...), gfx++,
+# (*gfx)++ -- which buffer is not known there, so those count as opaque.)
+DL_RX = re.compile(r"(?:Gfx_DrawDList(Opa|Xlu)\s*\(\s*play\s*,\s*|gSPDisplayList\s*\(\s*(?:POLY_(OPA|XLU)_DISP\+\+|&\w+\[\d+\]|\w+\+\+|\(\*\w+\)\+\+)\s*,\s*)([^;]+?)\)\s*;")
 
 
 # Lists that are never the actor's own model: the shared effect quads
@@ -324,16 +399,24 @@ def index_selector(expr, assigned):
     return None
 
 
-def resolve_list_expr(expr, arrays, symbols, assigned, layer, depth=0):
+def resolve_list_expr(expr, arrays, symbols, assigned, layer, depth=0, field=None):
     """
     A display-list expression -> {sym, layer} | {variants, select} | None:
     a symbol, an array element (sDLists[PARAMS_GET_U(...)], sParams[i].dList),
     or a variable / member the file assigns one of those to (this->dList =
     sDLists[type] in Init, drawn in Draw) -- its first assignment.
     """
-    expr = expr.strip()
-    am = re.match(r"^(\w+)\s*\[(.+)\]\s*(?:\.\s*\w+)?$", expr, flags=re.S)
+    expr = expr.strip().lstrip("&").strip()
+    am = re.match(r"^(\w+)\s*\[(.+)\]\s*(?:\.\s*(\w+))?$", expr, flags=re.S)
     is_dl = lambda t: t in symbols and symbols[t]["kind"] == "DList" and not EFFECT_DL_RX.search(t)
+    member = (am.group(3) if am else None) or field
+    if am and member and all(member in el for el in struct_fields.get(am.group(1), [{}])):
+        # sInfo[type].dList: that field of each element
+        items = [struct_fields[am.group(1)][k][member] for k in range(len(struct_fields[am.group(1)]))]
+        items = ["NULL" if t in ("NULL", "0") else t for t in items]
+        if all(is_dl(t) or t == "NULL" for t in items) and any(is_dl(t) for t in items):
+            return {"variants": [[{"sym": t, "layer": layer}] if t != "NULL" else [] for t in items],
+                    "select": index_selector(am.group(2), assigned)}
     if am and am.group(1) in arrays:
         items = arrays[am.group(1)]
         if all(is_dl(t) or t == "NULL" for t in items) and any(is_dl(t) for t in items):
@@ -342,6 +425,18 @@ def resolve_list_expr(expr, arrays, symbols, assigned, layer, depth=0):
         return None
     if re.match(r"^\w+$", expr) and is_dl(expr):
         return {"sym": expr, "layer": layer}
+    # &gSomeDL[2]: a list entered at its third command
+    im = re.match(r"^(\w+)\s*\[\s*(\d+)\s*\]$", expr)
+    if im and is_dl(im.group(1)):
+        return {"sym": im.group(1), "layer": layer, "index": int(im.group(2))}
+    # info->dList with a local `info = &sInfo[type]`: that struct array's lists
+    pm = re.match(r"^(\w+)\s*->\s*(\w+)$", expr)
+    if pm and pm.group(1) not in ("this", "thisx") and depth < 3:
+        for rhs in assigned.get(pm.group(1), []):
+            if rhs.lstrip().startswith("&"):
+                r = resolve_list_expr(rhs, arrays, symbols, assigned, layer, depth + 1, pm.group(2))
+                if r:
+                    return r
     vm = re.match(r"^(?:\(?\s*\w+\s*\)?\s*->\s*|\w+\s*\.\s*)?(\w+)$", expr)
     if vm and depth < 3:
         for rhs in assigned.get(vm.group(1), []):
@@ -354,11 +449,15 @@ def resolve_list_expr(expr, arrays, symbols, assigned, layer, depth=0):
 # Literal matrix operations a Draw applies on top of the actor's matrix
 # before issuing a list or drawing the skeleton (En_Jj: Matrix_Scale(10);
 # Bg_Mori_Hineri: Matrix_Put(&mtx), Translate, RotateY, Scale(0.01) for the
-# chest it embeds). Matrix_Put / Push / Pop start again from the actor's.
+# chest it embeds). Matrix_Put / Push / Pop start again from the actor's;
+# Matrix_SetTranslateRotateYXZ builds one from scratch, like MTXMODE_NEW. A
+# Matrix_Scale whose arguments are expressions (last alternative) is taken
+# as the actor's own scale.
 MATRIX_OP_RX = re.compile(
-    r"Matrix_(Put|Push|Pop)\s*\(|MTXMODE_NEW|"
+    r"Matrix_(Put|Push|Pop)\s*\(|MTXMODE_NEW|Matrix_SetTranslateRotateYXZ\s*\(|"
     r"Matrix_(Translate|Scale)\s*\(\s*([^,()]+),\s*([^,()]+),\s*([^,()]+),\s*MTXMODE_APPLY\s*\)|"
-    r"Matrix_Rotate([XYZ])\s*\(\s*([^,]+?),\s*MTXMODE_APPLY\s*\)")
+    r"Matrix_Rotate([XYZ])\s*\(\s*([^,]+?),\s*MTXMODE_APPLY\s*\)|"
+    r"(Matrix_Scale)\s*\(")
 
 
 def literal_number(expr):
@@ -392,13 +491,16 @@ def matrix_ops_before(body, pos):
     """
     ops = []
     for m in MATRIX_OP_RX.finditer(body[:pos]):
-        if m.group(0) == "MTXMODE_NEW":
+        if m.group(0) == "MTXMODE_NEW" or m.group(0).startswith("Matrix_SetTranslateRotateYXZ"):
             # Built from scratch (Matrix_Translate(world.pos, MTXMODE_NEW)):
             # the actor's scale is not part of it. Its position and any
             # rotation from the actor's own fields come back non-literal.
             ops = [["new"]]
         elif m.group(1):
             ops = []
+        elif m.group(8):
+            if ops and ops[0] == ["new"]:
+                ops.pop(0)
         elif m.group(2):
             v = [literal_number(m.group(i)) for i in (3, 4, 5)]
             if None in v:
@@ -558,6 +660,15 @@ def params_atom(expr, assigned, consts):
     if not m:
         return None
     lhs, op, rhs = m.group(1), m.group(2), m.group(3)
+    # projectedPos.z against a literal: past a few hundred units a
+    # draw-distance LOD test, decided for the near model (MM fades boulders
+    # out past ~2200); near zero an in-front-of-the-camera test, decided true.
+    if "projectedPos" in lhs + rhs and op not in ("==", "!="):
+        n = literal_number(rhs if "projectedPos" in lhs else lhs)
+        if n is None:
+            return None
+        less = (op in ("<", "<=")) == ("projectedPos" in lhs)
+        return less if abs(n) >= 500 else not less
     # this->actionFunc == F: known once Init's starting action is (the
     # placed actor is in it), true or false.
     if re.search(r"\bactionFunc\s*$", lhs.strip()) and re.match(r"^\w+$", rhs.strip()) and op in ("==", "!="):
@@ -607,12 +718,13 @@ def params_condition(cond, assigned, consts):
         parts = split_top(cond, sep)
         if len(parts) > 1:
             subs = [params_condition(p, assigned, consts) for p in parts]
-            if None in subs:
-                return None
-            # true / false parts (an actionFunc test) fold away
+            # true / false parts (an actionFunc test) fold away; a true part
+            # decides an ||, a false one an &&, whatever the others test
             decided = key == "any"
             if decided in subs:
                 return decided
+            if None in subs:
+                return None
             subs = [c for c in subs if c is not (not decided)]
             return (not decided) if not subs else subs[0] if len(subs) == 1 else {key: subs}
     return params_atom(cond, assigned, consts)
@@ -711,7 +823,7 @@ def lists_in(text, body, arrays, symbols, functions, seen):
         return found
 
     for m in DL_RX.finditer(body):
-        layer = (m.group(1) or m.group(2)).lower()
+        layer = (m.group(1) or m.group(2) or "opa").lower()
         expr = m.group(3).strip()
         if EFFECT_DL_RX.search(expr):
             continue
@@ -762,7 +874,7 @@ def lists_in(text, body, arrays, symbols, functions, seen):
     return lists
 
 
-LIMB_DL_RX = re.compile(r"(?:gSPDisplayList\s*\(\s*(?:\(\*gfx\)\+\+|POLY_(?:OPA|XLU)_DISP\+\+|gfx\+\+)\s*,\s*|\*dList\s*=\s*)(\w+)")
+LIMB_DL_RX = re.compile(r"(?:gSPDisplayList\s*\(\s*(?:\(\*gfx\)\+\+|POLY_(?:OPA|XLU)_DISP\+\+|gfx\+\+)\s*,\s*|\*dList\s*=\s*)&?(\w+)")
 
 
 def enum_values(text):
@@ -1006,7 +1118,7 @@ def find_y_offset(text, init_body):
 
 def find_skeleton(text, arrays, symbols):
     """(skeleton symbol, animation symbol) from the actor's SkelAnime setup, or (None, None)."""
-    m = re.search(r"SkelAnime_Init(?:Flex)?\s*\(\s*play\s*,\s*&?[^,]+,\s*(?:\([^)]*\))?\s*&?(\w+)(?:\[[^\]]*\])?\s*,\s*(?:\([^)]*\))?\s*&?(\w+)(?:\[[^\]]*\])?\s*,", text)
+    m = re.search(r"SkelAnime_Init(?:Flex)?\s*\(\s*play\s*,\s*&?[^,]+,\s*(?:\([^)]*\))?\s*&?(\w+)(?:\.sh)?(?:\[[^\]]*\])?\s*,\s*(?:\([^)]*\))?\s*&?(\w+)(?:\[[^\]]*\])?\s*,", text)
     if not m:
         return None, None
     skel, anim = m.group(1), m.group(2)
@@ -1119,7 +1231,7 @@ def find_segments(draw_body, arrays, symbols, text=None, object_table=None):
             obj = object_table.get(slots.get(m.group(2)))
             if obj and seg not in segs:
                 segs[seg] = ("object", obj[1])
-    for m in re.finditer(r"gSPSegment\s*\(\s*POLY_(?:OPA|XLU)_DISP\+\+\s*,\s*(0x0?[89A-Fa-f]|\d+)\s*,\s*SEGMENTED_TO_VIRTUAL\s*\(\s*(\w+)(\[[^\]]*\])?\s*\)\s*\)", draw_body):
+    for m in re.finditer(r"gSPSegment\s*\(\s*POLY_(?:OPA|XLU)_DISP\+\+\s*,\s*(0x0?[89A-Fa-f]|\d+)\s*,\s*(?:SEGMENTED_TO_VIRTUAL|Lib_SegmentedToVirtual)\s*\(\s*(\w+)(\[[^\]]*\])?\s*\)\s*\)", draw_body):
         seg = int(m.group(1), 0)
         sym = m.group(2)
         if m.group(3):
@@ -1175,7 +1287,8 @@ def read_actor(oot, name, symbols, object_table, internal, version):
             text += "\n" + f.read()
     text = expand_macros(strip_comments(header_text(oot, name) + text))
     global bare_params_mask
-    bare_params_mask = 0xFF if re.search(r"params\s*&=\s*0xFF\b", text) else 0xFFFF
+    masked = re.search(r"params\s*&=\s*(0x[0-9A-Fa-f]+|\d+)\b", text)
+    bare_params_mask = int(masked.group(1), 0) if masked else 0xFFFF
 
     profile = re.search(r"ActorProfile\s+\w+\s*=\s*\{([^}]*)\}", text)
     if not profile:
@@ -1188,6 +1301,8 @@ def read_actor(oot, name, symbols, object_table, internal, version):
     obj = object_table.get(obj_enum)
 
     arrays = static_arrays(text, symbols)
+    global struct_fields
+    struct_fields = struct_arrays(text)
     init_body = function_body(text, init_fn) if init_fn != "NULL" else ""
 
     # Many actors leave the profile's draw NULL and install one once their
@@ -1291,8 +1406,15 @@ def fmt_list(l):
 
 
 def main():
-    oot = sys.argv[1] if len(sys.argv) > 1 else os.path.join(ROOT, "..", "oot")
-    version = sys.argv[2] if len(sys.argv) > 2 else "ntsc-1.0"
+    args = sys.argv[1:]
+    game = "MM" if "--mm" in args else "OOT"
+    args = [a for a in args if a != "--mm"]
+    cfg = GAMES[game]
+    out_js = os.path.join(ROOT, "js", cfg["js"])
+    objects_out = os.path.join(ROOT, "models", game, "actors", "objects")
+    overlays_out = os.path.join(ROOT, "models", game, "actors", "overlays")
+    oot = args[0] if len(args) > 0 else os.path.join(ROOT, "..", cfg["decomp"])
+    version = args[1] if len(args) > 1 else cfg["version"]
     baserom = os.path.join(oot, "extracted", version, "baserom")
     if not os.path.isdir(baserom):
         sys.exit(f"{baserom}: not found (run the decomp's setup for {version})")
@@ -1303,7 +1425,7 @@ def main():
     internal = internal_actor_sources(oot)
 
     entries = []
-    files = set(KEEP_OBJECTS + EXTRA_FILES)
+    files = set(KEEP_OBJECTS + cfg["extra"])
     stats = {"skeleton": 0, "lists": 0, "nothing": 0, "noDraw": 0, "unknownScale": 0}
     for actor_id, name in actors:
         info = read_actor(oot, name, symbols, object_table, internal, version)
@@ -1338,6 +1460,9 @@ def main():
             ref = js_ref(symbols, l["sym"])
             ref["layer"] = l["layer"]
             ref["name"] = l["sym"]
+            if l.get("index"):
+                ref["offset"] += 8 * l["index"]
+                ref["name"] += "[%d]" % l["index"]
             for k in ("ops", "prim", "env", "combine", "primLod", "when"):
                 if l.get(k):
                     ref[k] = l[k]
@@ -1391,9 +1516,10 @@ def main():
 
     # ---- write the JS table
     lines = [
-        "// Generated by tools/oot/generate_oot_actor_models.py from the oot decomp -- do not edit.",
+        "// Generated by tools/oot/generate_oot_actor_models.py%s from the %s decomp -- do not edit." % (
+            " --mm" if game == "MM" else "", cfg["decomp"]),
         "//",
-        "// OOT_Actor_Models: for each actor id, what its Draw function issues, read",
+        "// %s: for each actor id, what its Draw function issues, read" % cfg["table"],
         "// out of its C source: the skeleton (and the animation whose frame 0 poses",
         "// it) its Init sets up, the static display lists its Draw runs (a",
         "// params-indexed array of lists or of draw functions becomes",
@@ -1413,10 +1539,10 @@ def main():
         "// value] or { any | all | not }. A limb list with add: true is drawn after",
         "// the limb's own list rather than in its place.",
         "// Files are",
-        "// models/OOT/actors/objects/<file> or, with a vram, .../overlays/<file>.",
-        "// js/oot_actors.js applies its own overrides on top of this.",
+        "// models/%s/actors/objects/<file> or, with a vram, .../overlays/<file>." % game,
+        "// %s applies its own overrides on top of this." % cfg["overrides"],
         "",
-        "const OOT_Actor_Models = {",
+        "const %s = {" % cfg["table"],
     ]
     for actor_id, e in entries:
         parts = ['name: "%s"' % e["name"], 'object: %s' % ('"%s"' % e["object"] if e["object"] else "null")]
@@ -1444,15 +1570,15 @@ def main():
         lines.append("    0x%03X: {\n        %s\n    }," % (actor_id, ",\n        ".join(parts)))
     lines.append("};")
     lines.append("")
-    with open(OUT_JS, "w", encoding="utf-8", newline="\n") as f:
+    with open(out_js, "w", encoding="utf-8", newline="\n") as f:
         f.write("\n".join(lines))
-    print(f"{OUT_JS}: {len(entries)} actors -- {stats['skeleton']} skeletons, {stats['lists']} display lists only, "
+    print(f"{out_js}: {len(entries)} actors -- {stats['skeleton']} skeletons, {stats['lists']} display lists only, "
           f"{stats['nothing']} with a Draw this found nothing in, {stats['noDraw']} with no Draw, "
           f"{stats['unknownScale']} with a computed scale")
 
     # ---- copy the files the models live in
-    os.makedirs(OBJECTS_OUT, exist_ok=True)
-    os.makedirs(OVERLAYS_OUT, exist_ok=True)
+    os.makedirs(objects_out, exist_ok=True)
+    os.makedirs(overlays_out, exist_ok=True)
     copied = missing = 0
     for fname in sorted(files):
         src = os.path.join(baserom, fname)
@@ -1460,7 +1586,7 @@ def main():
             print(f"warning: {fname} missing from {baserom}", file=sys.stderr)
             missing += 1
             continue
-        dst = os.path.join(OVERLAYS_OUT if fname.startswith("ovl_") else OBJECTS_OUT, fname)
+        dst = os.path.join(overlays_out if fname.startswith("ovl_") else objects_out, fname)
         with open(src, "rb") as f:
             blob = f.read()
         if os.path.isfile(dst):

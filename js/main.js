@@ -456,11 +456,11 @@ async function loadSelectedMap(game) {
                 renderZeldaSceneTextured(scene, buffer1, rooms, mapFilename, { game, areaTextures });
             }
 
-            // OOT: every actor of the selected setup, drawn with its model
+            // OOT / MM: every actor of the selected setup, drawn with its model
             // (oot_actors.js). The DynaPoly rows come from parseZeldaSceneBinary.
-            if (game == "OOT" && renderActorsCheckbox.checked && areaActors) {
+            if ((game == "OOT" || game == "MM") && renderActorsCheckbox.checked && areaActors) {
                 await showLoading(`${mapName}: actors…`);
-                await renderOOTActors(scene, buffer1, mapFilename);
+                await renderOOTActors(scene, buffer1, mapFilename, game);
             }
 
 
