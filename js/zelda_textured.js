@@ -67,12 +67,17 @@ const ROOM_SHAPE_NORMAL = 0, ROOM_SHAPE_IMAGE = 1, ROOM_SHAPE_CULLABLE = 2;
 
 // F3DZEX2 (include/ultra64/gbi.h with F3DEX_GBI_2)
 const G_VTX = 0x01, G_CULLDL = 0x03, G_BRANCH_Z = 0x04, G_TRI1 = 0x05, G_TRI2 = 0x06, G_QUAD = 0x07,
-      G_TEXTURE = 0xD7, G_GEOMETRYMODE = 0xD9, G_DL = 0xDE, G_ENDDL = 0xDF, G_RDPHALF_1 = 0xE1,
+      G_TEXTURE = 0xD7, G_POPMTX = 0xD8, G_GEOMETRYMODE = 0xD9, G_MTX = 0xDA, G_DL = 0xDE, G_ENDDL = 0xDF, G_RDPHALF_1 = 0xE1,
       G_SETOTHERMODE_L = 0xE2, G_SETOTHERMODE_H = 0xE3,
       G_LOADTLUT = 0xF0, G_SETTILESIZE = 0xF2, G_LOADBLOCK = 0xF3, G_LOADTILE = 0xF4, G_SETTILE = 0xF5,
       G_SETPRIMCOLOR = 0xFA, G_SETENVCOLOR = 0xFB, G_SETCOMBINE = 0xFC, G_SETTIMG = 0xFD;
 
 const G_CULL_FRONT = 0x00000200, G_CULL_BACK = 0x00000400, G_LIGHTING = 0x00020000, G_TEXTURE_GEN = 0x00040000;
+
+// gSPMatrix params (F3DEX2 stores them with G_MTX_PUSH inverted)
+const G_MTX_PUSH = 0x01, G_MTX_LOAD = 0x02, G_MTX_PROJECTION = 0x04;
+// Segment SkelAnime_DrawFlex* points at its per-limb matrix buffer.
+export const SEG_FLEX_MATRICES = 0x0D;
 
 // Other mode, low word (render mode)
 const Z_UPD = 0x0020, ZMODE_MASK = 0x0C00, ZMODE_DEC = 0x0C00, CVG_X_ALPHA = 0x1000, FORCE_BL = 0x4000;
@@ -372,12 +377,53 @@ function combinerTexels(mux, twoCycle) {
  * scene so that a scene texture is decoded once.
  * Returns { batches: [...], missingTextures: number }.
  */
-function replayRoom(entries, segments, light, caches) {
+function replayRoom(entries, segments, light, caches, colours = {}) {
+    return replayDisplayLists({
+        opa: entries.map(e => e.opa).filter(Boolean).map(addr => ({ addr, ...colours })),
+        xlu: entries.map(e => e.xlu).filter(Boolean).map(addr => ({ addr, ...colours })),
+    }, segments, light, caches);
+}
+
+/**
+ * Replay display lists into batches of triangles keyed by their RDP state.
+ *
+ * lists: { opa: [{ addr, matrix?, segments? }], xlu: [...] } -- the lists
+ *   issued into the POLY_OPA then the POLY_XLU buffer, each starting from the
+ *   setup DL's RDP state; matrix (THREE.Matrix4) is the model-view matrix the
+ *   list starts under (an actor's limb), identity when missing. A list's own
+ *   gSPMatrix commands push, load and multiply on top of it. segments, when
+ *   given, replaces the shared table for that list; prim / env ([r, g, b, a]
+ *   0-255) set the colours before it runs.
+ * segments: segment index -> { dv, base, key } (a file), { colour } (MM's
+ *   colour lists), { matrices: [Matrix4] } (SEG_FLEX_MATRICES, a skeleton's
+ *   limb matrices), or for an overlay { dv, vram, key } resolved by VRAM
+ *   address under segments.vram.
+ * light: the scene's light setting (parseZeldaSceneInfo), or null.
+ * caches: { textures: Map, dataTextures: Map } shared across a scene.
+ * Returns { batches: [...], missingTextures: number }.
+ */
+export function replayDisplayLists(lists, segments, light, caches) {
+    // An item can bring its own segment table (an actor drawing a list from
+    // another object puts that object in segment 6 first).
+    let curSegments = segments;
     const resolve = (addr) => {
-        const seg = segments[(addr >>> 24) & 0xF];
+        // Overlay data is linked at a VRAM address (0x80xxxxxx), not a segment.
+        const seg = (addr >>> 31) ? curSegments.vram : curSegments[(addr >>> 24) & 0xF];
         if (!seg || !seg.dv) return null;
-        const off = seg.base + (addr & 0xFFFFFF);
-        return off < seg.dv.byteLength ? { dv: seg.dv, off, key: seg.key + ':' + off.toString(16) } : null;
+        const off = seg.vram != null ? (addr - seg.vram) : seg.base + (addr & 0xFFFFFF);
+        return (off >= 0 && off < seg.dv.byteLength) ? { dv: seg.dv, off, key: seg.key + ':' + off.toString(16) } : null;
+    };
+    // A fixed-point Mtx in a file: 16 s16 integer parts then 16 u16 fractions,
+    // row-major with row vectors, which reads straight into three's
+    // column-major, column-vector layout.
+    const readMtx = (addr) => {
+        const src = resolve(addr);
+        if (!src || src.off + 64 > src.dv.byteLength) return null;
+        const m = new THREE.Matrix4();
+        for (let i = 0; i < 16; i++) {
+            m.elements[i] = src.dv.getInt16(src.off + i * 2, false) + src.dv.getUint16(src.off + 32 + i * 2, false) / 65536;
+        }
+        return m;
     };
 
     const batches = new Map();
@@ -390,11 +436,19 @@ function replayRoom(entries, segments, light, caches) {
     // One command buffer's worth of display lists (all the opaque lists of
     // the room, then all the translucent ones), each starting from the
     // setup DL's state as Room_Draw's POLY_OPA / POLY_XLU buffers do.
-    const runList = (addrs) => {
+    const runList = (items) => {
 
     // ---- RSP state
     const cache = new Int32Array(VTX_CACHE_SIZE).fill(-1); // byte offset of each slot's Vtx
     const cacheDv = new Array(VTX_CACHE_SIZE).fill(null);
+    // Vertices are transformed as they are loaded, as the RSP does, so a
+    // matrix change after a G_VTX does not move what is already in the cache.
+    const cachePos = new Array(VTX_CACHE_SIZE).fill(null); // [x, y, z] or null
+    const cacheNrm = new Array(VTX_CACHE_SIZE).fill(null); // [nx, ny, nz] or null
+    let mtx = null;           // current model-view matrix, null = identity
+    const mtxStack = [];
+    const normalMtx = new THREE.Matrix3();
+    const _v = new THREE.Vector3();
     let geometryMode = DEFAULT_GEOMETRY_MODE;
     let texOn = true, texScaleS = 0.99998, texScaleT = 0.99998, renderTile = 0;
     let half1 = 0;
@@ -528,7 +582,35 @@ function replayRoom(entries, segments, light, caches) {
             layers = [layerFor(t1, (renderTile + 1) & 7)];
         }
         if (!use.alpha) for (const l of layers) l.tex = opaqueAlpha(l.tex);
-        return { layers, blend };
+        // The effect combiner -- fire, lava, magic: cycle 2 colour is
+        // (PRIM - ENV) * COMBINED + ENV, an intensity texture picking a
+        // colour between env and prim. The material can't do that with a
+        // texture times a vertex colour, so the texel is baked through it
+        // (with cycle 1's mix of two textures approximated by the first)
+        // and the vertex colour left white.
+        let bakedRGB = false;
+        if (layers.length && twoCycle() && mux[8] === CC_PRIM && mux[9] === CC_ENV && mux[10] === CC_COMBINED && mux[11] === CC_ENV
+            && [0, 1, 2].some(k => Math.abs(prim[k] - env[k]) > 0.01)) {
+            layers = [{ ...layers[0], tex: gradientBake(layers[0].tex) }];
+            blend = null;
+            bakedRGB = true;
+        }
+        return { layers, blend, bakedRGB };
+    };
+    const gradientBake = (t) => {
+        const key = t.key + '~grad:' + prim.slice(0, 3).map(x => x.toFixed(3)).join(',') + '/' + env.slice(0, 3).map(x => x.toFixed(3)).join(',');
+        let tex = caches.textures.get(key);
+        if (tex) return tex;
+        const rgba = new Uint8Array(t.rgba);
+        for (let i = 0; i < rgba.length; i += 4) {
+            for (let k = 0; k < 3; k++) {
+                const c = t.rgba[i + k] / 255;
+                rgba[i + k] = Math.round(clamp01(env[k] + c * (prim[k] - env[k])) * 255);
+            }
+        }
+        tex = { key, width: t.width, height: t.height, rgba };
+        caches.textures.set(key, tex);
+        return tex;
     };
 
     // ---- batches
@@ -537,7 +619,7 @@ function replayRoom(entries, segments, light, caches) {
     const layerKey = (l) => `${l.tex.key}:${l.wrapS}:${l.wrapT}:${l.repeat.map(x => x.toPrecision(6)).join(',')}:${l.offset.map(x => x.toPrecision(6)).join(',')}`;
     const batchFor = () => {
         if (batchState) return batchState;
-        const { layers, blend } = currentLayers();
+        const { layers, blend, bakedRGB } = currentLayers();
         const cull = (geometryMode & G_CULL_BACK) ? ((geometryMode & G_CULL_FRONT) ? 'none' : 'back')
                    : ((geometryMode & G_CULL_FRONT) ? 'front' : 'double');
         const translucent = (othermodeL & FORCE_BL) !== 0;
@@ -545,10 +627,10 @@ function replayRoom(entries, segments, light, caches) {
         const decal = (othermodeL & ZMODE_MASK) === ZMODE_DEC;
         const texEdge = (othermodeL & CVG_X_ALPHA) !== 0;
         const key = [layers.map(layerKey).join('~'), blend ? blend.mode + blend.factor.map(x => x.toFixed(3)).join(',') : '-',
-                     cull, translucent ? 1 : 0, depthWrite ? 1 : 0, decal ? 1 : 0, texEdge ? 1 : 0].join('|');
+                     cull, translucent ? 1 : 0, depthWrite ? 1 : 0, decal ? 1 : 0, texEdge ? 1 : 0, bakedRGB ? 'g' : ''].join('|');
         let b = batches.get(key);
         if (!b) {
-            b = { layers, blend, cull, translucent, depthWrite, decal, texEdge, positions: [], uvs: [], colors: [] };
+            b = { layers, blend, cull, translucent, depthWrite, decal, texEdge, bakedRGB, positions: [], uvs: [], colors: [] };
             batches.set(key, b);
         }
         batchState = { batch: b, textured: layers.length > 0 };
@@ -556,10 +638,10 @@ function replayRoom(entries, segments, light, caches) {
     };
 
     // Per-vertex colour through the combiner (texels white), in linear space.
-    const shadeOf = (dv, o, lit) => {
+    const shadeOf = (dv, o, lit, nrm) => {
         const alpha = dv.getUint8(o + 15) / 255;
         if (!lit) return [dv.getUint8(o + 12) / 255, dv.getUint8(o + 13) / 255, dv.getUint8(o + 14) / 255, alpha];
-        const nx = dv.getInt8(o + 12) / 127, ny = dv.getInt8(o + 13) / 127, nz = dv.getInt8(o + 14) / 127;
+        const [nx, ny, nz] = nrm;
         if (!light) {
             const d = Math.max(0, nx * 0.30 + ny * 0.86 + nz * 0.41);
             const i = 0.45 + 0.55 * d;
@@ -586,14 +668,14 @@ function replayRoom(entries, segments, light, caches) {
         }
         const cyc2 = twoCycle();
         for (const slot of [ia, ib, ic]) {
-            const dv = cacheDv[slot], o = cache[slot];
-            if (!dv || o < 0 || o + VTX_SIZE > dv.byteLength) return;
+            if (!cachePos[slot]) return;
         }
         for (const slot of [ia, ib, ic]) {
             const dv = cacheDv[slot], o = cache[slot];
-            batch.positions.push(dv.getInt16(o, false), dv.getInt16(o + 2, false), dv.getInt16(o + 4, false));
+            batch.positions.push(...cachePos[slot]);
+            const nrm = cacheNrm[slot];
             if (texGen) {
-                batch.uvs.push(0.5 + dv.getInt8(o + 12) / 254, 0.5 - dv.getInt8(o + 13) / 254);
+                batch.uvs.push(0.5 + nrm[0] * 127 / 254, 0.5 - nrm[1] * 127 / 254);
             } else if (textured) {
                 // Vtx.tc is s10.5 texels, scaled by G_TEXTURE's 0.16 factors;
                 // each layer's tile transform takes it from there.
@@ -601,9 +683,10 @@ function replayRoom(entries, segments, light, caches) {
             } else {
                 batch.uvs.push(0, 0);
             }
-            const shade = shadeOf(dv, o, lit);
+            const shade = shadeOf(dv, o, lit, nrm);
             const c = evalCombiner(mux, { shade, prim, env, lodFrac: primLodFrac }, cyc2);
-            batch.colors.push(srgbToLinear(c[0]), srgbToLinear(c[1]), srgbToLinear(c[2]), c[3]);
+            if (batch.bakedRGB) batch.colors.push(1, 1, 1, c[3]);
+            else batch.colors.push(srgbToLinear(c[0]), srgbToLinear(c[1]), srgbToLinear(c[2]), c[3]);
         }
     };
 
@@ -622,7 +705,7 @@ function replayRoom(entries, segments, light, caches) {
                 case G_DL: {
                     // MM's colour-animation segments stand for a
                     // "set prim (and env) colour" list (AnimatedMat_SetColor).
-                    const colour = segments[(w1 >>> 24) & 0xF]?.colour;
+                    const colour = curSegments[(w1 >>> 24) & 0xF]?.colour;
                     if (colour) {
                         primLodFrac = colour.lodFrac;
                         prim.splice(0, 4, ...colour.prim);
@@ -646,13 +729,42 @@ function replayRoom(entries, segments, light, caches) {
                     const n = (w0 >>> 12) & 0xFF;
                     const v0 = ((w0 >>> 1) & 0x7F) - n;
                     const src = resolve(w1);
+                    if (mtx) normalMtx.getNormalMatrix(mtx);
                     for (let k = 0; k < n && v0 + k < VTX_CACHE_SIZE; k++) {
                         if (v0 + k < 0) continue;
-                        cache[v0 + k] = src ? src.off + k * VTX_SIZE : -1;
-                        cacheDv[v0 + k] = src ? src.dv : null;
+                        const o = src ? src.off + k * VTX_SIZE : -1;
+                        if (!src || o + VTX_SIZE > src.dv.byteLength) {
+                            cache[v0 + k] = -1;
+                            cacheDv[v0 + k] = null;
+                            cachePos[v0 + k] = cacheNrm[v0 + k] = null;
+                            continue;
+                        }
+                        const dv = src.dv;
+                        cache[v0 + k] = o;
+                        cacheDv[v0 + k] = dv;
+                        _v.set(dv.getInt16(o, false), dv.getInt16(o + 2, false), dv.getInt16(o + 4, false));
+                        if (mtx) _v.applyMatrix4(mtx);
+                        cachePos[v0 + k] = [_v.x, _v.y, _v.z];
+                        _v.set(dv.getInt8(o + 12) / 127, dv.getInt8(o + 13) / 127, dv.getInt8(o + 14) / 127);
+                        if (mtx) _v.applyMatrix3(normalMtx).normalize();
+                        cacheNrm[v0 + k] = [_v.x, _v.y, _v.z];
                     }
                     break;
                 }
+                case G_MTX: {
+                    const params = (w0 & 0xFF) ^ G_MTX_PUSH;
+                    if (params & G_MTX_PROJECTION) break;
+                    const flex = curSegments[SEG_FLEX_MATRICES]?.matrices;
+                    const m = (flex && ((w1 >>> 24) & 0xF) === SEG_FLEX_MATRICES)
+                        ? (flex[(w1 & 0xFFFFFF) >>> 6] ?? null) : readMtx(w1);
+                    if (params & G_MTX_PUSH) mtxStack.push(mtx);
+                    if (params & G_MTX_LOAD) mtx = m ? m.clone() : null;
+                    else if (m) mtx = mtx ? mtx.clone().multiply(m) : m.clone();
+                    break;
+                }
+                case G_POPMTX:
+                    for (let k = Math.max(1, w1 >>> 6); k > 0 && mtxStack.length; k--) mtx = mtxStack.pop();
+                    break;
                 case G_TRI1:
                     emit(((w0 >>> 16) & 0xFF) >>> 1, ((w0 >>> 8) & 0xFF) >>> 1, (w0 & 0xFF) >>> 1);
                     break;
@@ -757,11 +869,19 @@ function replayRoom(entries, segments, light, caches) {
         }
     };
 
-    for (const addr of addrs) run(addr, 0);
+    for (const item of items) {
+        curSegments = item.segments ?? segments;
+        mtx = item.matrix ?? null;
+        mtxStack.length = 0;
+        // Colours the issuing code set before the list (an actor's Draw).
+        if (item.prim) { prim.splice(0, 4, ...item.prim.map(c => c / 255)); invalidate(); }
+        if (item.env) { env.splice(0, 4, ...item.env.map(c => c / 255)); invalidate(); }
+        run(item.addr, 0);
+    }
     };
 
-    runList(entries.map(e => e.opa).filter(Boolean));
-    runList(entries.map(e => e.xlu).filter(Boolean));
+    runList(lists.opa ?? []);
+    runList(lists.xlu ?? []);
     return { batches: [...batches.values()].filter(b => b.positions.length), missingTextures };
 }
 
@@ -771,6 +891,19 @@ function replayRoom(entries, segments, light, caches) {
 
 // Between the collision mesh (factor 1, units 1) and its wireframe (none).
 const ROOM_POLYGON_OFFSET = 0.5;
+
+// Gfx_TexScroll / Gfx_TwoTexScroll build a list of one gDPSetTileSize per
+// tile (at the frame's scroll offset, 0 here) that a texture list jumps into
+// through its segment; rebuild it from { scroll: [[tile, width, height]] }.
+export function scrollSegment(tiles) {
+    const dv = new DataView(new ArrayBuffer(tiles.length * 8 + 8));
+    tiles.forEach(([tile, w, h], i) => {
+        dv.setUint32(i * 8, G_SETTILESIZE << 24, false);
+        dv.setUint32(i * 8 + 4, ((tile << 24) | (((w - 1) << 2) << 12) | ((h - 1) << 2)) >>> 0, false);
+    });
+    dv.setUint32(tiles.length * 8, G_ENDDL << 24, false);
+    return { dv, base: 0, key: 'scroll:' + tiles.map(t => t.join('x')).join(',') };
+}
 
 // A three.js texture for a layer: one DataTexture per decoded texture,
 // cloned per (wrap, transform) combination; the clones share the pixels.
@@ -825,7 +958,14 @@ function patchTwoLayers(material, layer0, layer1, tex1, blend) {
     material.customProgramCacheKey = () => 'zelda2layer:' + blend.mode;
 }
 
-function makeRoomMesh(batches, caches) {
+/**
+ * One three.js mesh from replayed batches: a geometry group and a material
+ * per batch. options.polygonOffset (default ROOM_POLYGON_OFFSET) sets the
+ * opaque batches' offset; options.selectable keeps clicks on the mesh
+ * (rooms let them through to the collision underneath).
+ */
+export function makeZeldaMesh(batches, caches, options = {}) {
+    const polygonOffset = options.polygonOffset ?? ROOM_POLYGON_OFFSET;
     const geometry = new THREE.BufferGeometry();
     const positions = [], uvs = [], colors = [], materials = [];
     let start = 0;
@@ -848,8 +988,8 @@ function makeRoomMesh(batches, caches) {
             depthWrite: batch.depthWrite,
             alphaTest: batch.translucent ? 0.01 : (batch.texEdge ? 0.5 : 0),
             polygonOffset: true,
-            polygonOffsetFactor: batch.decal ? -1 : ROOM_POLYGON_OFFSET,
-            polygonOffsetUnits: batch.decal ? -1 : ROOM_POLYGON_OFFSET,
+            polygonOffsetFactor: batch.decal ? -1 : polygonOffset,
+            polygonOffsetUnits: batch.decal ? -1 : polygonOffset,
         });
         if (batch.cull === 'none') material.visible = false; // G_CULL_BOTH draws nothing
         if (batch.layers.length) {
@@ -866,7 +1006,7 @@ function makeRoomMesh(batches, caches) {
     const mesh = new THREE.Mesh(geometry, materials);
     mesh.name = 'textured';
     // Clicks go through to the collision mesh underneath (selection.js).
-    mesh.userData.unselectable = true;
+    if (!options.selectable) mesh.userData.unselectable = true;
     mesh.userData.textured = true;
     return { mesh, triangleCount: start / 3 };
 }
@@ -942,11 +1082,19 @@ export function renderZeldaSceneTextured(scene, sceneBuffer, rooms, sceneName, o
     for (const r of rooms) files.set(zeldaRoomFileName(game, sceneName, r.index), new DataView(r.buffer));
 
     const extraSegments = {};
+    // Colours the scene's draw config sets before the room lists run.
+    const colours = {};
     if (game === "OOT") {
         const table = (typeof OOT_Scene_Segments !== 'undefined' && OOT_Scene_Segments[sceneName]) || {};
         for (const [seg, e] of Object.entries(table)) {
-            const dv = files.get(e.file);
-            if (dv) extraSegments[seg] = { dv, base: e.offset, key: e.file };
+            if (seg === 'prim' || seg === 'env') {
+                colours[seg] = e;
+            } else if (e.scroll) {
+                extraSegments[seg] = scrollSegment(e.scroll);
+            } else {
+                const dv = files.get(e.file);
+                if (dv) extraSegments[seg] = { dv, base: e.offset, key: e.file };
+            }
         }
     } else {
         Object.assign(extraSegments, animatedMaterialSegments(info, sceneDv, sceneName));
@@ -979,13 +1127,13 @@ export function renderZeldaSceneTextured(scene, sceneBuffer, rooms, sceneName, o
         let result;
         try {
             const entries = parseRoomShape(roomDv);
-            result = replayRoom(entries, segments, info.light, caches);
+            result = replayRoom(entries, segments, info.light, caches, colours);
         } catch (err) {
             console.warn(`${sceneName} room ${r.index}: textured build failed: ${err.message}`);
             continue;
         }
         if (!result.batches.length) continue;
-        const { mesh, triangleCount } = makeRoomMesh(result.batches, caches);
+        const { mesh, triangleCount } = makeZeldaMesh(result.batches, caches);
         totalTriangles += triangleCount;
         totalMissing += result.missingTextures;
 

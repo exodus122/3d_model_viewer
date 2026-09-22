@@ -20,7 +20,9 @@ js/oot_scene_data.js gets OOT_Scene_Segments: the textures the scene draw
 configs (src/code/z_scene_table.c) point segments 8-D at, which room display
 lists read through gsDPSetTextureImage(..., 0x0N000000). Each config's
 segment is resolved to its first choice (daytime, animation frame 0) and the
-texture symbol to a file offset through the scene's asset XML.
+texture symbol to a file offset through the scene's asset XML. Segments the
+config points at a Gfx_TexScroll list get that list's tile sizes (frame 0),
+and the prim / env colours the config sets are recorded too.
 """
 
 import os
@@ -99,9 +101,94 @@ def parse_sdc_enum(oot):
     return {name: i for i, name in enumerate(names)}
 
 
+def split_args(text):
+    """Top-level comma split of a call's argument text."""
+    args, depth, cur = [], 0, ""
+    for ch in text:
+        if ch == "(":
+            depth += 1
+        elif ch == ")":
+            depth -= 1
+        if ch == "," and depth == 0:
+            args.append(cur.strip())
+            cur = ""
+        else:
+            cur += ch
+    if cur.strip():
+        args.append(cur.strip())
+    return args
+
+
+def balanced_paren(text, start):
+    """text from the '(' at start to its matching ')' (exclusive)."""
+    depth = 0
+    for i in range(start, len(text)):
+        if text[i] == "(":
+            depth += 1
+        elif text[i] == ")":
+            depth -= 1
+            if depth == 0:
+                return text[start + 1:i]
+    return text[start + 1:]
+
+
+def int_arg(text):
+    if text.strip() == "G_TX_RENDERTILE":
+        return 0
+    try:
+        return int(text.strip(), 0)
+    except ValueError:
+        return None
+
+
+def parse_scroll_segments(body):
+    """{ segment: [[tile, width, height], ...] } for the gSPSegment(...,
+    Gfx_TexScroll / Gfx_TwoTexScroll[EnvColor](...)) calls of a draw config:
+    the list those build is a gDPSetTileSize per tile, which the room lists
+    jump into; without it a tile has no size and its texture collapses to
+    one texel (the Fire Temple's lava). The scroll offsets are frame counters,
+    taken as 0 (frame 0)."""
+    segs = {}
+    for m in re.finditer(r"gSPSegment\(\s*POLY_(?:OPA|XLU)_DISP\+\+\s*,\s*0x0([0-9A-Fa-f])\s*,\s*Gfx_(Two)?TexScroll(?:EnvColor)?\s*\(", body):
+        seg = int(m.group(1), 16)
+        if seg in segs:
+            continue
+        args = split_args(balanced_paren(body, m.end() - 1))[1:]
+        tiles = []
+        if m.group(2):
+            for i in (0, 5):
+                if len(args) >= i + 5:
+                    tiles.append([int_arg(args[i]), int_arg(args[i + 3]), int_arg(args[i + 4])])
+        elif len(args) >= 4:
+            tiles.append([0, int_arg(args[2]), int_arg(args[3])])
+        tiles = [t for t in tiles if None not in t]
+        if tiles:
+            segs[seg] = tiles
+    return segs
+
+
+def parse_colours(body):
+    """{ "prim": [r, g, b, a], "env": [...] } from a draw config's literal
+    gDPSetPrimColor / gDPSetEnvColor on the opaque list (the first of each)."""
+    out = {}
+    for m in re.finditer(r"gDP(Set(?:Prim|Env)Color)\(\s*POLY_OPA_DISP\+\+\s*,\s*([^;]*?)\)\s*;", body):
+        key = "prim" if m.group(1) == "SetPrimColor" else "env"
+        if key in out:
+            continue
+        args = split_args(m.group(2))
+        if key == "prim":
+            args = args[2:]
+        vals = [int_arg(a) for a in args]
+        if len(vals) == 4 and None not in vals:
+            out[key] = vals
+    return out
+
+
 def parse_draw_configs(oot):
-    """SDC index -> { segment: texture symbol } for the configs that point a
-    segment at a texture (the first entry of the day/night or frame array)."""
+    """SDC index -> { "textures": { segment: symbol }, "scroll": { segment: tiles },
+    "colours": { prim, env } } for each config: the texture a segment points
+    at (the first entry of the day/night or frame array), the tile-size lists
+    of its Gfx_TexScroll segments, and the colours it sets."""
     with open(os.path.join(oot, "src", "code", "z_scene_table.c")) as f:
         text = f.read()
 
@@ -124,8 +211,10 @@ def parse_draw_configs(oot):
             seg, arr = int(m.group(1), 16), m.group(2)
             if arr in arrays and arrays[arr]:
                 segs[seg] = arrays[arr][0]
-        if segs:
-            out[index] = segs
+        scroll = parse_scroll_segments(body.group(1))
+        colours = parse_colours(body.group(1))
+        if segs or scroll or colours:
+            out[index] = {"textures": segs, "scroll": scroll, "colours": colours}
     return out
 
 
@@ -164,8 +253,8 @@ def generate_segments(oot, version):
 
     result = {}
     for scene, sdc in sorted(scene_sdc.items()):
-        segs = configs.get(sdc_index.get(sdc, -1))
-        if not segs:
+        config = configs.get(sdc_index.get(sdc, -1))
+        if not config:
             continue
         base = scene[: -len("_scene")]
         xml = xmls.get(base)
@@ -173,12 +262,18 @@ def generate_segments(oot, version):
             print(f"warning: no asset XML for {scene}", file=sys.stderr)
             continue
         entries = {}
-        for seg, symbol in sorted(segs.items()):
+        for seg, symbol in sorted(config["textures"].items()):
             found = find_texture(xml, symbol)
             if not found:
                 print(f"warning: {scene}: {symbol} not in {os.path.basename(xml)}", file=sys.stderr)
                 continue
             entries[seg] = (found[0], found[1], symbol)
+        # A texture segment and a scroll segment never share a number in one
+        # config; the texture wins if they did.
+        for seg, tiles in sorted(config["scroll"].items()):
+            entries.setdefault(seg, tiles)
+        for key, vals in config["colours"].items():
+            entries[key] = vals
         if entries:
             result[scene] = entries
 
@@ -189,14 +284,24 @@ def generate_segments(oot, version):
         "// points a display-list segment at a texture, the file and offset of that",
         "// texture (the daytime / first-frame choice). Room display lists load",
         "// such textures with gsDPSetTextureImage(..., 0x0N000000); the viewer's",
-        "// js/zelda_textured.js maps the segment to this data.",
+        "// js/zelda_textured.js maps the segment to this data. A segment the config",
+        "// points at a Gfx_TexScroll / Gfx_TwoTexScroll list (scrolling water, lava)",
+        "// is { scroll: [[tile, width, height], ...] }, the tile sizes that list sets",
+        "// at frame 0; prim / env are the colours the config sets, [r, g, b, a].",
         "",
         "const OOT_Scene_Segments = {",
     ]
     for scene, entries in result.items():
         lines.append(f"    \"{scene}\": {{")
-        for seg, (file, offset, symbol) in entries.items():
-            lines.append(f"        0x{seg:02X}: {{ file: \"{file}\", offset: 0x{offset:X} }}, // {symbol}")
+        for seg, value in entries.items():
+            if isinstance(seg, str):
+                lines.append(f"        {seg}: [{', '.join(str(v) for v in value)}],")
+            elif isinstance(value, tuple):
+                file, offset, symbol = value
+                lines.append(f"        0x{seg:02X}: {{ file: \"{file}\", offset: 0x{offset:X} }}, // {symbol}")
+            else:
+                tiles = ", ".join("[%d, %d, %d]" % tuple(t) for t in value)
+                lines.append(f"        0x{seg:02X}: {{ scroll: [{tiles}] }},")
         lines.append("    },")
     lines.append("};")
     lines.append("")

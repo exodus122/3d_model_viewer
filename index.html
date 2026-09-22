@@ -33,7 +33,7 @@
         <!--<label>Load model file (binary or text). Supported binary format:
           <div class="muted">[uint16 vertexCount][uint16 triCount][int16 x,y,z ...][uint16 i,j,k ...]</div>
         </label>-->
-        <div id="setupDropdownDiv" style="display:none; align-items:center; gap:8px;">Setup: <select id="setupDropdown"></select><label><input id="renderDynaCheckbox" type="checkbox" checked> Render DynaPoly Actors</label></div>
+        <div id="setupDropdownDiv" style="display:none; align-items:center; gap:8px;">Setup: <select id="setupDropdown"></select><label><input id="renderDynaCheckbox" type="checkbox" checked> Render DynaPoly Actors</label><label id="renderActorsLabel" title="OOT: every actor in the setup's spawn lists, drawn with its model where the viewer knows it (js/oot_object_list.js), else as a marker."><input id="renderActorsCheckbox" type="checkbox" checked> Render Actors</label></div>
         <button id="loadMap">Load Map</button><br>
         <select id="actorDropdown" style="display:none;"></select>
         <button id="loadActor" style="display:none;">Load Actor</button>
@@ -112,6 +112,7 @@
   <script type="text/javascript" src="js/bk_object_list.js"></script>
   <script type="text/javascript" src="js/bt_object_list.js"></script>
   <script type="text/javascript" src="js/oot_scene_data.js"></script>
+  <script type="text/javascript" src="js/oot_object_list.js"></script>
   <script type="text/javascript" src="js/global.js"></script>
   <script type="module" src="js/selection.js"></script>
   <script type="module" src="js/render.js"></script>
@@ -126,6 +127,7 @@
   <script type="module" src="js/bk_textured.js"></script>
   <script type="module" src="js/bk_setup.js"></script>
   <script type="module" src="js/zelda_textured.js"></script>
+  <script type="module" src="js/oot_actors.js"></script>
   <script type="module" src="js/parse_model.js"></script>
   <script type="module" src="js/main.js"></script>
 </body>

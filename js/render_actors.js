@@ -373,7 +373,7 @@ function decodeSpawnRot(word, isRaw) {
  *          rot is binang and ready for the SkinMatrix helpers; rotRaw is the
  *          untouched packed words as they sit in the scene file.
  */
-function decodeActorSpawnEntry(entry, game) {
+export function decodeActorSpawnEntry(entry, game) {
     const rawId = entry.actorId & 0xFFFF;
     const rotRaw = [
         entry.rotation[0] & 0xFFFF,

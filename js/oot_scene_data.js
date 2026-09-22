@@ -4,55 +4,300 @@
 // points a display-list segment at a texture, the file and offset of that
 // texture (the daytime / first-frame choice). Room display lists load
 // such textures with gsDPSetTextureImage(..., 0x0N000000); the viewer's
-// js/zelda_textured.js maps the segment to this data.
+// js/zelda_textured.js maps the segment to this data. A segment the config
+// points at a Gfx_TexScroll / Gfx_TwoTexScroll list (scrolling water, lava)
+// is { scroll: [[tile, width, height], ...] }, the tile sizes that list sets
+// at frame 0; prim / env are the colours the config sets, [r, g, b, a].
 
 const OOT_Scene_Segments = {
     "Bmori1_scene": {
         0x08: { file: "Bmori1_scene", offset: 0x14D90 }, // gForestTempleDayEntranceTex
+        0x09: { scroll: [[0, 32, 32], [1, 32, 32]] },
+        0x0A: { scroll: [[0, 32, 32], [1, 32, 32]] },
+        env: [128, 128, 128, 128],
+    },
+    "FIRE_bs_scene": {
+        0x08: { scroll: [[0, 32, 32], [1, 32, 32]] },
+        0x09: { scroll: [[0, 32, 32], [1, 32, 32]] },
+        env: [128, 128, 128, 64],
+    },
+    "HAKAdanCH_scene": {
+        0x08: { scroll: [[0, 32, 32], [1, 32, 32]] },
+        env: [128, 128, 128, 128],
+    },
+    "HAKAdan_bs_scene": {
+        0x08: { scroll: [[0, 32, 32], [1, 32, 32]] },
+        env: [128, 128, 128, 128],
+    },
+    "HAKAdan_scene": {
+        0x08: { scroll: [[0, 32, 32], [1, 32, 32]] },
+        env: [128, 128, 128, 128],
+    },
+    "HIDAN_scene": {
+        0x08: { scroll: [[0, 32, 32], [1, 32, 32]] },
+        0x09: { scroll: [[0, 32, 32], [1, 32, 32]] },
+        env: [128, 128, 128, 64],
+    },
+    "MIZUsin_bs_scene": {
+        0x08: { scroll: [[0, 32, 32], [1, 32, 32]] },
     },
     "MIZUsin_scene": {
         0x06: { file: "MIZUsin_scene", offset: 0x14CF0 }, // gWaterTempleDayEntranceTex
         0x08: { file: "MIZUsin_scene", offset: 0x14CF0 }, // gWaterTempleDayEntranceTex
+        0x09: { scroll: [[0, 32, 32], [1, 32, 32]] },
+        0x0A: { scroll: [[0, 32, 32], [1, 32, 32]] },
+        0x0B: { scroll: [[0, 32, 32], [1, 32, 32]] },
+        0x0C: { scroll: [[0, 32, 32], [1, 32, 32]] },
+        0x0D: { scroll: [[0, 32, 32], [1, 32, 32]] },
+    },
+    "bdan_boss_scene": {
+        0x08: { scroll: [[0, 32, 32], [1, 32, 32]] },
+        0x0B: { scroll: [[0, 32, 64], [1, 32, 64]] },
+        env: [128, 128, 128, 128],
+    },
+    "bdan_scene": {
+        0x08: { scroll: [[0, 32, 32], [1, 32, 32]] },
+        0x0B: { scroll: [[0, 32, 64], [1, 32, 64]] },
+        env: [128, 128, 128, 128],
+    },
+    "bowling_scene": {
+        0x08: { scroll: [[0, 32, 32]] },
+        0x09: { scroll: [[0, 16, 16]] },
+        0x0A: { scroll: [[0, 16, 16]] },
+        0x0B: { scroll: [[0, 32, 32], [1, 32, 32]] },
+        env: [128, 128, 128, 128],
+    },
+    "daiyousei_izumi_scene": {
+        0x08: { scroll: [[0, 32, 64], [1, 32, 64]] },
+        0x09: { scroll: [[0, 32, 32], [1, 32, 32]] },
+        env: [128, 128, 128, 128],
     },
     "ddan_scene": {
         0x08: { file: "ddan_scene", offset: 0x12378 }, // gDCDayEntranceTex
         0x09: { file: "ddan_scene", offset: 0x11F78 }, // gDCLavaFloor1Tex
+        0x0A: { scroll: [[0, 32, 32], [1, 32, 32]] },
+        env: [128, 128, 128, 128],
+    },
+    "ganon_demo_scene": {
+        0x08: { scroll: [[0, 64, 64], [1, 64, 64]] },
+        0x09: { scroll: [[0, 64, 64]] },
+        0x0B: { scroll: [[0, 32, 32], [1, 32, 32]] },
+        env: [128, 128, 128, 128],
+    },
+    "ganon_final_scene": {
+        0x08: { scroll: [[0, 64, 128], [1, 64, 128]] },
+        0x09: { scroll: [[0, 32, 64], [1, 32, 64]] },
+        0x0A: { scroll: [[0, 16, 512], [1, 16, 512]] },
+        env: [128, 128, 128, 128],
+    },
+    "ganon_tou_scene": {
+        0x08: { scroll: [[0, 64, 64], [1, 64, 64]] },
+        0x09: { scroll: [[0, 64, 64]] },
+        0x0B: { scroll: [[0, 32, 32], [1, 32, 32]] },
+        env: [128, 128, 128, 128],
+    },
+    "ganontika_scene": {
+        0x08: { scroll: [[0, 32, 128], [1, 32, 128]] },
+        0x09: { scroll: [[0, 32, 32], [1, 32, 32]] },
+        0x0A: { scroll: [[0, 32, 32], [1, 32, 32]] },
+        env: [128, 128, 128, 128],
     },
     "gerudoway_scene": {
         0x08: { file: "gerudoway_scene", offset: 0xBD20 }, // gThievesHideoutDayEntranceTex
+        0x09: { scroll: [[0, 32, 32]] },
+    },
+    "hairal_niwa_n_scene": {
+        0x08: { scroll: [[0, 32, 32], [1, 32, 32]] },
+        0x09: { scroll: [[0, 32, 64]] },
+        env: [128, 128, 128, 128],
+    },
+    "hairal_niwa_scene": {
+        0x08: { scroll: [[0, 32, 32], [1, 32, 32]] },
+        0x09: { scroll: [[0, 32, 64]] },
+        env: [128, 128, 128, 128],
+    },
+    "hakaana2_scene": {
+        0x08: { scroll: [[0, 32, 32], [1, 32, 32]] },
+        0x09: { scroll: [[0, 256, 16]] },
+        env: [128, 128, 128, 128],
+    },
+    "hakaana_ouke_scene": {
+        0x08: { scroll: [[0, 256, 16]] },
+        0x09: { scroll: [[0, 8, 512], [1, 8, 512]] },
+        0x0A: { scroll: [[0, 32, 32], [1, 32, 32]] },
+        0x0B: { scroll: [[0, 16, 256], [1, 16, 256]] },
+        env: [128, 128, 128, 128],
+    },
+    "hakaana_scene": {
+        0x08: { scroll: [[0, 256, 16]] },
+        env: [128, 128, 128, 128],
+    },
+    "hakasitarelay_scene": {
+        0x08: { scroll: [[0, 256, 16]] },
+        env: [128, 128, 128, 128],
+    },
+    "hylia_labo_scene": {
+        0x08: { scroll: [[0, 32, 32], [1, 32, 32]] },
+        0x09: { scroll: [[0, 32, 64]] },
+        0x0A: { scroll: [[0, 32, 32], [1, 32, 32]] },
+        env: [128, 128, 128, 128],
     },
     "ice_doukutu_scene": {
         0x08: { file: "ice_doukutu_scene", offset: 0xFA10 }, // gIceCavernDayEntranceTex
+        0x09: { scroll: [[0, 32, 32], [1, 32, 32]] },
+        0x0A: { scroll: [[0, 32, 32], [1, 32, 32]] },
+        env: [128, 128, 128, 128],
     },
     "jyasinzou_scene": {
         0x08: { file: "jyasinzou_scene", offset: 0x18940 }, // gSpiritTempleDayEntranceTex
     },
+    "kakusiana_scene": {
+        0x08: { scroll: [[0, 256, 16]] },
+        0x09: { scroll: [[0, 32, 32], [1, 32, 32]] },
+        0x0A: { scroll: [[0, 32, 32], [1, 32, 32]] },
+        0x0B: { scroll: [[0, 32, 32]] },
+        0x0C: { scroll: [[0, 8, 512], [1, 8, 512]] },
+        0x0D: { scroll: [[0, 32, 64], [1, 32, 32]] },
+        env: [128, 128, 128, 128],
+    },
+    "kenjyanoma_scene": {
+        0x08: { scroll: [[0, 64, 64]] },
+        0x09: { scroll: [[0, 32, 64], [1, 32, 128]] },
+        0x0A: { scroll: [[0, 32, 32], [1, 32, 32]] },
+        env: [128, 128, 128, 128],
+    },
+    "mahouya_scene": {
+        0x08: { scroll: [[0, 32, 32]] },
+        0x09: { scroll: [[0, 16, 256], [1, 16, 256]] },
+        env: [128, 128, 128, 128],
+    },
     "men_scene": {
         0x08: { file: "men_scene", offset: 0xF930 }, // gGTGDayEntranceTex
+        0x09: { scroll: [[0, 32, 32], [1, 32, 32]] },
+        0x0A: { scroll: [[0, 32, 32], [1, 32, 32]] },
+        env: [128, 128, 128, 128],
     },
     "miharigoya_scene": {
         0x08: { file: "miharigoya_scene", offset: 0x2350 }, // gGuardHouseOutSideView2DayTex
         0x09: { file: "miharigoya_scene", offset: 0x6550 }, // gGuardHouseOutSideView1DayTex
+        env: [128, 128, 128, 128],
+    },
+    "nakaniwa_scene": {
+        0x08: { scroll: [[0, 32, 32], [1, 32, 32]] },
+        env: [128, 128, 128, 128],
     },
     "souko_scene": {
         0x08: { file: "souko_scene", offset: 0x5210 }, // gLonLonHouseDayEntranceTex
+        env: [128, 128, 128, 128],
+    },
+    "spot00_scene": {
+        0x08: { scroll: [[0, 32, 32], [1, 32, 32]] },
+        0x09: { scroll: [[0, 32, 32], [1, 32, 32]] },
+        env: [128, 128, 128, 128],
     },
     "spot01_scene": {
         0x08: { file: "spot01_scene", offset: 0x15B50 }, // gKakarikoVillageDayWindowTex
+        env: [128, 128, 128, 128],
+    },
+    "spot03_scene": {
+        0x08: { scroll: [[0, 32, 32], [1, 32, 32]] },
+        0x09: { scroll: [[0, 32, 32], [1, 32, 32]] },
+        0x0A: { scroll: [[0, 32, 32], [1, 32, 32]] },
+        env: [128, 128, 128, 128],
+    },
+    "spot04_scene": {
+        0x08: { scroll: [[0, 32, 32], [1, 32, 32]] },
+        0x09: { scroll: [[0, 32, 32], [1, 32, 32]] },
+        0x0C: { scroll: [[0, 32, 16], [1, 32, 16]] },
+        env: [128, 128, 128, 128],
+    },
+    "spot05_scene": {
+        0x08: { scroll: [[0, 32, 32], [1, 32, 32]] },
+        env: [128, 128, 128, 128],
+    },
+    "spot06_scene": {
+        0x08: { scroll: [[0, 32, 32], [1, 32, 32]] },
+        0x09: { scroll: [[0, 32, 32], [1, 16, 64]] },
+        env: [255, 255, 255, 128],
     },
     "spot07_scene": {
         0x08: { file: "spot07_scene", offset: 0x8F98 }, // gZorasDomainDayEntranceTex
+        0x0C: { scroll: [[0, 64, 32], [1, 64, 32]] },
+        env: [128, 128, 128, 128],
+    },
+    "spot08_scene": {
+        0x08: { scroll: [[0, 32, 32], [1, 32, 32]] },
+        0x09: { scroll: [[0, 64, 64], [1, 64, 64]] },
+        0x0A: { scroll: [[0, 32, 32], [1, 32, 32]] },
+        env: [128, 128, 128, 128],
+    },
+    "spot09_scene": {
+        0x08: { scroll: [[0, 32, 256], [1, 32, 256]] },
+        0x09: { scroll: [[0, 64, 64], [1, 64, 64]] },
+        0x0A: { scroll: [[0, 32, 32], [1, 32, 32]] },
+        0x0B: { scroll: [[0, 32, 32], [1, 32, 32]] },
+        0x0C: { scroll: [[0, 32, 32], [1, 32, 32]] },
+        0x0D: { scroll: [[0, 16, 16], [1, 16, 16]] },
+        env: [128, 128, 128, 128],
+    },
+    "spot10_scene": {
+        0x08: { scroll: [[0, 32, 16], [1, 32, 16]] },
+        0x09: { scroll: [[0, 32, 32], [1, 32, 32]] },
+        env: [128, 128, 128, 128],
+    },
+    "spot11_scene": {
+        0x08: { scroll: [[0, 32, 32], [1, 32, 32]] },
+        env: [128, 128, 128, 128],
     },
     "spot12_scene": {
         0x08: { file: "spot12_scene", offset: 0x9678 }, // gGerudoFortressNightWallTex
     },
+    "spot13_scene": {
+        0x08: { scroll: [[0, 32, 32], [1, 32, 32]] },
+        0x09: { scroll: [[0, 32, 32], [1, 32, 32]] },
+        env: [128, 128, 128, 128],
+    },
+    "spot15_scene": {
+        0x08: { scroll: [[0, 32, 32], [1, 32, 32]] },
+        0x09: { scroll: [[0, 32, 32], [1, 32, 32]] },
+        env: [128, 128, 128, 128],
+    },
+    "spot16_scene": {
+        env: [128, 128, 128, 128],
+    },
+    "spot17_scene": {
+        0x08: { scroll: [[0, 32, 32], [1, 32, 32]] },
+    },
     "spot18_scene": {
         0x08: { file: "spot18_scene", offset: 0x9808 }, // gGoronCityDayEntranceTex
+        env: [128, 128, 128, 128],
     },
     "spot20_scene": {
         0x08: { file: "spot20_scene", offset: 0x8180 }, // gLonLonRanchDayWindowTex
+        env: [128, 128, 128, 128],
+    },
+    "syatekijyou_scene": {
+        0x08: { scroll: [[0, 4, 16]] },
+        env: [128, 128, 128, 128],
+    },
+    "turibori_scene": {
+        env: [128, 128, 128, 128],
+    },
+    "ydan_boss_scene": {
+        0x08: { scroll: [[0, 64, 32], [1, 64, 32]] },
     },
     "ydan_scene": {
         0x08: { file: "ydan_scene", offset: 0xBA08 }, // gDekuTreeDayEntranceTex
+        0x09: { scroll: [[0, 32, 32], [1, 32, 32]] },
+    },
+    "yousei_izumi_tate_scene": {
+        0x08: { scroll: [[0, 32, 32], [1, 32, 32]] },
+        0x09: { scroll: [[0, 256, 16]] },
+        env: [128, 128, 128, 128],
+    },
+    "yousei_izumi_yoko_scene": {
+        0x08: { scroll: [[0, 32, 64], [1, 32, 64]] },
+        0x09: { scroll: [[0, 32, 32], [1, 32, 32]] },
+        env: [128, 128, 128, 128],
     },
 };

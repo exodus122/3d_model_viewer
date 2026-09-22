@@ -18,6 +18,7 @@ import { renderBTSetup } from './bt_setup.js';
 import { renderSky, drawSky } from './sky.js';
 import { loadBTTextureBank, getBTTextureBank } from './bt_textures.js';
 import { renderZeldaSceneTextured, parseZeldaSceneInfo, zeldaRoomFileName, zeldaAreaTextureFileName } from './zelda_textured.js';
+import { renderOOTActors } from './oot_actors.js';
 import { addModelCheckbox, buildTest } from './render.js';
 
 ////////////////////////////////////////
@@ -27,6 +28,7 @@ import { addModelCheckbox, buildTest } from './render.js';
 const mapDropdown = document.getElementById("mapDropdown");
 const setupDropdown = document.getElementById("setupDropdown");
 const setupDropdownDiv = document.getElementById("setupDropdownDiv");
+const renderActorsCheckbox = document.getElementById("renderActorsCheckbox");
 const actorDropdown = document.getElementById("actorDropdown");
 const fileInput = document.getElementById('file');
 const loadMapButton = document.getElementById('loadMap');
@@ -452,6 +454,13 @@ async function loadSelectedMap(game) {
                 }
                 await showLoading(`${mapName}: textured rooms…`);
                 renderZeldaSceneTextured(scene, buffer1, rooms, mapFilename, { game, areaTextures });
+            }
+
+            // OOT: every actor of the selected setup, drawn with its model
+            // (oot_actors.js). The DynaPoly rows come from parseZeldaSceneBinary.
+            if (game == "OOT" && renderActorsCheckbox.checked && areaActors) {
+                await showLoading(`${mapName}: actors…`);
+                await renderOOTActors(scene, buffer1, mapFilename);
             }
 
 
