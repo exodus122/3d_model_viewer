@@ -9,6 +9,9 @@
 const dl = (file, offset, layer = 'opa') => ({ file, offset, layer });
 const keep = (offset, layer = 'opa') => dl('gameplay_keep', offset, layer);
 const keepTex = (offset) => ({ file: 'gameplay_keep', offset });
+// A camera-facing flame drawn twice, the copy turned 90 degrees, so a
+// static scene shows it from any side (as crossed() in oot_actors.js).
+const crossed = (list) => [list, { ...list, ops: [...(list.ops ?? []), ['ry', Math.PI / 2]] }];
 
 // z_actor.c Actor_DrawDoorLock(frame 10, type) under the ops before it: from
 // (0, yShift, 500), four chain lists turned about z (chainRotZ stepping by
@@ -362,8 +365,8 @@ export const MM_ACTOR_OVERRIDES = {
     "Obj_Syokudai": {
         model: (params, sceneName, base) => (params & 0x800 ? {
             ...base,
-            lists: [...base.lists, { ...keep(0x7D590, 'xlu'), ops: [['t', 0, 52, 0], ['s', 0.0027, 0.0027, 0.0027]],
-                                     prim: [255, 255, 0, 255], env: [255, 0, 0, 0], primLod: 0x80 }],
+            lists: [...base.lists, ...crossed({ ...keep(0x7D590, 'xlu'), ops: [['t', 0, 52, 0], ['s', 0.0027, 0.0027, 0.0027]],
+                                                prim: [255, 255, 0, 255], env: [255, 0, 0, 0], primLod: 0x80 })],
         } : base),
     },
 
@@ -976,11 +979,11 @@ export const MM_ACTOR_OVERRIDES = {
         model: (params) => {
             if ((params & 0x2000) && !(params & 0x800)) return null;
             if (params & 0x8000) {
-                return { object: 'gameplay_keep', lists: [{ ...keep(0x1ACF0, 'xlu'), prim: [255, 200, 0, 0], env: [255, 0, 0, 0], primLod: 0xC0 }],
+                return { object: 'gameplay_keep', lists: crossed({ ...keep(0x1ACF0, 'xlu'), prim: [255, 200, 0, 0], env: [255, 0, 0, 0], primLod: 0xC0 }),
                          segments: { 8: { scroll: [[0, 16, 32], [1, 16, 32]] } } };
             }
             const [prim, env] = EN_LIGHT_COLOURS[params & 0xF];
-            return { object: 'gameplay_keep', lists: [{ ...keep(0x7D590, 'xlu'), prim: [...prim, 255], env: [...env, 0], primLod: 0x80 }],
+            return { object: 'gameplay_keep', lists: crossed({ ...keep(0x7D590, 'xlu'), prim: [...prim, 255], env: [...env, 0], primLod: 0x80 }),
                      segments: { 8: { scroll: [[0, 32, 64], [1, 32, 128]] } } };
         },
     },
@@ -1147,6 +1150,88 @@ export const MM_ACTOR_OVERRIDES = {
             ? { object: 'gameplay_dangeon_keep', lists: [dl('gameplay_dangeon_keep', 0x85F0)], segments: { 8: { file: 'gameplay_dangeon_keep', offset: 0xB6C0 } } }
             : null),
     },
+
+    // z_en_knight.c: params 0 is Igos du Ikana (gIgosSkel, 0.017), 35 his
+    // servants (gKnightSkel, 0.013), both idling; the light orbs and frozen
+    // steam are effects.
+    "En_Knight": {
+        scale: (params) => (params === 35 ? 0.013 : 0.017),
+        model: (params, sceneName, base) => ({
+            ...base, lists: [],
+            skeleton: { file: 'object_knight', offset: params === 35 ? 0x20374 : 0x201A8, type: 'Flex', limbType: 'Standard' },
+            anim: { file: 'object_knight', offset: 0x40E0 },
+        }),
+    },
+
+    // z_en_death.c (Gomess): the skeleton holds the scythe; the separate
+    // scythe, bats and flames are drawn once it is thrown / he dies.
+    "En_Death": {
+        model: (params, sceneName, base) => ({ ...base, lists: [] }),
+    },
+
+    // z_bg_hakugin_post.c (Snowhead's central pillar): every piece
+    // registers with a shared table the type 7 actor draws from --
+    // D_80A9D900[BGHAKUGINPOST_GET_7] at each piece's own position, 0.1.
+    // Types 2, 3 and 6 have no list.
+    "Bg_Hakugin_Post": {
+        model: (params) => {
+            const offset = [0xC1A8, 0xC568, null, null, 0xCA38, 0xCEC8, null][params & 7];
+            return offset ? { object: 'object_hakugin_obj', lists: [dl('object_hakugin_obj', offset)] } : null;
+        },
+    },
+
+    // Bosses: the placed actor is the boss itself -- its skeleton; the mined
+    // lists are its projectiles, effects, remains and spawned parts.
+    // z_boss_07.c: MAJORA_TYPE_BATTLE_INIT becomes the mask
+    // (gMajorasMaskSkel floating, eyes in segment 8), which Boss07_Mask_Update
+    // sizes to 0.1 and Init hangs on the wall at (0, 277, -922.5).
+    "Boss_07": {
+        scale: 0.1,
+        model: (params, sceneName, base) => ({ ...base, lists: [], segments: { 8: { file: 'object_boss07', offset: 0x42330 } } }),
+        place: (inst) => ((inst.params & 0xFF) === 0 ? { position: [0, 277, -922.5] } : null),
+    },
+    // z_boss_01.c: Odolwa (type 0) is gOdolwaSkel in gOdolwaReadyAnim at
+    // 0.015; the mined skeleton and limb lists are his summoned bugs'.
+    "Boss_01": {
+        scale: 0.015,
+        model: (params, sceneName, base) => ({
+            ...base, lists: [], limbLists: {},
+            skeleton: { file: 'object_boss01', offset: 0xF0A8, type: 'Flex', limbType: 'Standard' },
+            anim: { file: 'object_boss01', offset: 0x18438 },
+        }),
+    },
+    // z_boss_02.c: Boss02_Twinmold_Update sizes Twinmold 0.6 (0.06 once
+    // Link is a giant).
+    "Boss_02": {
+        scale: 0.6,
+        model: (params, sceneName, base) => ({ ...base, lists: [] }),
+    },
+    ...Object.fromEntries(['Boss_03', 'Boss_Hakugin'].map(name => [name, {
+        model: (params, sceneName, base) => ({ ...base, lists: [] }),
+    }])),
+
+    // z_en_floormas.c: a placed Floormaster is the big one at the default
+    // 0.01 (0.004 is its split pieces); ENFLOORMAS_GET_7FFF 0x10 is a piece.
+    "En_Floormas": {
+        scale: 0.01,
+        model: (params, sceneName, base) => (((params & 0x7FFF) === 0x10) ? null : base),
+    },
+
+    // z_en_hgo.c (Pamela's father, human): his eyebrows are drawn at the
+    // head's matrix (PostLimbDraw keeps PAMELAS_FATHER_HUMAN_LIMB_HEAD, 11).
+    "En_Hgo": {
+        model: (params, sceneName, base) => ({ ...base, lists: [], limbLists: { 11: [{ ...dl('object_harfgibud', 0xF248), add: true }] } }),
+    },
+
+    // z_en_bsb.c (Captain Keeta): the skeleton; gameplay_keep_DL_06AB30 is
+    // an effect.
+    "En_Bsb": {
+        model: (params, sceneName, base) => ({ ...base, lists: [] }),
+    },
+
+    // z_en_trt.c (Kotake at the potion shop): Actor_SetScale(sActorScale),
+    // 0.008.
+    "En_Trt": { scale: 0.008 },
 
     // Room-transition planes and other invisible helpers.
     "En_Holl": { marker: true },

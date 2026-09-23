@@ -92,7 +92,6 @@ scene.background = new THREE.Color(0x0b1220);
 // one's edges through it. 2 units is well below the slowest fly speed.
 const camera = new THREE.PerspectiveCamera(60,2,2,100000);
 camera.position.set(0,100,400);
-window.__dbg = { scene, camera };
 
 // Movement state (applies only in pointer-lock / fly mode)
 const move = {forward:false,back:false,left:false,right:false,up:false,down:false};

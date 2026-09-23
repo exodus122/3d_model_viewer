@@ -1085,7 +1085,7 @@ export function parseZeldaSceneBinary(scene, buffer, fresh, mapName, sceneName){
     
     const wallSurfaceMeshXY = renderCollisionWallsXY(allTriangleData);
     if (wallSurfaceMeshXY) {
-        wallSurfaceMeshXY.children[1].visible = wireframeCheckbox.checked;
+        if (wallSurfaceMeshXY.children[1]) wallSurfaceMeshXY.children[1].visible = wireframeCheckbox.checked;
         scene.add(wallSurfaceMeshXY);
         loadedModels.push({ name: "Wall Collision (XY)", mesh: wallSurfaceMeshXY, edges: wallSurfaceMeshXY.children[1] });
         addModelCheckbox(scene, "Wall Collision (XY)", wallSurfaceMeshXY, null, false, false, "#ff0000", false, primaryColorTarget(wallSurfaceMeshXY));
@@ -1094,7 +1094,7 @@ export function parseZeldaSceneBinary(scene, buffer, fresh, mapName, sceneName){
     const wallSurfaceMeshYZ = renderCollisionWallsYZ(allTriangleData);
     if (wallSurfaceMeshYZ) {
         scene.add(wallSurfaceMeshYZ);
-        wallSurfaceMeshYZ.children[1].visible = wireframeCheckbox.checked;
+        if (wallSurfaceMeshYZ.children[1]) wallSurfaceMeshYZ.children[1].visible = wireframeCheckbox.checked;
         loadedModels.push({ name: "Wall Collision (YZ)", mesh: wallSurfaceMeshYZ, edges: wallSurfaceMeshYZ.children[1] });
         addModelCheckbox(scene, "Wall Collision (YZ)", wallSurfaceMeshYZ, null, false, false, "#ff0000", false, primaryColorTarget(wallSurfaceMeshYZ));
     }

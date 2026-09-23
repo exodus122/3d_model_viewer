@@ -1767,7 +1767,7 @@ const MM_Actor_Models = {
     0x135: {
         name: "En_Sob1",
         object: "gameplay_keep",
-        scale: 0.2,
+        scaleUnknown: true,
         skeleton: { file: "object_zo", offset: 0xD208, type: "Flex", limbType: "Standard" },
         anim: { file: "object_masterzoora", offset: 0x78C },
         skelEnv: [0, 0, 0, 255],
@@ -2483,7 +2483,7 @@ const MM_Actor_Models = {
     0x188: {
         name: "En_Trt",
         object: "object_trt",
-        scale: 0.2,
+        scaleUnknown: true,
         skeleton: { file: "object_trt", offset: 0xFEF0, type: "Flex", limbType: "Standard" },
         anim: { file: "object_trt", offset: 0xFD34 },
         segments: { 0x08: { file: "object_trt", offset: 0xB0B8 }, 0x09: { file: "object_trt", offset: 0xB0B8 } }
@@ -2993,7 +2993,7 @@ const MM_Actor_Models = {
     0x1C4: {
         name: "En_Fsn",
         object: "object_fsn",
-        scale: 0.2,
+        scaleUnknown: true,
         skeleton: { file: "object_fsn", offset: 0x13320, type: "Flex", limbType: "Standard" },
         anim: { file: "object_fsn", offset: 0x12C34 },
         limbLists: { 16: [{ file: "object_fsn", offset: 0xF180, layer: "opa", add: true } /* gFsnGlassesFrameDL */] },

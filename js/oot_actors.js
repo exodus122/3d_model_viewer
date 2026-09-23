@@ -360,15 +360,578 @@ const OOT_ACTOR_OVERRIDES = {
         },
     },
 
-    // Environment effect actors: nothing placeable to draw. En_Light is a
-    // torch flame (gEffFire1DL, or an unused candle list for negative
-    // params, which the mining picks up instead).
+    // z_door_warp1.c: WARP_BLUE_CRYSTAL (-2) and WARP_PURPLE_CRYSTAL (3)
+    // draw gWarpCrystalSkel in their colours; the rest the portal,
+    // gWarpPortalDL at the actor's own position unscaled (Matrix_Translate
+    // ... MTXMODE_NEW), blue unless a colour variant. The mined list tests
+    // params == -1 against the u16 params, so it never drew.
+    "Door_Warp1": {
+        scale: 1.0,
+        model: (params, sceneName, base) => {
+            const type = (params << 16) >> 16;
+            if (type === -2 || type === 3) {
+                return { ...base, lists: [], skelPrim: type === -2 ? [200, 255, 255, 255] : [255, 255, 255, 255], skelEnv: type === -2 ? [0, 100, 255, 255] : [150, 0, 100, 255] };
+            }
+            const env = { 4: [255, 255, 0], 8: [255, 150, 0], 9: [0, 200, 0], 10: [255, 50, 0] }[type] ?? [0, 255, 255];
+            return { object: 'object_warp1', lists: [{ file: 'object_warp1', offset: 0x1A0, layer: 'xlu', prim: [255, 255, 255, 255], env: [...env, 255], primLod: 128 }],
+                     segments: { 8: { scroll: [[0, 256, 256], [1, 256, 256]] }, 9: { matrices: [[['t', 0, 230, 0]]] }, 10: { matrices: [[]] } } };
+        },
+    },
+
+    // z_obj_bean.c: until a bean is planted it is the soft soil spot,
+    // ObjBean_DrawSoftSoilSpot's gMagicBeanSoftSoilDL at 0.1 (its
+    // MTXMODE_NEW translate is just the home position and yaw).
+    "Obj_Bean": {
+        scale: 0.1,
+        model: () => ({ object: 'object_mamenoki', lists: [{ file: 'object_mamenoki', offset: 0x650, layer: 'opa' }] }),
+    },
+
+    // z_en_light.c: D_80A9E840[params & 0xF] gives the colours and the size
+    // (scale * 0.0001). Non-negative params draw gEffFire1DL in those
+    // colours, negative ones gUnusedCandleDL (prim (255, 200, 0), env red).
+    "En_Light": {
+        scale: (params) => ((params & 0xF) === 4 ? 40 : 75) * 0.0001,
+        model: (params) => {
+            if (params & 0x8000) {
+                return { object: 'gameplay_dangeon_keep', lists: crossed({ file: 'gameplay_dangeon_keep', offset: 0x440, layer: 'xlu', prim: [255, 200, 0, 0], env: [255, 0, 0, 0], primLod: 0xC0 }),
+                         segments: { 8: { scroll: [[0, 16, 32], [1, 16, 32]] } } };
+            }
+            const [prim, env] = OOT_LIGHT_COLOURS[params & 0xF];
+            return { object: 'gameplay_keep', lists: crossed({ ...keep(0x52A10), layer: 'xlu', prim: [...prim, 255], env: [...env, 0], primLod: 0x80 }),
+                     segments: { 8: { scroll: [[0, 32, 64], [1, 32, 128]] } } };
+        },
+    },
+
+    // z_obj_syokudai.c: the torch by type ((params >> 12) & 0xF), and with
+    // params & 0x400 (always lit) its flame, gEffFire1DL 52 up at 0.0027.
+    "Obj_Syokudai": {
+        model: (params, sceneName, base) => (params & 0x400 ? {
+            ...base,
+            lists: [...base.lists, ...crossed({ ...keep(0x52A10), layer: 'xlu', ops: [['t', 0, 52, 0], ['s', 0.0027, 0.0027, 0.0027]],
+                                                prim: [255, 255, 0, 255], env: [255, 0, 0, 0], primLod: 0x80 })],
+        } : base),
+    },
+
+    // z_obj_switch.c: OBJSWITCH_TYPE (params & 7) floor / rusty floor /
+    // eye / crystal (x2), OBJSWITCH_SUBTYPE ((params >> 4) & 7) the variant.
+    // A raised floor switch is 0.165 tall (ObjSwitch_FloorUpInit); eyes are
+    // open; a crystal is off (env black, the toggle one's red texture).
+    "Obj_Switch": {
+        scale: (params) => ((params & 7) <= 1 ? [0.1, 0.165, 0.1] : 0.1),
+        model: (params) => {
+            const type = params & 7, sub = (params >> 4) & 7;
+            const dk = (offset, layer = 'opa') => ({ file: 'gameplay_dangeon_keep', offset, layer });
+            if (type === 0) return { object: 'gameplay_dangeon_keep', lists: [dk([0x5800, 0x6170, 0x5D50, 0x5D50][sub] ?? 0x5800)] };
+            if (type === 1) return { object: 'gameplay_dangeon_keep', lists: [dk(0x5AD0)] };
+            if (type === 2) {
+                return { object: 'gameplay_dangeon_keep', lists: [dk(sub === 1 ? 0x6810 : 0x6610)],
+                         segments: { 8: { file: 'gameplay_dangeon_keep', offset: sub === 1 ? OOT_SILVER_EYE_OPEN : OOT_GOLD_EYE_OPEN } } };
+            }
+            const [xlu, opa] = sub === 1 ? [0x7488, 0x7340] : [0x6E60, 0x6D10];
+            if (sub === 2 || sub === 3) return null;
+            return { object: 'gameplay_dangeon_keep', lists: [dk(xlu, 'xlu'), { ...dk(opa), env: [0, 0, 0, 128] }],
+                     segments: { 8: { scroll: [[0, 32, 32], [1, 32, 32]] }, ...(sub === 1 ? { 9: { file: 'gameplay_dangeon_keep', offset: OOT_CRYSTAL_RED_TEX } } : {}) } };
+        },
+    },
+
+    // z_en_kanban.c: an uncut sign is object_kanban's material, then
+    // gameplay_keep's gSignRectangularDL 100 back; the pieces and the cut
+    // mark are only drawn once it is cut.
+    "En_Kanban": {
+        model: () => ({ object: 'object_kanban', lists: [
+            { file: 'object_kanban', offset: 0xC30, layer: 'opa' },
+            { ...keep(0x3D560), ops: [['t', 0, 0, -100]] },
+        ] }),
+    },
+
+    // z_en_fire_rock.c: params 5 is the invisible ceiling spawner; 6 the
+    // rock lying on the floor at 0.03.
+    "En_Fire_Rock": {
+        model: (params, sceneName, base) => (params === 5 ? null : base),
+    },
+
+    // z_en_bb.c (Bubbles): params with bit 7 set sign-extend to the type,
+    // -1 blue, -2 red, -3 white, -4 green, -5 big green (0.03, else 0.01).
+    // EnBb_Draw: the skull, then (not white) gEffFire1DL 4000 down, 100 x 80
+    // wide, prim (255, 255, blue?) and env in the type's colour.
+    "En_Bb": {
+        scale: (params) => (enBbType(params) === -5 ? 0.03 : 0.01),
+        model: (params, sceneName, base) => {
+            const type = enBbType(params);
+            if (type > -1) return null; // flame trails
+            const env = { [-1]: [0, 0, 255], [-2]: [255, 0, 0], [-4]: [0, 255, 0], [-5]: [0, 255, 0] }[type];
+            const flame = env && { ...keep(0x52A10), layer: 'xlu', ops: [['t', 0, -4000, 0], ['s', 1, 0.8, 1]],
+                                   prim: [255, 255, type === -1 ? 255 : 0, 255], env: [...env, 0], primLod: 0x80 };
+            return { ...base, lists: flame ? crossed(flame) : [], segments: { 8: { scroll: [[0, 32, 64], [1, 32, 128]] } } };
+        },
+    },
+
+    // z_bg_ganon_otyuka.c: the params 0x23 platform draws every platform
+    // (the others have no Draw): sPlatformMaterialDL, then each one's
+    // sPlatformTopDL at its own position, unscaled. Sides only show once a
+    // neighbour has fallen.
+    "Bg_Ganon_Otyuka": {
+        scale: 1.0,
+        model: () => {
+            const ovl = (offset) => ({ file: 'ovl_Bg_Ganon_Otyuka', offset, vram: 0x80A53DD0, layer: 'opa' });
+            return { object: 'object_ganon', lists: [ovl(0x1958), ovl(0x19E0)] };
+        },
+    },
+
+    // z_bg_haka_trap.c: sDLists[params & 0xFF]; Init turns
+    // HAKA_TRAP_GUILLOTINE_FAST (5) into the slow guillotine (0).
+    "Bg_Haka_Trap": {
+        model: (params) => {
+            const offset = [0x7610, 0x9860, 0x7EF0, 0x8A20, 0x72C0, 0x7610][params & 0xFF];
+            return offset ? { object: 'object_haka_objects', lists: [{ file: 'object_haka_objects', offset, layer: 'opa' }] } : null;
+        },
+    },
+
+    // z_en_bw.c (Torch Slug): the skeleton in env color1 (red), then its
+    // flame, gEffFire1DL at the actor's position scaled unk_248 (0.6) *
+    // 0.01 absolute -- 0.006 / 0.013 of the actor scale.
+    "En_Bw": {
+        model: (params, sceneName, base) => ({
+            ...base, skelEnv: [255, 0, 0, 255],
+            lists: crossed({ ...keep(0x52A10), layer: 'xlu', ops: [['s', 0.006 / 0.013, 0.006 / 0.013, 0.006 / 0.013]],
+                             prim: [255, 255, 0, 255], env: [255, 0, 0, 0], primLod: 0x80 }),
+        }),
+    },
+
+    // z_demo_gj.c (Ganon's arena rubble), DemoGj_GetType (params & 0xFF):
+    // 4 the rubble around the arena, 8-14 the piles Ganondorf rises from
+    // (gGanonsCastleRubble2-7 / Tall), 16 / 17 / 22 the rubble Ganon can
+    // smash (Rubble2 / 3 / Tall, shown once he transforms).
+    "Demo_Gj": {
+        model: (params) => {
+            const offset = { 4: 0xDC0, 8: 0x1D20, 9: 0x2160, 10: 0x2600, 11: 0x2A40, 12: 0x2E80, 13: 0x3190, 14: 0x3710,
+                             16: 0x1D20, 17: 0x2160, 22: 0x3710 }[params & 0xFF];
+            return offset ? { object: 'object_gj', lists: [{ file: 'object_gj', offset, layer: 'opa' }] } : null;
+        },
+    },
+
+    // z_bg_spot08_iceblock.c: (params >> 4) & 0xF 0 / 1 / 2 is 0.2 / 0.1 /
+    // 0.05 (an unlisted params becomes 0x10); params & 0x200 the ice ramp
+    // (gZorasFountainIceRampDL) instead of the iceberg.
+    "Bg_Spot08_Iceblock": {
+        scale: (params) => {
+            const valid = [1, 4, 0x10, 0x11, 0x12, 0x14, 0x20, 0x23, 0x24].includes(params & 0xFF);
+            return [0.2, 0.1, 0.05][valid ? (params >> 4) & 0xF : 1] ?? 0.1;
+        },
+        model: (params) => ({ object: 'object_spot08_obj', lists: [{ file: 'object_spot08_obj', offset: (params & 0x200) ? 0xDE0 : 0x2BD0, layer: 'opa' }] }),
+    },
+
+    // z_en_po_field.c (Hyrule Field Poes): each placed one is a spawn spot
+    // (params is its switch flag) where a Big Poe appears until caught
+    // (sPoFieldInfo[EN_PO_FIELD_BIG]). Fully appeared: 0.007, segment 8 env the
+    // info's light colour, 0xA env its env colour; limb 7 has no list (the
+    // lantern is drawn at its matrix, env the soul colour); a Big Poe swaps
+    // in its face / cloak / body on limbs 1, 8, 9.
+    "En_Po_Field": {
+        scale: 0.007,
+        model: (params, sceneName, base) => {
+            const big = true;
+            const c = (rgb, a = 255) => ({ colour: { env: [...rgb, a].map(v => v / 255) } });
+            const po = (offset) => ({ file: 'object_po_field', offset, layer: 'opa' });
+            const limbLists = { 7: [{ ...po(0x4BA0), env: big ? [160, 0, 255, 255] : [255, 85, 0, 255] }, po(0x4CC0)] };
+            if (big) Object.assign(limbLists, { 1: [po(0x5900)], 8: [po(0x5620)], 9: [po(0x59F0)] });
+            return { ...base, lists: [], limbLists,
+                     segments: { 8: c(big ? [255, 200, 0] : [100, 0, 150]), 0xA: c(big ? [160, 0, 255] : [255, 85, 0]), 0xC: { colour: {} } } };
+        },
+    },
+
+    // z_en_zo.c (Zoras): the skeleton; ripples, bubbles and splashes are
+    // effects.
+    "En_Zo": {
+        model: (params, sceneName, base) => ({ ...base, lists: [] }),
+    },
+
+    // z_en_ossan.c (shopkeepers), params = OSSAN_TYPE: each type's
+    // skeleton, Init animation, eyes open and sShopkeeperScale. The Kokiri
+    // shopkeeper's head (limb 15) comes from object_masterkokirihead with
+    // its eyes in segment 0xA; env colours in 8 / 9, an empty list in 0xC.
+    "En_Ossan": {
+        scale: (params) => ([0.01, 0.011, 0.0105, 0.011][params & 0xFF] ?? 0.01),
+        model: (params) => {
+            const flex = (file, offset) => ({ file, offset, type: 'Flex', limbType: 'Standard' });
+            const tex = (file, offset) => ({ file, offset });
+            const env = (r, g, b) => ({ colour: { env: [r / 255, g / 255, b / 255, 1] } });
+            const npc = (file, skel, animFile, anim, segments) => ({ object: file, skeleton: flex(file, skel), anim: { file: animFile, offset: anim }, segments });
+            switch (params & 0xFF) {
+                case 0: return { ...npc('object_km1', 0xF0, 'object_masterkokiri', 0x4A8, {
+                                     8: env(0, 130, 70), 9: env(110, 170, 20), 0xA: tex('object_masterkokirihead', 0x1570), 0xC: { colour: {} } }),
+                                 limbLists: { 15: [{ file: 'object_masterkokirihead', offset: 0x2820, layer: 'opa' }] } };
+                case 1: case 3: return npc('object_ds2', 0x4258, 'object_ds2', 0x2E4, { 8: tex('object_ds2', 0x30D8) });
+                case 2: return npc('object_rs', 0x4868, 'object_rs', 0x65C, { 8: tex('object_rs', 0x3968) });
+                case 4: case 5: case 6: case 9: return npc('object_ossan', 0x9B38, 'object_ossan', 0x338, { 8: tex('object_ossan', 0x4878) });
+                case 7: return npc('object_zo', 0xBFA8, 'object_masterzoora', 0x78C, { 8: tex('object_zo', 0x3E40), 0xC: { colour: {} } });
+                case 8: return npc('object_oF1d_map', 0xFEF0, 'object_mastergolon', 0xFC, { 8: tex('object_oF1d_map', 0xCE80), 9: tex('object_oF1d_map', 0xDE80) });
+                case 10: return npc('object_os', 0x4658, 'object_os', 0x2E4, { 8: tex('object_os', 0x39D8) });
+                default: return null;
+            }
+        },
+    },
+
+    // z_en_poh.c: params 0 / 1 a graveyard Poe (gPoeSkel), 2 / 3 the
+    // composer brothers Sharp / Flat (gPoeComposerSkel, Flat with his own
+    // head on limb 10). sPoeInfo's limb (18 / 9) has no list: the lantern is
+    // drawn at its matrix. Colours as fully appeared: env / segment 8 the
+    // info's light colour, the composers' 0xA / 0xB their cloak colours.
+    "En_Poh": {
+        scale: 0.01,
+        model: (params) => {
+            const type = params & 0xFF;
+            const c = (r, g, b) => ({ colour: { env: [r / 255, g / 255, b / 255, 1] } });
+            if (type < 2) {
+                const f = 'object_poh';
+                return { object: f, skeleton: { file: f, offset: 0x50D0, type: 'Normal', limbType: 'Standard' }, anim: { file: f, offset: 0xA60 },
+                         skelEnv: [100, 0, 150, 255], segments: { 8: { colour: {} } },
+                         limbLists: { 18: [{ file: f, offset: 0x2D28, layer: 'opa', env: [255, 170, 255, 255] }] } };
+            }
+            const f = 'object_po_composer';
+            const sharp = type === 2;
+            const lantern = (offset, env) => ({ file: f, offset, layer: 'opa', env });
+            const limbLists = { 9: [lantern(0x45A0, [255, 255, 170, 255]), lantern(0x4498), lantern(0x4530, sharp ? [75, 20, 25, 255] : [80, 110, 90, 255])] };
+            if (!sharp) limbLists[10] = [{ file: f, offset: 0x4638, layer: 'opa' }];
+            return { object: f, skeleton: { file: f, offset: 0x6F90, type: 'Flex', limbType: 'Standard' }, anim: { file: f, offset: 0x9DC }, limbLists,
+                     segments: { 8: c(0, 150, 0), 0xA: sharp ? c(75, 20, 25) : c(80, 110, 90), 0xB: sharp ? c(90, 85, 50) : c(100, 90, 100), 0xC: { colour: {} } } };
+        },
+    },
+
+    // z_en_wf.c: params 0 a Wolfos (gWolfosNormalSkel, 0.0075), else a
+    // White Wolfos (gWolfosWhiteSkel, 0.01); eyes open in segment 8.
+    "En_Wf": {
+        scale: (params) => ((params & 0xFF) === 0 ? 0.0075 : 0.01),
+        model: (params) => {
+            const normal = (params & 0xFF) === 0;
+            return { object: 'object_wf', skeleton: { file: 'object_wf', offset: normal ? 0x9690 : 0x3BC0, type: 'Flex', limbType: 'Standard' },
+                     anim: { file: 'object_wf', offset: 0xA4AC }, segments: { 8: { file: 'object_wf', offset: normal ? 0x7B68 : 0x300 } } };
+        },
+    },
+
+    // z_en_mb.c (Moblins): params -1 a spear guard (0.01), 0 the club
+    // Moblin (gEnMbClubSkel, 0.02), else a spear patrol (0.014).
+    "En_Mb": {
+        scale: (params) => ((params & 0xFFFF) === 0xFFFF ? 0.01 : (params & 0xFFFF) === 0 ? 0.02 : 0.014),
+        model: (params) => {
+            const club = (params & 0xFFFF) === 0;
+            return { object: 'object_mb', skeleton: { file: 'object_mb', offset: club ? 0x14190 : 0x8F38, type: 'Flex', limbType: 'Standard' },
+                     anim: { file: 'object_mb', offset: club ? 0xEBE4 : 0x28E0 } };
+        },
+    },
+
+    // z_en_ik.c (Iron Knuckles), IK_GET_ARMOR_TYPE (params & 0xFF) 0
+    // Nabooru, 1 silver, 2 black, 3 white: EnIk_DrawEnemy's prim / env in
+    // segments 8-A, the helmet and Gerudo head (not Nabooru), the armour's
+    // rivets and pauldron trims, and the bare torso / waist hidden while the
+    // armour is on.
+    "En_Ik": {
+        scale: 0.012,
+        model: (params, sceneName, base) => {
+            const type = params & 0xFF;
+            const pe = (p, e) => ({ colour: { prim: [...p, 255].map(v => v / 255), env: [...e, 255].map(v => v / 255) } });
+            const colours = [
+                [[245, 225, 155], [30, 30, 0], [255, 40, 0], [40, 0, 0], [255, 255, 255], [20, 40, 30]],
+                [[245, 255, 205], [30, 35, 0], [185, 135, 25], [20, 20, 0], [255, 255, 255], [30, 40, 20]],
+                [[55, 65, 55], [0, 0, 0], [205, 165, 75], [25, 20, 0], [205, 165, 75], [25, 20, 0]],
+            ][type] ?? [[255, 255, 255], [180, 180, 180], [225, 205, 115], [25, 20, 0], [225, 205, 115], [25, 20, 0]];
+            const ik = (offset, extra = {}) => ({ file: 'object_ik', offset, layer: 'xlu', add: true, ...extra });
+            const limbLists = {
+                22: [ik(0x16F88)], 24: [ik(0x16EE8)], 26: [ik(0x16BE0)], 27: [ik(0x16CD8)], 28: [], 29: [],
+            };
+            if (type !== 0) {
+                limbLists[12] = [{ file: 'object_ik', offset: 0x18E78, layer: 'opa' }, ik(0x19E08)];
+                limbLists[13] = [{ file: 'object_ik', offset: 0x19100, layer: 'opa' }];
+            }
+            return { ...base, lists: [], limbLists,
+                     segments: { 8: pe(colours[0], colours[1]), 9: pe(colours[2], colours[3]), 0xA: pe(colours[4], colours[5]) } };
+        },
+    },
+
+    // z_en_heishi2.c (Hyrule Castle guards), type (params & 0xFF): 6 / 9 are
+    // the guard in the courtyard window (EnHeishi2_DrawKingGuard: the static
+    // gHeishiKingGuardDL; 9 at 0.02, moved 90 / -60 / 90); the rest the
+    // skeleton. The gate guard's Keaton Mask only shows once it is sold.
+    "En_Heishi2": {
+        scale: (params) => ((params & 0xFF) === 9 ? 0.02 : 0.01),
+        model: (params, sceneName, base) => ([6, 9].includes(params & 0xFF)
+            ? { object: 'object_sd', lists: [{ file: 'object_sd', offset: 0x2C10, layer: 'opa' }] }
+            : { ...base, lists: [] }),
+        place: (inst) => ((inst.params & 0xFF) === 9
+            ? { position: [inst.position[0] + 90, inst.position[1] - 60, inst.position[2] + 90], rot: [0, 0x7918, 0] }
+            : null),
+    },
+
+    // z_bg_haka_meganebg.c: params 0 is the Lens of Truth platform, drawn
+    // XLU only; the rest D_8087E410[params] opaque.
+    "Bg_Haka_MeganeBG": {
+        model: (params) => {
+            const offset = [0x8EB0, 0xA1A0, 0x5000, 0x40][params & 0xFF];
+            return offset == null ? null
+                : { object: 'object_haka_objects', lists: [{ file: 'object_haka_objects', offset, layer: (params & 0xFF) === 0 ? 'xlu' : 'opa' }] };
+        },
+    },
+
+    // z_en_floormas.c: a placed Floormaster is the big one at the default
+    // 0.01 (0.004 is its split pieces); SPAWN_SMALL (0x10) ones are hidden.
+    "En_Floormas": {
+        scale: 0.01,
+        model: (params, sceneName, base) => (((params & 0x7FFF) === 0x10) ? null : base),
+    },
+
+    // z_bg_ydan_hasi.c: params 0 / 2 the sliding / rising platforms (opa),
+    // 1 the moving water plane (XLU only).
+    "Bg_Ydan_Hasi": {
+        model: (params) => {
+            const type = params & 0xFF;
+            const offset = [0x7508, 0x5DE0, 0x5018][type];
+            const base = { object: 'object_ydan_objects', segments: { 8: { scroll: [[0, 32, 32], [1, 32, 32]] } } };
+            if (type === 1) return { ...base, lists: [{ file: 'object_ydan_objects', offset: 0x5DE0, layer: 'xlu' }] };
+            return offset ? { ...base, lists: [{ file: 'object_ydan_objects', offset, layer: 'opa' }] } : null;
+        },
+    },
+
+    // z_bg_bdan_objects.c: sDLists[params], the water (2) XLU instead.
+    "Bg_Bdan_Objects": {
+        model: (params) => {
+            const type = params & 0xFF;
+            const offset = [0x8618, 0x4BE8, 0x38E8, 0x5200][type];
+            return offset ? { object: 'object_bdan_objects', lists: [{ file: 'object_bdan_objects', offset, layer: type === 2 ? 'xlu' : 'opa' }] } : null;
+        },
+    },
+
+    // z_bg_po_event.c (Forest Temple Poe sisters' puzzle): displayLists[type]
+    // ((params >> 8) & 0xF), the paintings (2, 3) with env alpha 255.
+    "Bg_Po_Event": {
+        model: (params, sceneName, base) => {
+            const type = (params >> 8) & 0xF;
+            const lists = base.lists[0]?.variants?.[type];
+            return lists ? { ...base, lists: lists.map(l => ({ ...l, env: [255, 255, 255, 255] })) } : null;
+        },
+    },
+
+    // Cutscene NPCs (Ruto, Nabooru, Sheik, adult Ruto, Impa, Saria,
+    // Darunia, Rauru): the mined skeleton in its Init animation, with the
+    // faces their Draws put in segments 8 / 9 (/ 0xA) at the first entry
+    // of each eye / mouth table, and 0xC the opaque render-mode list (a
+    // no-op here). Most only appear during their cutscene.
+    ...Object.fromEntries(Object.entries({
+        En_Ru1: { 8: ['object_ru1', 0xE3B8], 9: ['object_ru1', 0xE838] },
+        En_Nb: { 8: ['object_nb', 0xB428], 9: ['object_nb', 0xB428] },
+        En_Xc: { 8: ['object_xc', 0x56E0], 9: ['object_xc', 0x56E0] },
+        En_Ru2: { 8: ['object_ru2', 0xF20], 9: ['object_ru2', 0xF20] },
+        Demo_Im: { 8: ['object_im', 0x7210], 9: ['object_im', 0x7210] },
+        Demo_Sa: { 8: ['object_sa', 0x2F48], 9: ['object_sa', 0x2F48], 0xA: ['object_sa', 0x3588] },
+        Demo_Du: { 8: ['object_du', 0x8680], 9: ['object_du', 0x9280], 0xA: ['object_du', 0x85C0] },
+        En_Rl: { 8: ['object_rl', 0x3620], 9: ['object_rl', 0x3620] },
+    }).map(([name, segs]) => [name, {
+        model: (params, sceneName, base) => ({
+            ...base, lists: [],
+            segments: { 0xC: { colour: {} }, ...Object.fromEntries(Object.entries(segs).map(([s, [file, offset]]) => [s, { file, offset }])) },
+        }),
+    }])),
+
+    // z_en_goma.c: a placed Gohma larva (params < 10) is still its egg:
+    // gObjectGolEggDL squished 0.95 x 1.05, 1500 up (-1500 hanging from the
+    // ceiling, params >= 8); segment 8 a texture scroll.
+    "En_Goma": {
+        model: (params) => ((params & 0xFFFF) >= 10 ? null : {
+            object: 'object_gol',
+            lists: [{ file: 'object_gol', offset: 0x2A70, layer: 'opa', ops: [['s', 0.95, 1.05, 0.95], ['t', 0, (params & 0xFFFF) >= 8 ? -1500 : 1500, 0]] }],
+            segments: { 8: { scroll: [[0, 32, 32]] } },
+        }),
+    },
+
+    // z_en_ba.c (Jabu-Jabu's parasitic tentacles), params & 0xFF: 0-2 the
+    // tentacle in D_809B8118[type]'s colour, its 14 links hanging straight
+    // down 32 apart from 100 above home (EnBa_Init) as the Mtx array in
+    // segment 0xC (each link rotated x -0x4000, scaled 0.01 like the actor);
+    // 3 the dead blob at 0.021.
+    "En_Ba": {
+        scale: (params) => ((params & 0xFF) < 3 ? 0.01 : 0.021),
+        model: (params) => {
+            const type = params & 0xFF;
+            if (type >= 3) {
+                return { object: 'object_bxa', lists: [{ file: 'object_bxa', offset: 0x1D80, layer: 'opa', prim: [255, 125, 100, 255] }],
+                         segments: { 8: { scroll: [[0, 32, 32], [1, 32, 32]] } } };
+            }
+            const links = Array.from({ length: 14 }, (_, i) => [['t', 0, (100 - (i + 1) * 32) / 0.01, 0], ['rx', -Math.PI / 2]]);
+            return { object: 'object_bxa', lists: [{ file: 'object_bxa', offset: 0x890, layer: 'opa' }],
+                     segments: { 8: { file: 'object_bxa', offset: [0x24F0, 0x27F0, 0x29F0][type] }, 9: { scroll: [[0, 16, 16], [1, 32, 32]] }, 0xC: { matrices: links } } };
+        },
+    },
+
+    // z_en_brob.c (Flobbery Muscle Block): (params >> 8) & 0xFF 0 is 0.01
+    // tall params & 0xFF / 30 of that, else 0.005 and twice that
+    // (0xFF keeps it unstretched).
+    "En_Brob": {
+        scale: (params) => {
+            const small = ((params >> 8) & 0xFF) !== 0;
+            const s = small ? 0.005 : 0.01;
+            const h = params & 0xFF;
+            return [s, h === 0xFF ? s : s * h * (small ? 2 : 1) / 30, s];
+        },
+    },
+
+    // z_bg_gnd_soulmeiro.c (Spirit trial): dLists[params & 0xFF], the web
+    // and light source XLU, the lit floor opaque -- once each.
+    "Bg_Gnd_Soulmeiro": {
+        model: (params) => {
+            const type = params & 0xFF;
+            const offset = [0x7C00, 0x2320][type];
+            if (type === 2) return { object: 'object_demo_kekkai', lists: [{ file: 'object_demo_kekkai', offset: 0x35A0, layer: 'opa' }] };
+            return offset ? { object: 'object_demo_kekkai', lists: [{ file: 'object_demo_kekkai', offset, layer: 'xlu' }] } : null;
+        },
+    },
+
+    // z_bg_hidan_fwbig.c: a direction ((params >> 8) & 0xFF) makes it the
+    // big moving fire wall at 0.15; the switch-controlled one is 0.1.
+    "Bg_Hidan_Fwbig": { scale: (params) => (((params >> 8) & 0xFF) ? 0.15 : 0.1) },
+
+    // z_bg_dy_yoseizo.c (Great Fairy): this->scale grows to 0.035 as she
+    // appears.
+    "Bg_Dy_Yoseizo": { scale: 0.035 },
+
+    // z_en_vali.c (Bari): EnVali_DrawBody's inner hood, three nuclei (the
+    // translations undo the yaw they are expressed in: (506, 1114, 372) and
+    // then (-964, -108, -804) in the actor's own frame) and the outer hood,
+    // before the tentacle skeleton.
+    "En_Vali": {
+        model: (params, sceneName, base) => {
+            const v = (offset, ops) => ({ file: 'object_vali', offset, layer: 'xlu', ...(ops ? { ops } : {}) });
+            return { ...base, lists: [v(0x2610), v(0x2740), v(0x2740, [['t', 506, 1114, 372]]), v(0x2740, [['t', -458, 1006, -432]]), v(0x27D8)] };
+        },
+    },
+
+    // z_bg_haka_water.c (Bottom of the Well water): the ring at the actor,
+    // and the waterfall at the fixed world point (0, 92, -1680) at 0.1 --
+    // from the one placed actor at (0, 0, -740) that is (0, 92, -940).
+    "Bg_Haka_Water": {
+        model: (params, sceneName, base) => ({
+            ...base,
+            lists: [base.lists[0], { ...base.lists[1], ops: [['new'], ['t', 0, 92, -940], ['s', 0.1, 0.1, 0.1]] }],
+        }),
+    },
+
+    // z_boss_va.c: the placed Barinade is BOSSVA_BODY (-1), its skeleton;
+    // the mined lists belong to the zappers, Bari and door pieces it spawns.
+    "Boss_Va": {
+        model: (params, sceneName, base) => ({ ...base, lists: [] }),
+    },
+
+    // z_boss_tw.c: the placed one (-1) is the merged Twinrova
+    // (gTwinrovaSkel in gTwinrovaTPoseAnim); the mined skeleton and limb
+    // lists are Kotake's, the magic particles the sisters' beams.
+    "Boss_Tw": {
+        scale: 0.025, // BossTw_Init: 2.5 * 0.01 for all but the blasts
+        model: (params, sceneName, base) => ({
+            ...base, lists: [], limbLists: {},
+            skeleton: { file: 'object_tw', offset: 0x30C20, type: 'Flex', limbType: 'Standard' },
+            anim: { file: 'object_tw', offset: 0x244B4 },
+        }),
+    },
+
+    // z_boss_ganon.c: Ganondorf (params < 0x64) as a skeleton only -- the
+    // mined lists are his light balls, window shards and the like.
+    "Boss_Ganon": {
+        model: (params, sceneName, base) => ({ ...base, lists: [] }),
+    },
+
+    // z_boss_ganon2.c: Ganon starts as Ganondorf (gGanondorfSkel) buried in
+    // the rubble; the light orbs, rubble and Master Sword lists are drawn
+    // with their own matrices during the fight.
+    "Boss_Ganon2": {
+        model: (params, sceneName, base) => ({ ...base, lists: [] }),
+    },
+
+    // z_fishing.c (the Fishing Pond; one actor draws it all): the owner
+    // (skeleton, eyes open, his hat) at (160, -2, 1208) where Fishing_Init
+    // puts him, the aquarium at
+    // (130, 40, 1300) scaled (0.08, 0.12, 0.14), and the pond props at their
+    // world positions (Fishing_InitPondProps' random sizes at their mean:
+    // reeds 0.875, lily pads 0.65 wide, rocks 0.35, posts 0.08; rotations
+    // left out). Rod, lure, line and effects are the player's.
+    "Fishing": {
+        model: (params, sceneName, base) => {
+            if ((params & 0xFFFF) >= 100 && (params & 0xFFFF) !== 0xFFFF) return base; // the fish
+            const f = (offset, layer, ops) => ({ file: 'object_fish', offset, layer, ...(ops ? { ops } : {}) });
+            // 'new' keeps the owner's yaw (-0x6000); undo it for world positions.
+            const at = (x, y, z) => [['new'], ['ry', Math.PI * 0.75], ['t', x - 160, y + 2, z - 1208]];
+            const lists = [f(0x153D0, 'opa', [...at(130, 40, 1300), ['s', 0.08, 0.12, 0.14]]), f(0x15470, 'xlu', [...at(130, 40, 1300), ['s', 0.08, 0.12, 0.14]])];
+            const kinds = {
+                r: [0x14030, 0x140B0, 'xlu', [0.875, 0.875, 0.875]], p: [0x13F50, 0x13FD0, 'opa', [0.08, 0.08, 0.08]],
+                l: [0x13330, 0x133B0, 'xlu', [0.65, 1, 0.65]], k: [0x13590, 0x13610, 'opa', [0.35, 0.35, 0.35]],
+            };
+            for (const [type, x, y, z] of OOT_FISHING_PROPS) {
+                const [mat, model, layer, s] = kinds[type];
+                lists.push(f(mat, layer), f(model, layer, [...at(x, y, z), ['s', ...s], ...(type === 'l' ? [['t', 0, 0, 20]] : [])]));
+            }
+            return { ...base, lists, segments: { 8: { file: 'object_fish', offset: 0x9250 } } };
+        },
+        place: (inst) => (((inst.params << 16) >> 16) < 100 ? { position: [160, -2, 1208], rot: [0, -0x6000, 0] } : null),
+    },
+
+    // z_en_dy_extra.c (the Great Fairy's light beam): Init keeps its size in
+    // this->scale (0.025, 0.039, 0.025) and copies it to the actor.
+    "En_Dy_Extra": { scale: [0.025, 0.039, 0.025] },
+
+    // Environment effect actors: nothing placeable to draw.
     "Object_Kankyo": { marker: true },
     // z_en_holl.c: the black plane a room transition fades through.
     "En_Holl": { marker: true },
     "Demo_Kankyo": { marker: true },
-    "En_Light": { marker: true },
 };
+
+// A camera-facing quad (the flames' Matrix_ReplaceRotation / camera-yaw
+// RotateY) can't face every camera in a static scene: it is drawn twice,
+// the second copy turned 90 degrees, so it shows from any side.
+function crossed(list) {
+    return [list, { ...list, ops: [...(list.ops ?? []), ['ry', Math.PI / 2]] }];
+}
+
+// z_fishing.c sPondPropInits: type (r reed, p wood post, l lily pad, k rock)
+// and world position of each prop Fishing_DrawPondProps draws.
+const OOT_FISHING_PROPS = (
+    'k529,-53,-498 k461,-66,-480 k398,-73,-474 k-226,-52,-691 k-300,-41,-710 k-333,-50,-643 k-387,-46,-632 ' +
+    'k-484,-43,-596 k-409,-57,-560 p444,-87,-322 p447,-91,-274 p395,-109,-189 r617,-29,646 r698,-26,584 ' +
+    'r711,-29,501 r757,-28,457 r812,-29,341 r856,-30,235 r847,-31,83 r900,-26,119 l861,-22,137 l836,-22,150 ' +
+    'l829,-22,200 l788,-22,232 l803,-22,319 l756,-22,348 l731,-22,377 l700,-22,392 l706,-22,351 l677,-22,286 ' +
+    'l691,-22,250 l744,-22,290 l766,-22,201 l781,-22,128 l817,-22,46 l857,-22,-50 l724,-22,110 l723,-22,145 ' +
+    'l728,-22,202 l721,-22,237 l698,-22,312 l660,-22,349 l662,-22,388 l667,-22,432 l732,-22,429 l606,-22,366 ' +
+    'l604,-22,286 l620,-22,217 l663,-22,159 l682,-22,73 l777,-22,83 l766,-22,158 r1073,0,-876 r970,0,-853 ' +
+    'r896,0,-886 r646,-27,-651 r597,-29,-657 r547,-32,-651 r690,-29,-546 r720,-29,-490 r-756,-30,-409 ' +
+    'r-688,-34,-458 r-613,-34,-581 l-593,-22,-479 l-602,-22,-421 l-664,-22,-371 l-708,-22,-316 l-718,-22,-237 ' +
+    'r-807,-36,-183 r-856,-29,-259 l-814,-22,-317 l-759,-22,-384 l-718,-22,-441 l-474,-22,-567 l-519,-22,-517 ' +
+    'l-539,-22,-487 l-575,-22,-442 l-594,-22,-525 l-669,-22,-514 l-653,-22,-456 r-663,-28,-606 r-708,-26,-567 ' +
+    'r-739,-27,-506 r-752,-28,-464 r-709,-29,-513 l-544,-22,-436 l-559,-22,-397 l-616,-22,-353 l-712,-22,-368 ' +
+    'l-678,-22,-403 l-664,-22,-273 l-630,-22,-276 l-579,-22,-311 l-588,-22,-351 l-555,-22,-534 l-547,-22,-567 ' +
+    'l-592,-22,-571 l-541,-22,-610 l-476,-22,-629 l-439,-22,-598 l-412,-22,-550 l-411,-22,-606 l-370,-22,-634 ' +
+    'l-352,-22,-662 l-413,-22,-641 l-488,-22,-666 l-578,-22,-656 l-560,-22,-640 l-531,-22,-654 l-451,-22,-669 ' +
+    'l-439,-22,-699 l-482,-22,-719 l-524,-22,-720 l-569,-22,-714 r-520,-27,-727 r-572,-28,-686 r-588,-32,-631 ' +
+    'r-622,-34,-571 r-628,-36,-510 r-655,-36,-466 r-655,-41,-393 r-661,-47,-328 r-723,-40,-287 r-756,-33,-349 ' +
+    'r-755,-43,-210 l-770,-22,-281 l-750,-22,-313 l-736,-22,-341 l-620,-22,-418 l-601,-22,-371 l-635,-22,-383 ' +
+    'l-627,-22,-311 l-665,-22,-327 l-524,-22,-537 l-514,-22,-579 l-512,-22,-623 l-576,-22,-582 l-600,-22,-608 ' +
+    'l-657,-22,-531 l-641,-22,-547 '
+).trim().split(' ').map(s => [s[0], ...s.slice(1).split(',').map(Number)]);
+
+// z_en_bb.c EnBb_Init: a params with bit 7 set becomes params | 0xFF00.
+function enBbType(params) {
+    const p = (params & 0x80) ? (params | 0xFF00) : params;
+    return (p << 16) >> 16;
+}
+
+// gameplay_dangeon_keep textures Obj_Switch puts in segments 8 / 9.
+const OOT_GOLD_EYE_OPEN = 0xA8A0;   // gEyeSwitchGoldOpenTex
+const OOT_SILVER_EYE_OPEN = 0xB0A0; // gEyeSwitchSilverOpenTex
+const OOT_CRYSTAL_RED_TEX = 0x144B0; // gCrstalSwitchRedTex
+
+// z_en_light.c D_80A9E840: [prim rgb, env rgb] by params & 0xF.
+const OOT_LIGHT_COLOURS = [
+    [[255, 200, 0], [255, 0, 0]], [[255, 200, 0], [255, 0, 0]], [[0, 170, 255], [0, 0, 255]], [[170, 255, 0], [0, 150, 0]],
+    [[255, 200, 0], [255, 0, 0]], [[255, 200, 0], [255, 0, 0]], [[170, 255, 0], [0, 150, 0]], [[0, 170, 255], [0, 0, 255]],
+    [[255, 0, 170], [200, 0, 0]], [[255, 255, 170], [255, 50, 0]], [[255, 255, 170], [255, 255, 0]], [[255, 255, 170], [100, 255, 0]],
+    [[255, 170, 255], [255, 0, 100]], [[255, 170, 255], [100, 0, 255]], [[170, 255, 255], [0, 0, 255]], [[170, 255, 255], [0, 150, 255]],
+];
 
 const keep = (offset, layer = 'opa') => ({ file: 'gameplay_keep', offset, layer });
 
@@ -841,6 +1404,16 @@ function animSegments(segments, ref, dvs) {
     return segs;
 }
 
+// The segments a list is run with: one from another object than segment 6's
+// has that object swapped into segment 6.
+function otherObjectSegments(segments, l, dvs) {
+    if (fileSegment(l.file) !== SEG_OBJECT || l.vram != null || !dvs.get(l.file) || segments[SEG_OBJECT]?.key === l.file) return segments;
+    const segs = segments.slice();
+    segs.vram = segments.vram;
+    segs[SEG_OBJECT] = segmentFor(dvs.get(l.file), l);
+    return segs;
+}
+
 function animationFrame0(segments, ref, limbCount) {
     const hdr = resolveAddr(segments, refAddress(ref));
     if (!hdr || hdr.off + 0x10 > hdr.dv.byteLength) return null;
@@ -894,17 +1467,23 @@ function poseSkeleton(skel, joints, limbLists, root = null) {
         limbWorld[index] = world;
 
         // limbLists is keyed by the callback's limbIndex, which counts from 1.
-        const lists = limbLists?.[index + 1] ?? [];
+        // An empty list hides the limb (the callback's *dList = NULL).
+        const own = limbLists?.[index + 1];
+        const hidden = Array.isArray(own) && own.length === 0;
+        const lists = own ?? [];
         const replaced = lists.filter(l => !l.add);
-        if (replaced.length) {
-            for (const ref of replaced) items.push({ addr: refAddress(ref), matrix: world, layer: ref.layer ?? 'opa' });
+        if (hidden) {
+            // nothing drawn
+        } else if (replaced.length) {
+            for (const ref of replaced) items.push({ addr: refAddress(ref), matrix: world, layer: ref.layer ?? 'opa', ref });
         } else if (limb.dl) {
             items.push({ addr: limb.dl, matrix: world, layer: 'opa' });
         }
+        // A hidden limb still takes its flex matrix slot (SkelAnime_DrawFlexLimb).
         if (replaced.length || limb.dl) matrices.push(world);
         for (const ref of lists.filter(l => l.add)) {
             const ops = opsMatrix(ref.ops, [1, 1, 1]);
-            items.push({ addr: refAddress(ref), matrix: ops ? world.clone().multiply(ops) : world, layer: ref.layer ?? 'opa' });
+            items.push({ addr: refAddress(ref), matrix: ops ? world.clone().multiply(ops) : world, layer: ref.layer ?? 'opa', ref });
         }
         if (limb.child !== LIMB_DONE) visit(limb.child, world, false);
         if (!isRoot && limb.sibling !== LIMB_DONE) visit(limb.sibling, parent, false);
@@ -998,7 +1577,8 @@ function modelSpec(actorName, base, override, params, sceneName, scale, rot, kee
     // on the scale when a list is drawn without it (a "new" op).
     const rebuilt = [spec.skelOps, ...lists.map(l => l.ops)].some(ops => ops?.[0]?.[0] === 'new');
     const key = [actorName, skeleton ? `${skeleton.file}@${skeleton.offset}` : '-',
-                 spec.anim ? spec.anim.offset : '-', JSON.stringify(spec.skelOps ?? null), JSON.stringify(spec.limbLists ?? null), JSON.stringify(spec.attach ?? null), JSON.stringify(spec.animMat ?? null),
+                 spec.anim ? `${spec.anim.file}@${spec.anim.offset}` : '-', JSON.stringify(spec.skelOps ?? null),
+                 JSON.stringify(spec.segments ?? null), `${spec.skelPrim ?? ''}/${spec.skelEnv ?? ''}`, JSON.stringify(spec.limbLists ?? null), JSON.stringify(spec.attach ?? null), JSON.stringify(spec.animMat ?? null),
                  lists.map(l => `${l.file}@${l.offset}${l.layer === 'xlu' ? 'x' : ''}${l.ops ? JSON.stringify(l.ops) : ''}${l.prim ?? ''}${l.env ?? ''}${l.combine ?? ''}${l.primLod ?? ''}`).join(','),
                  rebuilt ? scale.join(',') : ''].join('|');
     return { spec, skeleton, anim: spec.anim ?? null, lists, segments: spec.segments ?? {},
@@ -1053,6 +1633,11 @@ function buildModel(model, ctx) {
                 segments[Number(seg)] = scrollSegment(ref.scroll);
                 continue;
             }
+            // A Gfx_PrimColor / Gfx_EnvColor list (colours 0-1).
+            if (ref.colour) {
+                segments[Number(seg)] = { colour: ref.colour };
+                continue;
+            }
             const dv = dvs.get(ref.file);
             if (dv) segments[Number(seg)] = { dv, base: ref.offset, key: `${ref.file}+${ref.offset}` };
         }
@@ -1072,8 +1657,12 @@ function buildModel(model, ctx) {
                 const joints = model.anim ? animationFrame0(animSegments(segments, model.anim, dvs), model.anim, skel.limbs.length) : null;
                 const posed = poseSkeleton(skel, joints, model.limbLists, opsMatrix(model.spec.skelOps, model.scale));
                 if (skel.flex) segments[SEG_FLEX_MATRICES] = { matrices: posed.matrices };
-                for (const item of posed.items) {
-                    lists[item.layer].push({ ...item, prim: model.spec.skelPrim, env: model.spec.skelEnv });
+                for (const { ref, ...item } of posed.items) {
+                    // A limb list from another object (the Kokiri shopkeeper's
+                    // head from object_masterkokirihead) runs with that object
+                    // in segment 6, and can carry its own prim / env.
+                    const segs = ref ? otherObjectSegments(segments, ref, dvs) : segments;
+                    lists[item.layer].push({ ...item, segments: segs, prim: ref?.prim ?? model.spec.skelPrim, env: ref?.env ?? model.spec.skelEnv });
                 }
                 // A second skeleton drawn from one of this one's limbs (a
                 // post-limb Matrix_Get the Draw re-roots it at: En_Mnk's
@@ -1095,12 +1684,7 @@ function buildModel(model, ctx) {
         // A list from another object (Bg_Mori_Hineri's chest from object_box)
         // is run with that object in segment 6, as the gSPSegment before it.
         for (const l of model.lists) {
-            let segs = segments;
-            if (fileSegment(l.file) === SEG_OBJECT && l.vram == null && dvs.get(l.file) && segments[SEG_OBJECT]?.key !== l.file) {
-                segs = segments.slice();
-                segs.vram = segments.vram;
-                segs[SEG_OBJECT] = segmentFor(dvs.get(l.file), l);
-            }
+            const segs = otherObjectSegments(segments, l, dvs);
             lists[l.layer === 'xlu' ? 'xlu' : 'opa'].push({ addr: refAddress(l), matrix: opsMatrix(l.ops, model.scale), segments: segs, prim: l.prim, env: l.env, combine: l.combine, primLod: l.primLod });
         }
 

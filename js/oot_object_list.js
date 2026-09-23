@@ -3023,7 +3023,7 @@ const OOT_Actor_Models = {
     0x184: {
         name: "En_Dy_Extra",
         object: "object_dy_obj",
-        scale: 0.025,
+        scaleUnknown: true,
         lists: [
             { file: "object_dy_obj", offset: 0x1C160, layer: "xlu", primLod: 128 } /* gGreatFairySpiralBeamDL */
         ],

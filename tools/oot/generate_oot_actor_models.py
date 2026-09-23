@@ -102,7 +102,8 @@ GAMES = {
     "OOT": {
         "decomp": "oot", "version": "ntsc-1.0", "table": "OOT_Actor_Models", "js": "oot_object_list.js",
         "overrides": "js/oot_actors.js",
-        "extra": ["object_gi_heart", "object_jya_door", "object_ganon_objects", "object_haka_door", "object_ouke_haka"],
+        "extra": ["object_gi_heart", "object_jya_door", "object_ganon_objects", "object_haka_door", "object_ouke_haka",
+                  "object_km1", "object_masterkokiri", "object_ds2", "object_rs", "object_masterzoora", "object_mastergolon", "object_os"],
     },
     "MM": {
         "decomp": "mm", "version": "n64-us", "table": "MM_Actor_Models", "js": "mm_object_list.js",
@@ -1106,7 +1107,8 @@ def find_scale(text, init_body):
     # A zero is a spawn-in / hidden state, never the size the actor is seen at.
     set_scale = [
         (r"Actor_SetScale\s*\([^,]+,\s*" + SCALE_LITERAL + r"\s*\)", literal_value),
-        (r"scale\.x\s*=\s*" + SCALE_LITERAL + r"\s*;", literal_value),
+        # the actor's own scale only, not another actor's (En_Fsn's shop items)
+        (r"(?:this->(?:dyna\.)?actor\.|thisx->)scale\.x\s*=\s*" + SCALE_LITERAL + r"\s*;", literal_value),
     ]
     init_chain = [
         (r"ICHAIN_VEC3F_DIV1000\s*\(\s*scale\s*,\s*(\d+)", lambda v: int(v) / 1000),
@@ -1505,6 +1507,7 @@ def main():
             entry["skeleton"] = ref
             if info["anim"]:
                 entry["anim"] = js_ref(symbols, info["anim"])
+                files.add(entry["anim"]["file"])  # may be another object (object_ganon_anime2)
             if info["skelOps"]:
                 entry["skelOps"] = info["skelOps"]
             for k, v in info["skelColors"].items():

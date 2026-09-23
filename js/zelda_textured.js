@@ -782,9 +782,10 @@ export function replayDisplayLists(lists, segments, light, caches) {
                     // MM's colour-animation segments stand for a
                     // "set prim (and env) colour" list (AnimatedMat_SetColor).
                     const colour = curSegments[(w1 >>> 24) & 0xF]?.colour;
+                    // OoT's Gfx_EnvColor lists are env only (no prim).
                     if (colour) {
-                        primLodFrac = colour.lodFrac;
-                        prim.splice(0, 4, ...colour.prim);
+                        if (colour.lodFrac != null) primLodFrac = colour.lodFrac;
+                        if (colour.prim) prim.splice(0, 4, ...colour.prim);
                         if (colour.env) env.splice(0, 4, ...colour.env);
                         invalidate();
                         break;
