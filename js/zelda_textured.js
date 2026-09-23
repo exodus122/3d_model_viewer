@@ -106,6 +106,7 @@ const BITS = [4, 8, 16, 32];
 
 // Colour-combiner input codes (a / b / c / d slots differ; see combinerInput)
 const CC_COMBINED = 0, CC_TEXEL0 = 1, CC_TEXEL1 = 2, CC_PRIM = 3, CC_SHADE = 4, CC_ENV = 5;
+const CC_A_ONE = 6, CC_C_ZERO = 31; // "1" in the a slot, "0" in the c slot
 
 // EnvLightSettings (include/environment.h): u8 ambient[3]; s8 light1Dir[3];
 // u8 light1Color[3]; s8 light2Dir[3]; u8 light2Color[3]; u8 fog[3]; s16; s16
@@ -594,6 +595,12 @@ export function replayDisplayLists(lists, segments, light, caches) {
         // both cycles (cycle 1 per texel, with the second tile's texel at
         // the same spot when it is the same size, else the first's) and the
         // vertex colour left white.
+        // (1 - X) * TEXEL0 + X: the texel lifts the colour X towards white
+        // (MM's fairy bubble over its rainbow vertex colours). A texture
+        // times a vertex colour can't do that, so the batch is marked and the
+        // shader blends it (makeZeldaMesh); the vertex colour is X.
+        const screen = screenInput();
+        if (layers.length === 1 && screen != null) return { layers, blend: null, bakedRGB: false, screen };
         let bakedRGB = false;
         if (layers.length && twoCycle() && mux[8] === CC_PRIM && mux[9] === CC_ENV && mux[10] === CC_COMBINED && mux[11] === CC_ENV
             && [0, 1, 2].some(k => Math.abs(prim[k] - env[k]) > 0.01)) {
@@ -602,25 +609,62 @@ export function replayDisplayLists(lists, segments, light, caches) {
             layers = [{ ...layers[0], tex: gradientBake(base, second) }];
             blend = null;
             bakedRGB = true;
+        } else if (layers.length === 1) {
+            // (A - B) * TEXEL0 + B with A, B the prim / env colours, the
+            // other cycle passing COMBINED through: the texel picks a colour
+            // between B and A (MM's stray fairies, env pink to prim white),
+            // which a texture times a vertex colour can't do -- baked.
+            const c1 = twoCycle() ? mux.slice(0, 4) : mux.slice(8, 12);
+            const pass = !twoCycle() || (mux[10] === CC_C_ZERO && mux[11] === CC_COMBINED);
+            const [a, b, c, d] = c1;
+            const pe = (code) => code === CC_PRIM || code === CC_ENV;
+            if (pass && c === CC_TEXEL0 && pe(a) && pe(b) && a !== b && d === b) {
+                const colourOf = (code) => (code === CC_PRIM ? prim : env);
+                layers = [{ ...layers[0], tex: lerpBake(layers[0].tex, colourOf(a), colourOf(b)) }];
+                bakedRGB = true;
+            }
         }
-        return { layers, blend, bakedRGB };
+        return { layers, blend, bakedRGB, screen: null };
+    };
+    // Each texel's colour as B + (A - B) * texel (see above).
+    const lerpBake = (t, A, B) => {
+        const key = t.key + '~lerp:' + A.slice(0, 3).map(x => x.toFixed(3)).join(',') + '/' + B.slice(0, 3).map(x => x.toFixed(3)).join(',');
+        let tex = caches.textures.get(key);
+        if (tex) return tex;
+        const rgba = new Uint8Array(t.rgba);
+        for (let i = 0; i < rgba.length; i += 4) {
+            for (let k = 0; k < 3; k++) rgba[i + k] = Math.round(clamp01(B[k] + (A[k] - B[k]) * (t.rgba[i + k] / 255)) * 255);
+        }
+        tex = { key, width: t.width, height: t.height, rgba };
+        caches.textures.set(key, tex);
+        return tex;
+    };
+    // The X of a colour mux (1 - X) * TEXEL0 + X in the cycle that reads the
+    // texel, the other cycle passing COMBINED through; null otherwise.
+    const screenInput = () => {
+        const c1 = twoCycle() ? mux.slice(0, 4) : mux.slice(8, 12);
+        if (twoCycle() && !(mux[10] === CC_C_ZERO && mux[11] === CC_COMBINED)) return null;
+        const [a, b, c, d] = c1;
+        return a === CC_A_ONE && c === CC_TEXEL0 && b === d && [CC_SHADE, CC_PRIM, CC_ENV].includes(d) ? d : null;
     };
     // Cycle 1's colour for one texel pair (texels as 0..1 [r, g, b, a]),
     // shade taken as white: the vertex colour is not part of the bake.
+    // k = 3 evaluates the alpha mux instead.
     const cycle1Texel = (k, tx0, tx1) => {
         const v = { combined: [0, 0, 0, 0], shade: [1, 1, 1, 1], prim, env, lodFrac: primLodFrac };
         const input = (slot, code) => {
             if (code === CC_TEXEL0) return tx0[k];
             if (code === CC_TEXEL1) return tx1[k];
-            if (slot === 'c' && code === 8) return tx0[3];
-            if (slot === 'c' && code === 9) return tx1[3];
+            if (k < 3 && slot === 'c' && code === 8) return tx0[3];
+            if (k < 3 && slot === 'c' && code === 9) return tx1[3];
             return combinerInput(slot, code, k, v);
         };
-        return clamp01((input('a', mux[0]) - input('b', mux[1])) * input('c', mux[2]) + input('d', mux[3]));
+        const m = k < 3 ? 0 : 4;
+        return clamp01((input('a', mux[m]) - input('b', mux[m + 1])) * input('c', mux[m + 2]) + input('d', mux[m + 3]));
     };
     const gradientBake = (t, t1 = t) => {
         const key = t.key + '|' + t1.key + '~grad:' + prim.map(x => x.toFixed(3)).join(',') + '/' + env.slice(0, 3).map(x => x.toFixed(3)).join(',')
-            + '/' + mux.slice(0, 4).join(',') + '/' + primLodFrac.toFixed(3);
+            + '/' + mux.slice(0, 8).join(',') + '/' + primLodFrac.toFixed(3);
         let tex = caches.textures.get(key);
         if (tex) return tex;
         const rgba = new Uint8Array(t.rgba);
@@ -631,6 +675,10 @@ export function replayDisplayLists(lists, segments, light, caches) {
                 const c = cycle1Texel(k, tx0, tx1);
                 rgba[i + k] = Math.round(clamp01(env[k] + c * (prim[k] - env[k])) * 255);
             }
+            // Cycle 1's alpha too (Obj_Fireshield's (TEXEL1 - 1) * PRIM_LOD_FRAC
+            // + TEXEL0 cuts the flame's holes); cycle 2 alpha, a multiple of
+            // COMBINED, is left to the vertex alpha.
+            rgba[i + 3] = Math.round(cycle1Texel(3, tx0, tx1) * 255);
         }
         tex = { key, width: t.width, height: t.height, rgba };
         caches.textures.set(key, tex);
@@ -643,7 +691,7 @@ export function replayDisplayLists(lists, segments, light, caches) {
     const layerKey = (l) => `${l.tex.key}:${l.wrapS}:${l.wrapT}:${l.repeat.map(x => x.toPrecision(6)).join(',')}:${l.offset.map(x => x.toPrecision(6)).join(',')}`;
     const batchFor = () => {
         if (batchState) return batchState;
-        const { layers, blend, bakedRGB } = currentLayers();
+        const { layers, blend, bakedRGB, screen } = currentLayers();
         const cull = (geometryMode & G_CULL_BACK) ? ((geometryMode & G_CULL_FRONT) ? 'none' : 'back')
                    : ((geometryMode & G_CULL_FRONT) ? 'front' : 'double');
         const translucent = (othermodeL & FORCE_BL) !== 0;
@@ -651,10 +699,10 @@ export function replayDisplayLists(lists, segments, light, caches) {
         const decal = (othermodeL & ZMODE_MASK) === ZMODE_DEC;
         const texEdge = (othermodeL & CVG_X_ALPHA) !== 0;
         const key = [layers.map(layerKey).join('~'), blend ? blend.mode + blend.factor.map(x => x.toFixed(3)).join(',') : '-',
-                     cull, translucent ? 1 : 0, depthWrite ? 1 : 0, decal ? 1 : 0, texEdge ? 1 : 0, bakedRGB ? 'g' : ''].join('|');
+                     cull, translucent ? 1 : 0, depthWrite ? 1 : 0, decal ? 1 : 0, texEdge ? 1 : 0, bakedRGB ? 'g' : '', screen != null ? 's' + screen : ''].join('|');
         let b = batches.get(key);
         if (!b) {
-            b = { layers, blend, cull, translucent, depthWrite, decal, texEdge, bakedRGB, positions: [], uvs: [], colors: [] };
+            b = { layers, blend, cull, translucent, depthWrite, decal, texEdge, bakedRGB, screen, positions: [], uvs: [], colors: [] };
             batches.set(key, b);
         }
         batchState = { batch: b, textured: layers.length > 0 };
@@ -709,6 +757,10 @@ export function replayDisplayLists(lists, segments, light, caches) {
             }
             const shade = shadeOf(dv, o, lit, nrm);
             const c = evalCombiner(mux, { shade, prim, env, lodFrac: primLodFrac }, cyc2);
+            if (batch.screen != null) {
+                const v = { combined: [0, 0, 0, 0], shade, prim, env, lodFrac: primLodFrac };
+                for (let k = 0; k < 3; k++) c[k] = combinerInput('d', batch.screen, k, v);
+            }
             if (batch.bakedRGB) batch.colors.push(1, 1, 1, c[3]);
             else batch.colors.push(srgbToLinear(c[0]), srgbToLinear(c[1]), srgbToLinear(c[2]), c[3]);
         }
@@ -986,6 +1038,19 @@ function patchTwoLayers(material, layer0, layer1, tex1, blend) {
     material.customProgramCacheKey = () => 'zelda2layer:' + blend.mode;
 }
 
+// (1 - X) * TEXEL0 + X with X in the vertex colour: the texel screens the
+// vertex colour towards white instead of multiplying it.
+function patchScreen(material) {
+    material.onBeforeCompile = (shader) => {
+        shader.fragmentShader = shader.fragmentShader
+            .replace('#include <map_fragment>', 'vec4 screenTexel = texture2D( map, vMapUv );')
+            .replace('#include <color_fragment>',
+                'diffuseColor.rgb *= vColor.rgb + ( 1.0 - vColor.rgb ) * screenTexel.rgb;\n' +
+                'diffuseColor.a *= vColor.a * screenTexel.a;');
+    };
+    material.customProgramCacheKey = () => 'zeldaScreen';
+}
+
 /**
  * One three.js mesh from replayed batches: a geometry group and a material
  * per batch. options.polygonOffset (default ROOM_POLYGON_OFFSET) sets the
@@ -1020,6 +1085,7 @@ export function makeZeldaMesh(batches, caches, options = {}) {
             polygonOffsetUnits: batch.decal ? -1 : polygonOffset,
         });
         if (batch.cull === 'none') material.visible = false; // G_CULL_BOTH draws nothing
+        if (batch.screen != null) patchScreen(material);
         if (batch.layers.length) {
             material.map = layerTexture(batch.layers[0], caches);
             if (batch.layers.length > 1) {

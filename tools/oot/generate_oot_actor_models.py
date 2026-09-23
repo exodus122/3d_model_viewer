@@ -111,7 +111,9 @@ GAMES = {
                   "object_wdor02", "object_wdor03", "object_wdor04", "object_wdor05", "object_kaizoku_obj",
                   "object_kinsta2_obj", "object_bdoor", "object_hakugin_obj", "object_dblue_object",
                   "object_ikana_obj", "object_redead_obj", "object_ikninside_obj", "object_random_obj",
-                  "object_kinsta1_obj", "object_last_obj", "object_danpei_object", "object_bombiwa", "object_bombf"],
+                  "object_kinsta1_obj", "object_last_obj", "object_danpei_object", "object_bombiwa", "object_bombf",
+                  "object_mastergolon", "object_masterzoora", "object_rsn", "object_zo", "object_oF1d_map",
+                  "object_mnk", "object_snowman", "object_az", "object_dekubaba", "object_mtoride"],
     },
 }
 
@@ -271,6 +273,10 @@ def static_arrays(text, symbols):
     return arrays
 
 
+# {draw function: lists} for the entries of a draw-function table, set per
+# actor by read_actor.
+draw_fn_lists = {}
+
 # {array name: [{field: token}, ...]} for the file's struct array
 # initializers whose struct typedef it can read (sBoeModelInfo[i].modelDL);
 # set per actor by read_actor.
@@ -317,11 +323,17 @@ def assignments(text):
 
 
 # An index expression on the actor's params, as (shift, mask).
+_N = r"(0x[0-9A-Fa-f]+|\d+)"
 PARAM_INDEX = [
     (re.compile(r"PARAMS_GET_[US]\(\s*[^,]*params[^,]*,\s*(\d+)\s*,\s*(\d+)\s*\)"), lambda m: (int(m.group(1)), (1 << int(m.group(2))) - 1)),
     (re.compile(r"PARAMS_GET_NOMASK\(\s*[^,]*params[^,]*,\s*(\d+)\s*\)"), lambda m: (int(m.group(1)), 0xFFFF >> int(m.group(1)))),
-    (re.compile(r"\(?\s*[\w>.()-]*params\)?\s*>>\s*(\d+)\s*\)?\s*&\s*(0x[0-9A-Fa-f]+|\d+)"), lambda m: (int(m.group(1)), int(m.group(2), 0))),
-    (re.compile(r"[\w>.()-]*params\)?\s*&\s*(0x[0-9A-Fa-f]+|\d+)"), lambda m: (0, int(m.group(1), 0))),
+    # (params >> 12) & 0xF
+    (re.compile(r"\(?\s*[\w>.()-]*params\)?\s*>>\s*" + _N + r"\s*\)?\s*&\s*" + _N), lambda m: (int(m.group(1), 0), int(m.group(2), 0))),
+    # (params & 0xF000) >> 12 -- MM writes the mask first
+    (re.compile(r"[\w>.()-]*params\)?\s*&\s*" + _N + r"\s*\)?\s*>>\s*" + _N), lambda m: (int(m.group(2), 0), int(m.group(1), 0) >> int(m.group(2), 0))),
+    (re.compile(r"[\w>.()-]*params\)?\s*&\s*" + _N), lambda m: (0, int(m.group(1), 0))),
+    # params >> 0xC with no mask: the rest of the word
+    (re.compile(r"[\w>.()-]*params\)?\s*>>\s*" + _N), lambda m: (int(m.group(1), 0), 0xFFFF >> int(m.group(1), 0))),
 ]
 
 
@@ -466,6 +478,12 @@ def literal_number(expr):
     return float(m.group(1)) if m else None
 
 
+def literal_color(expr):
+    """A colour / LOD-fraction byte: a decimal or hex literal (gDPSetPrimColor(.., 0x80, 0x80, ..)), or None."""
+    m = re.match(r"^\s*0x([0-9A-Fa-f]+)\s*$", expr)
+    return float(int(m.group(1), 16)) if m else literal_number(expr)
+
+
 def literal_angle(expr):
     """An angle in radians from a literal, M_PI expression or BINANG_TO_RAD(literal), or None."""
     expr = expr.strip()
@@ -560,16 +578,16 @@ def colors_before(body, pos):
     for m in COLOR_RX.finditer(body[:pos]):
         args = split_args(m.group(2))
         if m.group(1) == "SetPrimColor":
-            lod = literal_number(args[1]) if len(args) > 1 else None
+            lod = literal_color(args[1]) if len(args) > 1 else None
             if lod:
                 out["primLod"] = int(lod)
             args = args[2:]
         if len(args) != 4:
             continue
-        rgb = [literal_number(a) for a in args[:3]]
+        rgb = [literal_color(a) for a in args[:3]]
         if None in rgb:
             continue
-        alpha = literal_number(args[3])
+        alpha = literal_color(args[3])
         out["prim" if m.group(1) == "SetPrimColor" else "env"] = [int(v) for v in rgb] + [int(alpha) if alpha is not None else 255]
     return out
 
@@ -859,11 +877,18 @@ def lists_in(text, body, arrays, symbols, functions, seen):
         if items and all(fn in functions for fn in items):
             variants = []
             for fn in items:
+                # A function listed twice (Obj_Switch's crystal switch for
+                # types 3 and 4) draws the same for both; one being visited
+                # higher up the call chain draws nothing more here.
+                if fn in draw_fn_lists:
+                    variants.append([dict(x) for x in draw_fn_lists[fn]])
+                    continue
                 if fn in seen:
                     variants.append([])
                     continue
                 seen.add(fn)
-                variants.append(lists_in(text, function_body(text, fn), arrays, symbols, functions, seen))
+                draw_fn_lists[fn] = lists_in(text, function_body(text, fn), arrays, symbols, functions, seen)
+                variants.append([dict(x) for x in draw_fn_lists[fn]])
             lists.extend(tagged([{"variants": variants, "select": index_selector(m.group(2), functions.assigned)}], m.start()))
     for m in re.finditer(r"\b(\w+)\s*\(", body):
         fn = m.group(1)
@@ -1079,13 +1104,18 @@ def find_scale(text, init_body):
     file (a setup function Init calls).
     """
     # A zero is a spawn-in / hidden state, never the size the actor is seen at.
-    for body in (init_body, text):
-        for rx, conv in (
-            (r"Actor_SetScale\s*\([^,]+,\s*" + SCALE_LITERAL + r"\s*\)", literal_value),
-            (r"scale\.x\s*=\s*" + SCALE_LITERAL + r"\s*;", literal_value),
-            (r"ICHAIN_VEC3F_DIV1000\s*\(\s*scale\s*,\s*(\d+)", lambda v: int(v) / 1000),
-            (r"ICHAIN_VEC3F\s*\(\s*scale\s*,\s*" + SCALE_LITERAL, literal_value),
-        ):
+    set_scale = [
+        (r"Actor_SetScale\s*\([^,]+,\s*" + SCALE_LITERAL + r"\s*\)", literal_value),
+        (r"scale\.x\s*=\s*" + SCALE_LITERAL + r"\s*;", literal_value),
+    ]
+    init_chain = [
+        (r"ICHAIN_VEC3F_DIV1000\s*\(\s*scale\s*,\s*(\d+)", lambda v: int(v) / 1000),
+        (r"ICHAIN_VEC3F\s*\(\s*scale\s*,\s*" + SCALE_LITERAL, literal_value),
+    ]
+    # Init's own store, then the init chain, and only then a store anywhere
+    # in the file (Obj_Mine's 0.02 is its explosion's, not its size).
+    for body, patterns in ((init_body, set_scale), (text, init_chain), (text, set_scale)):
+        for rx, conv in patterns:
             for m in re.finditer(rx, body):
                 v = conv(m.group(1))
                 if v:
@@ -1231,7 +1261,7 @@ def find_segments(draw_body, arrays, symbols, text=None, object_table=None):
             obj = object_table.get(slots.get(m.group(2)))
             if obj and seg not in segs:
                 segs[seg] = ("object", obj[1])
-    for m in re.finditer(r"gSPSegment\s*\(\s*POLY_(?:OPA|XLU)_DISP\+\+\s*,\s*(0x0?[89A-Fa-f]|\d+)\s*,\s*(?:SEGMENTED_TO_VIRTUAL|Lib_SegmentedToVirtual)\s*\(\s*(\w+)(\[[^\]]*\])?\s*\)\s*\)", draw_body):
+    for m in re.finditer(r"gSPSegment\s*\(\s*POLY_(?:OPA|XLU)_DISP\+\+\s*,\s*(0x0?[89A-Fa-f]|\d+)\s*,\s*(?:SEGMENTED_TO_VIRTUAL|SEGMENTED_TO_K0|Lib_SegmentedToVirtual)\s*\(\s*(\w+)(\[[^\]]*\])?\s*\)\s*\)", draw_body):
         seg = int(m.group(1), 0)
         sym = m.group(2)
         if m.group(3):
@@ -1241,6 +1271,34 @@ def find_segments(draw_body, arrays, symbols, text=None, object_table=None):
         if sym in symbols and symbols[sym]["kind"] == "Texture" and seg not in segs:
             segs[seg] = sym
     return segs
+
+
+ANIM_MAT_RX = re.compile(r"AnimatedMat_Draw\w*\s*\(\s*play\w*\s*,\s*(?:Lib_SegmentedToVirtual\s*\(\s*)?&?(\w+(?:\s*->\s*\w+)?)")
+
+
+def find_anim_mat(body, arrays, symbols, assigned):
+    """
+    MM: the TextureAnimation (AnimatedMaterial list) the Draw applies first
+    with AnimatedMat_Draw* -- a symbol, an array's first entry, or a member
+    Init points at one. None when there is none.
+    """
+    is_mat = lambda t: t in symbols and symbols[t]["kind"] == "TextureAnimation"
+    for m in ANIM_MAT_RX.finditer(body):
+        expr = m.group(1)
+        name = re.sub(r"^\w+\s*->\s*", "", expr)
+        cands = [expr] if "->" not in expr else []
+        if name in arrays:
+            cands.append(arrays[name][0])
+        for rhs in assigned.get(name, []):
+            sm = re.search(r"&?(\w+)\s*\)?\s*$", rhs)
+            if sm:
+                cands.append(sm.group(1))
+        for c in cands:
+            if c in arrays:
+                c = arrays[c][0]
+            if is_mat(c):
+                return c
+    return None
 
 
 def header_text(oot, name):
@@ -1303,6 +1361,8 @@ def read_actor(oot, name, symbols, object_table, internal, version):
     arrays = static_arrays(text, symbols)
     global struct_fields
     struct_fields = struct_arrays(text)
+    global draw_fn_lists
+    draw_fn_lists = {}
     init_body = function_body(text, init_fn) if init_fn != "NULL" else ""
 
     # Many actors leave the profile's draw NULL and install one once their
@@ -1343,7 +1403,9 @@ def read_actor(oot, name, symbols, object_table, internal, version):
         for seg, tiles in find_scroll_segments(helper_body).items():
             segs.setdefault(seg, ("scroll", tiles))
 
+    anim_mat = find_anim_mat(draw_body + "\n" + helper_body, arrays, symbols, functions.assigned) if draw_body else None
     return {
+        "animMat": anim_mat,
         "object": obj[1] if obj else None,
         "objectId": obj[0] if obj else None,
         "scale": find_scale(text, init_body),
@@ -1495,6 +1557,9 @@ def main():
                     refs.append(ref)
                     files.add(ref["file"])
                 entry["limbLists"][idx] = refs
+        if info.get("animMat"):
+            entry["animMat"] = js_ref(symbols, info["animMat"])
+            files.add(entry["animMat"]["file"])
         if info["segments"]:
             entry["segments"] = {}
             for seg, sym in info["segments"].items():
@@ -1537,7 +1602,8 @@ def main():
         "// the Draw issues before it, [r, g, b, a]. when: the params tests of the",
         "// if / switch branches the list sits in (all must hold): [shift, mask, op,",
         "// value] or { any | all | not }. A limb list with add: true is drawn after",
-        "// the limb's own list rather than in its place.",
+        "// the limb's own list rather than in its place. animMat (MM): the",
+        "// AnimatedMaterial list the Draw applies (AnimatedMat_Draw*), drawn at step 0.",
         "// Files are",
         "// models/%s/actors/objects/<file> or, with a vram, .../overlays/<file>." % game,
         "// %s applies its own overrides on top of this." % cfg["overrides"],
@@ -1565,6 +1631,8 @@ def main():
             parts.append("lists: [\n            " + ",\n            ".join(fmt_list(l) for l in e["lists"]) + "\n        ]")
         if "limbLists" in e:
             parts.append("limbLists: { " + ", ".join("%d: [%s]" % (idx, ", ".join(fmt_list(r) for r in refs)) for idx, refs in e["limbLists"].items()) + " }")
+        if "animMat" in e:
+            parts.append("animMat: " + fmt_ref(e["animMat"]))
         if "segments" in e:
             parts.append("segments: { " + ", ".join("0x%02X: %s" % (seg, fmt_ref(r)) for seg, r in sorted(e["segments"].items())) + " }")
         lines.append("    0x%03X: {\n        %s\n    }," % (actor_id, ",\n        ".join(parts)))

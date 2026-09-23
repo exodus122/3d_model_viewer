@@ -73,8 +73,8 @@ const wireframeCheckbox = document.getElementById('wireframe');
 ////////////////////////////////////////
 //
 // Keyed by actor name. Each entry can set: scale (number, [x, y, z] or a
-// function of (params, sceneName)), yOffset (number or a function of params), model (a
-// function of (params, sceneName, minedSpec, spawnRot, keepFile) returning a model spec
+// function of (params, sceneName, spawnRot)), yOffset (number or a function of params), model (a
+// function of (params, sceneName, minedSpec, spawnRot, keepFile, room) returning a model spec
 // to use instead of the mined one, or null for a marker), rot (a function of
 // (rot, params) returning the shape.rot the actor's Init sets), place (a
 // function of (instance, sceneCollision) returning { position?, rot? } for
@@ -83,8 +83,9 @@ const wireframeCheckbox = document.getElementById('wireframe');
 // the spawns to draw instead -- an Init that spawns a copy of itself), and
 // marker: true to force the marker.
 //
-// A model spec is { object, skeleton?, anim?, lists?, segments?, limbLists? }
-// as generated, with limbLists: { limbIndex: [list refs] } for lists a limb
+// A model spec is { object, skeleton?, anim?, lists?, segments?, limbLists?,
+// attach? } as generated (attach: { limb, skeleton, anim } is a second
+// skeleton posed at that limb of the first, 1-based), with limbLists: { limbIndex: [list refs] } for lists a limb
 // callback draws in place of a limb's own, or after it with add: true
 // (limbIndex as the callback sees it, counting from 1), and a segment
 // { matrices: [ops] } for an Mtx array the Draw builds (En_Rr).
@@ -717,6 +718,55 @@ function resolveAddr(segments, addr) {
     return (off >= 0 && off < seg.dv.byteLength) ? { dv: seg.dv, off } : null;
 }
 
+// MM AnimatedMaterial list { s8 segment; s16 type; void* params }, 8 bytes
+// each, ending after the entry with a negative segment; the segment set is
+// |segment| + 7. At step 0 (AnimatedMat_Draw*): a colour keyframe list sets
+// its first prim / env colour, a texture cycle its first texture, a scroll
+// the tile sizes (the offsets start at 0).
+const ANIM_MAT_TEX_SCROLL = 0, ANIM_MAT_TWO_TEX_SCROLL = 1, ANIM_MAT_TEX_CYCLE = 5;
+function animMatSegments(segments, ref) {
+    const out = {};
+    const list = resolveAddr(segments, refAddress(ref));
+    if (!list) return out;
+    for (let i = 0; i < 16; i++) {
+        const o = list.off + i * 8;
+        if (o + 8 > list.dv.byteLength) break;
+        const segByte = list.dv.getInt8(o), type = list.dv.getInt16(o + 2, false);
+        const params = resolveAddr(segments, list.dv.getUint32(o + 4, false));
+        const seg = Math.abs(segByte) + 7;
+        if (params) {
+            const d = params.dv, p = params.off;
+            if (type === ANIM_MAT_TEX_SCROLL || type === ANIM_MAT_TWO_TEX_SCROLL) {
+                // AnimatedMatTexScrollParams { s8 xStep, yStep; u8 width, height } (one or two)
+                const tiles = [[0, d.getUint8(p + 2), d.getUint8(p + 3)]];
+                if (type === ANIM_MAT_TWO_TEX_SCROLL) tiles.push([1, d.getUint8(p + 6), d.getUint8(p + 7)]);
+                out[seg] = scrollSegment(tiles);
+            } else if (type >= 2 && type <= 4) {
+                // AnimatedMatColorParams { u16 keyFrameLength, keyFrameCount; F3DPrimColor* prim; F3DEnvColor* env; u16* keyFrames }
+                const prim = resolveAddr(segments, d.getUint32(p + 4, false));
+                const envAddr = d.getUint32(p + 8, false);
+                const env = envAddr ? resolveAddr(segments, envAddr) : null;
+                if (prim) {
+                    const c = (r, k) => r.dv.getUint8(r.off + k) / 255;
+                    out[seg] = { colour: {
+                        prim: [c(prim, 0), c(prim, 1), c(prim, 2), c(prim, 3)],
+                        lodFrac: prim.dv.getUint8(prim.off + 4) / 256,
+                        env: env ? [c(env, 0), c(env, 1), c(env, 2), c(env, 3)] : null,
+                    } };
+                }
+            } else if (type === ANIM_MAT_TEX_CYCLE) {
+                // AnimatedMatTexCycleParams { u16 keyFrameLength; TexturePtr* textureList; u8* textureIndexList }
+                const texList = resolveAddr(segments, d.getUint32(p + 4, false));
+                const idx = resolveAddr(segments, d.getUint32(p + 8, false));
+                const tex = texList && idx ? resolveAddr(segments, texList.dv.getUint32(texList.off + idx.dv.getUint8(idx.off) * 4, false)) : null;
+                if (tex) out[seg] = { dv: tex.dv, base: tex.off, key: `animmat+${tex.off}` };
+            }
+        }
+        if (segByte <= 0) break;
+    }
+    return out;
+}
+
 ////////////////////////////////////////
 // Skeletons
 ////////////////////////////////////////
@@ -780,6 +830,17 @@ function parseSkeleton(segments, ref) {
  * table [[x, y, z] ...] with entry 0 the root translation and entry i + 1
  * limb i's rotation (binang), as SkelAnime_AnimateFrame fills it.
  */
+// The segments an animation is read with: one in another object than the
+// skeleton's (MM's shopkeepers play object_mastergolon's on gGoronSkel) is
+// in segment 6 while it plays, as the game swaps it in.
+function animSegments(segments, ref, dvs) {
+    if (ref.vram != null || fileSegment(ref.file) !== SEG_OBJECT || segments[SEG_OBJECT]?.key === ref.file || !dvs.get(ref.file)) return segments;
+    const segs = segments.slice();
+    segs.vram = segments.vram;
+    segs[SEG_OBJECT] = segmentFor(dvs.get(ref.file), ref);
+    return segs;
+}
+
 function animationFrame0(segments, ref, limbCount) {
     const hdr = resolveAddr(segments, refAddress(ref));
     if (!hdr || hdr.off + 0x10 > hdr.dv.byteLength) return null;
@@ -815,6 +876,7 @@ function animationFrame0(segments, ref, limbCount) {
 function poseSkeleton(skel, joints, limbLists, root = null) {
     const items = [];
     const matrices = [];
+    const limbWorld = []; // every limb's matrix, by limb index
     const euler = new THREE.Euler();
     const local = new THREE.Matrix4();
     const pos = new THREE.Vector3();
@@ -829,6 +891,7 @@ function poseSkeleton(skel, joints, limbLists, root = null) {
         local.makeRotationFromEuler(euler);
         local.setPosition(pos.set(t[0], t[1], t[2]));
         const world = parent ? parent.clone().multiply(local) : (root ? root.clone().multiply(local) : local.clone());
+        limbWorld[index] = world;
 
         // limbLists is keyed by the callback's limbIndex, which counts from 1.
         const lists = limbLists?.[index + 1] ?? [];
@@ -847,7 +910,7 @@ function poseSkeleton(skel, joints, limbLists, root = null) {
         if (!isRoot && limb.sibling !== LIMB_DONE) visit(limb.sibling, parent, false);
     };
     visit(0, null, true);
-    return { items, matrices };
+    return { items, matrices, limbWorld };
 }
 
 ////////////////////////////////////////
@@ -895,9 +958,9 @@ function selectLists(lists, params) {
     return out;
 }
 
-function scaleOf(spec, override, params, sceneName) {
+function scaleOf(spec, override, params, sceneName, rot) {
     let s = override?.scale ?? spec?.scale ?? DEFAULT_SCALE;
-    if (typeof s === 'function') s = s(params, sceneName);
+    if (typeof s === 'function') s = s(params, sceneName, rot);
     return Array.isArray(s) ? s : [s, s, s];
 }
 
@@ -905,10 +968,10 @@ function scaleOf(spec, override, params, sceneName) {
  * Everything needed to draw an actor at these params: the object file
  * set, the posed lists and a cache key. Null when the actor has no model.
  */
-function modelSpec(actorName, base, override, params, sceneName, scale, rot, keepFile) {
+function modelSpec(actorName, base, override, params, sceneName, scale, rot, keepFile, room) {
     if (override?.marker) return null;
     let spec = base;
-    if (override?.model) spec = override.model(params, sceneName, base, rot, keepFile);
+    if (override?.model) spec = override.model(params, sceneName, base, rot, keepFile, room);
     if (!spec) return null;
     if (override?.lists) spec = { ...spec, lists: override.lists };
     if (override?.limbLists) spec = { ...spec, limbLists: override.limbLists };
@@ -928,12 +991,14 @@ function modelSpec(actorName, base, override, params, sceneName, scale, rot, kee
     for (const l of lists) files.add(l.file);
     for (const s of Object.values(spec.segments ?? {})) if (s.file) files.add(s.file);
     for (const ls of Object.values(spec.limbLists ?? {})) for (const l of ls) files.add(l.file);
+    if (spec.attach) for (const r of [spec.attach.skeleton, spec.attach.anim]) if (r) files.add(r.file);
+    if (spec.animMat) files.add(spec.animMat.file);
 
     // Geometry is shared between instances through the key; it only depends
     // on the scale when a list is drawn without it (a "new" op).
     const rebuilt = [spec.skelOps, ...lists.map(l => l.ops)].some(ops => ops?.[0]?.[0] === 'new');
     const key = [actorName, skeleton ? `${skeleton.file}@${skeleton.offset}` : '-',
-                 spec.anim ? spec.anim.offset : '-', JSON.stringify(spec.skelOps ?? null), JSON.stringify(spec.limbLists ?? null),
+                 spec.anim ? spec.anim.offset : '-', JSON.stringify(spec.skelOps ?? null), JSON.stringify(spec.limbLists ?? null), JSON.stringify(spec.attach ?? null), JSON.stringify(spec.animMat ?? null),
                  lists.map(l => `${l.file}@${l.offset}${l.layer === 'xlu' ? 'x' : ''}${l.ops ? JSON.stringify(l.ops) : ''}${l.prim ?? ''}${l.env ?? ''}${l.combine ?? ''}${l.primLod ?? ''}`).join(','),
                  rebuilt ? scale.join(',') : ''].join('|');
     return { spec, skeleton, anim: spec.anim ?? null, lists, segments: spec.segments ?? {},
@@ -992,16 +1057,38 @@ function buildModel(model, ctx) {
             if (dv) segments[Number(seg)] = { dv, base: ref.offset, key: `${ref.file}+${ref.offset}` };
         }
         if (!segments[SEG_OBJECT] && !segments.vram && !model.lists.length && !model.skeleton) return null;
+        // MM: the AnimatedMaterial the Draw applies, for segments the spec
+        // does not set itself.
+        if (model.spec.animMat) {
+            for (const [seg, v] of Object.entries(animMatSegments(segments, model.spec.animMat))) {
+                if (!model.segments[seg]) segments[Number(seg)] = v;
+            }
+        }
 
         const lists = { opa: [], xlu: [] };
         if (model.skeleton) {
             const skel = parseSkeleton(segments, model.skeleton);
             if (skel) {
-                const joints = model.anim ? animationFrame0(segments, model.anim, skel.limbs.length) : null;
+                const joints = model.anim ? animationFrame0(animSegments(segments, model.anim, dvs), model.anim, skel.limbs.length) : null;
                 const posed = poseSkeleton(skel, joints, model.limbLists, opsMatrix(model.spec.skelOps, model.scale));
                 if (skel.flex) segments[SEG_FLEX_MATRICES] = { matrices: posed.matrices };
                 for (const item of posed.items) {
                     lists[item.layer].push({ ...item, prim: model.spec.skelPrim, env: model.spec.skelEnv });
+                }
+                // A second skeleton drawn from one of this one's limbs (a
+                // post-limb Matrix_Get the Draw re-roots it at: En_Mnk's
+                // monkey on its pole). Its flex matrices get their own
+                // segment 0xD, so its items carry their own segment table.
+                const attach = model.spec.attach;
+                const at = attach && posed.limbWorld[attach.limb - 1];
+                const skel2 = at && parseSkeleton(segments, attach.skeleton);
+                if (skel2) {
+                    const joints2 = attach.anim ? animationFrame0(animSegments(segments, attach.anim, dvs), attach.anim, skel2.limbs.length) : null;
+                    const posed2 = poseSkeleton(skel2, joints2, null, at);
+                    const segs2 = segments.slice();
+                    segs2.vram = segments.vram;
+                    if (skel2.flex) segs2[SEG_FLEX_MATRICES] = { matrices: posed2.matrices };
+                    for (const item of posed2.items) lists[item.layer].push({ ...item, segments: segs2 });
                 }
             }
         }
@@ -1157,8 +1244,8 @@ export async function renderOOTActors(scene, sceneBuffer, sceneName, game = 'OOT
         // this file's own rot override.
         const initRot = actorShapeRot(name, spawn, game, sceneName);
         const rot = override?.rot ? override.rot(initRot, spawn.params) : initRot;
-        const scale = scaleOf(base, override, spawn.params, sceneName);
-        const model = base ? modelSpec(name, base, override, spawn.params, sceneName, scale, spawn.rot, keepFile) : null;
+        const scale = scaleOf(base, override, spawn.params, sceneName, spawn.rot);
+        const model = base ? modelSpec(name, base, override, spawn.params, sceneName, scale, spawn.rot, keepFile, roomIndex) : null;
         const inst = {
             actorId: spawn.actorId, name, params: spawn.params, room: roomIndex,
             position: spawn.position, rot, rotRaw: spawn.rotRaw,
