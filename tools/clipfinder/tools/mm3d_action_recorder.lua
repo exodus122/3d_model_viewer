@@ -13,7 +13,7 @@
 -- Record can be pressed again (each take replaces the last for that action).
 -- "Record all" does every action of Link's form, one after another.
 --
--- What it writes, in tools\clipfinder\mm3d_actions\ (next to this script):
+-- What it writes, in tools\clipfinder\tools\mm3d_actions\ (next to this script):
 --   <key>.json      the rows clipfinder reads (see below)
 --   <key>_log.txt   every emulated frame's raw values, for checking
 --

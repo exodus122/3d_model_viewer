@@ -29,19 +29,19 @@ ACTIONS has them: one per game frame from the one after the attack starts
 Check: `--check` rebuilds MM's 1h slash table (normal_kiru, unk_D 4) and
 compares it with ACTIONS'.
 
-usage: gen_mm_attack_frames.py [--check] [path/to/mm]   (default ../../../mm)
+usage: gen_mm_attack_frames.py [--check] [path/to/mm]   (default ../../../../mm)
 """
 import os, re, sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 args = [a for a in sys.argv[1:] if not a.startswith('--')]
-MM = args[0] if args else os.path.join(HERE, '..', '..', '..', 'mm')
+MM = args[0] if args else os.path.join(HERE, '..', '..', '..', '..', 'mm')
 SRC = os.path.join(MM, 'extracted', 'n64-us', 'assets', 'misc', 'link_animetion', 'link_animetion.c')
 FRAME = 22 * 3 + 1
 _text = None
 
 
-OOT_ANIMS = os.path.join(HERE, '..', '..', '..', 'oot', 'extracted', 'ntsc-1.0', 'assets', 'misc', 'link_animetion')
+OOT_ANIMS = os.path.join(HERE, '..', '..', '..', '..', 'oot', 'extracted', 'ntsc-1.0', 'assets', 'misc', 'link_animetion')
 
 
 def roots(name, game='MM'):

@@ -607,7 +607,14 @@ struct SeenHash {
 			memcpy(&b, &v, 8);
 			h = (h ^ b) * 1099511628211ull;
 		}
-		return (size_t)(h ^ (uint64_t)k.drop * 0x9E3779B97F4A7C15ull);
+		h ^= (uint64_t)k.drop * 0x9E3779B97F4A7C15ull;
+		// (the keys are f32s as doubles: their low 29 bits are 0, so far h's
+		// low bits are the same for every key. Mixed (splitmix64's finaliser)
+		// so they aren't: MSVC's unordered_set picks the bucket from the low
+		// bits, as does SharedSet its shard - unmixed, one bucket and one lock)
+		h = (h ^ (h >> 30)) * 0xBF58476D1CE4E5B9ull;
+		h = (h ^ (h >> 27)) * 0x94D049BB133111EBull;
+		return (size_t)(h ^ (h >> 31));
 	}
 };
 struct SharedSet {

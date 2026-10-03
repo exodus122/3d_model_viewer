@@ -1045,7 +1045,7 @@ function describeClipLinesBase(g, c, checkHeight) {
             `ACTION CLIP (${c.action}): ${how}`,
             `  stand still at ${fmt(c.prev)} (feet), facing ${hex4(c.facing)}, and do the ${c.action}` +
                 // (frames counted from the first one he moves on; clipfinder dekuSpinFrames / walkInVariant)
-                // (MM3D: recorded by tools/clipfinder/mm3d_action_recorder.lua, whose inputs these are)
+                // (MM3D: recorded by tools/clipfinder/tools/mm3d_action_recorder.lua, whose inputs these are)
                 (c.actionKey === "deku-spin" && game === "MM3D" ? ` (the stick held at full tilt toward ${hex4(c.facing)} throughout: A once speedXZ reaches 6, about his 15th frame moving)`
                 : c.actionKey === "deku-spin-backwalk" && game === "MM3D" ? ` (L held, the stick at full tilt toward ${hex4(c.facing + 0x8000)} - behind him - throughout: ` +
                     `once speedXZ is 9, about his 9th frame moving, let go of L for a frame, then A)`

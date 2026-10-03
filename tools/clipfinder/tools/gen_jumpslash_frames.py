@@ -20,12 +20,12 @@ of it, as ACTIONS: { root x, root z, prevTransl x, prevTransl z, speed, swing }.
   active while the hit animation's frame is <= 2, off from the switch to
   the end animation.
 
-usage: gen_jumpslash_frames.py [path/to/oot]   (default ../../../oot)
+usage: gen_jumpslash_frames.py [path/to/oot]   (default ../../../../oot)
 """
 import os, re, sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-OOT = sys.argv[1] if len(sys.argv) > 1 else os.path.join(HERE, '..', '..', '..', 'oot')
+OOT = sys.argv[1] if len(sys.argv) > 1 else os.path.join(HERE, '..', '..', '..', '..', 'oot')
 ANIMS = os.path.join(OOT, 'extracted', 'ntsc-1.0', 'assets', 'misc', 'link_animetion')
 LIMBS = 22  # PLAYER_LIMB_MAX
 

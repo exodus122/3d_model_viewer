@@ -24,7 +24,8 @@
 //   sim.h/.cpp       --sim
 //   main.cpp         options, forms and the loop over maps
 //
-// Build (MSYS2 mingw64):  see build.sh next to this file.
+// Build: build.sh (g++ / clang++, any OS) or build.bat (Visual Studio) next to
+// this file; see the README.
 // Usage:
 //   clipfinder --game MM --map "Laundry Pool" --form Human [--type acute,extended,slope,ground,falling,actions] [--first-per-pair] [-o out.json]
 //     (--first-per-pair: one clip point per wall pair, the first found - much faster)
@@ -322,7 +323,7 @@ int main(int argc, char** argv) {
 			"                  [--dyna FILE|none [--dyna-only] [--setup N] [--night]]  (the viewer's dynapoly export; default tools/clipfinder/<GAME>_dyna_all.json)\n"
 			"                  [--slope-step 1|2|3] [--wall-step S] [--slope-starts] [--aerial] [--keep-load-void] [--ground-step 1|2|3]\n"
 			"                  [--max-per-pair N]  (at most N points per wall pair, spread out evenly: smaller files)\n"
-			"                  [--action-keys 1h-slash,1h-stab,2h-slash,2h-stab,stick-slash,...,deku-spin,deku-spin-backwalk]  (with --type actions: which, default all; MM3D: the ones recorded in tools/clipfinder/mm3d_actions)\n"
+			"                  [--action-keys 1h-slash,1h-stab,2h-slash,2h-stab,stick-slash,...,deku-spin,deku-spin-backwalk]  (with --type actions: which, default all; MM3D: the ones recorded in tools/clipfinder/tools/mm3d_actions)\n"
 			"                  [-o out.json | --out-dir dir (default tools/clipfinder/results)] [--root viewer_dir] [--threads N]\n");
 		return 2;
 	}
@@ -376,14 +377,14 @@ int main(int argc, char** argv) {
 		root = exists("js/model_list.js") ? "." : dir + "/../..";
 	}
 	// --type actions: the scan's walking and slope clip points, then the lunges aimed at them.
-	// MM3D: the actions recorded in the game (tools/clipfinder/mm3d_actions, from
+	// MM3D: the actions recorded in the game (tools/clipfinder/tools/mm3d_actions, from
 	// mm3d_action_recorder.lua); OoT3D has none.
 	const string actionGame = game == "MM3D" ? game : base;
 	if (game == "MM3D") {
 		string err;
-		if (!loadRecordedActions(root + "/tools/clipfinder/mm3d_actions", game, err)) { fprintf(stderr, "%s\n", err.c_str()); return 2; }
+		if (!loadRecordedActions(root + "/tools/clipfinder/tools/mm3d_actions", game, err)) { fprintf(stderr, "%s\n", err.c_str()); return 2; }
 		if ((types & TYPE_ACTIONS) && std::none_of(ACTIONS.begin(), ACTIONS.end(), [&](const Action& x) { return x.game == game; })) {
-			fprintf(stderr, "MM3D: no recorded actions in %s/tools/clipfinder/mm3d_actions (record them with tools/clipfinder/mm3d_action_recorder.lua)\n", root.c_str());
+			fprintf(stderr, "MM3D: no recorded actions in %s/tools/clipfinder/tools/mm3d_actions (record them with tools/clipfinder/tools/mm3d_action_recorder.lua)\n", root.c_str());
 			return 2;
 		}
 	}

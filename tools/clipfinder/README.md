@@ -12,21 +12,53 @@ the angles that work, and a step-by-step single-frame simulation.
 
 ## Building
 
-```bash
-sh tools/clipfinder/build.sh
-```
+A Windows build, `clipfinder.exe`, is in the repo. To build it yourself you
+need a C++17 compiler. Use whichever of these you have:
 
-This needs MSYS2's mingw64 g++ (`C:\msys64\mingw64\bin`). The exe is static,
-so it runs without the MSYS2 DLLs. `-ffp-contract=off` keeps the f32 maths
-from being fused into multiply-adds, which would change the results.
+- **g++ or clang++** (Linux, macOS, or Windows with MSYS2 / MinGW-w64):
 
-A rebuild fails at the link step (`ld returned 1 exit status`) while
-`clipfinder.exe` is running. Wait for the run to finish first, or build a
-copy somewhere else with `OUT=path/to/other.exe sh tools/clipfinder/build.sh`.
+  ```bash
+  sh tools/clipfinder/build.sh
+  ```
+
+  It uses `$CXX` if set, else the first of `g++`, `clang++`, `c++` on the
+  PATH, else MSYS2's `C:\msys64\mingw64\bin\g++.exe`. On Windows it writes a
+  static `clipfinder.exe`, which runs without the MinGW DLLs. Elsewhere it
+  writes `clipfinder`. `OUT=path` builds somewhere else. On Windows, install
+  MSYS2 and run `pacman -S mingw-w64-x86_64-gcc` in its shell. On Debian or
+  Ubuntu, install the `g++` package. On macOS, run `xcode-select --install`.
+
+- **Visual Studio** (Windows, 2019 or later, with "Desktop development with
+  C++"), from a Command Prompt or PowerShell:
+
+  ```bat
+  tools\clipfinder\build.bat
+  ```
+
+  It finds Visual Studio itself (it doesn't need a Developer Command Prompt).
+  It writes `clipfinder.exe`, or the path you give it. The object files go in
+  `build/msvc/`, which git ignores.
+
+Every build gives the same results. MSYS2 g++, Ubuntu g++ 13 and Visual
+Studio 2019 write byte-identical JSON for MM West Clock Town, Human, `--type
+all`. That's because the scan's maths is done in f32 with no fused
+multiply-adds: `-ffp-contract=off` for g++ / clang, and for Visual Studio
+`/fp:precise` without `/arch:AVX2`. Don't add `-ffast-math`, `/fp:fast` or
+`-march=native`. They change the results. The Visual Studio build is about a
+third slower than g++.
+
+On Linux and macOS, the clipfinder commands in this README are the same, with
+`tools/clipfinder/clipfinder` in place of `tools/clipfinder/clipfinder.exe`.
+
+A rebuild fails at the link step (`ld returned 1 exit status`, or `LNK1104`)
+while `clipfinder.exe` is running. Wait for the run to finish first, or build
+a copy somewhere else with `OUT=path/to/other.exe sh tools/clipfinder/build.sh`
+(`tools\clipfinder\build.bat path\to\other.exe`).
 
 The source is in `src/`, split by layer; `src/main.cpp`'s header comment
-lists what each file holds. `-flto=auto` lets the hot collision checks inline across files, so
-the split costs no speed.
+lists what each file holds. Link-time optimisation (`-flto`, `/GL /LTCG`)
+lets the hot collision checks inline across files, so the split costs no
+speed.
 
 ## Examples
 
@@ -352,7 +384,7 @@ What changes:
   from (-1763.541, -63.00192, 77) at yaw 0 and y velocity -20, speed 25 goes
   under TRI 48 and out (20 doesn't; the model says 23 and up clip). The 1.5 is
   fitted to that clip, not read from the 3DS code (`z_bgcheck` isn't
-  decompiled in oot3d). `tools/clipfinder/ground_clip_poke.lua` (any of the four games) gives Link a
+  decompiled in oot3d). `tools/clipfinder/tools/ground_clip_poke.lua` (any of the four games) gives Link a
   speed and y velocity for one frame to try one by hand.
 - **Actions: MM3D only, recorded.** `--type actions` for MM3D uses the
   actions recorded in the game (see **MM3D actions** below); OoT3D has none.
@@ -384,7 +416,7 @@ overrides it.
 MM3D's animations are re-made at 30 fps (the 1h slash is 7 frames, the N64's
 5, with a different root path) and there's no decomp for how its Player plays
 them, so the N64 tables don't apply. Instead the moves are measured:
-`tools/clipfinder/mm3d_action_recorder.lua` (BizHawk 3DS core, MM3D US) does
+`tools/clipfinder/tools/mm3d_action_recorder.lua` (BizHawk 3DS core, MM3D US) does
 each action from a standing start and records Link's home.pos, world.pos,
 speedXZ and yaws every game frame. Keys: `1h-slash`, `1h-stab`, `2h-slash`,
 `2h-stab`, `stick-slash` (Human) and `deku-spin`, `deku-spin-backwalk` (Deku),
@@ -400,7 +432,7 @@ the same keys as MM's, so the viewer's rows are the same.
    the spins: the stick held, A once speedXZ stops rising, the backwalk L held
    with the stick back then L let go a frame before A), and loads the
    savestate back. The first take finds which way Circle Pad Y is "up".
-3. Each take writes `tools/clipfinder/mm3d_actions/<key>.json` (and
+3. Each take writes `tools/clipfinder/tools/mm3d_actions/<key>.json` (and
    `<key>_log.txt`, every emulated frame's raw values), replacing the last.
 4. `clipfinder --game MM3D --map ... --form Human,Deku --type actions` loads
    every file there.

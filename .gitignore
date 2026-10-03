@@ -1,1 +1,4 @@
-/tools/clipfinder/results/*
+/tools/clipfinder/results/**/*.json
+/tools/clipfinder/results/**/*.txt
+/tools/clipfinder/build/
+/tools/clipfinder/clipfinder

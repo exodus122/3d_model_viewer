@@ -334,7 +334,7 @@ static vector<Action> buildActions() {
 vector<Action> ACTIONS = buildActions();
 
 // MM3D: no decomp to work the actions out from, so they're measured in the
-// game: tools/clipfinder/mm3d_action_recorder.lua does each one from a standing
+// game: tools/clipfinder/tools/mm3d_action_recorder.lua does each one from a standing
 // start on open ground and writes <key>.json, the rows as it saw them (each
 // game frame: the root motion added after the last frame's bg check, in Link's
 // frame, then the speedXZ move, at an angle from his facing). Swept here like

@@ -26,7 +26,7 @@ import os
 import struct
 import sys
 
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
 from decompress_zsi import decompress_lzs  # noqa: E402
 
 SCALE = 11 / 17
