@@ -1,0 +1,9 @@
+{"game":"MM3D","key":"1h-stab","name":"lunge 1h stab","form":"HUMAN","facing":32570,"pressRow":0,"aimMin":2,
+"rows":[
+  {"rx":-1.84749074,"rz":2.93623263,"speed":11.6660422,"angle":0,"speedXZ":8.33333206,"yaw":32570,"shape":32570},
+  {"rx":-1.43952427,"rz":2.60799495,"speed":8.3329228,"angle":0,"speedXZ":4.99999857,"yaw":32570,"shape":32570},
+  {"rx":-1.03173855,"rz":2.2798828,"speed":4.99967906,"angle":0,"speedXZ":1.66666508,"yaw":32570,"shape":32570},
+  {"rx":-0.320666057,"rz":0.916896572,"speed":1.66655969,"angle":0,"speedXZ":0,"yaw":32570,"shape":32570},
+  {"rx":-0.160272004,"rz":0.458447128,"speed":0,"angle":0,"speedXZ":0,"yaw":32570,"shape":32570},
+  {"rx":0.123485378,"rz":0.234148399,"speed":0,"angle":0,"speedXZ":0,"yaw":32570,"shape":32570}
+]}

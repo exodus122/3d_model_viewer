@@ -108,7 +108,7 @@ Default: `acute,extended,slope`. `all` means `acute,extended,slope,ground,fallin
 | (`extended` alone) | `extended` without `acute` keeps only the wall pairs (pusher, clipped wall) that clip **only** thanks to the walls' extended planes: the 1-unit / `detMax 300` tolerance of the game's triangle checks, or the pusher reaching past its own edge. (The game's wall check projects Link onto a wall along the Z or X axis, not the wall's normal, so a diagonal wall also pushes Link standing beside it, past its end: at 45 degrees as far past as he is in front of its plane.) See **Acute or extended** below for how a wall pair is categorised; this leaves out every acute pair, all its points included. The terminal says how many pairs and points were left out. With `--first-per-pair`, a pair whose first point found was extended isn't checked for acute points afterwards. |
 | `--first-per-pair` | Keep the first clip found for each wall pair (pushing wall, clipped wall), like the tester's one-per-pair recording mode. The output is much smaller, but the scan isn't much faster: most of the time goes on points that never clip. |
 | `--max-per-pair N` | Keep at most N points of each wall pair, spread out evenly: the first chosen, then over and over the point farthest from all the ones chosen so far (so they cover the pair end to end, e.g. 10 points 120 apart along a 1300 long wall). Each row the viewer shows a pair in (crossing / standing, walking / falling, and each kind) is thinned separately, so no row goes missing. Always kept: the lowest `--min-speed` reach (thinning runs after it), and a point that makes an acute pair acute. Smaller files: OoT Kakariko Village, child, falling: 16178 points / 6.8 MB, with `--max-per-pair 10` 1403 points / 0.59 MB, all 184 rows still there. Written to the JSON as `"maxPerPair"`. Not applied with `--refine`, `--yaw` or `--angles`. `--type actions` thins by default (see below); `--max-per-pair` there sets the cap instead. |
-| `--action-keys KEY,...` | `--type actions`: a sword attack's own movement doing the clip, from a standing start (see **Action clips** below). Default all; keys: `1h-slash`, `1h-stab`, `2h-slash`, `2h-stab`, `stick-slash` (the Deku stick: two-handed and always the forward slash, so the 2h slash's frames), and the jumpslash: `1h-jumpslash` with the stick left alone in the air, `1h-jumpslash-fwd` with it held forward (see **Jumpslash** below; one-handed only, the other weapons jump the same way), each of those with a `-walkin` variant (run into a corner first, see below), and MM Deku's `deku-spin` and `deku-spin-backwalk` (see **Deku spin** below). MM: Human, the sword ones; Deku, the spins; OoT: Adult (the sword ones) and Child (the Kokiri Sword's and the stick's); other forms are skipped. The jumpslash is left out of a map whose rooms are all indoors (Z + A rolls there). The file is `..._actions.json`; the other types picked with it (acute / extended / slope) narrow which clip points the lunges aim at and which of their clips are kept. A lunge clips from far more starts than the viewer needs (over a thousand for one wall pair, about 1 KB each with its frames), so without `--max-per-pair` each row keeps at most 40 points, spread out as `--max-per-pair` does, fewer (down to 6) when the file would pass 4000 points in all: MM Pirates' Fortress Interior, 50451 points / 47.7 MB, becomes about 4000 / 4 MB. Not with the `falling` or `ground` types, `--min-speed`, `--refine`, `--yaw` or `--angles`. |
+| `--action-keys KEY,...` | `--type actions`: a sword attack's own movement doing the clip, from a standing start (see **Action clips** below). Default all; keys: `1h-slash`, `1h-stab`, `2h-slash`, `2h-stab`, `stick-slash` (the Deku stick: two-handed and always the forward slash, so the 2h slash's frames), and the jumpslash: `1h-jumpslash` with the stick left alone in the air, `1h-jumpslash-fwd` with it held forward (see **Jumpslash** below; one-handed only, the other weapons jump the same way), each of those with a `-walkin` variant (run into a corner first, see below), and MM Deku's `deku-spin` and `deku-spin-backwalk` (see **Deku spin** below). MM3D: the recorded ones (see **MM3D actions**). MM: Human, the sword ones; Deku, the spins; OoT: Adult (the sword ones) and Child (the Kokiri Sword's and the stick's); other forms are skipped. The jumpslash is left out of a map whose rooms are all indoors (Z + A rolls there). The file is `..._actions.json`; the other types picked with it (acute / extended / slope) narrow which clip points the lunges aim at and which of their clips are kept. A lunge clips from far more starts than the viewer needs (over a thousand for one wall pair, about 1 KB each with its frames), so without `--max-per-pair` each row keeps at most 40 points, spread out as `--max-per-pair` does, fewer (down to 6) when the file would pass 4000 points in all: MM Pirates' Fortress Interior, 50451 points / 47.7 MB, becomes about 4000 / 4 MB. Not with the `falling` or `ground` types, `--min-speed`, `--refine`, `--yaw` or `--angles`. |
 | `--pair P,C` | Keep only the clips where TRI P pushes Link through TRI C (polygon ids, as the viewer and tester show them; for a slope or ground clip P is the floor, C the wall). Needed for `--refine` / `--angles`. The scan only looks near the two triangles: the wall pairs and slope walls within a frame's move (`--max-move`) plus two radii and 10 of them. Every triangle still collides as usual, and the pair's clips come out the same as a whole-map scan's (OoT Death Mountain Trail setup 2, falling, TRI 90 → 25: 168 s → 14 s). |
 | `--dyna FILE\|none` | The dynapoly actors; by default `tools/clipfinder/<GAME>_dyna_all.json` (a warning and no dynapolys if it isn't there), `none` for none. From the viewer's **Export all dynapolys** (every map's, every setup; see **Dynapolys** below). A single map's `dynapoly-1` export (the old **Export dynapolys**) still works. Each map is scanned once per set of setups with the same dynapolys, and once without dynapolys if the file has none for it. Output files named by `--out-dir` get `_setup<N>[-<N>...]_dyna` added; with `-o` and several sets, `_setup...` goes before `.json`. |
 | `--slope-step 1\|2\|3` | The slope clip scan's widest step along a wall's bottom edge (default 3; see **Slope clips** below). `1` searches every unit. |
@@ -353,9 +353,10 @@ What changes:
   fitted to that clip, not read from the 3DS code (`z_bgcheck` isn't
   decompiled in oot3d). `tools/clipfinder/ground_clip_poke.lua` gives Link a
   speed and y velocity for one frame to try one by hand.
-- **Not supported:** `--type actions` (the lunges' frames are the N64's), and
-  dynapolys (the viewer has no 3DS dynapoly actors, so none are loaded by
-  default).
+- **Actions: MM3D only, recorded.** `--type actions` for MM3D uses the
+  actions recorded in the game (see **MM3D actions** below); OoT3D has none.
+- **Not supported:** dynapolys (the viewer has no 3DS dynapoly actors, so none
+  are loaded by default).
 
 Assumed, not checked against the 3DS code: the floor check leaving velocity.y
 at -4 and gravity -1 a frame as on the N64, minVelocityY -20, and libultra's
@@ -364,7 +365,7 @@ N64 ones, and its "Reachable only" uses the 30 fps move.
 
 `wall_clip_tester.lua` runs them in BizHawk's 3DS core (OoT3D US Rev 1, MM3D
 US, decrypted) in "move" mode only (there are no function addresses to hook),
-2 emulated frames a game frame. OoT3D's addresses are from the oot3d decomp
+2 emulated frames a game frame. MM3D action tests: see **MM3D actions** above. OoT3D's addresses are from the oot3d decomp
 (`include/z3Dactor.hpp`, `z3D.hpp`). MM3D has no decomp: its Player and
 globalContext are read through the pointers at 0x0752FD6C / 0x0754D890, with
 the actor fields taken from N64 MM's layout, which matches where the watch
@@ -376,6 +377,73 @@ that does and uses that (printing it). It also checks that Player.yaw
 MM3D Laundry Pool TRI 26 → 70 and TRI 239 → 234 clipped this way. MM3D reads Link's form from save.playerForm (s16 at
 0x0765B1FE, taken as N64 MM's values: 0 Fierce Deity ... 4 Human); `FORM`
 overrides it.
+
+### MM3D actions
+
+MM3D's animations are re-made at 30 fps (the 1h slash is 7 frames, the N64's
+5, with a different root path) and there's no decomp for how its Player plays
+them, so the N64 tables don't apply. Instead the moves are measured:
+`tools/clipfinder/mm3d_action_recorder.lua` (BizHawk 3DS core, MM3D US) does
+each action from a standing start and records Link's home.pos, world.pos,
+speedXZ and yaws every game frame. Keys: `1h-slash`, `1h-stab`, `2h-slash`,
+`2h-stab`, `stick-slash` (Human) and `deku-spin`, `deku-spin-backwalk` (Deku),
+the same keys as MM's, so the viewer's rows are the same.
+
+1. Stand Link idle on flat, open ground (nothing within ~200: a wall changes
+   the move), in the form, with the weapon on B for the lunge (1h: Kokiri
+   Sword; 2h: Great Fairy's Sword; stick: Deku Stick).
+2. Run the script, pick the action, **Record** (or **Record all** for every
+   action of Link's form). It saves a savestate, taps L for the camera, does
+   the inputs (B + the Circle Pad forward - pushed earlier and retried until
+   the lunge happens, speedXZ above 7; the stabs with L held;
+   the spins: the stick held, A once speedXZ stops rising, the backwalk L held
+   with the stick back then L let go a frame before A), and loads the
+   savestate back. The first take finds which way Circle Pad Y is "up".
+3. Each take writes `tools/clipfinder/mm3d_actions/<key>.json` (and
+   `<key>_log.txt`, every emulated frame's raw values), replacing the last.
+4. `clipfinder --game MM3D --map ... --form Human,Deku --type actions` loads
+   every file there.
+
+A row is one game frame's swept move, split as on the N64: the root motion
+added after the last frame's bg check (world.pos - home.pos at its end, in
+Link's frame) and this frame's speedXZ move (home.pos - the last world.pos, at
+an angle from his facing). If MM3D moves the root before the bg check, the root
+part is just 0 and the whole move is in the speed part; clipfinder sweeps it the
+same. Leading rows that move him nowhere are dropped; a spin's rows end on the
+frame his shape stops turning. The spins are aimed only at frames faster than
+their run-up (the file's `aimMin`: a slower frame is a walking clip), stop part
+way (`canStop`) and aim at acute corners, as MM's.
+
+Off the ground mid-attack, Link is put back at prevPos (MM `func_8083827C`,
+taken to be the same in MM3D): with the swing active, and in MM also during any
+root motion when the floor under prevPos is within 10 of him
+(`func_808381F8`). That covers every lunge frame, so no MM / MM3D lunge
+carries him off a ledge or out over a void (Laundry Pool's 2h stab clips went
+away with it). OoT only has the swing check. The swing frames themselves aren't
+measured (a row gets them with `"swing": true`). Not modelled: the stick
+speed's wall cap in the spins, whose speeds are the recorded, unobstructed ones. No `-walkin`, jumpslash or spin-attack keys for MM3D yet.
+
+`wall_clip_tester.lua` tests them in game (`runActionTest3DS`): Link is held at
+the start facing the test's facing with L held from half way (the camera
+behind him). The Circle Pad's directions are found once from the starting
+state: Link is pushed up, then right. A lunge is B with the stick forward
+(stabs with L still held). With no lunge (speedXZ never above 7) the test runs
+again with the stick pushed earlier, 0 to 6 emulated frames before B, as the
+recorder does; status `no lunge` if none of those lunge. A Deku spin follows
+the recording's timing from `mm3d_actions/<key>.json`: frames counted from the
+first one Link moves on, A on the frame after `pressRow` (the backwalk lets go
+of L the frame before), the stick held to the recording's last row or let go
+after `stopAfter`. Each game frame the stick is steered so Link's move yaw
+(Player.yaw) follows the recording's, since the camera turns while he runs.
+Statuses: `no recording`, `no run-up`, `no spin`. Each lunge test puts its
+weapon on B (save + 0x17A) with MM's item ids, which MM3D shares, and presses B
+at three points in the hold so he draws it. Deku Sticks aren't topped up (the
+MM3D ammo address isn't known).
+
+`mm3d_anim_roots.py` dumps the animations' root motion from the extracted ROM
+(`actors/zelda2_link_new.gar.lzs`: LzS-compressed GAR2, CSAB animations, every
+root track baked one value a frame) and, with `--compare`, sets them against
+a recording - to check how MM3D plays them (rate, scale) once there is one.
 
 ## Holding the stick, and floor snaps
 

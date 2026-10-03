@@ -37,7 +37,9 @@
 // speed (Player_ProcessSceneCollision's unk_B50): 'R' running (+2 / -1.5 to
 // it), 'B' the Z backwalk (+1.5 / -2 to it x 1.5), 'H' kept as it is (an action
 // handler's frame), 'S' a Deku spin frame (dekuSpinFrames).
-struct ActionFrame { int jx, jz, px, pz; double speed; bool swing; int angle = 0; char stick = 0; };
+// rx, rz (Action::recorded): the root motion as measured, already in world
+// units, in Link's frame (rz forward, rx as the root x: the tables' rotation).
+struct ActionFrame { int jx, jz, px, pz; double speed; bool swing; int angle = 0; char stick = 0; double rx = 0, rz = 0; };
 // jump: the jumpslash (Z-targeting + A: func_8083BA90 / MM func_808395F0).
 // Link leaves the ground at speedXZ 5, velocity.y 5, and moves as any actor
 // in the air (Player_Action_80844AF4 / MM Player_Action_29): no root motion,
@@ -89,8 +91,19 @@ struct Action {
 	// the air (0: OoT 6, MM 10 as before; Zora 6, its run limit)
 	double jumpSpeed = 5, jumpVy = 5, airGravity = -1.2, airCap = 0;
 	bool noWalkIn = false;  // no -walkin variant (the charged spin attack)
+	// MM3D (loadRecordedActions): the rows were measured in the game
+	// (mm3d_action_recorder.lua), not worked out from the code: root motion
+	// rx / rz, then speedXZ `speed` at `angle`. canStop: as a stick-driven
+	// action's (judge), the recorded Deku spins.
+	bool recorded = false;
+	bool canStop = false;
 };
-extern const vector<Action> ACTIONS;
+extern vector<Action> ACTIONS;
+
+// MM3D: adds the actions recorded in `dir` (every <key>.json the recorder
+// wrote) to ACTIONS. False (with `err` set) if a file can't be read; no
+// files is not an error (none added).
+bool loadRecordedActions(const string& dir, const string& game, string& err);
 
 // Where frame f of action a moves Link from pos (posNext's x / z; y is
 // pos.y - GROUND_DROP), facing `facing`.

@@ -2,8 +2,9 @@
 -- or OoT3D US Rev 1 / MM3D US, decrypted, 3DS core - see below)
 --
 -- OoT3D / MM3D (clipfinder --game OOT3D / MM3D results): "move" mode only (no
--- hooks), 30 fps (2 emulated frames a game frame, moves velocity x 1.0), no
--- action tests. MM3D's form is read from the save context (K.playerForm). At
+-- hooks), 30 fps (2 emulated frames a game frame, moves velocity x 1.0). MM3D
+-- action tests (the recorded lunges and Deku spins): see runActionTest3DS.
+-- MM3D's form is read from the save context (K.playerForm). At
 -- the start the script checks the frame counter and Player.yaw addresses and
 -- stops with an error if they don't look right (see K).
 --
@@ -51,7 +52,8 @@
 -- wall_clip_tests.json next to this script. Its clips are turned into tests,
 -- with the walls read from RAM (load that map first). (A .lua test file from
 -- an older viewer still works too.)
-local TESTS_FILE = [[C:\Users\X\Documents\GitHub\3d_model_viewer\tools\clipfinder\results\jabu slope.json]] -- \results\
+-- A relative path is from this script's folder (tools\clipfinder).
+local TESTS_FILE = [[results\MM3D_Deku_Palace_Human_Deku_selected.json]]
 local RESULTS_FILE = nil          -- nil: wall_clip_results.txt next to the tests
 local MAX_PER_GROUP = 12          -- points tried per wall pair (spread evenly); 0 = all
 local SKIP_FALLING = false        -- true: leave out the falling clips (drop > 0, from --type falling scans)
@@ -127,8 +129,18 @@ local ACTION_WEAPONS = {          -- B button item per game / form / one- or two
 		Human = { ["1h"] = 0x4D, ["2h"] = 0x10, stick = 0x08 },  -- Kokiri Sword (77), Great Fairy's Sword (16), Deku stick (8)
 	},
 }
+-- (the 3DS versions use the N64 item ids - the user)
+ACTION_WEAPONS.OOT3D = ACTION_WEAPONS.OOT
+ACTION_WEAPONS.MM3D = ACTION_WEAPONS.MM
 local ACTION_HOLD = 150           -- emulated frames Link is held at the start first (3 per game frame; he draws the weapon in them)
 local ACTION_KEYS = nil           -- nil: every action in the file; or a list, e.g. { "2h-stab" }
+-- MM3D (runActionTest3DS): the lunges' stick has to be read before B, and the
+-- game can read it late - a test with no lunge (speedXZ never above
+-- LUNGE_SPEED_3DS) is run again with the stick pushed that many emulated
+-- frames before B, as mm3d_action_recorder.lua does
+local STICK_LEADS_3DS = { 0, 1, 2, 3, 4, 6 }
+local STICK_AFTER_3DS = 4         -- emulated frames the stick stays forward after B
+local LUNGE_SPEED_3DS = 7
 local CSV_CELLS = "all"           -- "all", or "border": only cells next to one with the other answer
 local CSV_DRIFT = 0.0001          -- Link pushed further than this off a cell's start before the move: No
 
@@ -230,6 +242,7 @@ elseif GAME == "MM3D" then
 	-- taken to count as N64 MM's PlayerTransformation: 0 Fierce Deity, 1
 	-- Goron, 2 Zora, 3 Deku, 4 Human
 	K.playerForm3DS = 0x0765B1FE
+	K.bButton = 0x0765B1B0 + 0x17A      -- the B button item (u8; the watch file's "B button item")
 	K.hdrNumPolys, K.hdrVtxList, K.hdrPolyList = 0x10, 0x18, 0x1C
 	K.polySize, K.polyNormal = 0x14, 0x8
 elseif GAME == "OOT" then
@@ -574,7 +587,11 @@ end
 ---------------------------------------------------------------------------
 
 local scriptDir = (debug.getinfo(1, "S").source:match("^@?(.*[/\\])")) or ""
-local testsPath = TESTS_FILE or (scriptDir .. "wall_clip_tests.json")
+-- (a relative TESTS_FILE from the script's folder: BizHawk names the chunk
+-- "main", so scriptDir can be empty - then it's BizHawk's working folder,
+-- which it sets to the script's)
+local testsPath = TESTS_FILE or "wall_clip_tests.json"
+if not testsPath:match("^%a:[/\\]") and not testsPath:match("^[/\\]") then testsPath = scriptDir .. testsPath end
 local T = testsPath:lower():match("%.json$") and testsFromJson(testsPath) or dofile(testsPath)
 local resultsPath = RESULTS_FILE or (testsPath:match("^(.*[/\\])") or scriptDir) .. "wall_clip_results.txt"
 
@@ -987,8 +1004,9 @@ for _, gi in ipairs(order) do
 	end
 end
 
--- (OoT3D / MM3D: no action tests - clipfinder doesn't make them for the 3DS)
-if IS_3DS then
+-- (OoT3D: no action tests - clipfinder has none for it; MM3D's are the
+-- recorded ones, runActionTest3DS)
+if GAME == "OOT3D" then
 	for _, t in ipairs(queue) do
 		if t.action then error("action tests (" .. t.action .. ") aren't supported on " .. GAME) end
 	end
@@ -1014,7 +1032,10 @@ print("Saved the starting state")
 -- where it was last set): a value that isn't a number clears it. Buttons are
 -- only ever pressed (true), never forced up (false), and last one frame.
 local function releaseStick()
-	if IS_3DS then return end
+	if IS_3DS then
+		joypad.setanalog({ ["Circle Pad X"] = "", ["Circle Pad Y"] = "" })
+		return
+	end
 	joypad.setanalog({ ["X Axis"] = "", ["Y Axis"] = "" }, 1)
 end
 
@@ -1529,11 +1550,323 @@ local function runActionTest(t, r)
 	return r
 end
 
+-- MM3D action tests: the recorded lunges and Deku spins (clipfinder --game MM3D
+-- --type actions; the rows come from mm3d_action_recorder.lua, which does them
+-- the same way). There's no decomp, so no camera or attack addresses:
+--  The camera: L held while Link is held at the start (targeting nothing turns
+--   the camera behind him), so the stick's up is his facing. Which way the
+--   Circle Pad's axes go is found once, from the starting state (calibrate3DS:
+--   Link pushed up, then right, from standing).
+--  Lunges: B with the stick forward (the stabs with L still held); the stick
+--   has to be read before B, so a test with no lunge (speedXZ never above
+--   LUNGE_SPEED_3DS) is run again with the stick pushed earlier
+--   (STICK_LEADS_3DS) - status "no lunge" if none did.
+--  Deku spins: the recording's own timing (mm3d_actions/<key>.json): frames
+--   counted from the first one Link moves on, A for the frame after its
+--   pressRow (the backwalk: L let go for the frame before), the stick held
+--   until the recording's last row, or let go after t.stopAfter. The stick is
+--   steered every game frame so his move yaw (Player.yaw) follows the
+--   recording's (facing + each row's angle): the camera turns while he runs.
+--   Statuses "no recording", "no run-up", "no spin".
+-- The weapon: ACTION_WEAPONS.MM3D (the N64 ids) written to B. No Deku stick ammo top-up (its MM3D address isn't known).
+local stickSign3DS = nil   -- { x = +1/-1, y = +1/-1 }: the Circle Pad's axes
+local recordings3DS = {}
+
+-- The stick at `rel` (s16: 0 = the camera's forward, +0x4000 = left, as the
+-- N64's world yaw = camera yaw + rel), full tilt; nil: let go
+-- Returns the Circle Pad X, Y it set (nil: let go).
+local function stick3DS(rel)
+	if not rel then releaseStick(); return nil end
+	local a = rel / 0x8000 * math.pi
+	local dx, dy = -math.sin(a), math.cos(a)
+	local m = math.max(math.abs(dx), math.abs(dy))
+	local x, y = math.floor(dx / m * 127 + 0.5) * stickSign3DS.x, math.floor(dy / m * 127 + 0.5) * stickSign3DS.y
+	joypad.setanalog({ ["Circle Pad X"] = x, ["Circle Pad Y"] = y })
+	return x, y
+end
+
+local function s16v(v) v = v % 0x10000; if v >= 0x8000 then v = v - 0x10000 end; return v end
+
+-- Each axis's sign: from the starting state, L held then let go (the camera
+-- behind him), the stick pushed one way for 6 game frames; where he went
+-- against his facing. Up should take him along it, right to his right (-0x4000).
+local function calibrate3DS()
+	local function push(x, y)
+		memorysavestate.loadcorestate(base)
+		local facing = read_u16(K.player + K.shapeRotY)
+		for i = 1, 40 do
+			if i <= 20 then joypad.set({ L = true }) end
+			emu.frameadvance()
+		end
+		local p0 = readVec(K.player + K.pos)
+		for _ = 1, 6 * EMU_PER_GAME do
+			joypad.setanalog({ ["Circle Pad X"] = x, ["Circle Pad Y"] = y })
+			emu.frameadvance()
+		end
+		releaseStick()
+		local p1 = readVec(K.player + K.pos)
+		local dx, dz = p1[1] - p0[1], p1[3] - p0[3]
+		if math.abs(dx) + math.abs(dz) < 1 then
+			error("MM3D action tests: Link didn't move with the Circle Pad pushed - the savestate needs him standing on foot, nothing in the way")
+		end
+		return s16v(yawTo(dx, dz) - facing)
+	end
+	local up = push(0, 127)
+	local right = push(127, 0)
+	stickSign3DS = { y = math.abs(up) < 0x4000 and 1 or -1, x = right < 0 and 1 or -1 }
+	print(string.format("MM3D: Circle Pad Y +127 went %+d from his facing, X +127 %+d: up is %s, right is %s", up, right,
+		stickSign3DS.y > 0 and "+" or "-", stickSign3DS.x > 0 and "+" or "-"))
+	memorysavestate.loadcorestate(base)
+end
+
+-- mm3d_actions/<key>.json (the spins' timing)
+local function recording3DS(key)
+	if recordings3DS[key] == nil then
+		local f = io.open(scriptDir .. "mm3d_actions\\" .. key .. ".json", "r")
+		recordings3DS[key] = false
+		if f then
+			recordings3DS[key] = parseJson(f:read("*a"))
+			f:close()
+		end
+	end
+	return recordings3DS[key] or nil
+end
+
+local function runActionTest3DS(t, r)
+	if not stickSign3DS then
+		calibrate3DS()
+	end
+	local key = t.actionKey
+	local facing = s16v(t.facing)
+	local spin = key:find("^deku%-spin") ~= nil
+	local back = key == "deku-spin-backwalk"
+	local stab = key:find("stab") ~= nil
+	local holdL = stab or back
+	local rec = spin and recording3DS(key)
+	if spin and not rec then
+		r.status = "no recording"
+		r.log = { "no mm3d_actions\\" .. key .. ".json next to this script (mm3d_action_recorder.lua writes it)" }
+		r.after, r.final = t.prev, t.prev
+		return r
+	end
+	local weapon = SET_WEAPON and not spin and actionWeapon(t)
+	local frames0
+	local function logLine(tag)
+		r.log[#r.log + 1] = string.format("%s gf+%d pos %s speedXZ %.3f velY %.3f yaw %04X shapeYaw %04X wall %s floor %s",
+			tag, read_u32(K.play + K.gameplayFrames) - frames0, fmt(readVec(K.player + K.pos)),
+			readfloat(K.player + K.speedXZ), readfloat(K.player + K.velocity + 4),
+			read_u16(K.player + K.yaw), read_u16(K.player + K.shapeRotY),
+			polyName(read_u32(K.player + K.wallPoly)), polyName(read_u32(K.player + K.floorPoly)))
+	end
+	-- Held at the start facing `facing`, the weapon drawn with B presses early
+	-- on. Then L pressed - the camera behind him, and (held) the parallel yaw for
+	-- the stab / backwalk - but NOT at the start: touching a wall there,
+	-- Player_SetParallel snaps him to face it (MM z_player.c: within 0x2000 of
+	-- facing it, yaw = wallYaw + 0x8000), and while L is held he keeps turning
+	-- back to that. So L goes down at a spot behind the start where he touches
+	-- no wall (wallPoly 0, a floor under him), then, L still held, he's held at
+	-- the start; let go 12 frames before the end unless it stays held (the
+	-- stabs, the backwalk). In game: target before walking up to the wall.
+	-- Then on his own until a game frame has just run.
+	local function place(p)
+		writeVec(K.player + K.pos, p)
+		writeVec(K.player + K.home, p)
+		writefloat(K.player + K.speedXZ, 0)
+		writefloat(K.player + K.actorSpeed, 0)
+		write_s16(K.player + K.yaw, facing)
+		write_s16(K.player + K.rotY, facing)
+		write_s16(K.player + K.shapeRotY, facing)
+	end
+	local function holdStart()
+		memorysavestate.loadcorestate(base)
+		if weapon then mainmemory.write_u8(K.bButton, weapon) end
+		local half = math.floor(ACTION_HOLD / 2)
+		for i = 1, half do
+			-- (B at 6, 36 and 66: a sword in hand that's no longer on B - the
+			-- savestate's, B just changed - is put away first and a press during
+			-- that is lost (the N64 tests re-press only if he isn't holding it;
+			-- MM3D's heldItemAction isn't known, so always - a drawn one just swings)
+			if not spin and ((i >= 6 and i < 9) or (i >= 36 and i < 39) or (i >= 66 and i < 69)) then joypad.set({ B = true }) end
+			place(t.prev)
+			emu.frameadvance()
+		end
+		-- the spot for L: behind him (and off to the sides), touching no wall
+		local spot
+		for _, c in ipairs({ { 0x8000, 40 }, { 0x8000, 70 }, { 0x6000, 50 }, { 0xA000, 50 }, { 0x8000, 110 }, { 0x4000, 50 }, { 0xC000, 50 } }) do
+			local a = (facing + c[1]) / 0x8000 * math.pi
+			local p = { t.prev[1] + c[2] * math.sin(a), t.prev[2], t.prev[3] + c[2] * math.cos(a) }
+			for _ = 1, 3 * EMU_PER_GAME do place(p); emu.frameadvance() end
+			if read_u32(K.player + K.wallPoly) == 0 and read_u32(K.player + K.floorPoly) ~= 0 then spot = p; break end
+		end
+		r.lSpot = spot
+		for i = half + 1, ACTION_HOLD do
+			local atSpot = spot and i <= half + 24
+			if i > half + (spot and 4 or 0) and (holdL or i <= ACTION_HOLD - 12) then joypad.set({ L = true }) end
+			place(atSpot and spot or t.prev)
+			emu.frameadvance()
+		end
+		local g = read_u32(K.play + K.gameplayFrames)
+		for _ = 1, 4 * EMU_PER_GAME do
+			if holdL then joypad.set({ L = true }) end
+			emu.frameadvance()
+			if read_u32(K.play + K.gameplayFrames) ~= g then break end
+		end
+		r.start = readVec(K.player + K.pos)
+		r.log = {}
+		frames0 = read_u32(K.play + K.gameplayFrames)
+		logLine(string.format("start (B item 0x%02X; L pressed %s)", mainmemory.read_u8(K.bButton),
+			spot and string.format("at %s, touching no wall", fmt(spot)) or "at the start: no spot nearby without a wall - he may have snapped to face one"))
+		if read_u16(K.player + K.shapeRotY) ~= (facing % 0x10000) then
+			r.log[#r.log + 1] = string.format("  (facing 0x%04X, not the test's 0x%04X)", read_u16(K.player + K.shapeRotY), facing % 0x10000)
+		end
+	end
+	local function settle()
+		r.after = readVec(K.player + K.pos)
+		for i = 1, SETTLE_FRAMES do
+			emu.frameadvance()
+			if i % EMU_PER_GAME == 0 and i <= 6 * EMU_PER_GAME then logLine("settle") end
+		end
+		r.final = readVec(K.player + K.pos)
+		if RECORD then for _ = 1, RECORD_BUFFER do emu.frameadvance() end end
+	end
+	local function startOk()
+		if dist3(r.start, t.prev) > 1 then
+			r.status = "setup"
+			table.insert(r.log, 1, "start (should be prev) " .. fmt(r.start))
+			return false
+		end
+		return true
+	end
+
+	if not spin then
+		local n = (t.actionFrames or 3) + 2
+		for try, lead in ipairs(STICK_LEADS_3DS) do
+			holdStart()
+			local top = 0
+			local gf = read_u32(K.play + K.gameplayFrames)
+			-- the stick `lead` emulated frames before B, B for 3, the stick
+			-- STICK_AFTER_3DS more; then each game frame of the lunge logged
+			local step = 0
+			local total = lead + 3 + STICK_AFTER_3DS
+			local inputs = {}   -- (each emulated frame of the press: what was sent)
+			for _ = 1, total + n * EMU_PER_GAME + 4 do
+				step = step + 1
+				local b = step > lead and step <= lead + 3
+				if b or holdL then joypad.set({ B = b or nil, L = holdL or nil }) end
+				if step <= total then
+					local x, y = stick3DS(0)
+					inputs[#inputs + 1] = string.format("emu %d (gf+%d): Circle Pad X %d Y %d%s%s", step,
+						read_u32(K.play + K.gameplayFrames) - frames0, x, y, b and " + B" or "", holdL and " + L" or "")
+				elseif step == total + 1 then releaseStick() end
+				emu.frameadvance()
+				top = math.max(top, readfloat(K.player + K.speedXZ))
+				local g = read_u32(K.play + K.gameplayFrames)
+				if g ~= gf then
+					gf = g
+					logLine(step <= lead and "stick" or "lunge")
+				end
+				if step > total and g - frames0 >= n then break end
+			end
+			releaseStick()
+			-- the inputs, and the setup as it'd be done by hand
+			local function inputLines()
+				r.log[#r.log + 1] = string.format("inputs (stick %d emulated frames before B; 2 emulated frames a game frame):", lead)
+				for _, l in ipairs(inputs) do r.log[#r.log + 1] = "  " .. l end
+				r.log[#r.log + 1] = string.format("by hand: stand at %s facing 0x%04X, press %s L there (the camera goes behind him; touching no wall, so no snap), " ..
+					"%s at %s, then%s B with the Circle Pad straight up (X 0, Y %d) on the same frame or just before",
+					r.lSpot and fmt(r.lSpot) or fmt(t.prev), facing % 0x10000, holdL and "and hold" or "and tap",
+					holdL and "sidestep / walk (L held) to the start" or "walk to the start, facing it again,", fmt(t.prev),
+					holdL and " L still held," or "", stickSign3DS.y * 127)
+			end
+			if top > LUNGE_SPEED_3DS then
+				if lead > 0 then r.log[#r.log + 1] = string.format("(lunged with the stick %d emulated frames before B)", lead) end
+				inputLines()
+				settle()
+				if not startOk() then return r end
+				r.status = judge(t, r.after, r.final)
+				return r
+			end
+			if try == #STICK_LEADS_3DS then
+				settle()
+				r.status = "no lunge"
+				r.log[#r.log + 1] = string.format("no lunge with any stick lead (speedXZ at most %.3f): the weapon on B? the camera behind him?", top)
+				inputLines()
+				return r
+			end
+		end
+	end
+
+	-- The Deku spins
+	holdStart()
+	local rows = rec.rows
+	local pressRow = rec.pressRow or 0
+	local last = #rows
+	local stopAfter = t.stopAfter
+	local adj = 0          -- the stick's correction for the camera (steered from Player.yaw)
+	local gf = read_u32(K.play + K.gameplayFrames)
+	local prevPos = readVec(K.player + K.pos)
+	local frame, waited = 0, 0
+	local turns, spun, prevShape = 0, false, read_u16(K.player + K.shapeRotY)
+	for _ = 1, (40 + last + 4) * EMU_PER_GAME do
+		-- the inputs for frame `frame + 1`
+		local f = frame + 1
+		local held = {}
+		if back and f < pressRow then held.L = true end
+		if f == pressRow + 1 then held.A = true end
+		if next(held) then joypad.set(held) end
+		local row = rows[math.min(f, last)]
+		local on = f <= last and not (stopAfter and f > stopAfter)
+		local sx, sy = stick3DS(on and s16v(row.angle + adj) or nil)
+		emu.frameadvance()
+		local g = read_u32(K.play + K.gameplayFrames)
+		if g ~= gf then
+			gf = g
+			local pos = readVec(K.player + K.pos)
+			if frame > 0 or dist3(pos, prevPos) > 0.0001 then frame = frame + 1 else waited = waited + 1 end
+			prevPos = pos
+			-- steer: his move yaw against the recording's for this frame
+			if frame > 0 and on and readfloat(K.player + K.speedXZ) > 0.5 then
+				local want = facing + rows[math.min(frame, last)].angle
+				local err = s16v(read_u16(K.player + K.yaw) - want)
+				adj = s16v(adj - math.max(-0x400, math.min(0x400, err)))
+			end
+			local shape = read_u16(K.player + K.shapeRotY)
+			local d = math.abs(s16v(shape - prevShape))
+			prevShape = shape
+			if frame > pressRow and d > 0x800 then turns = turns + 1; if turns >= 2 then spun = true end else turns = 0 end
+			logLine((frame == 0 and "wait" or string.format("frame %d%s%s%s", frame, frame == pressRow + 1 and " (A)" or "",
+				back and frame == pressRow and " (L let go)" or "", stopAfter and frame == stopAfter and " (stop: stick let go)" or ""))
+				.. (sx and string.format(" [Circle Pad X %d Y %d]", sx, sy) or " [stick let go]"))
+			if frame == 0 and waited > 10 then
+				releaseStick()
+				r.status = "no run-up"
+				r.log[#r.log + 1] = "Link never moved: the stick (camera?), or something in the way"
+				r.after, r.final = pos, pos
+				return r
+			end
+			if frame >= last + 1 then break end
+		end
+	end
+	releaseStick()
+	settle()
+	if not spun then
+		r.status = "no spin"
+		r.log[#r.log + 1] = "A didn't start a spin (his shape didn't turn): Link on foot as Deku, no Deku flower under him"
+		return r
+	end
+	if not startOk() then return r end
+	r.status = judge(t, r.after, r.final)
+	return r
+end
+
 -- One test: sets up the frame, lets it run, and says where Link ended up.
 local function runTest(t, mode)
 	memorysavestate.loadcorestate(base)
 	local r = { test = t }
-	if t.action then return runActionTest(t, r) end
+	if t.action then
+		if IS_3DS then return runActionTest3DS(t, r) end
+		return runActionTest(t, r)
+	end
 	-- Slope clips (kind "slope", clipfinder slope.h) are always "move": the
 	-- clip is the game's own floor check lifting Link after the move, and can
 	-- take a second frame's move (speed2). (A hook set for the other tests

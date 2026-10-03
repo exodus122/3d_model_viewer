@@ -1,0 +1,22 @@
+{"game":"MM3D","key":"stick-slash","name":"lunge Deku stick slash","form":"HUMAN","facing":32570,"pressRow":0,"aimMin":2,
+"rows":[
+  {"rx":-0.146681541,"rz":0.158208303,"speed":11.6660422,"angle":0,"speedXZ":8.33333206,"yaw":32570,"shape":32570},
+  {"rx":-0.203164199,"rz":0.427517448,"speed":8.3329228,"angle":0,"speedXZ":4.99999857,"yaw":32570,"shape":32570},
+  {"rx":-0.236741824,"rz":0.63961881,"speed":4.99968022,"angle":0,"speedXZ":1.66666508,"yaw":32570,"shape":32570},
+  {"rx":-0.238606803,"rz":0.769682527,"speed":1.66655969,"angle":0,"speedXZ":0,"yaw":32570,"shape":32570},
+  {"rx":-0.208899002,"rz":0.842495995,"speed":0,"angle":0,"speedXZ":0,"yaw":32570,"shape":32570},
+  {"rx":-0.156273784,"rz":0.845892213,"speed":0,"angle":0,"speedXZ":0,"yaw":32570,"shape":32570},
+  {"rx":-0.118967386,"rz":0.952380988,"speed":0,"angle":0,"speedXZ":0,"yaw":32570,"shape":32570},
+  {"rx":-0.0219081276,"rz":0.22225766,"speed":0,"angle":0,"speedXZ":0,"yaw":32570,"shape":32570},
+  {"rx":-0.0106985241,"rz":-0.0072445163,"speed":0,"angle":0,"speedXZ":0,"yaw":32570,"shape":32570},
+  {"rx":0.000511079445,"rz":-0.236746692,"speed":0,"angle":0,"speedXZ":0,"yaw":32570,"shape":32570},
+  {"rx":0.0898153279,"rz":-0.439650287,"speed":0,"angle":0,"speedXZ":0,"yaw":32570,"shape":32570},
+  {"rx":0.155961444,"rz":-0.338226457,"speed":0,"angle":0,"speedXZ":0,"yaw":32570,"shape":32570},
+  {"rx":0.222048853,"rz":-0.236679421,"speed":0,"angle":0,"speedXZ":0,"yaw":32570,"shape":32570},
+  {"rx":0.29686392,"rz":0.0319683831,"speed":0,"angle":0,"speedXZ":0,"yaw":32570,"shape":32570},
+  {"rx":0.293136772,"rz":0.0510855444,"speed":0,"angle":0,"speedXZ":0,"yaw":32570,"shape":32570},
+  {"rx":0.289411942,"rz":0.0703247541,"speed":0,"angle":0,"speedXZ":0,"yaw":32570,"shape":32570},
+  {"rx":0.224520089,"rz":0.0703358219,"speed":0,"angle":0,"speedXZ":0,"yaw":32570,"shape":32570},
+  {"rx":0.157187309,"rz":0.0511026463,"speed":0,"angle":0,"speedXZ":0,"yaw":32570,"shape":32570},
+  {"rx":0.0897958229,"rz":0.0319926776,"speed":0,"angle":0,"speedXZ":0,"yaw":32570,"shape":32570}
+]}

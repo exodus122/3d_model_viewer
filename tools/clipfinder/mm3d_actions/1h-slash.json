@@ -1,0 +1,21 @@
+{"game":"MM3D","key":"1h-slash","name":"lunge 1h slash","form":"HUMAN","facing":32570,"pressRow":0,"aimMin":2,
+"rows":[
+  {"rx":-2.07139251,"rz":3.07209898,"speed":11.6660422,"angle":0,"speedXZ":8.33333206,"yaw":32570,"shape":32570},
+  {"rx":-1.66951355,"rz":3.00842882,"speed":8.3329228,"angle":0,"speedXZ":4.99999857,"yaw":32570,"shape":32570},
+  {"rx":-1.30788071,"rz":2.71879732,"speed":4.99967906,"angle":0,"speedXZ":1.66666508,"yaw":32570,"shape":32570},
+  {"rx":-1.0017853,"rz":2.06980372,"speed":1.66655969,"angle":0,"speedXZ":0,"yaw":32570,"shape":32570},
+  {"rx":-0.750988326,"rz":1.29268631,"speed":0,"angle":0,"speedXZ":0,"yaw":32570,"shape":32570},
+  {"rx":-0.54024585,"rz":0.63732283,"speed":0,"angle":0,"speedXZ":0,"yaw":32570,"shape":32570},
+  {"rx":-0.386484225,"rz":0.607665405,"speed":0,"angle":0,"speedXZ":0,"yaw":32570,"shape":32570},
+  {"rx":-0.0310790862,"rz":0.388721499,"speed":0,"angle":0,"speedXZ":0,"yaw":32570,"shape":32570},
+  {"rx":0.136891081,"rz":0.380770936,"speed":0,"angle":0,"speedXZ":0,"yaw":32570,"shape":32570},
+  {"rx":0.304861248,"rz":0.372820374,"speed":0,"angle":0,"speedXZ":0,"yaw":32570,"shape":32570},
+  {"rx":0.76233274,"rz":0.166589786,"speed":0,"angle":0,"speedXZ":0,"yaw":32570,"shape":32570},
+  {"rx":0.876713541,"rz":-0.162422882,"speed":0,"angle":0,"speedXZ":0,"yaw":32570,"shape":32570},
+  {"rx":0.99097461,"rz":-0.491311183,"speed":0,"angle":0,"speedXZ":0,"yaw":32570,"shape":32570},
+  {"rx":0.991105475,"rz":-1.02461288,"speed":0,"angle":0,"speedXZ":0,"yaw":32570,"shape":32570},
+  {"rx":0.876696624,"rz":-0.954313284,"speed":0,"angle":0,"speedXZ":0,"yaw":32570,"shape":32570},
+  {"rx":0.762290089,"rz":-0.883891641,"speed":0,"angle":0,"speedXZ":0,"yaw":32570,"shape":32570},
+  {"rx":0.304863557,"rz":-4.95853131e-05,"speed":0,"angle":0,"speedXZ":0,"yaw":32570,"shape":32570},
+  {"rx":0.152493961,"rz":3.50729414e-05,"speed":0,"angle":0,"speedXZ":0,"yaw":32570,"shape":32570}
+]}

@@ -299,18 +299,6 @@ int main(int argc, char** argv) {
 	const string base = is3ds ? game.substr(0, game.size() - 2) : game;
 	setGameRate(is3ds);
 	if (is3ds && !maxMoveGiven) setMaxMove(DEFAULT_MAX_MOVE / 1.5 * SPEED_RATE);
-	if (is3ds && (types & TYPE_ACTIONS)) { fprintf(stderr, "--type actions isn't supported for %s\n", game.c_str()); return 2; }
-	// --type actions: the scan's walking and slope clip points, then the lunges aimed at them
-	vector<int> actions;
-	if (types & TYPE_ACTIONS) {
-		string err;
-		actions = parseActions(base, actionsArg, err);
-		if (actions.empty()) { fprintf(stderr, "--action-keys: %s\n", err.empty() ? "no actions" : err.c_str()); return 2; }
-		if ((types & (TYPE_FALLING | TYPE_GROUND)) || minSpeed || atYaw >= 0 || angleSweep) {
-			fprintf(stderr, "--type actions can't be used with falling / ground types, --min-speed / --refine / --yaw / --angles\n");
-			return 2;
-		}
-	}
 	if ((base != "OOT" && base != "MM") || (mapName.empty() && !all)) {
 		fprintf(stderr,
 			"usage: clipfinder --game OOT|MM|OOT3D|MM3D (--map \"<name in the viewer's map list>\" | --all)\n"
@@ -330,7 +318,7 @@ int main(int argc, char** argv) {
 			"                  [--dyna FILE|none [--dyna-only] [--setup N] [--night]]  (the viewer's dynapoly export; default tools/clipfinder/<GAME>_dyna_all.json)\n"
 			"                  [--slope-step 1|2|3] [--wall-step S] [--slope-starts] [--aerial] [--keep-load-void] [--ground-step 1|2|3]\n"
 			"                  [--max-per-pair N]  (at most N points per wall pair, spread out evenly: smaller files)\n"
-			"                  [--action-keys 1h-slash,1h-stab,2h-slash,2h-stab,stick-slash,...,deku-spin,deku-spin-backwalk]  (with --type actions: which, default all)\n"
+			"                  [--action-keys 1h-slash,1h-stab,2h-slash,2h-stab,stick-slash,...,deku-spin,deku-spin-backwalk]  (with --type actions: which, default all; MM3D: the ones recorded in tools/clipfinder/mm3d_actions)\n"
 			"                  [-o out.json | --out-dir dir (default tools/clipfinder/results)] [--root viewer_dir] [--threads N]\n");
 		return 2;
 	}
@@ -382,6 +370,28 @@ int main(int argc, char** argv) {
 		size_t sl = exe.find_last_of("/\\");
 		string dir = sl == string::npos ? "." : exe.substr(0, sl);
 		root = exists("js/model_list.js") ? "." : dir + "/../..";
+	}
+	// --type actions: the scan's walking and slope clip points, then the lunges aimed at them.
+	// MM3D: the actions recorded in the game (tools/clipfinder/mm3d_actions, from
+	// mm3d_action_recorder.lua); OoT3D has none.
+	const string actionGame = game == "MM3D" ? game : base;
+	if (game == "MM3D") {
+		string err;
+		if (!loadRecordedActions(root + "/tools/clipfinder/mm3d_actions", game, err)) { fprintf(stderr, "%s\n", err.c_str()); return 2; }
+		if ((types & TYPE_ACTIONS) && std::none_of(ACTIONS.begin(), ACTIONS.end(), [&](const Action& x) { return x.game == game; })) {
+			fprintf(stderr, "MM3D: no recorded actions in %s/tools/clipfinder/mm3d_actions (record them with tools/clipfinder/mm3d_action_recorder.lua)\n", root.c_str());
+			return 2;
+		}
+	}
+	vector<int> actions;
+	if (types & TYPE_ACTIONS) {
+		string err;
+		actions = parseActions(actionGame, actionsArg, err);
+		if (actions.empty()) { fprintf(stderr, "--action-keys: %s\n", err.empty() ? "no actions" : err.c_str()); return 2; }
+		if ((types & (TYPE_FALLING | TYPE_GROUND)) || minSpeed || atYaw >= 0 || angleSweep) {
+			fprintf(stderr, "--type actions can't be used with falling / ground types, --min-speed / --refine / --yaw / --angles\n");
+			return 2;
+		}
 	}
 	vector<MapEntry> maps = readMapList(root, game);
 	if (maps.empty()) { fprintf(stderr, "no %s maps found in %s/js/model_list.js (use --root)\n", game.c_str(), root.c_str()); return 1; }
@@ -484,7 +494,7 @@ int main(int argc, char** argv) {
 		// Player_ActionHandler_10; the room Link is in isn't known, so a scene
 		// with some indoor rooms keeps it)
 		bool noJump = false, indoors = false;
-		// (always: --sim @KEY too; OoT3D / MM3D have no actions)
+		// (always: --sim @KEY too; OoT3D / MM3D: no room types read - MM3D's recorded actions have no stick frames)
 		if (!is3ds) {
 			// (the stick's speed: R_RUN_SPEED_LIMIT 500 indoors; a scene with some
 			// indoor rooms: the room Link is in isn't known, the outdoor limit)
@@ -637,7 +647,7 @@ int main(int argc, char** argv) {
 					m.focusA = onlyPusher;
 					m.focusB = onlyCrossed;
 				}
-				if (!simArg.empty()) return runSim(m, simArg, base, upper(v.form));
+				if (!simArg.empty()) return runSim(m, simArg, actionGame, upper(v.form));
 				if (!triArg.empty()) return printTris(m, triArg);
 				vector<Clip> found = scan(m, threads, firstPerPair);
 				keepTypes(found, types | (anyJump(formActions) ? TYPE_FALLING : 0));

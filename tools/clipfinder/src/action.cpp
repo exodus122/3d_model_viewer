@@ -1,4 +1,5 @@
 #include "action.h"
+#include "json.h"
 
 // Generated from the decomps' animation data (link_animetion,
 // gPlayerAnim_link_fighter_{normal,pierce,Lnormal,Lpierce}_kiru and their _end)
@@ -14,8 +15,8 @@
 //   the _end switch clears it). Leaving the ground then puts Link back at
 //   prevPos, speedXZ zeroed (OoT func_8083AA10, MM func_8083827C; tested in
 //   game: OoT Lost Woods, the 2h stab off TRI 974 was put back).
-//  Not modelled: MM also puts him back during any root motion if there's a
-//   floor within 10 in front of prevPos (func_808381F8, a ledge check).
+//  MM also puts him back during any root motion when the floor under prevPos
+//   is within 10 of him (func_808381F8): see runFrames.
 //  Not modelled: the sword hitting a wall from animation frame 2 on
 //  (func_80842DF4 / func_808401F4): speedXZ -14, a recoil back.
 // The jumpslash's air part isn't a table: see Action::jump and airFrames. The Deku stick (OoT
@@ -330,14 +331,73 @@ static vector<Action> buildActions() {
 		if (!v[i].noWalkIn && !std::any_of(v[i].frames.begin(), v[i].frames.end(), [](const ActionFrame& f) { return f.stick != 0; })) v.push_back(walkInVariant(v[i]));
 	return v;
 }
-const vector<Action> ACTIONS = buildActions();
+vector<Action> ACTIONS = buildActions();
+
+// MM3D: no decomp to work the actions out from, so they're measured in the
+// game: tools/clipfinder/mm3d_action_recorder.lua does each one from a standing
+// start on open ground and writes <key>.json, the rows as it saw them (each
+// game frame: the root motion added after the last frame's bg check, in Link's
+// frame, then the speedXZ move, at an angle from his facing). Swept here like
+// the N64 rows (actionStep). The swing frames aren't measured (a row's "swing"
+// if the file has it), but MM's root-motion ledge revert covers the lunges'
+// every frame (runFrames). Not modelled: the stick speed's wall cap in the Deku
+// spins (their speeds are as recorded, unobstructed).
+bool loadRecordedActions(const string& dir, const string& game, string& err) {
+	std::error_code ec;
+	if (!std::filesystem::is_directory(dir, ec)) return true;
+	vector<std::filesystem::path> files;
+	for (const auto& e : std::filesystem::directory_iterator(dir, ec))
+		if (e.path().extension() == ".json") files.push_back(e.path());
+	std::sort(files.begin(), files.end());
+	for (const auto& path : files) {
+		std::ifstream in(path, std::ios::binary);
+		const string text((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+		try {
+			JParser p(text);
+			const JVal root = p.val();
+			auto str = [&](const char* k) { const JVal* v = root.get(k); return v && v->kind == JVal::Str ? v->s : string(); };
+			auto num = [](const JVal* v, double def) { return v && v->kind == JVal::Num ? v->n : def; };
+			if (str("game") != game) continue;
+			Action a;
+			a.key = str("key");
+			a.name = str("name") + " (recorded)";
+			a.game = game;
+			a.forms = { str("form") };
+			a.recorded = true;
+			a.noWalkIn = true;
+			a.aimMin = num(root.get("aimMin"), 2);
+			const JVal* rows = root.get("rows");
+			if (a.key.empty() || a.forms[0].empty() || !rows || rows->kind != JVal::Arr || rows->a.empty())
+				throw std::runtime_error("needs key, form and rows");
+			for (const JVal& r : rows->a) {
+				ActionFrame f{ 0, 0, 0, 0, F(num(r.get("speed"), 0)), false, (int)num(r.get("angle"), 0) & 0xFFFF };
+				f.rx = F(num(r.get("rx"), 0));
+				f.rz = F(num(r.get("rz"), 0));
+				const JVal* sw = r.get("swing");
+				f.swing = sw && sw->kind == JVal::Bool && sw->b;
+				a.frames.push_back(f);
+			}
+			// (the Deku spins: stopping part way, and aimed at acute corners too, as the N64 ones)
+			if (a.key.rfind("deku-spin", 0) == 0) a.canStop = a.corners = true;
+			// (a new take of the same key replaces nothing here: one file a key)
+			ACTIONS.push_back(a);
+		} catch (const std::exception& ex) {
+			err = path.string() + ": " + ex.what();
+			return false;
+		}
+	}
+	return true;
+}
 
 static const double ACTION_SCALE = F(0.01);
 
 V3 actionStep(const Action& a, const ActionFrame& f, const V3& pos, int facing, bool noSpeed, double speed) {
 	const double sn = sinS(facing), cs = cosS(facing);
 	double dx, dz;
-	if (a.game == "MM") {
+	if (a.recorded) {
+		dx = F(F(f.rx * cs) + F(f.rz * sn));
+		dz = F(F(f.rz * cs) - F(f.rx * sn));
+	} else if (a.game == "MM") {
 		const double x = F(f.jx - f.px), z = F(f.jz - f.pz);
 		dx = F(F(F(x * cs) + F(z * sn)) * ACTION_SCALE);
 		dz = F(F(F(z * cs) - F(x * sn)) * ACTION_SCALE);
@@ -565,8 +625,21 @@ void runFrames(const Model& m, Scratch& s, const V3& start, int facing, const Ac
 		else o.res = m.sphereStep(o.next, tol, &o.trace, &pos);
 		auto fy = m.floorCheck(o.res.x, o.res.z, F(pos.y + 50), &o.floorPoly);
 		o.landed = fy && F(*fy - o.res.y) >= -11;
-		if (!o.landed && af.swing) {
-			// off the ground with the swing active: back where the frame started
+		// Off the ground, func_8083AA10 / MM func_8083827C put him back at
+		// prevPos (speedXZ zeroed) with the swing active - and MM also during
+		// any root motion (ANIM_FLAG_ENABLE_MOVEMENT: the whole attack, its end
+		// animation too) if func_808381F8 finds the floor under prevPos (from 50
+		// above) within 10 of where he is: so no MM lunge carries him off a
+		// ledge or out over a void (the user, Laundry Pool). MM3D taken to do
+		// the same (its recorded rows have no swing frames). Not OoT: swing only.
+		// (the attack's frames: not a -walkin run in, not a stick-driven spin)
+		bool back = af.swing;
+		if (!o.landed && !back && (a.game == "MM" || a.game == "MM3D") && j >= np && !af.stick && !a.canStop) {
+			const auto pf = m.floorCheck(pos.x, pos.z, F(pos.y + 50));
+			back = pf && std::fabs((double)F(*pf - o.res.y)) < 10;
+		}
+		if (!o.landed && back) {
+			// off the ground: back where the frame started
 			o.res = pos;
 			o.trace.clear();
 			o.landed = true;
@@ -673,7 +746,7 @@ std::optional<Clip> actionClip(const Model& m, Scratch& s, const V3& start, int 
 	const Action& a = ACTIONS[action];
 	vector<FrameOut> fr;
 	runFrames(m, s, start, facing, a, LOOSE, fr);
-	const bool canStop = std::any_of(a.frames.begin(), a.frames.end(), [](const ActionFrame& f) { return f.stick != 0; });
+	const bool canStop = a.canStop || std::any_of(a.frames.begin(), a.frames.end(), [](const ActionFrame& f) { return f.stick != 0; });
 	auto v = judge(m, s, start, fr, LOOSE, canStop);
 	if (!v) return std::nullopt;
 	// (during the run in: a walking clip)
@@ -735,7 +808,7 @@ void printActionFrames(const Model& m, const V3& start, int facing, int action) 
 			o.air ? (", velocity.y " + std::to_string(o.vy)).c_str() : "", P(o.next).c_str());
 		for (const Push& t : o.trace)
 			printf("  %s %s %s -> %s\n", m.polyName(t.poly).c_str(), t.line ? "line test snaps" : "pushes", P(t.from).c_str(), P(t.to).c_str());
-		if (o.reverted) printf("  off the ground with the sword swing active: put back at %s, speedXZ zeroed\n", P(o.prev).c_str());
+		if (o.reverted) printf("  off the ground mid-attack (the swing, or MM root motion with the floor under prevPos within 10): put back at %s, speedXZ zeroed\n", P(o.prev).c_str());
 		else if (o.landed) printf("  %s %s at y %.9g: %s\n", o.air ? "lands on" : "on", m.polyName(o.floorPoly).c_str(), o.landY,
 			m.isInBounds(s, { o.res.x, o.landY, o.res.z }) ? "in bounds" : "OUT OF BOUNDS");
 		else printf("  in the air at %s\n", P(o.res).c_str());

@@ -1045,7 +1045,11 @@ function describeClipLinesBase(g, c, checkHeight) {
             `ACTION CLIP (${c.action}): ${how}`,
             `  stand still at ${fmt(c.prev)} (feet), facing ${hex4(c.facing)}, and do the ${c.action}` +
                 // (frames counted from the first one he moves on; clipfinder dekuSpinFrames / walkInVariant)
-                (c.actionKey === "deku-spin" ? ` (the stick held at full tilt toward ${hex4(c.facing)} throughout: A on his 4th frame moving, once speedXZ is 6)`
+                // (MM3D: recorded by tools/clipfinder/mm3d_action_recorder.lua, whose inputs these are)
+                (c.actionKey === "deku-spin" && game === "MM3D" ? ` (the stick held at full tilt toward ${hex4(c.facing)} throughout: A once speedXZ reaches 6, about his 15th frame moving)`
+                : c.actionKey === "deku-spin-backwalk" && game === "MM3D" ? ` (L held, the stick at full tilt toward ${hex4(c.facing + 0x8000)} - behind him - throughout: ` +
+                    `once speedXZ is 9, about his 9th frame moving, let go of L for a frame, then A)`
+                : c.actionKey === "deku-spin" ? ` (the stick held at full tilt toward ${hex4(c.facing)} throughout: A on his 4th frame moving, once speedXZ is 6)`
                 : c.actionKey === "deku-spin-backwalk" ? ` (Z held, the stick at full tilt toward ${hex4(c.facing + 0x8000)} - behind him - throughout: ` +
                     `once speedXZ is 9, his 6th frame moving, let go of Z for a frame, then A)`
                 : (c.actionKey?.endsWith("-walkin") ? ` (first the stick held toward ${hex4(c.facing)} for 9 frames, running into the corner, then the press)` : "") +

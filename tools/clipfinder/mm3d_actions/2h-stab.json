@@ -1,0 +1,7 @@
+{"game":"MM3D","key":"2h-stab","name":"lunge 2h stab","form":"HUMAN","facing":32570,"pressRow":0,"aimMin":2,
+"rows":[
+  {"rx":0.797868334,"rz":5.33737911,"speed":11.6660422,"angle":0,"speedXZ":8.33333206,"yaw":32570,"shape":32570},
+  {"rx":0.638264102,"rz":4.1075211,"speed":8.3329228,"angle":0,"speedXZ":4.99999857,"yaw":32570,"shape":32570},
+  {"rx":0.478659869,"rz":2.87766308,"speed":4.99968022,"angle":0,"speedXZ":1.66666508,"yaw":32570,"shape":32570},
+  {"rx":4.63424613e-06,"rz":0.000244096638,"speed":1.66655969,"angle":0,"speedXZ":0,"yaw":32570,"shape":32570}
+]}
