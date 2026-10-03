@@ -1,6 +1,7 @@
 #include "reach.h"
 #include "ground.h"
 #include "slope.h"
+#include "corners.h"
 
 // wall_push_clips.js reachability: the lowest speed Link can do clip `c` at,
 // from a standable in-bounds start one frame's move away (32 directions, every
@@ -19,11 +20,20 @@ void reachability(const Model& m, Scratch& s, Clip& c) {
 	const double over = c.cross ? 0.5 : 0;
 	std::set<std::pair<double, double>> tried;
 	bool have = false;
-	for (int i = 0; i < 32; i++) {
+	// (Link standing partly inside a convex wall corner too, after the 32
+	// directions: corners.h)
+	vector<V3> corner;
+	cornerSpotsNear(m, P.x, P.z, floorRef, REACH_DIST, corner);
+	for (int i = 0; i <= 32; i++) {
 		double ang = i / 32.0 * 2 * PI;
-		for (double d = REACH_STEP; d <= REACH_DIST; d += REACH_STEP) {
-			if (have && (d + over) / SPEED_RATE >= c.reachSpeed + 2) break;
-			auto startO = standSpot(m, F(P.x - d * std::sin(ang)), F(P.z - d * std::cos(ang)), floorRef);
+		const size_t nd = i < 32 ? (size_t)(REACH_DIST / REACH_STEP) : corner.size();
+		for (size_t di = 0; di < nd; di++) {
+			std::optional<V3> startO;
+			if (i < 32) {
+				const double d = (di + 1) * REACH_STEP;
+				if (have && (d + over) / SPEED_RATE >= c.reachSpeed + 2) break;
+				startO = standSpot(m, F(P.x - d * std::sin(ang)), F(P.z - d * std::cos(ang)), floorRef);
+			} else startO = corner[di];
 			if (!startO) continue;
 			V3 start = *startO;
 			if (!tried.insert({ start.x, start.z }).second) continue;

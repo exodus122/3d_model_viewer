@@ -1,6 +1,7 @@
 #include "search.h"
 #include "ground.h"
 #include "slope.h"
+#include "corners.h"
 
 ////////////////////////////////////////
 // Search
@@ -396,6 +397,42 @@ static std::optional<std::pair<CrossFound, vector<int>>> crossingClip(const Mode
 	// reach it at all: up to a whole frame's move, see floorsBeside)
 	vector<double> steps = MOVE_STEPS;
 	if (A.isFloor) for (double d = steps.back() + 4; d <= REACH_DIST; d += 4) steps.push_back(d);
+	// standing still at prev, moving from there through the point
+	auto tryStart = [&](const V3& prev, bool aerial) -> std::optional<CrossFound> {
+		if (!tried.insert({ prev.x, prev.z }).second) return std::nullopt;
+		double vx = cp.p.x - prev.x, vz = cp.p.z - prev.z, len = std::hypot(vx, vz);
+		if (len < 0.5) return std::nullopt;
+		double dx = vx / len, dz = vz / len;
+		if (std::fabs(dx * A.nx + dz * A.nz) * A.invNXZ < 0.1) return std::nullopt;
+		// the game's move: s16 yaw, speed 1 unit past the point, sine table
+		int yaw = yawOf(vx, vz);
+		double speed = F((len + 1) / SPEED_RATE);
+		V3 next = moveStep(prev, yaw, speed);
+		if (cp.drop > 0) next.y = cp.p.y;
+		// The drop is from the floor at the clip point, but downhill the start
+		// is higher: from the start, checkHeight + dy < 5 makes the game's line
+		// test run at the feet, which stops him on his floor (tested in game:
+		// OoT Kakariko child TRI 142 -> 673, 141 -> 21 etc., 20 of 20 didn't clip).
+		if (cp.drop > 0 && feetLine(m.checkHeight, F(next.y - prev.y))) return std::nullopt;
+		auto f = lineFrame(m, s, prev, next, tol);
+		if (!f || f->hit.poly != A.id) return std::nullopt;
+		const Move mv{ yaw, speed };
+		auto clip = clipFromFrame(m, s, prev, f->res, f->trace, tol, cp.drop > 0 ? NAN : prev.y, &mv);
+		if (!clip || !m.isInBounds(s, prev, true)) return std::nullopt;
+		bool noFloor = false;
+		if (cp.drop > 0) {
+			auto end = landing(m, s, f->res, cp.floorY, noFloor, clip->crossed, &prev);
+			if (!end) return std::nullopt;
+			clip->end = *end;
+		} else if (!m.endCounts(s, clip->crossed, clip->end, &prev)) {
+			return std::nullopt;
+		}
+		return CrossFound{ *clip, prev, next, f->res, { f->hit.x, next.y, f->hit.z }, noFloor, yaw, speed, aerial };
+	};
+	auto record = [&](const CrossFound& found) {
+		if (std::find(yaws.begin(), yaws.end(), found.yaw) == yaws.end()) yaws.push_back(found.yaw);
+		if (!first) first = found;
+	};
 	// Resting starts first. Falling with --aerial, failing those, from right
 	// there in the air (aerialSpot): only a pair no standing start does.
 	for (int ai = 0; ai < (cp.drop > 0 && m.aerial ? 2 : 1) && !first; ai++) {
@@ -405,48 +442,23 @@ static std::optional<std::pair<CrossFound, vector<int>>> crossingClip(const Mode
 			if (std::fabs(dx0 * A.nx + dz0 * A.nz) * A.invNXZ < 0.1) continue;
 			std::optional<CrossFound> found;
 			for (double dist : steps) {
-				// standing still at the start, moving from there through the point
 				// (cached for falling points only: a walking point's starts are
 				// hardly ever tried again, so the cache just costs time there)
 				double sx = F(cp.p.x - dist * dx0), sz = F(cp.p.z - dist * dz0);
 				auto prevO = ai ? aerialSpot(m, sx, sz, cp.floorY)
 					: cp.drop > 0 ? standSpotCached(m, s, sx, sz, cp.floorY) : standSpot(m, sx, sz, cp.floorY);
 				if (!prevO) continue;
-				V3 prev = *prevO;
-				if (!tried.insert({ prev.x, prev.z }).second) continue;
-				double vx = cp.p.x - prev.x, vz = cp.p.z - prev.z, len = std::hypot(vx, vz);
-				if (len < 0.5) continue;
-				double dx = vx / len, dz = vz / len;
-				if (std::fabs(dx * A.nx + dz * A.nz) * A.invNXZ < 0.1) continue;
-				// the game's move: s16 yaw, speed 1 unit past the point, sine table
-				int yaw = yawOf(vx, vz);
-				double speed = F((len + 1) / SPEED_RATE);
-				V3 next = moveStep(prev, yaw, speed);
-				if (cp.drop > 0) next.y = cp.p.y;
-				// The drop is from the floor at the clip point, but downhill the start
-				// is higher: from the start, checkHeight + dy < 5 makes the game's line
-				// test run at the feet, which stops him on his floor (tested in game:
-				// OoT Kakariko child TRI 142 -> 673, 141 -> 21 etc., 20 of 20 didn't clip).
-				if (cp.drop > 0 && feetLine(m.checkHeight, F(next.y - prev.y))) continue;
-				auto f = lineFrame(m, s, prev, next, tol);
-				if (!f || f->hit.poly != A.id) continue;
-				const Move mv{ yaw, speed };
-				auto clip = clipFromFrame(m, s, prev, f->res, f->trace, tol, cp.drop > 0 ? NAN : prev.y, &mv);
-				if (!clip || !m.isInBounds(s, prev, true)) continue;
-				bool noFloor = false;
-				if (cp.drop > 0) {
-					auto end = landing(m, s, f->res, cp.floorY, noFloor, clip->crossed, &prev);
-					if (!end) continue;
-					clip->end = *end;
-				} else if (!m.endCounts(s, clip->crossed, clip->end, &prev)) {
-					continue;
-				}
-				found = CrossFound{ *clip, prev, next, f->res, { f->hit.x, next.y, f->hit.z }, noFloor, yaw, speed, ai == 1 };
-				break;
+				if ((found = tryStart(*prevO, ai == 1))) break;
 			}
-			if (!found) continue;
-			if (std::find(yaws.begin(), yaws.end(), found->yaw) == yaws.end()) yaws.push_back(found->yaw);
-			if (!first) first = found;
+			if (found) record(*found);
+		}
+		// Link standing partly inside a convex wall corner (corners.h)
+		if (ai == 0) {
+			vector<V3>& near = s.cornerBuf;
+			near.clear();
+			cornerSpotsNear(m, cp.p.x, cp.p.z, cp.floorY, steps.back(), near);
+			for (const V3& prev : near)
+				if (auto found = tryStart(prev, false)) record(*found);
 		}
 	}
 	if (!first) return std::nullopt;
@@ -457,26 +469,37 @@ static std::optional<std::pair<CrossFound, vector<int>>> crossingClip(const Mode
 // (aerialSpot), and *aerial says which
 static std::optional<V3> reachFrom(const Model& m, Scratch& s, const V3& p, double floorY, bool* aerial = nullptr) {
 	double h = F(p.y + m.checkHeight);
+	auto ok = [&](const V3& prev) {
+		double x = prev.x, z = prev.z;
+		if (std::hypot(p.x - x, p.z - z) > REACH_DIST) return false;
+		// checkHeight + dy < 5: the game's line test runs at the feet,
+		// floors included, and stops him on the floor he starts from (as
+		// crossingClip; tested in game: MM West Clock Town human, drop 28
+		// from y 75 / 135, TRI 143 -> 62 / 66 and 172 -> 69 didn't clip)
+		if (feetLine(m.checkHeight, F(p.y - prev.y))) return false;
+		if (m.lineHit(s, { x, h, z }, { p.x, h, p.z }, LOOSE, false, true)) return false;
+		return m.isInBounds(s, prev, true);
+	};
 	for (int ai = 0; ai < (aerial && m.aerial ? 2 : 1); ai++) {
 		for (double dist : MOVE_STEPS) {
 			for (int i = 0; i < 16; i++) {
 				double ang = i / 16.0 * 2 * PI;
 				const double x0 = F(p.x - dist * std::sin(ang)), z0 = F(p.z - dist * std::cos(ang));
 				auto prevO = ai ? aerialSpot(m, x0, z0, floorY) : standSpot(m, x0, z0, floorY);
-				if (!prevO) continue;
-				V3 prev = *prevO;
-				double x = prev.x, z = prev.z;
-				if (std::hypot(p.x - x, p.z - z) > REACH_DIST) continue;
-				// checkHeight + dy < 5: the game's line test runs at the feet,
-				// floors included, and stops him on the floor he starts from (as
-				// crossingClip; tested in game: MM West Clock Town human, drop 28
-				// from y 75 / 135, TRI 143 -> 62 / 66 and 172 -> 69 didn't clip)
-				if (feetLine(m.checkHeight, F(p.y - prev.y))) continue;
-				if (m.lineHit(s, { x, h, z }, { p.x, h, p.z }, LOOSE, false, true)) continue;
-				if (m.isInBounds(s, prev, true)) {
-					if (aerial) *aerial = ai == 1;
-					return prev;
-				}
+				if (!prevO || !ok(*prevO)) continue;
+				if (aerial) *aerial = ai == 1;
+				return prevO;
+			}
+		}
+		// Link standing partly inside a convex wall corner (corners.h)
+		if (ai == 0) {
+			vector<V3>& near = s.cornerBuf;
+			near.clear();
+			cornerSpotsNear(m, p.x, p.z, floorY, REACH_DIST, near);
+			for (const V3& prev : near) {
+				if (!ok(prev)) continue;
+				if (aerial) *aerial = false;
+				return prev;
 			}
 		}
 	}
@@ -500,10 +523,18 @@ static std::optional<Clip> standingClip(const Model& m, Scratch& s, const V3& fl
 	}
 	// Link walks there himself: the game's move
 	// stops a hair off p, so the frame is checked again where he ends up.
-	for (double dist : MOVE_STEPS) {
-		for (int i = 0; i < 16; i++) {
-			double ang = i / 16.0 * 2 * PI;
-			auto prevO = standSpot(m, F(p.x - dist * std::sin(ang)), F(p.z - dist * std::cos(ang)), floorPt.y);
+	// (the rings round p, then Link standing partly inside a convex wall
+	// corner: corners.h)
+	vector<V3> corner;
+	cornerSpotsNear(m, p.x, p.z, floorPt.y, REACH_DIST, corner);
+	const size_t rings = MOVE_STEPS.size() * 16;
+	for (size_t k = 0; k < rings + corner.size(); k++) {
+		{
+			std::optional<V3> prevO;
+			if (k < rings) {
+				double dist = MOVE_STEPS[k / 16], ang = (k % 16) / 16.0 * 2 * PI;
+				prevO = standSpot(m, F(p.x - dist * std::sin(ang)), F(p.z - dist * std::cos(ang)), floorPt.y);
+			} else prevO = corner[k - rings];
 			if (!prevO) continue;
 			V3 prev = *prevO;
 			double vx = p.x - prev.x, vz = p.z - prev.z, len = std::hypot(vx, vz);

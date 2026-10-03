@@ -53,7 +53,7 @@
 -- with the walls read from RAM (load that map first). (A .lua test file from
 -- an older viewer still works too.)
 -- A relative path is from this script's folder (tools\clipfinder).
-local TESTS_FILE = [[results\MM3D_Deku_Palace_Human_Deku_selected.json]]
+local TESTS_FILE = [[results\OOT_Spirit_Temple_Adult_Child_selected.json]]
 local RESULTS_FILE = nil          -- nil: wall_clip_results.txt next to the tests
 local MAX_PER_GROUP = 12          -- points tried per wall pair (spread evenly); 0 = all
 local SKIP_FALLING = false        -- true: leave out the falling clips (drop > 0, from --type falling scans)

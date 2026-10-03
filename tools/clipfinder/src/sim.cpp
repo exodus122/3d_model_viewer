@@ -1,5 +1,6 @@
 #include "sim.h"
 #include "action.h"
+#include "corners.h"
 
 static const char* P(const V3& v) {
 	static char b[4][96];
@@ -85,6 +86,11 @@ static int runSimGround(const Model& m, Scratch& s, const V3& start, int yaw, do
 		F(start.z + F(F(speed * cosS(yaw)) * SPEED_RATE)) };
 	printf("start %s  yaw 0x%04X  speed %.9g  velocity.y %.9g -> posNext %s\n", P(start), yaw, speed, vy, P(next));
 	printf("start in bounds: %s\n", m.isInBounds(s, start, true) ? "yes" : "NO");
+	{
+		auto rest = m.restingSpot(start);
+		if (rest && rest->x == start.x && rest->z == start.z && inCornerPocket(m, start))
+			printf("  partly inside a convex wall corner (no wall's projection lands on it): a corner pocket start\n");
+	}
 	int fp = -1;
 	auto fy = m.floorCheck(start.x, start.z, F(start.y + 1), &fp);
 	if (fy && fp >= 0) {
@@ -215,6 +221,8 @@ int runSim(const Model& m, const string& simArg, const string& game, const strin
 	warnStartFloor(m, start);
 	auto rest = m.restingSpot(start);
 	printf("start is a resting spot: %s\n", rest && rest->x == start.x && rest->z == start.z ? "yes" : rest ? (string("no, rests at ") + P(*rest)).c_str() : "no (pushes don't settle)");
+	if (rest && rest->x == start.x && rest->z == start.z && inCornerPocket(m, start))
+		printf("  partly inside a convex wall corner (no wall's projection lands on it): a corner pocket start\n");
 	{
 		int fp = -1;
 		auto fy = m.floorCheck(start.x, start.z, F(start.y + 1), &fp);

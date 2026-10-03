@@ -1,4 +1,5 @@
 #include "ground.h"
+#include "corners.h"
 
 const double GROUND_VYS[] = { -20 };
 const int GROUND_NVY = sizeof(GROUND_VYS) / sizeof(GROUND_VYS[0]);
@@ -169,6 +170,20 @@ void groundClipsForWall(const Model& m, Scratch& s, const Poly& W,
 			for (double y0 : front) {
 				for (double e : PAST) {
 					const double qx = base.first - e * nx, qz = base.second - e * nz;
+					auto tryStart = [&](const V3& start) {
+						if (planeDist(W, start.x, F(start.y + ch), start.z) <= 0) return;
+						const double vx = qx - start.x, vz = qz - start.z, len = std::hypot(vx, vz);
+						if (len < 0.5 || len > REACH_DIST) return;
+						if (!tried.insert({ start.x, start.z, F(qx), F(qz) }).second) return;
+						if (!m.isInBounds(s, start, true)) return;
+						for (int k = 0; k < GROUND_NVY; k++) {
+							auto c = groundFrame(m, s, start, yawOf(vx, vz), F(len / SPEED_RATE), GROUND_VYS[k], W.id);
+							if (!c || got.count(c->pusher) || pairDone(c->pusher, c->crossed)) continue;
+							yield(*c);
+							got.insert(c->pusher);
+							break;
+						}
+					};
 					for (double deg : FAN) {
 						const double a = deg * PI / 180;
 						const double dx = -nx * std::cos(a) + tx * std::sin(a), dz = -nz * std::cos(a) + tz * std::sin(a);
@@ -176,22 +191,14 @@ void groundClipsForWall(const Model& m, Scratch& s, const Poly& W,
 							// starts from pressed against the wall to d further back
 							const double back = e + m.radius + d;
 							auto startO = standSpotCached(m, s, F(qx - back * dx), F(qz - back * dz), y0);
-							if (!startO) continue;
-							V3 start = *startO;
-							if (planeDist(W, start.x, F(start.y + ch), start.z) <= 0) continue;
-							const double vx = qx - start.x, vz = qz - start.z, len = std::hypot(vx, vz);
-							if (len < 0.5 || len > REACH_DIST) continue;
-							if (!tried.insert({ start.x, start.z, F(qx), F(qz) }).second) continue;
-							if (!m.isInBounds(s, start, true)) continue;
-							for (int k = 0; k < GROUND_NVY; k++) {
-								auto c = groundFrame(m, s, start, yawOf(vx, vz), F(len / SPEED_RATE), GROUND_VYS[k], W.id);
-								if (!c || got.count(c->pusher) || pairDone(c->pusher, c->crossed)) continue;
-								yield(*c);
-								got.insert(c->pusher);
-								break;
-							}
+							if (startO) tryStart(*startO);
 						}
 					}
+					// Link standing partly inside a convex wall corner (corners.h)
+					vector<V3>& near = s.cornerBuf;
+					near.clear();
+					cornerSpotsNear(m, qx, qz, y0, REACH_DIST, near);
+					for (const V3& start : near) tryStart(start);
 				}
 			}
 		}

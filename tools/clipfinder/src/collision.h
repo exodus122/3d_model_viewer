@@ -158,6 +158,7 @@ struct Scratch {
 	vector<uint32_t> stamp;
 	uint32_t curStamp = 0;
 	vector<int> wallsBuf, cellsBuf;
+	vector<V3> cornerBuf;  // cornerSpotsNear results
 	uint32_t nextStamp() {
 		if (++curStamp == 0) { std::fill(stamp.begin(), stamp.end(), 0); curStamp = 1; }
 		return curStamp;
@@ -177,6 +178,12 @@ struct Model {
 	vector<vector<int>> cellWallsL, cellFloorsL; // sorted, per subdivision
 	std::unordered_map<int64_t, vector<int>> floorGrid;
 	const double floorCell = 128;
+	// Convex corner pockets (corners.h, findCornerSpots): resting spots where
+	// Link's sphere is partly inside a wall corner that sticks out at him, and
+	// a cornerCell xz grid of them. Empty with --no-corners.
+	vector<V3> cornerSpots;
+	std::unordered_map<int64_t, vector<int>> cornerGrid;
+	const double cornerCell = 32;
 
 	static int64_t key2(int64_t a, int64_t b) { return (a << 32) ^ (b & 0xFFFFFFFF); }
 

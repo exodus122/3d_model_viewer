@@ -117,6 +117,7 @@ Default: `acute,extended,slope`. `all` means `acute,extended,slope,ground,fallin
 | `--keep-load-void` | Keep the clips whose start is on a loading zone (a floor with an exit, `SurfaceType_GetExitIndex`) or a void plane (floor property 5 / 12, MM 13 too). Left out by default: standing there takes Link out of the scene before any clip matters. Only the floor under the start counts; dynapolys never do (the export has no surface types). E.g. OoT Death Mountain Trail, adult: 374 of 1818 points, nearly all of TRI 348 → 346 / 345, start on the summit's exit to the crater (TRI 453, exit 5). `--sim` prints the start's floor, and `--tri` a poly's exit and floor property. |
 | `--slope-starts` | Also search the crossing points whose surroundings are only in bounds when the rays that go into a slope first are ignored (see **In bounds** below). Finds some more crossing clips starting on slopes, but about 3x slower on a mountain: OoT Death Mountain Trail setup 2, adult, falling: 21333 points (4 more wall pairs) in 110 s instead of 21039 in 38 s. |
 | `--aerial` | With the `falling` type: a falling clip may also start in the air where Link couldn't stand still, exactly where the move starts, not moved to a resting spot (the walls there needn't have pushed him out: a bomb or an enemy knocks him there after the frame's wall pushes). Only for a clip point no resting start does. Not under a floor within 50 above him (the floor check would put him up on it). The JSON marks those clips `"aerial": true` (the viewer says so in the description), and the file name gets `_aerial`. E.g. MM West Clock Town, human: the step TRI 164 through TRI 59 from z 23.57, 11.4 in front of 59 (a community setup, bombed at the corner). Not with `--min-speed`, `--refine`, `--yaw` or `--angles`. |
+| `--no-corners` | Don't try starts in convex wall corner pockets (see **Convex corner pockets**). The output is then the same as before they were added. |
 | `--dyna-only` | With `--dyna`: only scan the wall pairs that have a dynapoly wall in them (pusher or clipped wall), and skip maps without dynapolys. Much faster; the static-only pairs are what a scan without `--dyna` finds, give or take the dynapolys' effect on them. |
 | `--setup N` | With `--dyna`: only the dynapolys of setup N, for every form. Without it, OoT pairs each form with the setups it plays in (see **OoT forms and setups** below). |
 | `--night` | OoT: the night setups too (child 1, adult 3), which are left out by default. |
@@ -351,7 +352,7 @@ What changes:
   from (-1763.541, -63.00192, 77) at yaw 0 and y velocity -20, speed 25 goes
   under TRI 48 and out (20 doesn't; the model says 23 and up clip). The 1.5 is
   fitted to that clip, not read from the 3DS code (`z_bgcheck` isn't
-  decompiled in oot3d). `tools/clipfinder/ground_clip_poke.lua` gives Link a
+  decompiled in oot3d). `tools/clipfinder/ground_clip_poke.lua` (any of the four games) gives Link a
   speed and y velocity for one frame to try one by hand.
 - **Actions: MM3D only, recorded.** `--type actions` for MM3D uses the
   actions recorded in the game (see **MM3D actions** below); OoT3D has none.
@@ -962,6 +963,31 @@ In the corner of the block's +X face and TRI 1721, the Human 1h slash from
 Link past its edge through TRI 1721, and standing, TRI 1719 pushes him out
 into the alcove (tested in game). OoT Kokiri Forest, adult: 224 of 9973
 points end in bounds, up on a ledge about 50 above the start.
+
+## Convex corner pockets
+
+Where two walls meet in a corner that sticks out at Link (or a wall just
+ends), he can stand partly inside the corner. The game's wall check only pushes
+him off a wall when his centre, projected along Z or X onto its plane, lands
+on the triangle (with 1 unit of slack). Standing just off the corner's edge,
+he's past the end of both walls, so neither one pushes him. At a square corner
+his centre gets to about 1.5 from the edge, where a wall's face would keep him
+a whole radius away.
+
+The scan's starts are the resting spots it reaches by stepping back from each
+clip point. The pushes there move Link a radius off a face, so they hardly
+ever end in a pocket. So once per map and form (well under a second), the
+scan looks round every wall vertex, every 10 degrees and on each floor, for the
+deepest spot that is a resting spot, in bounds, with his sphere at least 0.5
+into a wall (`corners.cpp`, `N convex corner pocket starts` in the terminal).
+Those spots are tried as extra starts, after the usual ones, by the wall push
+crossings, the standing-start reach, falling clips, slope clips, ground clips
+and `--min-speed`. They aren't tried by the actions, `--yaw` or `--refine`. `--sim` says `a corner pocket
+start` when Link's start is one. OoT Kakariko Village, adult: 964 pockets, 3
+new wall pairs (480 → 694, 872 → 780 falling, 949 → 220), and 48 new points
+in all. MM West Clock Town, Human: a new ground clip, 245 under 101, from
+(-1837.362, 211.602, -705.948) at yaw 0x9D3D, speed 8.107. These haven't been
+checked in game.
 
 ## Acute or extended
 

@@ -14,6 +14,7 @@
 //   collision.h/.cpp the game's collision checks (static and dynapoly), as a Model
 //   dyna.h/.cpp      --dyna: the viewer's dynapoly export, added to the Model
 //   frame.h/.cpp     one frame: does it clip; where Link can stand; --max-move
+//   corners.h/.cpp   starts with Link partly inside a convex wall corner
 //   search.h/.cpp    the scan over a whole map
 //   slope.h/.cpp     slope clips: the floor check lifting Link behind a wall
 //   ground.h/.cpp    ground clips: falling fast through the floor, under a wall
@@ -42,6 +43,7 @@
 // Every option is explained in README.md next to this file.
 
 #include "action.h"
+#include "corners.h"
 #include "dyna.h"
 #include "output.h"
 #include "reach.h"
@@ -124,6 +126,7 @@ int main(int argc, char** argv) {
 	double wallStep = 0;  // --wall-step S: the fine pass on pairs without a clip (Model::wallStep)
 	bool dynaOnly = false, slopeStarts = false, keepLoadVoid = false;
 	bool aerial = false;  // --aerial: falling clips may start in the air (Model::aerial)
+	bool corners = true;  // --no-corners: no convex corner pocket starts (corners.h)
 	string typeArg;  // --type acute,extended,slope,ground,falling,actions (TYPE_*)
 	int onlySetup = -1;  // --setup N: just the dynapolys of that setup
 	bool night = false;  // --night: OoT's night setups (1, 3) too
@@ -215,6 +218,7 @@ int main(int argc, char** argv) {
 		else if (a == "--night") night = true;
 		else if (a == "--slope-starts") slopeStarts = true;
 		else if (a == "--aerial") aerial = true;
+		else if (a == "--no-corners") corners = false;
 		else if (a == "--slope-step") {
 			slopeStepMax = std::stoi(val());
 			if (slopeStepMax < 1 || slopeStepMax > 3) { fprintf(stderr, "--slope-step wants 1, 2 or 3\n"); return 2; }
@@ -626,6 +630,13 @@ int main(int argc, char** argv) {
 				m.extendedOnly = extendedOnly;
 				m.build(tris, ch.numPolygons);
 				addDynaActors(m, dyna);
+				// convex corner pockets: starts with Link partly inside a corner (corners.h)
+				if (corners) {
+					const auto tc = std::chrono::steady_clock::now();
+					findCornerSpots(m, threads);
+					fprintf(stderr, "  %zu convex corner pocket starts (%.1fs)\n", m.cornerSpots.size(),
+						std::chrono::duration<double>(std::chrono::steady_clock::now() - tc).count());
+				}
 				m.dynaPairsOnly = dynaOnly;
 				// the wall push scan: for its clips, or the lunges' targets
 				m.wallPushes = types & (TYPE_ACUTE | TYPE_EXTENDED | TYPE_FALLING | TYPE_ACTIONS);

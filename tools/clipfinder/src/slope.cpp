@@ -1,4 +1,5 @@
 #include "slope.h"
+#include "corners.h"
 
 // How far apart the points along a wall's bottom edge are searched, as for
 // ground clips (ground.cpp): by how long the stretch is with the same floors
@@ -169,26 +170,33 @@ void slopeClipsForWall(const Model& m, Scratch& s, const Poly& W,
 				for (const auto& [e, ys] : sp.behind) {
 					if (std::none_of(ys.begin(), ys.end(), [&](double y) { return y > y0 && y - y0 <= 50; })) continue;
 					const double qx = base.first - e * nx, qz = base.second - e * nz;
+					auto tryStart = [&](const V3& start) {
+						if (planeDist(W, start.x, F(start.y + ch - GROUND_DROP), start.z) <= 0) return false;
+						double vx = qx - start.x, vz = qz - start.z, len = std::hypot(vx, vz);
+						if (len < 0.5 || len > REACH_DIST) return false;
+						if (!tried.insert({ start.x, start.z, F(qx), F(qz) }).second) return false;
+						if (!m.isInBounds(s, start, true)) return false;
+						auto c = slopeFrame(m, s, start, yawOf(vx, vz), F(len / SPEED_RATE), W.id);
+						if (!c || pairDone(c->pusher, c->crossed)) return false;
+						yield(*c);
+						return true;
+					};
 					for (double deg : FAN) {
 						const double a = deg * PI / 180;
 						// into the wall, turned by a
 						const double dx = -nx * std::cos(a) + tx * std::sin(a), dz = -nz * std::cos(a) + tz * std::sin(a);
 						for (double dist : MOVE_STEPS) {
 							auto startO = standSpotCached(m, s, F(qx - dist * dx), F(qz - dist * dz), y0);
-							if (!startO) continue;
-							const V3 start = *startO;
-							if (planeDist(W, start.x, F(start.y + ch - GROUND_DROP), start.z) <= 0) continue;
-							double vx = qx - start.x, vz = qz - start.z, len = std::hypot(vx, vz);
-							if (len < 0.5 || len > REACH_DIST) continue;
-							if (!tried.insert({ start.x, start.z, F(qx), F(qz) }).second) continue;
-							if (!m.isInBounds(s, start, true)) continue;
-							auto c = slopeFrame(m, s, start, yawOf(vx, vz), F(len / SPEED_RATE), W.id);
-							if (!c || pairDone(c->pusher, c->crossed)) continue;
-							yield(*c);
-							found = true;
-							break;
+							if (startO && tryStart(*startO)) { found = true; break; }
 						}
 						if (found) break;
+					}
+					// Link standing partly inside a convex wall corner (corners.h)
+					if (!found) {
+						vector<V3>& near = s.cornerBuf;
+						near.clear();
+						cornerSpotsNear(m, qx, qz, y0, REACH_DIST, near);
+						for (const V3& start : near) if (tryStart(start)) { found = true; break; }
 					}
 					if (found) break;
 				}
