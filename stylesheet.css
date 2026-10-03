@@ -214,7 +214,8 @@ button {
 }
 
 .clip-line input[type=number] {
-    width: 3.2em;
+    /* (room for a value like 46.67 beside the spinner arrows) */
+    width: 5.6em;
     margin: 0;
     padding: 2px 4px;
     font-size: 12px;

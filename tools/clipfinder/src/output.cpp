@@ -87,8 +87,13 @@ string toJson(const string& game, const string& map, int numPolygons, bool falli
 			for (size_t k = 0; k < c.frames.size(); k++) o << (k ? "," : "") << vec(c.frames[k]);
 			o << "]";
 		}
-		// --min-speed: the slowest move that does it, or null for none
-		if (c.reachDone) {
+		// --min-speed: the slowest move that does it, or null for none. Not for
+		// a slope / ground clip whose reach is its own move (most of them): the
+		// viewer fills that in on import (wall_push_clips.js slopeReach) - it
+		// was ~10% of a big file
+		const bool ownMove = c.kind >= 2 && c.hasReach && c.reachYaw == c.yaw && c.reachSpeed == std::max(c.speed, c.speed2) &&
+			c.reachStart.x == c.prev.x && c.reachStart.y == c.prev.y && c.reachStart.z == c.prev.z;
+		if (c.reachDone && !ownMove) {
 			if (c.hasReach) o << ",\"reach\":{\"speed\":" << num(c.reachSpeed) << ",\"yaw\":" << c.reachYaw << ",\"start\":" << vec(c.reachStart) << "}";
 			else o << ",\"reach\":null";
 		}

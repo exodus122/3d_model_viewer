@@ -2,7 +2,6 @@ import * as THREE from 'three';
 import { currentColCtx } from './parse_model.js';
 import { getPointSubdivisionIndex } from './subdivisions.js';
 import { addModelCheckbox, primaryColorTarget } from './render.js';
-import { sins } from './libultra_sins.js';
 import { setupDynaExports, sceneNumPolygons } from './oot_actors.js';
 import { getSelectedClips } from './selection.js';
 
@@ -49,14 +48,11 @@ const FORM_RUN_SPEED = {
 // clipfinder's setGameRate).
 let GROUND_DROP = 7.5;
 
-// Reachability: starts up to REACH_DIST away (speed 30 moves 45 a frame), every
-// REACH_STEP, in 32 directions. Actor_UpdatePos moves speed * 1.5 a frame.
+// The max move a frame clipfinder scanned with (--max-move; the max move
+// box): a file without "maxMove" is from before it was written, at 45 (speed
+// 30). Export JSON writes it back out.
 const DEFAULT_MAX_MOVE = 45;
 let REACH_DIST = DEFAULT_MAX_MOVE;
-const REACH_STEP = 1;
-
-// How far Link can move in a frame (glitches can go well past speed 30):
-// reachability starts up to n away (speed n / 1.5).
 function setMaxMove(n) {
     REACH_DIST = n;
 }
@@ -103,26 +99,9 @@ const SNORMAL_CEIL = Math.trunc(-0.8 * 32767);   // COLPOLY_SNORMAL(-0.8f)
 // once to f32 is the correctly rounded f32 result.
 const F = Math.fround;
 const NORMAL_FRAC = F(1.0 / 32767.0);   // COLPOLY_NORMAL_FRAC
-const SHT_MINV = F(1.0 / 32767.0);
 const EPSILON = F(0.008);               // IS_ZERO
 const isZero = v => Math.abs(v) < EPSILON;
 const sq = v => F(v * v);
-
-// Math_SinS / Math_CosS: sins(angle) * (1.0f / SHRT_MAX)
-const SHRT_INV = F(1 / 32767);
-const sinS = yaw => F(sins(yaw) * SHRT_INV);
-const cosS = yaw => F(sins(yaw + 0x4000) * SHRT_INV);
-// The s16 yaw pointing along (dx, dz) (x = sin, z = cos), as a u16.
-const yawOf = (dx, dz) => Math.round(Math.atan2(dx, dz) / (2 * Math.PI) * 0x10000) & 0xFFFF;
-// Link walking on the ground for a frame at `yaw` with speed `speed`:
-// Actor_UpdateVelocityWithGravity + Actor_UpdatePos (x1.5, velocity.y -4 + gravity -1).
-function moveStep(from, yaw, speed) {
-    return {
-        x: F(from.x + F(F(speed * sinS(yaw)) * SPEED_RATE)),
-        y: F(from.y - GROUND_DROP),
-        z: F(from.z + F(F(speed * cosS(yaw)) * SPEED_RATE)),
-    };
-}
 
 function buildPoly(tri) {
     const [a, b, c] = tri.vtxs;
@@ -649,26 +628,6 @@ class CollisionModel {
     }
 }
 
-// Whether a clip through `crossed` ending at `end` counts: out of bounds, or -
-// through a dynapoly (a gate, a fence, a crate) - just behind it, wherever
-// that is (tools/clipfinder Model::endCounts)
-function endCounts(model, crossed, end) {
-    if (crossed && crossed.bg !== undefined && behindPoly(model, crossed, end)) return true;
-    return !model.isInBounds(end);
-}
-
-// Still behind wall p at `pos`: at his check height, on its back side and
-// within the triangle's span (not, say, landed on top of the crate it's a
-// side of)
-function behindPoly(model, p, pos) {
-    const y = pos.y + model.checkHeight;
-    if (y < p.minY || y > p.maxY) return false;
-    const d = planeDist(p, pos.x, y, pos.z);
-    if (!(d < 0)) return false;
-    const k = d / p.nMag;
-    return pointInTri3D(p, pos.x - k * p.nx, y - k * p.ny, pos.z - k * p.nz, 0.25);
-}
-
 // Math3D_LineVsSph on a bg actor's Sphere16
 function lineVsSphere(bg, a, b) {
     const r2 = F(bg.r * bg.r);
@@ -704,215 +663,6 @@ function pointInTri3D(p, x, y, z, tolerance) {
         return (x1 + dx * t - x0) ** 2 + (y1 + dy * t - y0) ** 2 <= tSq;
     };
     return near(pa, pb, a0, b0, a1, b1) || near(pa, pb, a1, b1, a2, b2) || near(pa, pb, a2, b2, a0, b0);
-}
-
-////////////////////////////////////////
-// Search
-////////////////////////////////////////
-
-// Checks the frame prev -> res (whose pushes are in `trace`) for a clip: the
-// result is behind a wall it was in front of, and two more frames of standing
-// still leave it there. Returns the wall crossed, the push that crossed it and
-// where Link ends up, or null.
-//
-// With `rayFromY` (prevPos.y, Link walking) the frame's floor check runs first
-// (func_800B7678): a ray down from rayFromY + 50 finds the highest floor - or
-// wall facing up at all - under where he was pushed to, and he lands on it if
-// it's above him or at most 11 below. Pushed into a sloped rock he can land on
-// top of it that way, in front of the wall he went through.
-// `move` ({ yaw, speed }, walking frames): if standing still afterwards puts
-// him back, try keeping the stick held for one more frame (clip.hold).
-function clipFromFrame(model, prev, res, trace, tol, rayFromY = null, move = null) {
-    if (trace.length === 0) return null;
-    // (at the frame's height: prevPos.xz, posNext.y)
-    const from = { x: prev.x, y: res.y, z: prev.z };
-    const crossed = model.crossedWall(from, res);
-    if (!crossed) return null;
-
-    let at = res, landY = null;
-    if (rayFromY !== null) {
-        const fy = model.floorCheck(res.x, res.z, F(rayFromY + 50));
-        if (fy !== null && F(fy - res.y) >= -11) {
-            landY = fy;
-            // standing there from then on: the following frames' posNext
-            at = { x: res.x, y: F(fy - GROUND_DROP), z: res.z };
-        }
-    }
-    // Two more frames standing still from at0: still through the same wall -
-    // or, landed at another height, through any: there it can be another
-    // triangle (MM Treasure Chest Shop: pushed through the 40 high counter
-    // front TRI 90, he lands on its top, behind TRI 73/74 of the wall above
-    // it - in-game that clips walking at speed 11). Null if not.
-    const standStill = (at0, landY0) => {
-        const s1 = model.sphereStep(at0, tol, null);
-        const s2 = model.sphereStep(s1, tol, null);
-        const from2 = { x: prev.x, y: at0.y, z: prev.z };
-        const held = model.crossedWall(from2, s2);
-        if (landY0 === null ? held !== crossed : !held) return null;
-        // Out the other side of a thin wall: through it, not out of bounds.
-        // (through a dynapoly - a gate, a fence - that's what the clip is for)
-        if (crossed.bg === undefined && model.crossedWall(from2, s2, true)) return null;
-        return landY0 === null ? s2 : { x: s2.x, y: landY0, z: s2.z };
-    };
-    let end = standStill(at, landY);
-    let hold = false;
-    if (!end) {
-        // Standing still, the wall he went through pushes him back out (he's
-        // less than 4 behind it); holding the stick, the next frame's move can
-        // take him further behind it first (tools/clipfinder clipFromFrame).
-        if (!move || landY === null) return null;
-        const st2 = { x: res.x, y: landY, z: res.z };
-        const nx2 = moveStep(st2, move.yaw, move.speed);
-        const lf = lineFrame(model, st2, nx2, tol);
-        const r2 = lf ? lf.res : model.sphereStep(nx2, tol, null, st2);
-        const fy = model.floorCheck(r2.x, r2.z, F(st2.y + 50));
-        if (fy === null || F(fy - r2.y) < -11) return null;
-        end = standStill({ x: r2.x, y: F(fy - GROUND_DROP), z: r2.z }, fy);
-        if (!end) return null;
-        hold = true;
-    }
-
-    // The push that took Link through `crossed`.
-    const sphY = res.y + model.checkHeight;
-    let pusher = null;
-    for (const t of trace) {
-        if (t.poly === crossed) continue;
-        const before = planeDist(crossed, t.from.x, sphY, t.from.z);
-        const after = planeDist(crossed, t.to.x, sphY, t.to.z);
-        if (before >= 0 && after < 0) { pusher = t; break; }
-    }
-    if (!pusher) {
-        for (let i = trace.length - 1; i >= 0; i--) {
-            if (trace[i].poly !== crossed) { pusher = trace[i]; break; }
-        }
-    }
-    if (!pusher) return null;
-    return { crossed, pusher: pusher.poly, end, hold };
-}
-
-// Link moving from prev to next crosses a wall: BgCheck_CheckWallImpl's line
-// check (at next.y + checkHeight) stops him at the nearest wall it hits and
-// puts him `radius` in front of it, then the frame's pushes run.
-function lineFrame(model, prev, next, tol) {
-    const h = F(next.y + model.checkHeight);
-    // BGCHECK_CHECK_ALL minus ceilings: one face only (a wall Link comes
-    // through from behind doesn't stop him), and floors too when he moves
-    // more than `radius` this frame.
-    const dx = F(next.x - prev.x), dz = F(next.z - prev.z);
-    const floors = sq(model.radius) < F(sq(dx) + sq(dz));
-    const hit = model.lineHit({ x: prev.x, y: h, z: prev.z }, { x: next.x, y: h, z: next.z }, tol, floors, true);
-    if (!hit || isZero(hit.poly.nXZ)) return null;
-    const k = F(model.radius * F(1 / hit.poly.nXZ));
-    const snapped = { x: F(F(k * hit.poly.nx) + hit.x), y: next.y, z: F(F(k * hit.poly.nz) + hit.z) };
-    const trace = [{ poly: hit.poly, from: { ...next }, to: { ...snapped }, line: true }];
-    const res = model.sphereStep(snapped, tol, trace, prev, hit.poly.bg !== undefined);
-    return { hit, res, trace };
-}
-
-// Where Link can stand still near (x, z): on the highest floor within 10 of
-// floorY, moved to where the wall pushes leave him alone (e.g. radius out from
-// a wall), with his height from the floor he ends up over. Null if there's no
-// floor there or the pushes don't settle.
-function standSpot(model, x, z, floorY) {
-    // (then the top one of the floors right there: overlapping triangles of a
-    // bumpy slope give a few heights at once, and Link stands on the highest)
-    const floorAt = (fx, fz) => {
-        const ys = model.floorsAt(fx, fz);
-        const y = ys.filter(y => Math.abs(y - floorY) <= 10).sort((a, b) => b - a)[0];
-        return y === undefined ? y : Math.max(...ys.filter(v => v <= y + 3));
-    };
-    let y = floorAt(x, z);
-    if (y === undefined) return null;
-    for (let i = 0; i < 3; i++) {
-        const rest = model.restingSpot({ x, y, z });
-        if (!rest) return null;
-        const ry = floorAt(rest.x, rest.z);
-        if (ry === undefined) return null;
-        if (rest.x === x && rest.z === z && ry === y) {
-            // not under a floor within 50 above his feet: the floor check
-            // (from pos.y + 50) would put him up on it (clipfinder standSpot)
-            const fy = model.floorCheck(rest.x, rest.z, F(rest.y + 50));
-            return fy !== null && fy > rest.y ? null : rest;
-        }
-        x = rest.x; z = rest.z; y = ry;
-    }
-    return null;
-}
-
-// Where falling Link lands after being pushed to `res`, if that's out of
-// bounds: the floor check's ray comes down from prevPos.y + 50 (he was at least
-// at the height of the floor at floorY), so the highest floor under res at most
-// 50 above that one, then two frames standing there. No floor: he falls out of
-// bounds. Null if he lands in bounds.
-// crossed: the wall clipped through; behind a dynapoly counts wherever he lands (endCounts)
-function landing(model, res, floorY, crossed = null) {
-    // (the game's floor check: floors and upward-facing walls, see floorCheck)
-    const land = model.floorCheck(res.x, res.z, F(floorY + 50));
-    if (land === null) return { x: res.x, y: res.y, z: res.z, noFloor: true };
-    const low = F(land - GROUND_DROP);
-    const s = model.sphereStep(model.sphereStep({ x: res.x, y: low, z: res.z }, LOOSE, null), LOOSE, null);
-    const end = { x: s.x, y: land, z: s.z };
-    return endCounts(model, crossed, end) ? end : null;
-}
-
-// Can Link get to clip `c` from standing still somewhere? A standable start:
-// where he comes to rest (the wall pushes applied until they stop moving him,
-// e.g. resting against a slope) from a spot one frame's movement away in one
-// of 32 directions, on a floor near the clip's floor height and in bounds. The
-// frame from there straight at the point has to produce the clip through the
-// same wall, ending out of bounds (for a standing point: nothing stops him on
-// the way and the pushes do it; for a crossing point: the line check stops
-// him on the pusher and the clip follows), as clipfinder's reachability()
-// (tools/clipfinder/src/reach.cpp). Returns the lowest speed that works, the
-// start and the yaw, or null.
-function reachability(model, c) {
-    const floorRef = c.floorY ?? c.from.y;
-    const P = c.from;
-    const over = c.cross ? 0.5 : 0; // a crossing has to get past the plane
-    const tried = new Set();
-    let best = null;
-    for (let i = 0; i < 32; i++) {
-        const ang = i / 32 * 2 * Math.PI;
-        for (let d = REACH_STEP; d <= REACH_DIST; d += REACH_STEP) {
-            if (best && (d + over) / SPEED_RATE >= best.speed + 2) break;
-            const sx = F(P.x - d * Math.sin(ang)), sz = F(P.z - d * Math.cos(ang));
-            const start = standSpot(model, sx, sz, floorRef);
-            if (!start) continue;
-            const key = start.x + "," + start.z;
-            if (tried.has(key)) continue;
-            tried.add(key);
-            const vx = P.x - start.x, vz = P.z - start.z;
-            const len = Math.hypot(vx, vz);
-            if (len < 0.01 || len > REACH_DIST) continue;
-            const speed = F((len + over) / SPEED_RATE);
-            if (best && speed >= best.speed) continue;
-            const yaw = yawOf(vx, vz);
-            // the game's move at that yaw and speed
-            const next = moveStep(start, yaw, speed);
-            if (c.drop > 0) next.y = P.y;
-            // (moving, a drop with checkHeight + dy < 5 gets the feet-level line
-            // test that stops him on his floor)
-            if (F(model.checkHeight + F(next.y - start.y)) < 5) continue;
-            if (c.cross) {
-                const f = lineFrame(model, start, next, LOOSE);
-                if (!f || f.hit.poly !== c.pusher) continue;
-                const clip = clipFromFrame(model, start, f.res, f.trace, LOOSE, c.drop > 0 ? null : start.y, { yaw, speed });
-                if (!clip || clip.crossed !== c.crossed) continue;
-                if (c.drop > 0 ? !landing(model, f.res, floorRef, clip.crossed) : !endCounts(model, clip.crossed, clip.end)) continue;
-            } else {
-                // nothing in the way, then the frame's pushes clip through the same wall
-                if (lineFrame(model, start, next, LOOSE)) continue;
-                const trace = [];
-                const res = model.sphereStep(next, LOOSE, trace, start);
-                const clip = clipFromFrame(model, start, res, trace, LOOSE, c.drop > 0 ? null : start.y, { yaw, speed });
-                if (!clip || clip.crossed !== c.crossed) continue;
-                if (c.drop > 0 ? !landing(model, res, floorRef, clip.crossed) : !endCounts(model, clip.crossed, clip.end)) continue;
-            }
-            if (!model.isInBounds(start, true)) continue;
-            best = { speed, start, yaw };
-        }
-    }
-    return best;
 }
 
 // Yield to the page between chunks of work. A MessageChannel message, since
@@ -961,15 +711,32 @@ const hex4 = n => "0x" + (n & 0xFFFF).toString(16).toUpperCase().padStart(4, "0"
 
 // A slope or ground clip's reach is its own move from a standing start
 // (clipfinder slopeFrame / groundFrame): the faster of its (slope: two)
-// frames. reachability() doesn't model them.
+// frames.
 const slopeReach = c => ({ speed: Math.max(c.speed, c.speed2 ?? 0), yaw: c.yaw, start: c.prev });
+
+// The speed a clip needs ("Reachable, speed <="), straight from the file -
+// nothing is worked out here: clipfinder --min-speed's lowest speed (`reach`;
+// null when there's none from a standable start), else the clip's own move
+// (a slope clip: the faster of its two frames), else - a falling standing
+// point, which has no move of its own - the distance from its start (`prev`)
+// to the point, as that frame's speed. An attack is its own move: 0.
+function fileSpeed(c) {
+    if (c.action) return 0;
+    if (c.reach === null) return Infinity;
+    if (c.reach) return c.reach.speed;
+    if (c.speed !== undefined) return Math.max(c.speed, c.speed2 ?? 0);
+    return Math.hypot(c.from.x - c.prev.x, c.from.z - c.prev.z) / SPEED_RATE;
+}
 
 function describeReach(c) {
     if (c.action) return `  reachable: the ${isSpinKey(c.actionKey) ? "spin" : c.actionKey?.includes("jumpslash") ? "jumpslash" : "lunge"} is the move (no stick speed needed)`;
-    if (c.reach === undefined) return `  reachability: tick "Reachable only" to work it out`;
-    if (!c.reach) return `  not reachable from a standable start (at up to speed ${REACH_DIST / SPEED_RATE})`;
-    const r = c.reach;
-    return `  reachable: stand at ${fmt(r.start)}, move at yaw ${hex4(r.yaw)} with speed ${r.speed.toFixed(2)} or more`;
+    if (c.reach === null) return `  not reachable from a standable start (clipfinder --min-speed)`;
+    if (c.reach) {
+        const r = c.reach;
+        return `  reachable: stand at ${fmt(r.start)}, move at yaw ${hex4(r.yaw)} with speed ${r.speed.toFixed(2)} or more`;
+    }
+    if (c.speed !== undefined) return `  speed ${fileSpeed(c).toFixed(2)}: the move above (clipfinder --min-speed finds the lowest)`;
+    return `  speed ${fileSpeed(c).toFixed(2)}: from the start to the point in one frame`;
 }
 
 function describeClip(g, c, checkHeight) {
@@ -1443,8 +1210,7 @@ export function setupWallPushClipUI(scene) {
     };
     document.getElementById("selected-game").addEventListener("change", refresh);
     document.getElementById("loadMap").addEventListener("click", () => {
-        reachToken++; // abandon reachability for the previous map
-        autoToken++;  // and its auto-import
+        autoToken++;  // abandon the previous map's auto-import
         importToken++; // and an import still going
         last = null;
         loaded = null;
@@ -1453,33 +1219,13 @@ export function setupWallPushClipUI(scene) {
     });
     refresh();
 
-    // Reachability (when the file doesn't have it) is worked out the first
-    // time the filter is switched on.
-    let reachToken = 0;
     // (an import yields to the page as it goes: a newer import or map load
     // abandons it)
     let importToken = 0;
-    const computeReach = async () => {
-        const token = ++reachToken;
-        const clips = last.groups.flatMap(g => g.clips);
-        let lastYield = performance.now();
-        for (let i = 0; i < clips.length; i++) {
-            if (clips[i].reach === undefined) clips[i].reach = clips[i].kind === "slope" || clips[i].kind === "ground" ? slopeReach(clips[i]) : reachability(clips[i].model, clips[i]);
-            if (performance.now() - lastYield > 30) {
-                status.textContent = `Checking reachability ${Math.floor((i + 1) / clips.length * 100)}%`;
-                await nextTask();
-                if (token !== reachToken || !last) return false;
-                lastYield = performance.now();
-            }
-        }
-        last.reachDone = true;
-        return true;
-    };
 
     // The |velocity.y| a clip needs this frame (Actor_UpdatePos moves 1.5x
     // it): ground clips their vy, falling ones their fall / 1.5 (from the
-    // reachable start when `useReach`, as reachability() falls to the clip
-    // point). Walking and slope clips don't depend on it: 0, never filtered.
+    // reachable start when `useReach` and the file has one). Walking and slope clips don't depend on it: 0, never filtered.
     const neededVy = (c, useReach) => {
         if (c.kind === "ground") return Math.abs(c.vy ?? -20);
         if (!(c.drop > 0)) return 0;
@@ -1489,17 +1235,11 @@ export function setupWallPushClipUI(scene) {
 
     const render = async () => {
         if (!last) return;
-        if (reachableChk.checked && !last.reachDone) {
-            reachableChk.disabled = true;
-            const done = await computeReach();
-            reachableChk.disabled = false;
-            if (!done) return;
-        }
         removeMarkerModels(scene);
         const maxSpeed = Number(maxSpeedInput.value);
         const byReach = reachableChk.checked, byVy = vyChk.checked;
         const maxVy = Number(maxVyInput.value);
-        const keep = c => (!byReach || (c.reach && c.reach.speed <= maxSpeed)) &&
+        const keep = c => (!byReach || fileSpeed(c) <= maxSpeed + 1e-4) &&
             (!byVy || neededVy(c, byReach) <= maxVy + 1e-4);
         const shown = byReach || byVy
             ? last.groups.map(g => ({ ...g, clips: g.clips.filter(keep) })).filter(g => g.clips.length > 0)
@@ -1653,15 +1393,11 @@ export function setupWallPushClipUI(scene) {
         }
     });
 
-    // Max move a frame: how far away reachability looks for starts (the
-    // reachability worked out so far is redone with it)
+    // Max move a frame: what clipfinder --max-move scanned with (imports set
+    // it; Export JSON writes it)
     const applyMaxMove = () => {
         const n = Number(maxMoveInput.value);
         setMaxMove(n > 0 ? n : DEFAULT_MAX_MOVE);
-        if (!last) return;
-        for (const g of last.groups) for (const c of g.clips) delete c.reach;
-        last.reachDone = false;
-        render();
     };
     maxMoveInput.addEventListener("change", applyMaxMove);
     setMaxMove(Number(maxMoveInput.value) > 0 ? Number(maxMoveInput.value) : DEFAULT_MAX_MOVE);
@@ -1676,7 +1412,6 @@ export function setupWallPushClipUI(scene) {
         const token = ++importToken;
         const main = loadedModels.find(m => m.name === "Main Model");
         const colCtx = currentColCtx;
-        reachToken++;
         // Progress in the status line, yielding to the page every 30 ms (so
         // it shows); false when abandoned
         let lastYield = performance.now();
@@ -1758,6 +1493,9 @@ export function setupWallPushClipUI(scene) {
                 if (c.action) Object.assign(clip, { action: c.action, actionKey: c.actionKey, facing: c.facing, actionFrames: c.actionFrames, airFrames: c.airFrames, stopAfter: c.stopAfter, frames: c.frames.map(vec) });
                 // clipfinder --min-speed: the reachability already worked out
                 if ("reach" in c) clip.reach = c.reach ? { speed: c.reach.speed, yaw: c.reach.yaw, start: vec(c.reach.start) } : null;
+                // (a slope / ground clip's own move is its reach: clipfinder
+                // leaves that out of the file)
+                else if ((c.kind === "slope" || c.kind === "ground") && c.speed !== undefined) clip.reach = slopeReach(clip);
                 clips.push(clip);
             }
         }
@@ -1800,7 +1538,6 @@ export function setupWallPushClipUI(scene) {
                 (files.length > 1 ? `, from ${files.length} files` : ""),
             dyna,
         };
-        if (clips.every(c => c.reach !== undefined)) last.reachDone = true;
         if (!await progress(`Importing clips: drawing ${clips.length} points…`, true)) return;
         await render();
         logGroups(groups);

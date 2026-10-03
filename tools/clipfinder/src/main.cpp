@@ -132,6 +132,7 @@ int main(int argc, char** argv) {
 	int onlySetup = -1;  // --setup N: just the dynapolys of that setup
 	bool night = false;  // --night: OoT's night setups (1, 3) too
 	int maxPerPair = 0;  // --max-per-pair N: at most N points a wall pair, spread out (thinClips)
+	size_t maxBytes = 5000000;  // --max-mb N: thin a bigger file (0: no limit)
 	double radius = 0;
 	bool all = false, firstPerPair = false, minSpeed = false, refine = false, angles = false;
 	bool angleSweep = false;  // --angles: every yaw that clips, each from its own start (like --yaw)
@@ -159,6 +160,11 @@ int main(int argc, char** argv) {
 		else if (a == "--radius") radius = std::stod(val());
 		else if (a == "--type") typeArg = val();
 		else if (a == "--first-per-pair") firstPerPair = true;
+		else if (a == "--max-mb") {
+			const double mb = std::stod(val());
+			if (!(mb >= 0)) { fprintf(stderr, "--max-mb wants a size in MB (0: no limit)\n"); return 2; }
+			maxBytes = (size_t)(mb * 1e6);
+		}
 		else if (a == "--max-per-pair") {
 			maxPerPair = std::stoi(val());
 			if (maxPerPair < 1) { fprintf(stderr, "--max-per-pair wants a number of points >= 1\n"); return 2; }
@@ -303,7 +309,8 @@ int main(int argc, char** argv) {
 	const bool is3ds = game == "OOT3D" || game == "MM3D";
 	const string base = is3ds ? game.substr(0, game.size() - 2) : game;
 	setGameRate(is3ds);
-	if (is3ds && !maxMoveGiven) setMaxMove(DEFAULT_MAX_MOVE / 1.5 * SPEED_RATE);
+	// the same move a frame in all four games (SCAN_MAX_MOVE)
+	if (!maxMoveGiven) setMaxMove(SCAN_MAX_MOVE);
 	if ((base != "OOT" && base != "MM") || (mapName.empty() && !all)) {
 		fprintf(stderr,
 			"usage: clipfinder --game OOT|MM|OOT3D|MM3D (--map \"<name in the viewer's map list>\" | --all)\n"
@@ -319,10 +326,11 @@ int main(int argc, char** argv) {
 			"                  [--clip-kind walking|falling|slope|ground] [--drop D]  (with --refine / --yaw / --angles: which of the pair's clips; falling: posNext D below the floor)\n"
 			"                  [--sim X,Y,Z,YAW,SPEED[,DROP | ,vVY]]  (one frame from a standing start, printed step by step; SPEED as 15/7: a frame per speed)\n"
 			"                  [--tri ID[,ID...]]  (print those polys: vertices, normal, type)\n"
-			"                  [--max-move N]  (units Link can move in one frame: default 45, speed 30; OOT3D / MM3D 30)\n"
+			"                  [--max-move N]  (units Link can move in one frame: default 55 - speed 36.67, OOT3D / MM3D 55)\n"
 			"                  [--dyna FILE|none [--dyna-only] [--setup N] [--night]]  (the viewer's dynapoly export; default tools/clipfinder/<GAME>_dyna_all.json)\n"
 			"                  [--slope-step 1|2|3] [--wall-step S] [--slope-starts] [--aerial] [--keep-load-void] [--ground-step 1|2|3]\n"
 			"                  [--max-per-pair N]  (at most N points per wall pair, spread out evenly: smaller files)\n"
+			"                  [--max-mb N]  (default 5: a bigger file keeps fewer points per wall pair, as --max-per-pair; 0: no limit)\n"
 			"                  [--action-keys 1h-slash,1h-stab,2h-slash,2h-stab,stick-slash,...,deku-spin,deku-spin-backwalk]  (with --type actions: which, default all; MM3D: the ones recorded in tools/clipfinder/tools/mm3d_actions)\n"
 			"                  [-o out.json | --out-dir dir (default tools/clipfinder/results)] [--root viewer_dir] [--threads N]\n");
 		return 2;
@@ -962,7 +970,46 @@ int main(int argc, char** argv) {
 				if (kept < actionPoints) fprintf(stderr, " (reduced to %zu for the file)", kept);
 				fprintf(stderr, "\n");
 			}
-			f << toJson(game, e.name, ch.numPolygons, falling, extendedOnly, results, dyna.raw, dyna.setups);
+			// (each map its own: only a thinned file says so)
+			if (maxPerPair == 0 && actions.empty()) MAX_PER_PAIR = 0;
+			string json = toJson(game, e.name, ch.numPolygons, falling, extendedOnly, results, dyna.raw, dyna.setups);
+			// --max-mb (default 5) without --max-per-pair: a file that would be
+			// bigger keeps at most N points per row, spread out (thinClips), the
+			// biggest N that fits. The scan finds far more points than the viewer
+			// needs on some maps: OoT Spirit Temple, adult, with its dynapolys,
+			// 45561 points / 17.4 MB (one wall pair 8798 of them, falling points
+			// every 0.25 along the wall at each drop)
+			if (maxBytes > 0 && maxPerPair == 0 && !refine && atYaw < 0 && !angleSweep && json.size() > maxBytes) {
+				vector<vector<Clip>> all;
+				size_t before = 0;
+				for (const FormResult& r : results) { all.push_back(r.clips); before += r.clips.size(); }
+				vector<const vector<Clip>*> sets;
+				for (const vector<Clip>& c : all) sets.push_back(&c);
+				// (the biggest row: no cap above it changes anything)
+				int maxN = 1;
+				{
+					std::map<std::tuple<size_t, int, int, int, bool, bool, int>, int> n;
+					for (size_t i = 0; i < all.size(); i++)
+						for (const Clip& c : all[i]) maxN = std::max(maxN, ++n[{ i, c.pusher, c.crossed, c.kind, c.cross, c.drop > 0, c.action }]);
+				}
+				// points that fit at the file's bytes per point, a bit fewer each
+				// time it still comes out too big
+				const double perPoint = (double)json.size() / std::max<size_t>(before, 1);
+				int cap = maxN;
+				for (double frac = 1.0; ; frac *= 0.9) {
+					cap = std::min(cap, thinCapForBudget(sets, maxN, 1, (size_t)(maxBytes / perPoint * frac)));
+					for (size_t i = 0; i < results.size(); i++) { results[i].clips = all[i]; thinClips(results[i].clips, cap); }
+					MAX_PER_PAIR = cap;
+					json = toJson(game, e.name, ch.numPolygons, falling, extendedOnly, results, dyna.raw, dyna.setups);
+					if (json.size() <= maxBytes || cap <= 1) break;
+					cap--;
+				}
+				size_t after = 0;
+				for (const FormResult& r : results) after += r.clips.size();
+				fprintf(stderr, "  file over --max-mb %g: kept %zu of %zu clip points, at most %d per wall pair and row (%.1f MB)%s\n",
+					maxBytes / 1e6, after, before, cap, json.size() / 1e6, json.size() > maxBytes ? " - still over: every row's one point is too much" : "");
+			}
+			f << json;
 			f.close();
 			if (!f) {
 				fprintf(stderr, "can't write %s - stopping\n", path.c_str());
