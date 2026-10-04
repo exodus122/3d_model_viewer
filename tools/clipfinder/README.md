@@ -1,7 +1,6 @@
 # clipfinder
 
-The wall push clip scan for OoT and MM (and OoT3D / MM3D, see **OoT3D and
-MM3D** below), native and multithreaded. It reads a
+Finds clips for OoT, MM, OoT3D, and MM3D, native and multithreaded. It reads a
 scene from `models/`, builds the same collision model the viewer does, and
 runs the search in the game's f32 arithmetic. It writes the clip points as
 JSON, which you can load with the viewer's **Import results** button or run in
@@ -99,20 +98,24 @@ tools/clipfinder/clipfinder.exe --game OOT --all --form Adult,Child --type all
 # Resume an --all run after the map where it stopped
 tools/clipfinder/clipfinder.exe --game MM --all --form All --after "Laundry Pool"
 
-# The lowest speed for one clip, exactly, and the angles that work
+# One pair of polygons only (TRI 50 pushing Link through TRI 90): the lowest speed
+# for its clip, exactly, and the angles that work
 tools/clipfinder/clipfinder.exe --game MM --map "Treasure Chest Shop" --form Human --pair 50,90 --refine
 tools/clipfinder/clipfinder.exe --game MM --map "Treasure Chest Shop" --form Human --pair 50,90 --angles --max-speed 11
 
-# That clip at one yaw, at speed 15 or less
+# One pair of polygons only (TRI 50 through TRI 90): its clip at one yaw, at speed 15 or less
 tools/clipfinder/clipfinder.exe --game MM --map "Treasure Chest Shop" --form Human --pair 50,90 --yaw 0xF000 --max-speed 15
 
-# A start for each yaw from 0xFF80 to 0x0000, at speed 10.5 or less
+# One pair of polygons only (TRI 50 through TRI 90): a start for each yaw from
+# 0xFF80 to 0x0000, at speed 10.5 or less
 tools/clipfinder/clipfinder.exe --game MM --map "Treasure Chest Shop" --form Deku --pair 50,90 --yaw 0xFF80-0x0000 --max-speed 10.5
 
-# A start for each angle that clips at exactly speed 10.32972
+# One pair of polygons only (TRI 50 through TRI 90): a start for each angle that
+# clips at exactly speed 10.32972
 tools/clipfinder/clipfinder.exe --game MM --map "Treasure Chest Shop" --form Deku --type extended --speed 10.32972 --angles --pair 50,90
 
-# A start that clips at exactly speed 10.32972, at one yaw (plus that yaw's CSV grids)
+# One pair of polygons only (TRI 50 through TRI 90): a start that clips at exactly
+# speed 10.32972, at one yaw (plus that yaw's CSV grids)
 tools/clipfinder/clipfinder.exe --game MM --map "Treasure Chest Shop" --form Deku --type extended --speed 10.32972 --yaw 0xFEC0 --pair 50,90
 
 # Sword lunge and jumpslash clips (and Deku spins) for one map, Human and Deku
