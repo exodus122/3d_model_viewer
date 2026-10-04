@@ -60,11 +60,38 @@ lists what each file holds. Link-time optimisation (`-flto`, `/GL /LTCG`)
 lets the hot collision checks inline across files, so the split costs no
 speed.
 
-## Examples
+## Usage
+
+clipfinder is a command-line program: there's no window, you run it from a
+terminal (Command Prompt, PowerShell, Git Bash, or a Linux / macOS shell) and
+tell it what to scan with options:
+
+```bash
+tools/clipfinder/clipfinder.exe --game <GAME> (--map "<name>" | --all) [options]
+```
+
+Run it from the viewer's folder (the one with `index.html`), so it finds
+`models/` and `js/model_list.js` (or point `--root` at that folder). Every run
+needs `--game` and either `--map` (one map) or `--all` (every map); the rest
+is optional and listed under **Options** below (running it with no options
+prints a short list of them).
+
+It names the results file itself and writes it into
+`tools/clipfinder/results` as `<GAME>_<map>_<form>...json` (see `--out-dir`),
+where the viewer imports it by itself when you load the map. A run with
+`--pair`, `--first-per-pair` or other types gets its own name, so it doesn't
+overwrite the map's full scan.
+
+It runs until the scan is done, which is seconds for a small map and can be
+many minutes for `--all`. Progress and summaries print to the terminal
+(stderr); the JSON goes to the output file. Ctrl+C stops it (`--after`
+resumes an `--all` run).
+
+Some common runs:
 
 ```bash
 # One map, one form
-tools/clipfinder/clipfinder.exe --game MM --map "Laundry Pool" --form Human -o tools/clipfinder/results/laundry.json
+tools/clipfinder/clipfinder.exe --game MM --map "Laundry Pool" --form Human
 
 # Every map, adult and child, falling clips too, one file per map
 tools/clipfinder/clipfinder.exe --game OOT --all --form Adult,Child --type all
@@ -73,14 +100,14 @@ tools/clipfinder/clipfinder.exe --game OOT --all --form Adult,Child --type all
 tools/clipfinder/clipfinder.exe --game MM --all --form All --after "Laundry Pool"
 
 # The lowest speed for one clip, exactly, and the angles that work
-tools/clipfinder/clipfinder.exe --game MM --map "Treasure Chest Shop" --form Human --pair 50,90 --refine -o tools/clipfinder/results/tcs_50_90.json
+tools/clipfinder/clipfinder.exe --game MM --map "Treasure Chest Shop" --form Human --pair 50,90 --refine
 tools/clipfinder/clipfinder.exe --game MM --map "Treasure Chest Shop" --form Human --pair 50,90 --angles --max-speed 11
 
 # That clip at one yaw, at speed 15 or less
-tools/clipfinder/clipfinder.exe --game MM --map "Treasure Chest Shop" --form Human --pair 50,90 --yaw 0xF000 --max-speed 15 -o tools/clipfinder/results/tcs_50_90_f000.json
+tools/clipfinder/clipfinder.exe --game MM --map "Treasure Chest Shop" --form Human --pair 50,90 --yaw 0xF000 --max-speed 15
 
 # A start for each yaw from 0xFF80 to 0x0000, at speed 10.5 or less
-tools/clipfinder/clipfinder.exe --game MM --map "Treasure Chest Shop" --form Deku --pair 50,90 --yaw 0xFF80-0x0000 --max-speed 10.5 -o tools/clipfinder/results/tcs_50_90_range.json
+tools/clipfinder/clipfinder.exe --game MM --map "Treasure Chest Shop" --form Deku --pair 50,90 --yaw 0xFF80-0x0000 --max-speed 10.5
 
 # A start for each angle that clips at exactly speed 10.32972
 tools/clipfinder/clipfinder.exe --game MM --map "Treasure Chest Shop" --form Deku --type extended --speed 10.32972 --angles --pair 50,90
@@ -89,7 +116,7 @@ tools/clipfinder/clipfinder.exe --game MM --map "Treasure Chest Shop" --form Dek
 tools/clipfinder/clipfinder.exe --game MM --map "Treasure Chest Shop" --form Deku --type extended --speed 10.32972 --yaw 0xFEC0 --pair 50,90
 
 # Sword lunge and jumpslash clips (and Deku spins) for one map, Human and Deku
-tools/clipfinder/clipfinder.exe --game MM --map "Treasure Chest Shop" --form Human,Deku --type actions -o tools/clipfinder/results/tcs_actions.json
+tools/clipfinder/clipfinder.exe --game MM --map "Treasure Chest Shop" --form Human,Deku --type actions
 
 # Only the 1h stab and the walk-in jumpslash, every OoT map, adult and child
 tools/clipfinder/clipfinder.exe --game OOT --all --form Adult,Child --type actions --action-keys 1h-stab,1h-jumpslash-walkin
@@ -98,14 +125,11 @@ tools/clipfinder/clipfinder.exe --game OOT --all --form Adult,Child --type actio
 tools/clipfinder/clipfinder.exe --game MM --map "Treasure Chest Shop" --form Human --sim "-239.859,0,824.246,0xFF9D,11"
 
 # One map's dynapoly actors in setup 2 (from the viewer's export), only the wall pairs with a dynapoly wall in them
-tools/clipfinder/clipfinder.exe --game OOT --map "Spot 01 - Kakariko Village" --form All --type all --setup 2 --dyna-only -o tools/clipfinder/results/kak_dyna.json
+tools/clipfinder/clipfinder.exe --game OOT --map "Spot 01 - Kakariko Village" --form All --type all --setup 2 --dyna-only
 
 # Every map's dynapolys, every setup ("Export all dynapolys"), one file per map and set of setups
 tools/clipfinder/clipfinder.exe --game OOT --all --form All --type all --dyna-only
 ```
-
-Progress and summaries print to the terminal (stderr). The JSON goes to the
-output file.
 
 ## Options
 
