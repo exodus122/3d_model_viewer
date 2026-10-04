@@ -82,6 +82,18 @@ tools/clipfinder/clipfinder.exe --game MM --map "Treasure Chest Shop" --form Hum
 # A start for each yaw from 0xFF80 to 0x0000, at speed 10.5 or less
 tools/clipfinder/clipfinder.exe --game MM --map "Treasure Chest Shop" --form Deku --pair 50,90 --yaw 0xFF80-0x0000 --max-speed 10.5 -o tools/clipfinder/results/tcs_50_90_range.json
 
+# A start for each angle that clips at exactly speed 10.32972
+tools/clipfinder/clipfinder.exe --game MM --map "Treasure Chest Shop" --form Deku --type extended --speed 10.32972 --angles --pair 50,90
+
+# A start that clips at exactly speed 10.32972, at one yaw (plus that yaw's CSV grids)
+tools/clipfinder/clipfinder.exe --game MM --map "Treasure Chest Shop" --form Deku --type extended --speed 10.32972 --yaw 0xFEC0 --pair 50,90
+
+# Sword lunge and jumpslash clips (and Deku spins) for one map, Human and Deku
+tools/clipfinder/clipfinder.exe --game MM --map "Treasure Chest Shop" --form Human,Deku --type actions -o tools/clipfinder/results/tcs_actions.json
+
+# Only the 1h stab and the walk-in jumpslash, every OoT map, adult and child
+tools/clipfinder/clipfinder.exe --game OOT --all --form Adult,Child --type actions --action-keys 1h-stab,1h-jumpslash-walkin
+
 # One frame, step by step
 tools/clipfinder/clipfinder.exe --game MM --map "Treasure Chest Shop" --form Human --sim "-239.859,0,824.246,0xFF9D,11"
 

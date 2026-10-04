@@ -32,6 +32,27 @@ const texturesCheckbox = document.getElementById('bkTextures');
 const propCollisionCheckbox = document.getElementById('bkPropCollision');
 const wireframeCheckbox = document.getElementById('wireframe');
 
+// BK / BT's choice of Textures is kept in localStorage (main.js's "Reset to
+// defaults" clears it). The checkbox is shared with OOT / MM's rooms, so it
+// is only saved while BK or BT is the game, and put back on switching to one.
+const TEXTURES_KEY = 'viewer.bkTextures';
+const isBanjo = () => game === 'BK' || game === 'BT';
+function restoreTextures() {
+    let saved = null;
+    try { saved = localStorage.getItem(TEXTURES_KEY); } catch { /* storage unavailable */ }
+    if (saved === null || !texturesCheckbox || texturesCheckbox.checked === (saved === '1')) return;
+    texturesCheckbox.checked = saved === '1';
+    texturesCheckbox.dispatchEvent(new Event('change'));
+}
+texturesCheckbox?.addEventListener('change', () => {
+    if (!isBanjo()) return;
+    try { localStorage.setItem(TEXTURES_KEY, texturesCheckbox.checked ? '1' : '0'); } catch { /* kept for this visit only */ }
+});
+document.getElementById('selected-game')?.addEventListener('change', e => {
+    if (e.target.value === 'BK' || e.target.value === 'BT') restoreTextures();
+});
+if (isBanjo()) restoreTextures();
+
 // { plain: Mesh, textured: Object3D, edges: Object3D | null }
 const texturedPairs = [];
 

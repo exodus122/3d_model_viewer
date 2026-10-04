@@ -7,6 +7,7 @@ import { scanAndBuildFlatGroundMarkers, buildSurfaceTypeMarkers, scanAndBuildSub
 import { buildWaterBoxModel } from './waterboxes.js';
 import { buildTexturedMesh, attachTextured, clearTexturedPairs } from './bk_textured.js';
 import { mapAppendageVisibility, parseBKModelGeometry } from './bk_model.js';
+import { addMapBitclipEdges } from './bitclips.js';
 
 const wireframeCheckbox = document.getElementById('wireframe');
 const surfaceTypeDropdown = document.getElementById("surfaceTypeDropdown");
@@ -201,6 +202,7 @@ export function parseBKModelBinary(scene, buffer, fresh, name, mapId, worldOffse
     // added too, so the back face draws with the front-face material.
     const COLLISION_FLAG_DOUBLE_SIDED = 0x10000;
     const tris = [];
+    const collisionTris = []; // as stored: no reversed copies (bitclips.js)
     const seenTris = new Set();
     let duplicateTris = 0, doubleSidedTris = 0;
     const triKey = (a, b, c) => {
@@ -220,6 +222,7 @@ export function parseBKModelBinary(scene, buffer, fresh, name, mapId, worldOffse
         if (seenTris.has(key)) { duplicateTris++; continue; }
         seenTris.add(key);
         tris.push([a,b,c]);
+        collisionTris.push(a - 1, b - 1, c - 1);
 
         if (flags & COLLISION_FLAG_DOUBLE_SIDED) {
             const backKey = triKey(c, b, a);
@@ -245,6 +248,7 @@ export function parseBKModelBinary(scene, buffer, fresh, name, mapId, worldOffse
     }
 
     finishBKModel(scene, buffer, verts, tris, fresh, name, mapId, worldOffset);
+    addMapBitclipEdges(scene, verts.flat(), collisionTris, fresh, worldOffset);
 }
 
 // Second half of parseBKModelBinary: build the plain mesh from verts / tris

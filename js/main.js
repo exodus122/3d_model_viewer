@@ -13,7 +13,8 @@ import { PointerLockControls } from 'three/addons/controls/PointerLockControls.j
 import { performSelection, clearSelection } from './selection.js';
 import { parseModel, parseModelText, parseModelBinary, parseBKModelBinary, parseZeldaSceneBinary, parseInvisibleSeams1D } from './parse_model.js';
 import { renderZeldaObjectBinary } from './render_actors.js';
-import { renderBKSetup } from './bk_setup.js';
+import { renderBKSetup, getPropInstances } from './bk_setup.js';
+import { addActorBitclipEdges } from './bitclips.js';
 import { renderBTSetup } from './bt_setup.js';
 import { renderSky, drawSky } from './sky.js';
 import { loadBTTextureBank, getBTTextureBank } from './bt_textures.js';
@@ -381,6 +382,7 @@ async function loadSelectedMap(game) {
             console.log(mapDir+"/setup.bin: Binary file length:", buffer3.byteLength);
             await showLoading(`${mapName}: actors and props…`);
             await renderBKSetup(scene, buffer3, mapId);
+            addActorBitclipEdges(scene, getPropInstances());
         } catch (err) {
             console.error(err);
         }
@@ -427,6 +429,7 @@ async function loadSelectedMap(game) {
             console.log(mapDir + "/setup.bin: Binary file length:", buffer3.byteLength);
             await showLoading(`${mapName}: actors and props…`);
             await renderBTSetup(scene, buffer3, mapId, mapName);
+            addActorBitclipEdges(scene, getPropInstances());
         } catch (err) {
             console.error(err);
         }
