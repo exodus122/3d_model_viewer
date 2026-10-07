@@ -39,6 +39,9 @@ struct Clip {
 	vector<std::pair<double, int>> frameMoves;
 	int airFrames = 0;    // a jumpslash: how many of the frames are in the air (the last one lands)
 	int stopAfter = 0;    // an action: stop after this many of its frames, Link out of bounds in the wall (0: its whole length)
+	bool hasFrog = false; // --frog: the frog (En_Minifrog) standing here pushes Link (action.h FrogOpts)
+	V3 frog;
+	int frogTurn = 0, frogTurnRow = -1;  // --frog-turns: yaw added each spin row after frogTurnRow (0-based)
 	// --min-speed: the slowest move from a standable start that does it
 	// (reachability below); reachDone and no reach = none found
 	bool reachDone = false, hasReach = false;

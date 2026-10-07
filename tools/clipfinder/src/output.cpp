@@ -83,6 +83,8 @@ string toJson(const string& game, const string& map, int numPolygons, bool falli
 			o << "]";
 			if (c.airFrames) o << ",\"airFrames\":" << c.airFrames;
 			if (c.stopAfter) o << ",\"stopAfter\":" << c.stopAfter;
+			if (c.hasFrog) o << ",\"frog\":" << vec(c.frog);
+			if (c.hasFrog && c.frogTurn) o << ",\"frogTurn\":" << c.frogTurn << ",\"frogTurnRow\":" << c.frogTurnRow;
 			o << ",\"frames\":[";
 			for (size_t k = 0; k < c.frames.size(); k++) o << (k ? "," : "") << vec(c.frames[k]);
 			o << "]";

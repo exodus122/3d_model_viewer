@@ -39,7 +39,7 @@
 // handler's frame), 'S' a Deku spin frame (dekuSpinFrames).
 // rx, rz (Action::recorded): the root motion as measured, already in world
 // units, in Link's frame (rz forward, rx as the root x: the tables' rotation).
-struct ActionFrame { int jx, jz, px, pz; double speed; bool swing; int angle = 0; char stick = 0; double rx = 0, rz = 0; };
+struct ActionFrame { int jx, jz, px, pz; double speed; bool swing; int angle = 0; char stick = 0; double rx = 0, rz = 0; int shape = -1; };  // shape: (recorded) shape yaw at the row's end, from the facing (-1 none)
 // jump: the jumpslash (Z-targeting + A: func_8083BA90 / MM func_808395F0).
 // Link leaves the ground at speedXZ 5, velocity.y 5, and moves as any actor
 // in the air (Player_Action_80844AF4 / MM Player_Action_29): no root motion,
@@ -97,6 +97,7 @@ struct Action {
 	// action's (judge), the recorded Deku spins.
 	bool recorded = false;
 	bool canStop = false;
+	int pressRow = -1;     // (recorded) the recording's row of the last frame before the press (mm3d_action_recorder.lua)
 };
 extern vector<Action> ACTIONS;
 
@@ -139,3 +140,36 @@ bool anyJump(const vector<int>& actions);
 // of its frames, unobstructed on flat ground), where Link rests there. At most one clip per target point and action. Wall pairs get one
 // category per action, as the scan's.
 vector<Clip> actionScan(const Model& m, const vector<Clip>& targets, const vector<int>& actions, int threads);
+
+// --frog: an actor's OC cylinder (MM En_Minifrog) pushing Link during a Deku
+// action (action.cpp frogSearch). The push is CollisionCheck_SetOCvsOC's:
+// Link's share (ratio = frog mass / both masses) of the overlap of the two
+// cylinders (s16 positions), added to the next frame's move by Actor_UpdatePos.
+struct FrogOpts {
+	double frogR = 12, frogH = 14;  // En_Minifrog sCylinderInit
+	double linkR = 12, spinR = 30;  // Player_ResetCylinder / Player_SetCylinderForAttack(DMG_DEKU_SPIN, 1, 30)
+	double ratio = 0.6;             // 30 / (30 + 20): frog mass 30 (EnMinifrog_Init), Deku sPlayerMass 20
+	bool floatPos = false;          // the colliders' positions as floats (OoT3D / MM3D: the user's runs), not N64's truncated s16s
+	double linkH = 30;              // (Link's cylinder: the feet to the head + 10, roughly; for the height check)
+	double vMargin = 2;             // the frog's top at least this far over Link's cylinder bottom
+	int spinRow = -1;               // the first row Player_Action_95 runs (radius 30); -1: from the key
+	int yawStep = 0x80;
+	double aimR = 4, aimStep = 0.5, near = 1.5;
+	int maxRows = 6;                // clip rows tried after the spin starts (or the run's top speed)
+	vector<V3> aims;                // --frog-aim: where Link should be the frame before the clip
+	bool oneCell = false;           // --frog-cell X,Z: only the frog in that s16 cell
+	int cellX = 0, cellZ = 0;
+	int yawFrom = 0, yawTo = 0xFFFF;  // --frog-yaws FROM-TO
+	string csv;
+	// --frog-turns FROM:TO:STEP: curved spins, each spin row turning his move yaw
+	// (and shape) by that much more (Player_Action_95: Math_ScaledStepToS toward the
+	// stick, REG(27) = 2000 a frame on N64; MM3D runs turned >= 1581); --frog-turn: --frog-sim's
+	vector<int> turns = { 0 };
+	int simTurn = 0;
+	// --frog-json: the clips (frogSearch: the best frog of each start listed;
+	// frogSim: that one) as a results JSON for wall_clip_tester.lua
+	string json, mapName, form;
+	int numPolygons = 0;
+};
+int frogSearch(const Model& m, const vector<Clip>& targets, const string& keys, const string& game, const FrogOpts& o, int threads);
+int frogSim(const Model& m, const string& arg, const string& game, const FrogOpts& o);

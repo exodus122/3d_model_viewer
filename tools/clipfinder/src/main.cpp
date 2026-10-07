@@ -150,6 +150,8 @@ int main(int argc, char** argv) {
 	int clipKind = -1;        // --clip-kind: which of the pair's clips --refine / --yaw / --angles do (-1: auto, FrameSpec::type)
 	double fallDrop = 0;      // --drop: falling clips, posNext this far below the start (0: the pair's smallest that works)
 	string actionsArg = "all"; // --action-keys KEY,...: which sword lunges --type actions does (action.h)
+	string frogArg, frogSimArg;  // --frog KEY,... / --frog-sim: an OC cylinder (the MM frog) pushing Link (action.h FrogOpts)
+	FrogOpts frog;
 	int threads = (int)std::max(1u, std::thread::hardware_concurrency());
 	for (int i = 1; i < argc; i++) {
 		string a = argv[i];
@@ -219,6 +221,51 @@ int main(int argc, char** argv) {
 		}
 		else if (a == "--action-keys") actionsArg = val();
 		else if (a == "--sim") simArg = val();
+		else if (a == "--frog") frogArg = val();
+		else if (a == "--frog-sim") frogSimArg = val();
+		else if (a == "--frog-aim") {
+			// X,Y,Z[;X,Y,Z...]
+			string v = val();
+			for (size_t p = 0; p < v.size();) {
+				size_t q = v.find(';', p);
+				if (q == string::npos) q = v.size();
+				double x, y, z;
+				if (sscanf(v.substr(p, q - p).c_str(), "%lf,%lf,%lf", &x, &y, &z) != 3) { fprintf(stderr, "--frog-aim wants X,Y,Z[;X,Y,Z...]\n"); return 2; }
+				frog.aims.push_back({ x, y, z });
+				p = q + 1;
+			}
+		}
+		else if (a == "--frog-yaw-step") frog.yawStep = std::max(0x10, (int)strtol(val().c_str(), nullptr, 0));
+		else if (a == "--frog-aim-radius") frog.aimR = std::stod(val());
+		else if (a == "--frog-aim-step") frog.aimStep = std::stod(val());
+		else if (a == "--frog-near") frog.near = std::stod(val());
+		else if (a == "--frog-rows") frog.maxRows = std::stoi(val());
+		else if (a == "--frog-spin-row") frog.spinRow = std::stoi(val());
+		else if (a == "--frog-ratio") frog.ratio = std::stod(val());
+		else if (a == "--frog-radius") frog.frogR = std::stod(val());
+		else if (a == "--frog-height") frog.frogH = std::stod(val());
+		else if (a == "--frog-spin-radius") frog.spinR = std::stod(val());
+		else if (a == "--frog-link-height") frog.linkH = std::stod(val());
+		else if (a == "--frog-margin") frog.vMargin = std::stod(val());
+		else if (a == "--frog-csv") frog.csv = val();
+		else if (a == "--frog-json") frog.json = val();
+		else if (a == "--frog-turn") frog.simTurn = std::stoi(val());
+		else if (a == "--frog-turns") {
+			int from = 0, to = 0, step = 0;
+			if (sscanf(val().c_str(), "%d:%d:%d", &from, &to, &step) != 3 || step <= 0 || to < from) { fprintf(stderr, "--frog-turns wants FROM:TO:STEP\n"); return 2; }
+			frog.turns.clear();
+			for (int t = from; t <= to; t += step) frog.turns.push_back(t);
+		}
+		else if (a == "--frog-cell") {
+			if (sscanf(val().c_str(), "%d,%d", &frog.cellX, &frog.cellZ) != 2) { fprintf(stderr, "--frog-cell wants X,Z (the frog's s16 position)\n"); return 2; }
+			frog.oneCell = true;
+		}
+		else if (a == "--frog-yaws") {
+			const string v = val();
+			const size_t d = v.find('-', 1);
+			frog.yawFrom = (int)strtol(v.substr(0, d).c_str(), nullptr, 0) & 0xFFFF;
+			frog.yawTo = d == string::npos ? frog.yawFrom : (int)strtol(v.substr(d + 1).c_str(), nullptr, 0) & 0xFFFF;
+		}
 		else if (a == "--tri") triArg = val();
 		else if (a == "--dyna") dynaPath = val();
 		else if (a == "--dyna-only") dynaOnly = true;
@@ -385,14 +432,18 @@ int main(int argc, char** argv) {
 		root = exists("js/model_list.js") ? "." : dir + "/../..";
 	}
 	// --type actions: the scan's walking and slope clip points, then the lunges aimed at them.
-	// MM3D: the actions recorded in the game (tools/clipfinder/tools/mm3d_actions, from
-	// mm3d_action_recorder.lua); OoT3D has none.
+	// MM3D: the actions recorded in the game (mm3d_action_recorder.lua): in
+	// tools/clipfinder/mm3d_actions, next to wall_clip_tester.lua, which reads
+	// them too - or where the recorder writes them, tools/clipfinder/tools/mm3d_actions.
+	// OoT3D has none.
 	const string actionGame = game == "MM3D" ? game : base;
 	if (game == "MM3D") {
 		string err;
-		if (!loadRecordedActions(root + "/tools/clipfinder/tools/mm3d_actions", game, err)) { fprintf(stderr, "%s\n", err.c_str()); return 2; }
+		const string recDir = std::filesystem::is_directory(root + "/tools/clipfinder/mm3d_actions") ? root + "/tools/clipfinder/mm3d_actions"
+			: root + "/tools/clipfinder/tools/mm3d_actions";
+		if (!loadRecordedActions(recDir, game, err)) { fprintf(stderr, "%s\n", err.c_str()); return 2; }
 		if ((types & TYPE_ACTIONS) && std::none_of(ACTIONS.begin(), ACTIONS.end(), [&](const Action& x) { return x.game == game; })) {
-			fprintf(stderr, "MM3D: no recorded actions in %s/tools/clipfinder/tools/mm3d_actions (record them with tools/clipfinder/tools/mm3d_action_recorder.lua)\n", root.c_str());
+			fprintf(stderr, "MM3D: no recorded actions in %s/tools/clipfinder/mm3d_actions or tools/clipfinder/tools/mm3d_actions (record them with tools/clipfinder/tools/mm3d_action_recorder.lua)\n", root.c_str());
 			return 2;
 		}
 	}
@@ -592,8 +643,9 @@ int main(int argc, char** argv) {
 			}
 			// (--sim writes nothing, so it doesn't open, and leave empty, the file)
 			std::ofstream f;
-			if (simArg.empty() && triArg.empty()) f.open(path, std::ios::binary);
-			if (simArg.empty() && triArg.empty() && !f) {
+			const bool noFile = !simArg.empty() || !triArg.empty() || !frogArg.empty() || !frogSimArg.empty();
+			if (!noFile) f.open(path, std::ios::binary);
+			if (!noFile && !f) {
 				// (the full path: a Windows exe reads "/dir" as the root of the
 				// current drive, not as relative to the current directory)
 				std::error_code ec;
@@ -668,6 +720,11 @@ int main(int argc, char** argv) {
 					m.focusB = onlyCrossed;
 				}
 				if (!simArg.empty()) return runSim(m, simArg, actionGame, upper(v.form));
+				frog.mapName = e.name;
+				frog.floatPos = is3ds;
+				frog.form = v.form;
+				frog.numPolygons = ch.numPolygons;
+				if (!frogSimArg.empty()) return frogSim(m, frogSimArg, actionGame, frog);
 				if (!triArg.empty()) return printTris(m, triArg);
 				vector<Clip> found = scan(m, threads, firstPerPair);
 				keepTypes(found, types | (anyJump(formActions) ? TYPE_FALLING : 0));
@@ -689,6 +746,8 @@ int main(int argc, char** argv) {
 						fprintf(stderr, "  (TRI %d isn't a wall: for a slope / ground clip --pair is the floor first, then the wall: --pair %d,%d)\n",
 							onlyCrossed, onlyCrossed, onlyPusher);
 				}
+				// --frog: the pair's clips with an OC cylinder pushing Link (action.h FrogOpts)
+				if (!frogArg.empty()) return frogSearch(m, found, frogArg, actionGame, frog, threads);
 				// --yaw / --max-speed: that pair at each yaw, from any start. A
 				// range goes every 0x10 (the sine table ignores the low 4 bits).
 				// --angles: the same for every yaw that clips, found by walking out

@@ -53,7 +53,7 @@
 -- with the walls read from RAM (load that map first). (A .lua test file from
 -- an older viewer still works too.)
 -- A relative path is from this script's folder (tools\clipfinder).
-local TESTS_FILE = [[results\OOT_Spirit_Temple_Adult_Child_selected.json]]
+local TESTS_FILE = [[results\MM3D_Laundry_Pool_Deku_frog_curved.json]]
 local RESULTS_FILE = nil          -- nil: wall_clip_results.txt next to the tests
 local MAX_PER_GROUP = 12          -- points tried per wall pair (spread evenly); 0 = all
 local SKIP_FALLING = false        -- true: leave out the falling clips (drop > 0, from --type falling scans)
@@ -79,7 +79,7 @@ local FAST = true                 -- skip drawing while testing (client.invisibl
 -- facing the way he'll go, and Z is tapped - Z-targeting nothing swings the
 -- camera behind him), and pauses RECORD_BUFFER emulated frames (60 a second)
 -- before and after each one. Off by default.
-local RECORD = true
+local RECORD = false
 local RECORD_BUFFER = 30
 local RECORD_ONE_PER_PAIR = true  -- recording: once a wall pair's test works, skip the rest of that pair's
 if RECORD then FAST = false end
@@ -141,6 +141,30 @@ local ACTION_KEYS = nil           -- nil: every action in the file; or a list, e
 local STICK_LEADS_3DS = { 0, 1, 2, 3, 4, 6 }
 local STICK_AFTER_3DS = 4         -- emulated frames the stick stays forward after B
 local LUNGE_SPEED_3DS = 7
+-- MM3D Deku spins: emulated frames A is held (mm3d_action_recorder.lua's
+-- PRESS_EMU), and the offsets (emulated frames) from the recording's timing
+-- tried in turn until A starts a spin
+local A_PRESS_3DS = 3
+-- The backwalk spin: L is let go this many game frames before the frame the
+-- recording turned round on, and A is pressed for the frame right after he has
+-- actually turned round (A while he's still targeting is a backflip; a frame
+-- later than right after the turn, he's running and slows 2 a frame toward 6 -
+-- both seen in game), not at the recording's A frame.
+local L_EARLY_3DS = 0
+local A_LEADS_3DS = { 0, -1, 1, -2, 2 }
+-- MM3D Deku spins with the model's frames (clipfinder JSON "frames"): runs
+-- moving the start until Link is within AIM_TOL_3DS of the model's spot at the
+-- end of the frame before the clip frame (see runActionTest3DS); 1 = no correction
+local AIM_TRIES_3DS = 5
+local AIM_TOL_3DS = 0.01
+-- Frog clips (clipfinder --frog-json: a Deku spin pushed by the frog's OC
+-- cylinder, the clip's "frog"): the frog's world.pos is written to the clip's
+-- frog position every emulated frame while Link is held at the start and
+-- until A is pressed, then left alone (so its own push back is the game's).
+-- FROG_POS_ADDR: mainmemory address of the frog's world.pos.x (f32; y, z
+-- follow), e.g. 0x0A1B2C3C. It's an actor, so it can move between scene
+-- loads - check it in the savestate. nil: frog clips aren't run ("no frog").
+local FROG_POS_ADDR = 0x6AB5894
 local CSV_CELLS = "all"           -- "all", or "border": only cells next to one with the other answer
 local CSV_DRIFT = 0.0001          -- Link pushed further than this off a cell's start before the move: No
 
@@ -354,6 +378,36 @@ local function staticCollision()
 	return numPolygons, polyVerts, polyPlane
 end
 
+-- The floor under (x, z): the highest floor poly (normal y > 0.5) at most 50
+-- above y (the game's floor check reaches down from there); nil: none. For
+-- starts the tester moves itself (the aim correction, the L spot): on a slope
+-- the clip's own y doesn't fit them, and Link would be put inside the floor.
+local floorPolys = nil
+local function floorAt(x, z, y)
+	if not floorPolys then
+		floorPolys = {}
+		local n, verts, plane = staticCollision()
+		for id = 0, n - 1 do
+			local nv, d = plane(id)
+			if nv[2] > 0.5 * 32767 then
+				floorPolys[#floorPolys + 1] = { v = verts(id), nx = nv[1] / 32767, ny = nv[2] / 32767, nz = nv[3] / 32767, d = d }
+			end
+		end
+	end
+	local best
+	for _, p in ipairs(floorPolys) do
+		-- (x, z) inside the triangle seen from above, edges included
+		local a, b, c = p.v[1], p.v[2], p.v[3]
+		local function side(p1, p2) return (p2[1] - p1[1]) * (z - p1[3]) - (p2[3] - p1[3]) * (x - p1[1]) end
+		local s1, s2, s3 = side(a, b), side(b, c), side(c, a)
+		if (s1 >= 0 and s2 >= 0 and s3 >= 0) or (s1 <= 0 and s2 <= 0 and s3 <= 0) then
+			local fy = -(p.nx * x + p.nz * z + p.d) / p.ny
+			if fy <= y + 50 and (not best or fy > best) then best = fy end
+		end
+	end
+	return best
+end
+
 -- A small JSON reader (objects, arrays, strings, numbers, true/false/null),
 -- for clipfinder's results files: BizHawk's Lua has none built in.
 local function parseJson(text)
@@ -435,6 +489,17 @@ end
 -- from the floor height, so only y changes), crossing points and standing
 -- points with a move go from their start to `next`. Walls are filled in from
 -- RAM later (T.fromJson).
+-- An action clip's frame before its clip frame (taken as its biggest move,
+-- JSON actionFrames), for the aim correction (runActionTest3DS); nil: none
+local function aimFrameOf(c)
+	if not c.actionFrames or not c.frames then return nil end
+	local best, bi = -1, nil
+	for i, fm in ipairs(c.actionFrames) do
+		if fm[1] > best then best, bi = fm[1], i end
+	end
+	return bi and bi > 1 and bi - 1 or nil
+end
+
 local function testsFromJson(path)
 	local f = io.open(path, "rb")
 	if not f then error("can't read " .. path) end
@@ -565,7 +630,7 @@ local function testsFromJson(path)
 			nxt = vec(c.from)
 			prev = { c.from[1], c.floorY or c.from[2], c.from[3] }
 		end
-		local k = (form or "") .. key3(prev) .. key3(nxt) .. (c.actionKey and (c.actionKey .. c.facing) or "")
+		local k = (form or "") .. key3(prev) .. key3(nxt) .. (c.actionKey and (c.actionKey .. c.facing) or "") .. (c.frog and key3(c.frog) or "")
 		if not seen[k] then
 			seen[k] = true
 			T.tests[#T.tests + 1] = {
@@ -574,6 +639,8 @@ local function testsFromJson(path)
 				yaw = c.speed and c.yaw or nil, speed = c.speed, speed2 = c.speed2, vy = c.vy, expect = vec(c["end"]),
 				reachSpeed = type(c.reach) == "table" and c.reach.speed or nil,
 				action = c.action, actionKey = c.actionKey, facing = c.facing, actionFrames = c.frames and #c.frames or nil, airFrames = c.airFrames, stopAfter = c.stopAfter,
+				frog = c.frog and vec(c.frog) or nil, frogTurn = c.frogTurn, frogTurnRow = c.frogTurnRow,
+				framePos = c.frames, aimFrame = aimFrameOf(c),
 			}
 			T.walls[c.pusher] = true
 			T.walls[c.crossed] = true
@@ -918,11 +985,13 @@ end
 -- stops him on the floor he starts from (tested in game: OoT Kakariko child,
 -- 20 of 20 didn't clip). Scans from before clipfinder checked this from the
 -- start still have them. Not ground clips (kind "ground"): that line test
--- missing the floor is how they work.
+-- missing the floor is how they work. Not action clips either: their prev is
+-- the action's start, many frames back (a run down a slope from above looked
+-- like a fall: the curved frog clips, MM3D Laundry Pool).
 do
 	local kept = {}
 	for _, t in ipairs(tests) do
-		if t.kind == "ground" or not (t.type == "cross" and checkHeight + (t.next[2] - t.prev[2]) * LINE_DY_SCALE < 5) then kept[#kept + 1] = t end
+		if t.kind == "ground" or t.action or not (t.type == "cross" and checkHeight + (t.next[2] - t.prev[2]) * LINE_DY_SCALE < 5) then kept[#kept + 1] = t end
 	end
 	if #kept < #tests then
 		print(string.format("left out %d falling crossing tests with a drop over %g (can't clip)", #tests - #kept, (checkHeight - 5) / LINE_DY_SCALE))
@@ -1622,7 +1691,8 @@ end
 -- mm3d_actions/<key>.json (the spins' timing)
 local function recording3DS(key)
 	if recordings3DS[key] == nil then
-		local f = io.open(scriptDir .. "mm3d_actions\\" .. key .. ".json", "r")
+		-- (next to this script, or where mm3d_action_recorder.lua writes them)
+		local f = io.open(scriptDir .. "mm3d_actions\\" .. key .. ".json", "r") or io.open(scriptDir .. "tools\\mm3d_actions\\" .. key .. ".json", "r")
 		recordings3DS[key] = false
 		if f then
 			recordings3DS[key] = parseJson(f:read("*a"))
@@ -1650,13 +1720,26 @@ local function runActionTest3DS(t, r)
 		return r
 	end
 	local weapon = SET_WEAPON and not spin and actionWeapon(t)
+	local startAt = t.prev   -- (the Deku spins: moved by the aim correction, AIM_TRIES_3DS)
+	local runFacing = facing -- (the Deku spins: turned by it so the game's run goes the model's way)
+	-- a frog clip: the frog held at t.frog (FROG_POS_ADDR) until A
+	if t.frog and not FROG_POS_ADDR then
+		r.status = "no frog"
+		r.log = { "a frog clip: set FROG_POS_ADDR (the frog's world.pos address)" }
+		r.after, r.final = t.prev, t.prev
+		return r
+	end
+	local function holdFrog()
+		if t.frog then writeVec(FROG_POS_ADDR, t.frog) end
+	end
 	local frames0
 	local function logLine(tag)
-		r.log[#r.log + 1] = string.format("%s gf+%d pos %s speedXZ %.3f velY %.3f yaw %04X shapeYaw %04X wall %s floor %s",
+		r.log[#r.log + 1] = string.format("%s gf+%d pos %s speedXZ %.3f velY %.3f yaw %04X shapeYaw %04X wall %s floor %s%s",
 			tag, read_u32(K.play + K.gameplayFrames) - frames0, fmt(readVec(K.player + K.pos)),
 			readfloat(K.player + K.speedXZ), readfloat(K.player + K.velocity + 4),
 			read_u16(K.player + K.yaw), read_u16(K.player + K.shapeRotY),
-			polyName(read_u32(K.player + K.wallPoly)), polyName(read_u32(K.player + K.floorPoly)))
+			polyName(read_u32(K.player + K.wallPoly)), polyName(read_u32(K.player + K.floorPoly)),
+			t.frog and (" frog " .. fmt(readVec(FROG_POS_ADDR))) or "")
 	end
 	-- Held at the start facing `facing`, the weapon drawn with B presses early
 	-- on. Then L pressed - the camera behind him, and (held) the parallel yaw for
@@ -1673,9 +1756,10 @@ local function runActionTest3DS(t, r)
 		writeVec(K.player + K.home, p)
 		writefloat(K.player + K.speedXZ, 0)
 		writefloat(K.player + K.actorSpeed, 0)
-		write_s16(K.player + K.yaw, facing)
-		write_s16(K.player + K.rotY, facing)
-		write_s16(K.player + K.shapeRotY, facing)
+		write_s16(K.player + K.yaw, runFacing)
+		write_s16(K.player + K.rotY, runFacing)
+		write_s16(K.player + K.shapeRotY, runFacing)
+		holdFrog()
 	end
 	local function holdStart()
 		memorysavestate.loadcorestate(base)
@@ -1687,14 +1771,16 @@ local function runActionTest3DS(t, r)
 			-- that is lost (the N64 tests re-press only if he isn't holding it;
 			-- MM3D's heldItemAction isn't known, so always - a drawn one just swings)
 			if not spin and ((i >= 6 and i < 9) or (i >= 36 and i < 39) or (i >= 66 and i < 69)) then joypad.set({ B = true }) end
-			place(t.prev)
+			place(startAt)
 			emu.frameadvance()
 		end
 		-- the spot for L: behind him (and off to the sides), touching no wall
 		local spot
 		for _, c in ipairs({ { 0x8000, 40 }, { 0x8000, 70 }, { 0x6000, 50 }, { 0xA000, 50 }, { 0x8000, 110 }, { 0x4000, 50 }, { 0xC000, 50 } }) do
-			local a = (facing + c[1]) / 0x8000 * math.pi
-			local p = { t.prev[1] + c[2] * math.sin(a), t.prev[2], t.prev[3] + c[2] * math.cos(a) }
+			local a = (runFacing + c[1]) / 0x8000 * math.pi
+			local p = { startAt[1] + c[2] * math.sin(a), startAt[2], startAt[3] + c[2] * math.cos(a) }
+			-- (on its own floor: on a slope 40 away it's well off the start's height)
+			p[2] = floorAt(p[1], p[3], startAt[2] + 30) or p[2]
 			for _ = 1, 3 * EMU_PER_GAME do place(p); emu.frameadvance() end
 			if read_u32(K.player + K.wallPoly) == 0 and read_u32(K.player + K.floorPoly) ~= 0 then spot = p; break end
 		end
@@ -1702,12 +1788,13 @@ local function runActionTest3DS(t, r)
 		for i = half + 1, ACTION_HOLD do
 			local atSpot = spot and i <= half + 24
 			if i > half + (spot and 4 or 0) and (holdL or i <= ACTION_HOLD - 12) then joypad.set({ L = true }) end
-			place(atSpot and spot or t.prev)
+			place(atSpot and spot or startAt)
 			emu.frameadvance()
 		end
 		local g = read_u32(K.play + K.gameplayFrames)
 		for _ = 1, 4 * EMU_PER_GAME do
 			if holdL then joypad.set({ L = true }) end
+			holdFrog()
 			emu.frameadvance()
 			if read_u32(K.play + K.gameplayFrames) ~= g then break end
 		end
@@ -1716,8 +1803,8 @@ local function runActionTest3DS(t, r)
 		frames0 = read_u32(K.play + K.gameplayFrames)
 		logLine(string.format("start (B item 0x%02X; L pressed %s)", mainmemory.read_u8(K.bButton),
 			spot and string.format("at %s, touching no wall", fmt(spot)) or "at the start: no spot nearby without a wall - he may have snapped to face one"))
-		if read_u16(K.player + K.shapeRotY) ~= (facing % 0x10000) then
-			r.log[#r.log + 1] = string.format("  (facing 0x%04X, not the test's 0x%04X)", read_u16(K.player + K.shapeRotY), facing % 0x10000)
+		if read_u16(K.player + K.shapeRotY) ~= (runFacing % 0x10000) then
+			r.log[#r.log + 1] = string.format("  (facing 0x%04X, not 0x%04X)", read_u16(K.player + K.shapeRotY), runFacing % 0x10000)
 		end
 	end
 	local function settle()
@@ -1730,7 +1817,8 @@ local function runActionTest3DS(t, r)
 		if RECORD then for _ = 1, RECORD_BUFFER do emu.frameadvance() end end
 	end
 	local function startOk()
-		if dist3(r.start, t.prev) > 1 then
+		-- (x, z: the floor check puts him on the floor, a moved start's y is only roughly it)
+		if math.sqrt((r.start[1] - startAt[1]) ^ 2 + (r.start[3] - startAt[3]) ^ 2) > 1 then
 			r.status = "setup"
 			table.insert(r.log, 1, "start (should be prev) " .. fmt(r.start))
 			return false
@@ -1796,61 +1884,181 @@ local function runActionTest3DS(t, r)
 		end
 	end
 
-	-- The Deku spins
-	holdStart()
+	-- The Deku spins, timed from the recording (rec.rows' shape yaws): recTurn,
+	-- the backwalk's frame he turns round on (L let go: the first frame without
+	-- L), recSpin, the first frame his shape spins on (A is pressed from the
+	-- start of the frame before it, for A_PRESS_3DS emulated frames). The game's
+	-- spin frame is checked against recSpin: on another frame (the game can take
+	-- A a frame off - a first in-game try spun a frame early, so the radius-30
+	-- cylinder hit the frog a frame early and shoved it away) A is moved that
+	-- many game frames and the test run again; no spin at all, A is shifted by
+	-- each of A_LEADS_3DS emulated frames in turn.
 	local rows = rec.rows
 	local pressRow = rec.pressRow or 0
 	local last = #rows
 	local stopAfter = t.stopAfter
-	local adj = 0          -- the stick's correction for the camera (steered from Player.yaw)
-	local gf = read_u32(K.play + K.gameplayFrames)
-	local prevPos = readVec(K.player + K.pos)
-	local frame, waited = 0, 0
-	local turns, spun, prevShape = 0, false, read_u16(K.player + K.shapeRotY)
-	for _ = 1, (40 + last + 4) * EMU_PER_GAME do
-		-- the inputs for frame `frame + 1`
-		local f = frame + 1
-		local held = {}
-		if back and f < pressRow then held.L = true end
-		if f == pressRow + 1 then held.A = true end
-		if next(held) then joypad.set(held) end
-		local row = rows[math.min(f, last)]
-		local on = f <= last and not (stopAfter and f > stopAfter)
-		local sx, sy = stick3DS(on and s16v(row.angle + adj) or nil)
-		emu.frameadvance()
-		local g = read_u32(K.play + K.gameplayFrames)
-		if g ~= gf then
-			gf = g
-			local pos = readVec(K.player + K.pos)
-			if frame > 0 or dist3(pos, prevPos) > 0.0001 then frame = frame + 1 else waited = waited + 1 end
-			prevPos = pos
-			-- steer: his move yaw against the recording's for this frame
-			if frame > 0 and on and readfloat(K.player + K.speedXZ) > 0.5 then
-				local want = facing + rows[math.min(frame, last)].angle
-				local err = s16v(read_u16(K.player + K.yaw) - want)
-				adj = s16v(adj - math.max(-0x400, math.min(0x400, err)))
+	local function shapeTurn(i)
+		local a, b = rows[i], rows[i - 1]
+		if not (a and b and a.shape and b.shape) then return 0 end
+		return math.abs(s16v(a.shape - b.shape))
+	end
+	local recTurn, recSpin
+	if back then for i = 2, last do if shapeTurn(i) > 0x6000 then recTurn = i; break end end end
+	for i = (recTurn or 1) + 1, last - 1 do
+		if shapeTurn(i) > 0x800 and shapeTurn(i + 1) > 0x800 then recSpin = i; break end
+	end
+	recTurn = recTurn or (back and pressRow + 1 or nil)
+	recSpin = recSpin or pressRow + 3
+	local aFrame = recSpin - 1
+	local spun = false
+	-- a curved spin (clipfinder --frog-turns): each spin frame after the clip's
+	-- frogTurnRow (0-based row; frame = row + 1) his move yaw turns frogTurn more -
+	-- the stick aims there, Player_Action_95 turns him toward it
+	local function turnAt(f)
+		local tr = t.frogTurnRow
+		if not t.frogTurn or not tr or f - 1 <= tr then return 0 end
+		return t.frogTurn * (f - 1 - tr)
+	end
+	-- Aim correction (a clipfinder clip with its frames, AIM_TRIES_3DS): the
+	-- game's backwalk / run doesn't go quite the recording's way (the camera
+	-- isn't exactly behind him, and the Circle Pad can't turn him by a few
+	-- hundredths of a degree), and these clips need Link within ~0.1 of the
+	-- model's spot. After each run: his move yaw on frame 4 against the model's
+	-- (facing + the row's angle) turns the facing he's held at by the
+	-- difference; where he was at the end of the frame before the clip frame
+	-- (aimFrame) against the model's moves the start by the difference (onto
+	-- the floor there: floorAt). Again until within AIM_TOL_3DS.
+	local aimFrame = t.aimFrame
+	local aimTries = (aimFrame and t.framePos and t.framePos[aimFrame]) and AIM_TRIES_3DS or 1
+	local aimNotes = {}
+	local slowTurn = nil   -- (the frame he turned round on, if he lost his speed doing it)
+	local aShift = 0          -- emulated frames A is moved by from the start of frame aFrame
+	local leadIdx = 1
+	for aimTry = 1, aimTries do
+		local aimPos, gameYaw, spinFrame
+		local fixes = 0
+		while true do
+			holdStart()
+			spun = false
+			aimPos, gameYaw, spinFrame = nil, nil, nil
+			local adj = 0          -- the stick's correction for the camera (steered from Player.yaw)
+			local gf = read_u32(K.play + K.gameplayFrames)
+			local prevPos = readVec(K.player + K.pos)
+			local frame, waited = 0, 0
+			local turns, prevShape = 0, read_u16(K.player + K.shapeRotY)
+			local emuN, aStart, newFrame = 0, nil, true
+			local turned, turnFrame = not back, 0   -- (backwalk: the frame he turned round on)
+			for _ = 1, (40 + last + 4) * EMU_PER_GAME do
+				-- the inputs for frame `frame + 1`
+				local f = frame + 1
+				emuN = emuN + 1
+				-- (A's first emulated frame: the start of frame aFrame + aShift, worked
+				-- out from the start of a frame up to 3 before it)
+				local isNew = newFrame
+				newFrame = false
+				if back then
+					-- (the backwalk: A from the start of the frame after he turned round, whenever that is)
+					if turned and not aStart and isNew then aStart = emuN + math.max(0, aShift) end
+				elseif not aStart and isNew and f >= aFrame - 3 then
+					aStart = emuN + (aFrame - f) * EMU_PER_GAME + aShift
+				end
+				local held = {}
+				if back and f < recTurn - L_EARLY_3DS then held.L = true end
+				local aOn = aStart ~= nil and emuN >= aStart and emuN < aStart + A_PRESS_3DS
+				if aOn then held.A = true end
+				if next(held) then joypad.set(held) end
+				local row = rows[math.min(f, last)]
+				local on = f <= last and not (stopAfter and f > stopAfter)
+				-- (the yaw this frame's action sets is the next frame's move's: turnAt(f + 1);
+				-- a full-rate turn aims the stick well past it - Player_Action_95 turns at
+				-- most 2000 a frame (seen in MM3D too), so he turns exactly that whatever
+				-- the camera did - a smaller one aims at it through the camera's adj)
+				local tn = turnAt(f + 1)
+				local over = (tn ~= 0 and math.abs(t.frogTurn) >= 2000) and (t.frogTurn > 0 and 0x1000 or -0x1000) or 0
+				local sx, sy = stick3DS(on and s16v(row.angle + tn + over + adj) or nil)
+				-- (the frog: held until the A frame, then it's the game's)
+				if f <= aFrame then holdFrog() end
+				emu.frameadvance()
+				local g = read_u32(K.play + K.gameplayFrames)
+				if g ~= gf then
+					gf = g
+					newFrame = true
+					local pos = readVec(K.player + K.pos)
+					if frame > 0 or dist3(pos, prevPos) > 0.0001 then frame = frame + 1 else waited = waited + 1 end
+					prevPos = pos
+					-- steer: his move yaw against the recording's for this frame
+					if frame > 0 and on and readfloat(K.player + K.speedXZ) > 0.5 then
+						-- (his yaw now is the next frame's move's)
+						local want = facing + rows[math.min(frame + 1, last)].angle + turnAt(frame + 1)
+						local err = s16v(read_u16(K.player + K.yaw) - want)
+						adj = s16v(adj - math.max(-0x400, math.min(0x400, err)))
+					end
+					if frame == 4 then gameYaw = read_u16(K.player + K.yaw) end
+					if frame == aimFrame then aimPos = pos end
+					local shape = read_u16(K.player + K.shapeRotY)
+					local d = math.abs(s16v(shape - prevShape))
+					prevShape = shape
+					-- (turned round: his shape back along his move yaw)
+					if not turned and frame >= recTurn - L_EARLY_3DS and math.abs(s16v(shape - read_u16(K.player + K.yaw))) < 0x2000 then
+						turned, turnFrame = true, frame
+						-- (slowed right down: the stick was over 0x6000 off his move once
+						-- targeting ended - the camera moved when L was let go)
+						if readfloat(K.player + K.speedXZ) < 5 then slowTurn = frame end
+					end
+					if turned and frame > math.max(turnFrame, back and 0 or pressRow) and d > 0x800 then
+						turns = turns + 1
+						if turns >= 2 and not spun then spun = true; spinFrame = frame - 1 end
+					else turns = 0 end
+					logLine((frame == 0 and "wait" or string.format("frame %d%s%s%s%s", frame, aOn and " (A)" or "",
+						back and frame == recTurn - L_EARLY_3DS and " (L let go)" or "", back and turned and frame == turnFrame and " (turned round)" or "", stopAfter and frame == stopAfter and " (stop: stick let go)" or ""))
+						.. (sx and string.format(" [Circle Pad X %d Y %d]", sx, sy) or " [stick let go]"))
+					if frame == 0 and waited > 10 then
+						releaseStick()
+						r.status = "no run-up"
+						r.log[#r.log + 1] = "Link never moved: the stick (camera?), or something in the way"
+						r.after, r.final = pos, pos
+						return r
+					end
+					if frame >= last + 1 then break end
+				end
 			end
-			local shape = read_u16(K.player + K.shapeRotY)
-			local d = math.abs(s16v(shape - prevShape))
-			prevShape = shape
-			if frame > pressRow and d > 0x800 then turns = turns + 1; if turns >= 2 then spun = true end else turns = 0 end
-			logLine((frame == 0 and "wait" or string.format("frame %d%s%s%s", frame, frame == pressRow + 1 and " (A)" or "",
-				back and frame == pressRow and " (L let go)" or "", stopAfter and frame == stopAfter and " (stop: stick let go)" or ""))
-				.. (sx and string.format(" [Circle Pad X %d Y %d]", sx, sy) or " [stick let go]"))
-			if frame == 0 and waited > 10 then
-				releaseStick()
-				r.status = "no run-up"
-				r.log[#r.log + 1] = "Link never moved: the stick (camera?), or something in the way"
-				r.after, r.final = pos, pos
-				return r
+			releaseStick()
+			if spun and not back and spinFrame ~= recSpin and fixes < 3 then
+				-- spun on the wrong frame: A moved by the difference
+				fixes = fixes + 1
+				aimNotes[#aimNotes + 1] = string.format("(spun on frame %d, the recording on %d: A moved %+d game frames)", spinFrame, recSpin, recSpin - spinFrame)
+				aShift = aShift + (recSpin - spinFrame) * EMU_PER_GAME
+			elseif not spun and leadIdx < #A_LEADS_3DS then
+				leadIdx = leadIdx + 1
+				aimNotes[#aimNotes + 1] = string.format("(no spin: A %+d emulated frames from the recording's timing next)", A_LEADS_3DS[leadIdx])
+				aShift = A_LEADS_3DS[leadIdx]
+			else
+				break
 			end
-			if frame >= last + 1 then break end
 		end
+		if not spun or aimTry == aimTries or not aimPos then break end
+		local want = t.framePos[aimFrame]
+		local dx, dz = want[1] - aimPos[1], want[3] - aimPos[3]
+		local yawErr = gameYaw and s16v(gameYaw - (facing + rows[math.min(4, last)].angle)) or 0
+		local close = dx * dx + dz * dz < AIM_TOL_3DS * AIM_TOL_3DS and math.abs(yawErr) <= 4
+		aimNotes[#aimNotes + 1] = string.format("(aim try %d: from %s facing 0x%04X, frame 4 moved at 0x%04X (%+d off the model's), frame %d ended at %s, the model's %s: off %.4f, %.4f%s)",
+			aimTry, fmt(startAt), runFacing % 0x10000, gameYaw or 0, yawErr, aimFrame, fmt(aimPos), fmt(want), -dx, -dz,
+			close and " - close enough" or " - moving the start / turning the facing")
+		if close then break end
+		if math.abs(yawErr) > 4 then runFacing = s16v(runFacing - yawErr) end
+		local nx, nz = startAt[1] + dx, startAt[3] + dz
+		startAt = { nx, floorAt(nx, nz, startAt[2] + 20) or startAt[2], nz }
 	end
 	releaseStick()
+	for i, n in ipairs(aimNotes) do table.insert(r.log, i, n) end
+	r.aimStart = startAt ~= t.prev and startAt or nil
 	settle()
+	if slowTurn then
+		r.log[#r.log + 1] = string.format("frame %d: he lost his speed turning round - once L was let go the stick pointed over 0x6000 off his move, so he " ..
+			"stopped and turned on the spot (the camera moved when targeting ended?)", slowTurn)
+	end
 	if not spun then
-		r.status = "no spin"
+		r.status = slowTurn and "camera turn" or "no spin"
 		r.log[#r.log + 1] = "A didn't start a spin (his shape didn't turn): Link on foot as Deku, no Deku flower under him"
 		return r
 	end
@@ -1865,6 +2073,12 @@ local function runTest(t, mode)
 	local r = { test = t }
 	if t.action then
 		if IS_3DS then return runActionTest3DS(t, r) end
+		if t.frog then
+			r.status = "no frog"
+			r.log = { "frog clips are MM3D only (clipfinder --frog uses the MM3D recordings)" }
+			r.after, r.final = t.prev, t.prev
+			return r
+		end
 		return runActionTest(t, r)
 	end
 	-- Slope clips (kind "slope", clipfinder slope.h) are always "move": the
@@ -2150,7 +2364,8 @@ for i, t in ipairs(queue) do
 				yaw and string.format("0x%04X", yaw % 0x10000) or "-", speed and string.format("%.9g", speed) or "-", vy))
 			end
 		end
-		if worked(r.status) then pairDone[pairKey] = true end
+		-- ("away" is only a maybe: the rest of the pair still run)
+		if worked(r.status) and r.status ~= "away" then pairDone[pairKey] = true end
 	end
 end
 if skipped > 0 then
@@ -2202,8 +2417,9 @@ local function setupStr(r)
 				key:find("spin%-lock") and "Z locked on to an enemy, " or "", key:find("%-fwd") and " with the stick forward" or "")
 		end
 		if key:find("^deku%-spin") then
-			return string.format("start %s  facing 0x%04X  %s%s", fmt(r.start or t.prev), t.facing, t.action,
-				t.stopAfter and string.format(" (stick let go after frame %d)", t.stopAfter) or "")
+			return string.format("start %s  facing 0x%04X  %s%s%s", fmt(r.start or t.prev), t.facing, t.action,
+				t.stopAfter and string.format(" (stick let go after frame %d)", t.stopAfter) or "",
+				t.frog and string.format("  frog at %s", fmt(t.frog)) or "")
 		end
 		if key:find("^zora%-clip") or key:find("^zora%-jumpslash") then
 			return string.format("start %s  facing 0x%04X  %s (%sfins out, %sZ + A, %s)", fmt(r.start or t.prev), t.facing, t.action, run,
@@ -2316,6 +2532,8 @@ else
 				line(string.format("    [%s] prev %s -> next %s  => after %s, final %s",
 					r.status, fmt(r.test.prev), fmt(r.test.next), fmt(r.after), fmt(r.final)))
 				line("        " .. setupStr(r))
+				-- (an action test's log: an "away" is often no clip at all, check it by eye)
+				if r.test.action then for _, l in ipairs(r.log or {}) do line("        " .. l) end end
 			end
 			-- and the ones in the group that didn't
 			for _, r in ipairs(results) do

@@ -1,5 +1,6 @@
 #include "action.h"
 #include "json.h"
+#include "output.h"
 
 // Generated from the decomps' animation data (link_animetion,
 // gPlayerAnim_link_fighter_{normal,pierce,Lnormal,Lpierce}_kiru and their _end)
@@ -366,12 +367,14 @@ bool loadRecordedActions(const string& dir, const string& game, string& err) {
 			a.recorded = true;
 			a.noWalkIn = true;
 			a.aimMin = num(root.get("aimMin"), 2);
+			a.pressRow = (int)num(root.get("pressRow"), -1);
 			const JVal* rows = root.get("rows");
 			if (a.key.empty() || a.forms[0].empty() || !rows || rows->kind != JVal::Arr || rows->a.empty())
 				throw std::runtime_error("needs key, form and rows");
 			for (const JVal& r : rows->a) {
 				ActionFrame f{ 0, 0, 0, 0, F(num(r.get("speed"), 0)), false, (int)num(r.get("angle"), 0) & 0xFFFF };
 				f.rx = F(num(r.get("rx"), 0));
+				if (const JVal* sh = r.get("shape"); sh && sh->kind == JVal::Num) f.shape = ((int)sh->n - (int)num(root.get("facing"), 0)) & 0xFFFF;
 				f.rz = F(num(r.get("rz"), 0));
 				const JVal* sw = r.get("swing");
 				f.swing = sw && sw->kind == JVal::Bool && sw->b;
@@ -581,6 +584,100 @@ static double stickCap(const Model& m, Scratch& s, const V3& pos, const PushList
 	return std::max((double)F(0.1), (double)F(limit * scale));
 }
 
+// MM3D's recorded Deku spins were recorded on flat ground. On a slope
+// Player_GetMovementSpeedAndYaw's stick target is stick x 0.14 (6.72 at full
+// tilt) - 8 sin^2(floorPitch), at most 6, floorPitch the floor's pitch along
+// his move yaw (Player_UpdateCommon, from the floor the last frame's bg check
+// found). The user's backwalk up Laundry Pool's ramp (TRI 135) topped out at
+// 8.022 = (6.72 - 1.38) x 1.5, as this gives. The rows' speeds (each row's
+// move, the speedXZ the frame before) then: before pressRow, the run up,
+// limited by the target (x 1.5 backwalking); pressRow through spinRow, kept (L
+// let go: he turns; A); after spinRow, the spin's target - the recording's decay
+// line, extended back over the rows it was still speeding up on - scaled by
+// target / 6, stepped to at +0.4 / -2.0 a frame (+0.4 as recorded; -2.0 as
+// the user's MM3D runs show it).
+// The wall cap (unk_B50, dekuCap) on the spin's speed updates. In a game frame
+// Link moves and collides first (Player_UpdateCommon: func_80844784,
+// Player_ProcessSceneCollision), then his action sets the next speed, with the
+// stick target clamped to unk_B50 (Player_GetMovementSpeedAndYaw) and the spin
+// multiplying it by its factor. unk_B50 = 6 x |move yaw - (wallYaw + 0x8000)| x
+// 0.00008 (under 1). N64 MM sets it only on a frame a wall pushed him
+// (BGCHECKFLAG_WALL), wallYaw from the line wall check radius + 10 ahead along
+// his shape if it hits, else the pusher. The user's MM3D runs into Laundry
+// Pool's corner fit another rule: capped whenever that line hits a wall, pushed
+// or not, and not otherwise - pressed into TRI 27 with the line along his
+// spinning shape elsewhere he sped up (7.0 -> 7.4 -> 7.8), and stopping 0.3
+// short of the walls with the line along his move yaw reaching TRI 27 / 28 he
+// was capped (6.98 -> 4.98). So that's what's modelled, on every spin update
+// (the line along his shape going into the frame: his move yaw on the first,
+// the recording's spinning shape after).
+struct DekuSpeeds { int pressRow = -1, spinRow = -1; size_t peak = 0; double decay = 0; bool back = false; };
+DekuSpeeds dekuSpeeds(const Action& a) {
+	DekuSpeeds d;
+	if (!a.recorded || a.key.rfind("deku-spin", 0) != 0 || a.pressRow < 0) return d;
+	d.back = a.key == "deku-spin-backwalk";
+	d.pressRow = a.pressRow;
+	d.spinRow = d.back ? 11 : 16;  // (the first row his shape spins on: the moves speed up the row after)
+	if (d.spinRow >= (int)a.frames.size()) { d.spinRow = -1; return d; }
+	d.peak = d.spinRow;
+	for (size_t j = d.spinRow; j < a.frames.size(); j++) if (a.frames[j].speed > a.frames[d.peak].speed) d.peak = j;
+	if (d.peak + 1 < a.frames.size()) d.decay = a.frames[d.peak].speed - a.frames[d.peak + 1].speed;
+	return d;
+}
+// The stick target (at most 6) on floorPoly moving at yaw
+double dekuTarget(const Model& m, int floorPoly, int yaw) {
+	if (floorPoly < 0 || floorPoly >= (int)m.polys.size()) return 6;
+	const Poly& p = m.polys[floorPoly];
+	if (!(p.ny > 0)) return 6;
+	const double t = -(p.nx * sinS(yaw) + p.nz * cosS(yaw)) / p.ny;
+	const double s2 = t * t / (1 + t * t);
+	return std::max(0.0, std::min(6.0, (double)F(6.72 - 8 * s2)));
+}
+// unk_B50 after a frame (dekuSpeed, see above): the limit unless a wall pushed
+// him; then the line ahead's wall if it hits one, else the (last) pusher
+double dekuCap(const Model& m, Scratch& s, const V3& pos, const PushList& trace, int yaw, int shape, double limit = 6) {
+	const double r = F(m.radius + 10);
+	const V3 a = { pos.x, F(pos.y + F(178.0f * 0.1f)), pos.z };
+	const V3 b = { F(pos.x + F(r * sinS(shape))), a.y, F(pos.z + F(r * cosS(shape))) };
+	// (MM3D: the line's wall whenever it hits one, pushed or not; no hit, no cap -
+	// see dekuSpeed's notes. N64's Player_ProcessSceneCollision only does it on a
+	// frame a wall pushed him, with the pusher if the line misses.)
+	(void)trace;
+	int wall = -1;
+	if (auto h = m.lineHit(s, a, b, LOOSE, false, true)) wall = h->poly;
+	if (wall < 0) return limit;
+	const Poly& w = m.polys[wall];
+	const int wallYaw = yawOf(w.sx, w.sz);
+	const double scale = F(std::abs((int)(int16_t)(yaw - ((wallYaw + 0x8000) & 0xFFFF))) * F(0.00008));
+	if (scale >= 1) return limit;
+	return std::max((double)F(0.1), (double)F(limit * scale));
+}
+// The cap on row j's move speed: set by the action of row j - 1's frame, after
+// that frame's collision (out[j - 1]: where it left him, what pushed him), the
+// line ahead along his shape as it was going into it (row j - 2's: his move
+// yaw until the spin turns it, then the recording's spinning shape). turn:
+// (--frog curved paths) the yaw added each spin row after turnRow, his move yaw
+// and shape both (Player_Action_95 turns the shape with the yaw)
+int spinTurnAt(int turn, int turnRow, size_t j) { return turnRow >= 0 && (int)j > turnRow ? turn * ((int)j - turnRow) : 0; }
+double dekuRowCap(const Model& m, Scratch& s, const Action& a, int facing, const vector<FrameOut>& out, size_t j, int turn = 0, int turnRow = -1) {
+	const FrameOut& e = out[j - 1];
+	const int yaw = (facing + a.frames[j - 1].angle + spinTurnAt(turn, turnRow, j - 1)) & 0xFFFF;
+	const size_t sj = j >= 2 ? j - 2 : 0;
+	const ActionFrame& sf = a.frames[sj];
+	const int shape = ((sf.shape >= 0 ? facing + sf.shape : facing + sf.angle) + spinTurnAt(turn, turnRow, sj)) & 0xFFFF;
+	return dekuCap(m, s, e.landed ? V3{ e.res.x, e.landY, e.res.z } : e.res, e.trace, yaw, shape);
+}
+// Row j's speed after a row of prev, the stick target `target` (dekuTarget)
+double dekuSpeed(const Action& a, const DekuSpeeds& d, size_t j, double target, double prev, double wallCap = 6) {
+	const double rec = a.frames[j].speed;
+	if (d.spinRow < 0) return rec;
+	if ((int)j < d.pressRow) return std::min(rec, target * (d.back ? 1.5 : 1.0));
+	if ((int)j <= d.spinRow) return std::min(rec, prev);
+	const double flat = j < d.peak ? a.frames[d.peak].speed + d.decay * (double)(d.peak - j) : rec;
+	const double T = flat * std::min(target, wallCap) / 6;
+	return std::max(0.0, prev + std::max(-2.0, std::min(0.4, T - prev)));
+}
+
 // The action's frames from `start`, each a walking frame: the move, the
 // line test (or the pushes), then the floor check from prevPos.y + 50. Stops
 // early if Link leaves the ground (no floor within 11 below posNext).
@@ -595,6 +692,11 @@ void runFrames(const Model& m, Scratch& s, const V3& start, int facing, const Ac
 	int spinTurn = 0;
 	const size_t np = a.pre.size();
 	bool air = false;
+	// (the Deku spins: the floor's slope cuts the stick's speed, dekuTarget; its floor from the last frame)
+	int floorPoly = -1;
+	m.floorCheck(start.x, start.z, F(start.y + 1), &floorPoly);
+	const DekuSpeeds ds = dekuSpeeds(a);
+	double recSpd = 0;
 	for (size_t j = 0; j < np + a.frames.size(); j++) {
 		// (the jumpslash: in the air after the prefix; never landing, those frames are all)
 		if (j == np && a.jump) {
@@ -608,7 +710,8 @@ void runFrames(const Model& m, Scratch& s, const V3& start, int facing, const Ac
 		int shape = facing;
 		if (af.stick) {
 			// the action at the end of the last frame: this frame's speed
-			const double full = cap;  // (the full stick, 6.58 / 6.72, is over every cap)
+			// (the full stick, 6.58 / 6.72, is over every cap - but not after a slope's cut, MM)
+			const double full = a.game == "MM" ? std::min(cap, dekuTarget(m, floorPoly, (facing + af.angle) & 0xFFFF)) : cap;
 			if (af.stick == 'R') stickSpd = asymStep(stickSpd, full, 2.0, 1.5);
 			else if (af.stick == 'B') stickSpd = asymStep(stickSpd, F(full * F(1.5)), 1.5, 2.0);
 			else if (af.stick == 'S') {
@@ -619,7 +722,15 @@ void runFrames(const Model& m, Scratch& s, const V3& start, int facing, const Ac
 			}
 			shape = af.stick == 'B' ? facing : (facing + af.angle + spinTurn) & 0xFFFF;
 		}
-		o.next = actionStep(a, af, pos, facing, noSpeed, af.stick ? stickSpd : af.speed < 0 ? landSpeed : NAN);
+		double spd = af.stick ? stickSpd : af.speed < 0 ? landSpeed : NAN;
+		if (ds.spinRow >= 0 && j >= np) {
+			const size_t row = j - np;
+			double wallCap = 6;
+			// (the spin's first speed update: capped by its frame's own collision, dekuCap)
+			if (ds.spinRow >= 1 && (int)row > ds.spinRow && out.size() >= row) wallCap = dekuRowCap(m, s, a, facing, out, row);
+			spd = recSpd = dekuSpeed(a, ds, row, dekuTarget(m, floorPoly, (facing + af.angle) & 0xFFFF), recSpd, wallCap);
+		}
+		o.next = actionStep(a, af, pos, facing, noSpeed, spd);
 		if (air && j == np) o.next.y = firstY;
 		if (auto lf = lineFrame(m, s, pos, o.next, tol)) { o.res = lf->res; o.trace = lf->trace; }
 		else o.res = m.sphereStep(o.next, tol, &o.trace, &pos);
@@ -651,6 +762,7 @@ void runFrames(const Model& m, Scratch& s, const V3& start, int facing, const Ac
 		if (!o.landed) break;
 		o.landY = *fy;
 		pos = { o.res.x, o.landY, o.res.z };
+		if (o.floorPoly >= 0) floorPoly = o.floorPoly;
 		if (af.stick) cap = stickCap(m, s, pos, o.trace, (facing + af.angle) & 0xFFFF, shape, limit);
 	}
 }
@@ -1018,4 +1130,412 @@ vector<Clip> actionScan(const Model& m, const vector<Clip>& targets, const vecto
 	}
 	// (the total: main, after the file's thinning)
 	return clips;
+}
+
+// ---- --frog: an actor's OC cylinder pushing Link (FrogOpts, action.h) ----
+// The user's idea (MM3D Laundry Pool TRI 26 -> 70): the Deku spin's own speed
+// (9.81 at most) isn't enough, but the frog (En_Minifrog, which Link can push
+// around) has an OC cylinder, and CollisionCheck_SetOCvsOC adds Link's share
+// of the overlap to colChkInfo.displacement, which the next frame's
+// Actor_UpdatePos adds to his move: one frame of speed + push, swept by the
+// frame's bg check like any move. The spin makes Link's cylinder radius 30
+// (Player_Action_95 -> Player_SetCylinderForAttack), so a frog that was clear
+// of his radius 12 overlaps it as soon as the spin starts.
+// Modelled: positions as the colliders' s16s (truncated), Link's share of the
+// push (frog mass 30 / (30 + Deku 20)), the frog's share moving it away (its
+// wall check isn't), Link's cylinder from his feet (+ the frame's dy) to
+// FrogOpts::linkH above. Not modelled: the frog's hops (EnMinifrog_Jump: off
+// the ground the heights may not overlap), the spin's wall cap on speed.
+namespace {
+int frogSpinRow(const Action& a, const FrogOpts& o) {
+	if (o.spinRow >= 0) return o.spinRow;
+	// (the first row whose shape spins: Player_Action_95 has run, radius 30)
+	if (a.key == "deku-spin-backwalk") return 11;
+	if (a.key == "deku-spin") return 16;
+	return -1;
+}
+// key "deku-backwalk": the backwalk spin's rows before L is let go, then speed 9 on
+const Action* frogAction(const string& key, const string& game, Action& tmp) {
+	const bool walk = key == "deku-backwalk";
+	for (const Action& a : ACTIONS) {
+		if (a.game != game || a.key != (walk ? "deku-spin-backwalk" : key)) continue;
+		if (!walk) return &a;
+		tmp = a;
+		tmp.key = key;
+		tmp.name = "Deku backwalk (the backwalk spin's rows 0-8, then 9 a frame)";
+		tmp.frames.resize(9);
+		for (int i = 0; i < 12; i++) tmp.frames.push_back(tmp.frames[8]);
+		return &tmp;
+	}
+	return nullptr;
+}
+inline int s16t(double v) { return (int)(int16_t)(int)v; }
+// a world coordinate in the middle of the s16 cell c (C's truncation toward 0)
+inline double cellMid(int c) { return c < 0 ? c - 0.5 : c + 0.5; }
+struct FrogOc { double dx = 0, dz = 0, fdx = 0, fdz = 0, overlap = 0; bool hit = false; };
+// Math3D_CylVsCylOverlapCenterDist + CollisionCheck_SetOCvsOC (both normal masses)
+FrogOc frogOc(const V3& link, double linkDy, const V3& frog, double rl, const FrogOpts& o) {
+	FrogOc r;
+	// (N64: Collider_UpdateCylinder's s16 dim.pos; MM3D measures from the float
+	// positions - the user's runs: the frog moved exactly the float overlap's share)
+	auto cv = [&](double v) { return o.floatPos ? v : (double)s16t(v); };
+	const double ddx = F(cv(link.x) - cv(frog.x)), ddz = F(cv(link.z) - cv(frog.z));
+	const double dist = F(std::sqrt(F(F(ddx * ddx) + F(ddz * ddz))));
+	if (F(rl + o.frogR) < dist) return r;
+	const double lb = cv(link.y) + cv(linkDy), lt = lb + o.linkH;
+	const double fb = cv(frog.y), ft = fb + o.frogH;
+	if (lt < fb || ft < lb) return r;
+	r.hit = true;
+	r.overlap = F(F(rl + o.frogR) - dist);
+	const double ratio = F(o.ratio), fratio = F(1 - o.ratio);
+	if (dist != 0) {
+		const double k = F(r.overlap / dist), kx = F(ddx * k), kz = F(ddz * k);
+		r.dx = F(kx * ratio); r.dz = F(kz * ratio);
+		r.fdx = F(-kx * fratio); r.fdz = F(-kz * fratio);
+	} else { r.dx = F(r.overlap * ratio); r.fdx = F(-r.overlap * fratio); }
+	return r;
+}
+// A recorded row's walking frame at speed sp with the push from the last frame
+// added (Actor_UpdatePos: pos += velocity x rate + displacement), then the bg check
+void frogFrame(const Model& m, Scratch& s, const Action& a, const ActionFrame& af, int facing, double sp, V3& pos, double dX, double dZ, FrameOut& o, int extraYaw = 0) {
+	o.prev = pos;
+	const int yaw = (facing + af.angle + extraYaw) & 0xFFFF;
+	sp = F(std::max(sp, 0.0));
+	const V3 root = actionStep(a, af, pos, facing, true);
+	o.next = { F(root.x + F(F(F(sp * sinS(yaw)) * SPEED_RATE) + dX)), root.y, F(root.z + F(F(F(sp * cosS(yaw)) * SPEED_RATE) + dZ)) };
+	if (auto lf = lineFrame(m, s, pos, o.next, LOOSE)) { o.res = lf->res; o.trace = lf->trace; }
+	else o.res = m.sphereStep(o.next, LOOSE, &o.trace, &pos);
+	auto fy = m.floorCheck(o.res.x, o.res.z, F(pos.y + 50), &o.floorPoly);
+	o.landed = fy && F(*fy - o.res.y) >= -11;
+	if (o.landed) o.landY = *fy;
+	pos = o.landed ? V3{ o.res.x, o.landY, o.res.z } : o.res;
+}
+// spd / floor: each frame's speed (dekuSpeed: the slope's cut) and the floor it left him on
+struct FrogRun { vector<FrameOut> fr; vector<FrogOc> oc; vector<V3> frog; vector<double> spd; vector<int> floor; };
+// frames [from, to) from pos (where frame from - 1 left Link, at speed spd0 on
+// floor0; from 0: standing on the floor under pos), the frog at frog, d the
+// push frame from - 1 left for the next move
+void frogFrames(const Model& m, Scratch& s, const Action& a, int spinRow, int facing, size_t from, size_t to, V3 pos, V3 frog,
+	FrogOc d, bool frogOn, const FrogOpts& o, FrogRun& r, double spd0 = 0, int floor0 = -1, int turn = 0) {
+	const DekuSpeeds ds = dekuSpeeds(a);
+	// (a curved spin: turn more yaw each spin row, Player_Action_95's Math_ScaledStepToS toward the stick)
+	const int turnRow = turn ? ds.spinRow : -1;
+	double spd = spd0;
+	int floor = floor0;
+	if (from == 0) { spd = 0; floor = -1; m.floorCheck(pos.x, pos.z, F(pos.y + 1), &floor); }
+	for (size_t j = from; j < std::min(to, a.frames.size()); j++) {
+		const ActionFrame& af = a.frames[j];
+		double wallCap = 6;
+		// (the spin's first speed update: capped by its frame's own collision, dekuCap)
+		const int ex = spinTurnAt(turn, turnRow, j);
+		if (ds.spinRow >= 1 && (int)j > ds.spinRow && r.fr.size() >= j) wallCap = dekuRowCap(m, s, a, facing, r.fr, j, turn, turnRow);
+		spd = ds.spinRow >= 0 ? dekuSpeed(a, ds, j, dekuTarget(m, floor, (facing + af.angle + ex) & 0xFFFF), spd, wallCap) : af.speed;
+		FrameOut& f = r.fr.emplace_back();
+		frogFrame(m, s, a, af, facing, spd, pos, d.dx, d.dz, f, ex);
+		if (f.floorPoly >= 0) floor = f.floorPoly;
+		r.spd.push_back(spd);
+		r.floor.push_back(floor);
+		if (!f.landed) break;
+		if (frogOn && d.hit) {
+			// (the frog's update, after Link's: its share, then onto its floor)
+			frog.x = F(frog.x + d.fdx);
+			frog.z = F(frog.z + d.fdz);
+			if (auto fy = m.floorCheck(frog.x, frog.z, F(frog.y + 50))) frog.y = *fy;
+		}
+		const double rl = spinRow >= 0 && (int)j >= spinRow ? o.spinR : o.linkR;
+		d = frogOn ? frogOc(pos, F(pos.y - f.prev.y), frog, rl, o) : FrogOc{};
+		r.oc.push_back(d);
+		r.frog.push_back(frog);
+	}
+}
+const char* PF(const V3& v) {
+	static char b[4][96];
+	static int k = 0;
+	k = (k + 1) % 4;
+	snprintf(b[k], 96, "(%.9g, %.9g, %.9g)", v.x, v.y, v.z);
+	return b[k];
+}
+struct FrogHit { int facing = 0, k = 0, cx = 0, cz = 0, turn = 0; V3 start, S, frog; double margin = 0, dx = 0, dz = 0; Verdict v; };
+// A frog clip as an action clip with "frog" (for --frog-json; -1 action: the
+// action isn't one of ACTIONS - deku-backwalk - and can't be written)
+std::optional<Clip> frogClip(const Model& m, Scratch& s, const Action& a, const V3& start, int facing, const FrogRun& r, const Verdict& v, const V3& frog, int turn = 0) {
+	int ai = -1;
+	for (size_t i = 0; i < ACTIONS.size(); i++) if (ACTIONS[i].game == a.game && ACTIONS[i].key == a.key) ai = (int)i;
+	if (ai < 0) return std::nullopt;
+	Clip c;
+	c.kind = v.kind < 2 ? (v.onFace ? 0 : 1) : 2;
+	c.cross = v.cross;
+	c.pusher = v.pusher;
+	c.crossed = v.crossed;
+	const FrameOut& o = r.fr[v.frame];
+	c.from = o.next; c.prev = start; c.next = o.next; c.hasNext = true;
+	c.res = o.landed && v.kind == 2 ? V3{ o.res.x, o.landY, o.res.z } : o.res;
+	c.end = v.end;
+	c.endNoFloor = v.noFloor;
+	c.stopAfter = v.stopAfter;
+	c.floorY = start.y; c.hasFloorY = true;
+	c.yaw = yawOf(o.next.x - o.prev.x, o.next.z - o.prev.z);
+	c.speed = F(std::hypot(o.next.x - o.prev.x, o.next.z - o.prev.z) / SPEED_RATE);
+	c.hasMove = true;
+	if (c.cross) c.yaws = { c.yaw };
+	c.action = ai;
+	c.facing = facing & 0xFFFF;
+	for (const FrameOut& f : r.fr) {
+		c.frames.push_back(f.landed ? V3{ f.res.x, f.landY, f.res.z } : f.res);
+		const double dx = F(f.next.x - f.prev.x), dz = F(f.next.z - f.prev.z), sp = std::hypot(dx, dz) / SPEED_RATE;
+		c.frameMoves.push_back({ sp, sp > 0 ? (int16_t)(yawOf(dx, dz) - facing) : 0 });
+	}
+	c.inBounds = !c.endNoFloor && m.isInBounds(s, c.end);
+	c.hasFrog = true;
+	c.frog = frog;
+	if (turn) { c.frogTurn = turn; c.frogTurnRow = dekuSpeeds(a).spinRow; }
+	return c;
+}
+void writeFrogJson(const Model& m, const string& game, const FrogOpts& o, const vector<Clip>& clips) {
+	if (o.json.empty()) return;
+	const string j = toJson(game, o.mapName, o.numPolygons, false, false, { FormResult{ o.form, m.radius, m.checkHeight, clips } });
+	std::ofstream f(o.json, std::ios::binary);
+	if (!f) { fprintf(stderr, "--frog-json: can't write %s\n", o.json.c_str()); return; }
+	f << j;
+	fprintf(stderr, "  wrote %zu frog clip%s to %s\n", clips.size(), clips.size() == 1 ? "" : "s", o.json.c_str());
+}
+}  // namespace
+
+// X,Y,Z,FACING,@KEY,FX,FZ[,FY]: the action from there with the frog at (FX, FZ), each frame printed
+int frogSim(const Model& m, const string& arg, const string& game, const FrogOpts& o) {
+	double x, y, z, fx, fz, fy = NAN;
+	char yawS[32] = {}, key[64] = {};
+	const int n = sscanf(arg.c_str(), "%lf,%lf,%lf,%31[^,],@%63[^,],%lf,%lf,%lf", &x, &y, &z, yawS, key, &fx, &fz, &fy);
+	if (n < 7) { fprintf(stderr, "--frog-sim wants X,Y,Z,FACING,@KEY,FX,FZ[,FY]\n"); return 2; }
+	Action tmp;
+	const Action* a = frogAction(key, game, tmp);
+	if (!a) { fprintf(stderr, "--frog-sim: no %s action %s\n", game.c_str(), key); return 2; }
+	const int facing = (int)strtol(yawS, nullptr, 0) & 0xFFFF, spinRow = frogSpinRow(*a, o);
+	Scratch s;
+	s.stamp.assign(m.polys.size(), 0);
+	const V3 start = { F(x), F(y), F(z) };
+	if (std::isnan(fy)) { auto f = m.floorCheck(F(fx), F(fz), F(y + 50)); fy = f ? *f : y; }
+	const V3 frog = { F(fx), F(fy), F(fz) };
+	printf("%s, facing 0x%04X, spin (radius %g) from row %d%s\n", a->name.c_str(), facing, o.spinR, spinRow,
+		o.simTurn ? (", turning " + std::to_string(o.simTurn) + " a spin row (--frog-turn)").c_str() : "");
+	printf("Link %s; frog %s (s16 %d, %d, %d), radius %g, height %g, Link's share of a push %g\n", PF(start), PF(frog),
+		s16t(frog.x), s16t(frog.y), s16t(frog.z), o.frogR, o.frogH, o.ratio);
+	FrogRun r;
+	frogFrames(m, s, *a, spinRow, facing, 0, a->frames.size(), start, frog, FrogOc{}, true, o, r, 0, -1, o.simTurn);
+	for (size_t j = 0; j < r.fr.size(); j++) {
+		const FrameOut& f = r.fr[j];
+		const double push = j ? std::hypot(r.oc[j - 1].dx, r.oc[j - 1].dz) : 0;
+		printf("frame %zu (row %zu): move (%.6f, %.6f) = %.6f", j + 1, j, F(f.next.x - f.prev.x), F(f.next.z - f.prev.z),
+			std::hypot(F(f.next.x - f.prev.x), F(f.next.z - f.prev.z)));
+		if (push > 0) printf(" incl. frog push (%.6f, %.6f) = %.6f", r.oc[j - 1].dx, r.oc[j - 1].dz, push);
+		if (j < r.spd.size()) printf("; speed %.3f", r.spd[j]);
+		printf("\n");
+		for (const Push& t : f.trace) printf("    %s %s -> %s\n", t.line ? "line test snap" : (m.polyName(t.poly) + " pushes").c_str(), PF(t.from), PF(t.to));
+		printf("  -> %s%s", PF(f.landed ? V3{ f.res.x, f.landY, f.res.z } : f.res), f.landed ? "" : " (off the ground)");
+		if (j < r.oc.size() && r.oc[j].hit) {
+			const FrogOc& c = r.oc[j];
+			printf("; OC overlap %.4f (Link radius %g): push (%.6f, %.6f) next frame, frog -> %s", c.overlap,
+				spinRow >= 0 && (int)j >= spinRow ? o.spinR : o.linkR, c.dx, c.dz, PF(r.frog[j]));
+		}
+		printf("\n");
+	}
+	auto v = judge(m, s, start, r.fr, LOOSE, true);
+	if (!v) printf("no clip\n");
+	else printf("CLIP on frame %d: %s pushes Link through %s, ends %s %s%s\n", v->frame + 1, m.polyName(v->pusher).c_str(), m.polyName(v->crossed).c_str(),
+		PF(v->end), m.isInBounds(s, v->end) ? "(in bounds)" : "OUT OF BOUNDS", v->stopAfter ? (" - stop after frame " + std::to_string(v->stopAfter)).c_str() : "");
+	if (v && !o.json.empty()) {
+		if (auto c = frogClip(m, s, *a, start, facing, r, *v, frog, o.simTurn)) writeFrogJson(m, game, o, { *c });
+		else fprintf(stderr, "--frog-json: %s isn't a recorded action, so the tester can't run it\n", a->key.c_str());
+	}
+	return 0;
+}
+
+// For each action, facing and start whose run puts Link at one of the aim
+// points the frame before a clip row k, every frog s16 cell that first
+// touches him at the end of row k - 1 (not before: so the frames up to then are
+// the plain run), with the push ending in a clip.
+int frogSearch(const Model& m, const vector<Clip>& targets, const string& keys, const string& game, const FrogOpts& o, int threads) {
+	vector<V3> aims = o.aims;
+	if (aims.empty()) for (const Clip& c : targets) {
+		bool dup = false;
+		for (const V3& p : aims) dup |= std::hypot(p.x - c.prev.x, p.z - c.prev.z) < 1;
+		if (!dup) aims.push_back(c.prev);
+	}
+	if (aims.empty()) { fprintf(stderr, "--frog: no clip points of the pair to aim at (give --frog-aim X,Y,Z)\n"); return 1; }
+	fprintf(stderr, "  --frog: %zu aim points:", aims.size());
+	for (const V3& p : aims) fprintf(stderr, " %s", PF(p));
+	fprintf(stderr, "\n");
+	FILE* csv = o.csv.empty() ? nullptr : fopen(o.csv.c_str(), "w");
+	if (csv) fprintf(csv, "action,facing,startX,startY,startZ,clipFrame,linkX,linkY,linkZ,frogCellX,frogCellZ,frogX,frogY,frogZ,heightMargin,pushX,pushZ,pusher,crossed,endX,endY,endZ,stopAfter,turn\n");
+	vector<Clip> jsonClips;  // (--frog-json: the best frog of each start listed)
+	for (size_t p0 = 0; p0 <= keys.size();) {
+		size_t p1 = keys.find(',', p0);
+		if (p1 == string::npos) p1 = keys.size();
+		const string key = keys.substr(p0, p1 - p0);
+		p0 = p1 + 1;
+		if (key.empty()) continue;
+		Action tmp;
+		const Action* ap = frogAction(key, game, tmp);
+		if (!ap) { fprintf(stderr, "--frog: no %s action %s (deku-spin, deku-spin-backwalk, deku-backwalk)\n", game.c_str(), key.c_str()); return 2; }
+		const Action& a = *ap;
+		const int spinRow = frogSpinRow(a, o);
+		// the clip rows: the spin's first few after it starts, or the run's top speed
+		const int k0 = spinRow >= 0 ? spinRow + 1 : 7, k1 = std::min<int>(k0 + o.maxRows - 1, (int)a.frames.size() - 1);
+		// the offsets from each aim point
+		vector<std::pair<double, double>> offs;
+		for (double u = -o.aimR; u <= o.aimR + 1e-9; u += o.aimStep)
+			for (double w = -o.aimR; w <= o.aimR + 1e-9; w += o.aimStep)
+				if (u * u + w * w <= o.aimR * o.aimR + 1e-9) offs.push_back({ u, w });
+		std::atomic<int> nextFacing{ 0 }, runs{ 0 }, ran{ 0 };
+		std::mutex mu;
+		vector<FrogHit> hits;
+		const int nFacings = (((o.yawTo - o.yawFrom) & 0xFFFF) + 1 + o.yawStep - 1) / o.yawStep;
+		auto worker = [&]() {
+			Scratch s;
+			s.stamp.assign(m.polys.size(), 0);
+			std::map<std::pair<int, int>, std::optional<double>> cellFloor;  // (the frog standing in a cell: its floor, or none)
+			vector<FrogHit> mine;
+			for (int fi; (fi = nextFacing++) < nFacings;) {
+				const int facing = (o.yawFrom + fi * o.yawStep) & 0xFFFF;
+				// (--frog-turns: the spin curving, turn more yaw each spin row; not without a spin)
+				for (int turn : o.turns) for (int k = k0; k <= k1; k++) {
+					if (turn && spinRow < 0) continue;
+					const int turnRow = turn ? dekuSpeeds(a).spinRow : -1;
+					// the move of rows 0 .. k-1 as recorded, curved by the turn (the aim: Link there after row k - 1)
+					double sx = 0, sz = 0;
+					for (int j = 0; j < k; j++) {
+						const V3 d = actionStep(a, a.frames[j], { 0, GROUND_DROP, 0 }, (facing + spinTurnAt(turn, turnRow, j)) & 0xFFFF);
+						sx = F(sx + d.x); sz = F(sz + d.z);
+					}
+					for (const V3& aim : aims) for (const auto& [u, w] : offs) {
+						const V3 Sa = { F(aim.x + u), aim.y, F(aim.z + w) };
+						const double ax = F(Sa.x - sx), az = F(Sa.z - sz);
+						auto fy = m.floorCheck(ax, az, F(Sa.y + 50));
+						if (!fy) continue;
+						const V3 A = { ax, *fy, az };
+						auto rest = m.restingSpot(A);
+						if (!rest || std::fabs(rest->x - A.x) > 1e-3 || std::fabs(rest->z - A.z) > 1e-3 || !m.isInBounds(s, A)) continue;
+						runs++;
+						// the plain run (no frog) up to row k + 2
+						FrogRun plain;
+						frogFrames(m, s, a, spinRow, facing, 0, k + 3, A, {}, FrogOc{}, false, o, plain, 0, -1, turn);
+						if ((int)plain.fr.size() < k) continue;
+						const FrameOut& last = plain.fr[k - 1];
+						const V3 S = { last.res.x, last.landY, last.res.z };
+						if (std::hypot(S.x - Sa.x, S.z - Sa.z) > o.near) continue;
+						if (judge(m, s, A, plain.fr, LOOSE, true)) continue;  // (clips without the frog)
+						ran++;
+						vector<FrameOut> pre(plain.fr.begin(), plain.fr.begin() + k);
+						const int lx = s16t(S.x), lz = s16t(S.z);
+						const double rk = spinRow >= 0 && k - 1 >= spinRow ? o.spinR : o.linkR;
+						const int R = (int)(rk + o.frogR) + 1;
+						for (int cx = lx - R; cx <= lx + R; cx++) for (int cz = lz - R; cz <= lz + R; cz++) {
+							if (o.oneCell && (cx != o.cellX || cz != o.cellZ)) continue;
+							// not touching him before the end of row k - 1
+							// (the frog in the middle of the cell: N64, the s16 the cell is; MM3D, floats)
+							const double fx = cellMid(cx), fz = cellMid(cz);
+							bool before = false;
+							for (int j = 0; j + 1 < k && !before; j++) {
+								const V3 p = pre[j].landed ? V3{ pre[j].res.x, pre[j].landY, pre[j].res.z } : pre[j].res;
+								const double rj = spinRow >= 0 && j >= spinRow ? o.spinR : o.linkR;
+								const double dd = o.floatPos ? std::hypot(p.x - fx, p.z - fz) : std::hypot((double)(s16t(p.x) - cx), (double)(s16t(p.z) - cz));
+								before = dd <= rj + o.frogR;
+							}
+							if (before) continue;
+							// the frog can stand there: a floor, in bounds, no wall within its radius
+							auto it = cellFloor.find({ cx, cz });
+							if (it == cellFloor.end()) {
+								std::optional<double> ok;
+								if (auto ffy = m.floorCheck(fx, fz, F(S.y + 50))) {
+									const V3 fp = { fx, *ffy, fz };
+									const V3 st = m.sphereStep(fp, LOOSE, nullptr);
+									if (m.isInBounds(s, fp) && std::hypot(st.x - fx, st.z - fz) <= m.radius - o.frogR + 1e-6) ok = *ffy;
+								}
+								it = cellFloor.emplace(std::make_pair(cx, cz), ok).first;
+							}
+							if (!it->second) continue;
+							const V3 frog = { fx, *it->second, fz };
+							const FrogOc d = frogOc(S, F(S.y - last.prev.y), frog, rk, o);
+							if (!d.hit) continue;
+							const double margin = o.floatPos ? (frog.y + o.frogH) - (S.y + F(S.y - last.prev.y))
+								: (s16t(frog.y) + o.frogH) - (s16t(S.y) + s16t(F(S.y - last.prev.y)));
+							if (margin < o.vMargin) continue;
+							FrogRun r;
+							r.fr = pre;
+							frogFrames(m, s, a, spinRow, facing, k, k + 3, S, frog, d, true, o, r, plain.spd[k - 1], plain.floor[k - 1], turn);
+							auto v = judge(m, s, A, r.fr, LOOSE, true);
+							if (!v || v->frame < k) continue;
+							FrogHit h;
+							h.facing = facing; h.k = k; h.cx = cx; h.cz = cz; h.turn = turn; h.start = A; h.S = S; h.frog = frog;
+							h.margin = margin; h.dx = d.dx; h.dz = d.dz; h.v = *v;
+							mine.push_back(h);
+						}
+					}
+				}
+				if (fi % 8 == 0) fprintf(stderr, "\r  %s: facing %d / %d, %d starts, %d near an aim point", a.key.c_str(), fi + 1, nFacings, runs.load(), ran.load());
+			}
+			std::lock_guard<std::mutex> g(mu);
+			hits.insert(hits.end(), mine.begin(), mine.end());
+		};
+		vector<std::thread> ts;
+		for (int i = 0; i < threads; i++) ts.emplace_back(worker);
+		for (auto& t : ts) t.join();
+		fprintf(stderr, "\r%90s\r", "");
+		// per start: how many frog cells work (more = easier to set up)
+		struct Group { int facing = 0, k = 0, turn = 0; V3 start, S; vector<const FrogHit*> h; };
+		std::map<std::tuple<int, int, double, double, int>, Group> groups;
+		for (const FrogHit& h : hits) {
+			Group& g = groups[{ h.facing, h.turn, h.start.x, h.start.z, h.k }];
+			g.facing = h.facing; g.k = h.k; g.turn = h.turn; g.start = h.start; g.S = h.S;
+			g.h.push_back(&h);
+		}
+		vector<const Group*> order;
+		for (auto& kv : groups) order.push_back(&kv.second);
+		std::stable_sort(order.begin(), order.end(), [](const Group* x, const Group* y) { return x->h.size() > y->h.size(); });
+		printf("%s: %zu frog clips, from %zu starts (%d starts run, %d near an aim point)\n", a.name.c_str(), hits.size(), order.size(), runs.load(), ran.load());
+		for (size_t i = 0; i < order.size() && i < 25; i++) {
+			const Group& g = *order[i];
+			// the frog cell in the middle of the ones that work (the furthest from a failing neighbour)
+			std::set<std::pair<int, int>> cells;
+			for (const FrogHit* h : g.h) cells.insert({ h->cx, h->cz });
+			const FrogHit* best = g.h[0];
+			int bestD = -1;
+			for (const FrogHit* h : g.h) {
+				int dd = 0;
+				while (dd < 20) {
+					bool all = true;
+					for (int ox = -dd - 1; ox <= dd + 1 && all; ox++) for (int oz = -dd - 1; oz <= dd + 1 && all; oz++)
+						all = cells.count({ h->cx + ox, h->cz + oz }) > 0;
+					if (!all) break;
+					dd++;
+				}
+				if (dd > bestD) { bestD = dd; best = h; }
+			}
+			int x0 = 1 << 30, x1 = -(1 << 30), z0 = 1 << 30, z1 = -(1 << 30);
+			for (const FrogHit* h : g.h) { x0 = std::min(x0, h->cx); x1 = std::max(x1, h->cx); z0 = std::min(z0, h->cz); z1 = std::max(z1, h->cz); }
+			printf("  %2zu. facing 0x%04X%s, start %s, clip on frame %d: Link at %s before it; %zu frog cells (x %d..%d, z %d..%d)\n",
+				i + 1, g.facing, g.turn ? (", turning " + std::to_string(g.turn) + " a spin row").c_str() : "", PF(g.start), g.k + 1, PF(g.S), g.h.size(), x0, x1, z0, z1);
+			printf("      e.g. frog at %s (s16 %d, %d; %d cells clear around it), push (%.4f, %.4f) = %.4f, height margin %g: %s through %s, ends %s%s\n",
+				PF(best->frog), best->cx, best->cz, bestD, best->dx, best->dz, std::hypot(best->dx, best->dz), best->margin, m.polyName(best->v.pusher).c_str(),
+				m.polyName(best->v.crossed).c_str(), PF(best->v.end), best->v.stopAfter ? (" (stop after frame " + std::to_string(best->v.stopAfter) + ")").c_str() : "");
+			printf("      --frog-sim \"%.9g,%.9g,%.9g,0x%04X,@%s,%.9g,%.9g\"%s\n", g.start.x, g.start.y, g.start.z, g.facing, a.key.c_str(), best->frog.x, best->frog.z,
+				g.turn ? (" --frog-turn " + std::to_string(g.turn)).c_str() : "");
+			if (!o.json.empty()) {
+				// (the whole action with the frog from frame 1, as --frog-sim runs it)
+				Scratch s;
+				s.stamp.assign(m.polys.size(), 0);
+				FrogRun r;
+				frogFrames(m, s, a, spinRow, g.facing, 0, a.frames.size(), g.start, best->frog, FrogOc{}, true, o, r, 0, -1, g.turn);
+				if (auto v = judge(m, s, g.start, r.fr, LOOSE, true))
+					if (auto c = frogClip(m, s, a, g.start, g.facing, r, *v, best->frog, g.turn)) jsonClips.push_back(*c);
+			}
+		}
+		if (csv) for (const FrogHit& h : hits)
+			fprintf(csv, "%s,0x%04X,%.9g,%.9g,%.9g,%d,%.9g,%.9g,%.9g,%d,%d,%.9g,%.9g,%.9g,%g,%.6f,%.6f,%d,%d,%.9g,%.9g,%.9g,%d,%d\n", a.key.c_str(), h.facing,
+				h.start.x, h.start.y, h.start.z, h.k + 1, h.S.x, h.S.y, h.S.z, h.cx, h.cz, h.frog.x, h.frog.y, h.frog.z, h.margin, h.dx, h.dz,
+				h.v.pusher, h.v.crossed, h.v.end.x, h.v.end.y, h.v.end.z, h.v.stopAfter, h.turn);
+	}
+	if (csv) fclose(csv);
+	writeFrogJson(m, game, o, jsonClips);
+	return 0;
 }

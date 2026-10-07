@@ -508,6 +508,29 @@ first one Link moves on, A on the frame after `pressRow` (the backwalk lets go
 of L the frame before), the stick held to the recording's last row or let go
 after `stopAfter`. Each game frame the stick is steered so Link's move yaw
 (Player.yaw) follows the recording's, since the camera turns while he runs.
+The timing comes from the recording's shape yaws: L is let go on the frame the
+backwalk turned round in it (the first frame without L is the one he turns
+on), and A is held 3 emulated frames from the start of the frame before the
+recording's first spinning frame. If the game spins on another frame, A is
+moved by the difference and the test run again; if it doesn't spin at all, A
+is shifted by `A_LEADS_3DS` emulated frames in turn. (In game: holding A for
+one game frame didn't spin; pressing L and A a frame early spun a frame early,
+and the spin's radius 30 shoved the frog away a frame before the push.) The
+backwalk spin presses A from the frame right after the game shows Link turned
+round instead (his shape back along his move yaw): A while he's still
+targeting is a backflip, and a frame later than that he's running and slows 2
+a frame toward 6 (both seen in game). The
+recordings are read from `mm3d_actions/` next to the tester, or `tools/mm3d_actions/`.
+Aim correction: the game's backwalk doesn't go quite the recording's way (the
+camera isn't exactly behind Link, and the Circle Pad can't turn him by a few
+hundredths of a degree: 0x5B-0x76 off in game, ~0.8 units over the run), so
+for a clip with the model's frames, after each run the tester turns the
+facing Link is held at by how far his frame-4 move yaw was off the model's,
+and moves the start by how far he was off the model's spot at the end of the
+frame before the clip frame (onto the floor there, from the scene's floor
+polys: a start moved up the slope at the old y was inside the ground), up to
+`AIM_TRIES_3DS` (5) times or until within `AIM_TOL_3DS` (0.01) and 4 of yaw;
+the log starts with each try's miss. The start check (`setup`) compares x, z only.
 Statuses: `no recording`, `no run-up`, `no spin`. Each lunge test puts its
 weapon on B (save + 0x17A) with MM's item ids, which MM3D shares, and presses B
 at three points in the hold so he draws it. Deku Sticks aren't topped up (the
@@ -893,6 +916,85 @@ the stick's angle from the raw stick, not the dead-zone-adjusted one
 (an earlier version was up to ~0x300 off, enough to miss the Deku Palace
 `-walkin` corners, whose window is about +-0x40). Statuses
 "no run-up" (he never moved) and "no spin" (A didn't start one).
+
+### A frog pushing the spin (--frog)
+
+An actor's OC cylinder pushes Link: `CollisionCheck_SetOCvsOC` adds his
+share of the two cylinders' overlap (positions as s16s, truncated) to
+`colChkInfo.displacement`, and the next frame's `Actor_UpdatePos` adds that to
+his move, so that frame is speed + push, swept by the bg check like any move.
+The Deku spin makes his cylinder radius 30 (`Player_Action_95` ->
+`Player_SetCylinderForAttack`; 12 otherwise), so an actor his radius 12 just
+cleared overlaps him by up to 18 more as soon as the spin starts. The MM frog
+(`En_Minifrog`, not yet returned: radius 12, height 14, mass 30; Deku is mass
+20, so Link gets 30 / 50 = 0.6 of the overlap) can be pushed around.
+
+`--pair P,C --frog KEY[,KEY...]` (MM3D recorded actions: `deku-spin`,
+`deku-spin-backwalk`, and `deku-backwalk`, the backwalk spin's rows before L
+is let go then speed 9 on) runs each action from starts aimed so that Link is
+near one of the pair's clip starts (or `--frog-aim X,Y,Z[;X,Y,Z]`) the frame
+before a clip row (the first `--frog-rows` (6) rows of the spin, or from the
+run's top speed), at every facing (`--frog-yaw-step`, default `0x80`;
+`--frog-yaws FROM-TO`), offsets up to `--frog-aim-radius` (4) every
+`--frog-aim-step` (0.5), and tries the frog in every s16 cell that first
+touches him at the end of the frame before (`--frog-cell X,Z`: only that
+cell). The frog has to stand there: a floor, in bounds, no wall within its
+radius, its top at least `--frog-margin` (2) over Link's feet. It prints the
+starts with the most frog cells, each with a `--frog-sim` line, and
+`--frog-csv FILE` writes every hit. `--frog-json FILE` writes the clips
+(`--frog`: the example frog of each start listed; `--frog-sim`: that one, if it
+clips) as a results JSON: action clips with `"frog": [x, y, z]`, which
+wall_clip_tester.lua runs on MM3D with the frog held there until A (set
+`FROG_POS_ADDR` to the frog's world.pos address; each logged frame shows the frog).
+`--frog-sim "X,Y,Z,FACING,@KEY,FX,FZ[,FY]"` runs one setup frame by frame with
+the push (and the frog's own 0.4 share moving it) from frame 1.
+Other knobs: `--frog-radius`, `--frog-height`, `--frog-ratio`,
+`--frog-spin-radius`, `--frog-link-height` (30), `--frog-spin-row` (the first
+row with radius 30: 11 for the backwalk spin, 16 for the run-up spin).
+
+Curved spins: `--frog-turns FROM:TO:STEP` (e.g. `-2000:2000:400`) also tries
+each spin turning that much more yaw every spin frame from the spin's first
+(`Player_Action_95` turns his yaw toward the stick by up to `REG(27)` = 2000 a
+frame on N64; MM3D runs have turned at least 1581), his shape turning with it.
+The starts are aimed along the curved path. `--frog-turn N` curves
+`--frog-sim`. The JSON gets `"frogTurn"` / `"frogTurnRow"` (the 0-based row
+the turning starts after), and wall_clip_tester.lua steers the stick along it.
+
+On OoT3D / MM3D the overlap is measured from the actors' float positions, not
+N64's truncated s16s: the user's MM3D runs moved the frog by exactly 0.4 x the
+float overlap (5.07 for a spin's 12.67; 0.0047 for a brush of 0.0117, where the
+s16s would give 0.146), which also confirms the radii (12, 12 / 30) and masses.
+
+Not modelled: the frog's own wall check, its hops (`EnMinifrog_Jump`, every
+60-100 frames), MM's wall cap on the stick speed, and MM3D itself (the
+cylinders, masses and the spin's radius are N64's). E.g. MM3D Laundry Pool
+TRI 26 -> 70 (14.29 standing): the backwalk spin clips on its first pushed
+frame (8.97 + 7.22), facing `0x9200` from (-1463.08557, -31.9133949,
+355.556641), the frog in cell (-1418, 392); only that cell for that start.
+
+Slopes (all MM3D recorded Deku spins, and the N64 Deku spins' stick speed):
+the recordings are from flat ground, but `Player_GetMovementSpeedAndYaw`'s
+stick target is 6.72 (full tilt) - 8 sin²(floorPitch), at most 6, with
+floorPitch the floor's pitch along his move yaw. Backwalking up Laundry Pool's
+ramp (TRI 135, yaw 0x218F) the user got 8.022 = (6.72 - 1.38) x 1.5, not 9. So
+the run-up rows are capped at that (x 1.5 backwalking), the rows from the
+press to the spin keep the speed, and the spin's target (the recording's decay
+line, extended back over the rows it was speeding up on) is scaled by
+target / 6 and stepped to at +0.4 / -2.0 a frame (`dekuSpeed`). The spin's first
+speed update is also capped by MM's wall cap (`unk_B50`, `dekuCap`) from that
+same frame's collision (Link moves and collides first, then his action sets the
+next speed). In the decomp (`Player_ProcessSceneCollision`) the cap is only set
+on a frame a wall pushed him (`BGCHECKFLAG_WALL`; else the full limit): 6 x
+|move yaw - (wallYaw + 0x8000)| x 0.00008, wallYaw from the line wall check
+radius + 10 ahead along his shape if it hits a wall, else the pusher's. In game,
+spinning into Laundry Pool's corner dropped him from 9.0 to 7.0 on the first
+spin frame (TRI 27, yaw 0x1093 off its normal: 6 x 0.34 x the spin's 1.7), and
+with that modelled the model matched the game's next frames to ~0.03. But he
+then sped up (7.4, 7.8) while TRI 27 still pushed him, which the N64 code would
+cap again, and in another run he was capped ending 0.3 clear of every wall (the
+line reaching TRI 27 / 28). The MM3D runs all fit: capped whenever the line ahead
+along his shape hits a wall, pushed or not; that's what's modelled, on every
+spin update (his shape from the recording's rows once he spins).
 
 ### Running into a corner first (-walkin)
 
