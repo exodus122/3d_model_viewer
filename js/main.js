@@ -20,9 +20,11 @@ import { renderSky, drawSky } from './sky.js';
 import { loadBTTextureBank, getBTTextureBank } from './bt_textures.js';
 import { renderZeldaSceneTextured, parseZeldaSceneInfo, zeldaRoomFileName, zeldaAreaTextureFileName, ROOM_GROUP_KEY } from './zelda_textured.js';
 import { renderOOTActors } from './oot_actors.js';
-import { addModelCheckbox, buildTest, deferGroupBuild } from './render.js';
+import { addModelCheckbox, buildGeometry, buildTest, deferGroupBuild } from './render.js';
 import { setupWallPushClipUI } from './wall_push_clips.js';
 import { installWaterboxDepthToggle } from './waterboxes.js';
+import { parseDK64Collision, buildDK64TexturedMesh, buildDK64Water } from './dk64_map.js';
+import { attachTextured, clearTexturedPairs } from './bk_textured.js';
 
 ////////////////////////////////////////
 // System: DOM / Static UI Elements
@@ -218,6 +220,7 @@ dropdownContent.addEventListener('click', (e) => {
 const GAME_MAPS = {
     BK: BK_Maps,
     BT: BT_Maps,
+    DK64: DK64_Maps,
     OOT: OOT_Maps,
     MM: MM_Maps,
     OOT3D: OOT3D_Maps,
@@ -228,6 +231,7 @@ const GAME_MAPS = {
 const GAME_ACTORS = {
     BK: null,
     BT: null,
+    DK64: null,
     OOT: OOT_Dynapoly_Actors,
     MM: MM_Dynapoly_Actors,
     OOT3D: null,
@@ -237,6 +241,7 @@ const GAME_ACTORS = {
 const GAME_COLLISIONS = {
     BK: null,
     BT: null,
+    DK64: null,
     OOT: OOT_Dynapoly_Collisions,
     MM: MM_Dynapoly_Collisions,
     OOT3D: null,
@@ -276,12 +281,12 @@ gameSel.addEventListener('change',(e)=>{
     
     // "Textures" also covers OOT's and MM's rooms (zelda_textured.js);
     // "Prop collision" is a BK / BT thing.
-    bkViewModeLabel.style.display = (game == "BK" || game == "BT" || game == "OOT" || game == "MM") ? "block" : "none";
+    bkViewModeLabel.style.display = (game == "BK" || game == "BT" || game == "DK64" || game == "OOT" || game == "MM") ? "block" : "none";
     bkPropCollisionLabel.style.display = (game == "BK" || game == "BT") ? "" : "none";
     bkActorHitboxesLabel.style.display = (game == "BK" || game == "BT") ? "block" : "none";
     document.getElementById('actorDisplay').style.display = (game == "OOT" || game == "MM") ? "" : "none";
 
-    if (game == "BK" || game == "BT") {
+    if (game == "BK" || game == "BT" || game == "DK64") {
         display_fwc_label.style.display = "none";
         dropdownElement.style.display = "none";
         waterboxCheckboxElement.style.display = "none";
@@ -430,6 +435,47 @@ async function loadSelectedMap(game) {
             await showLoading(`${mapName}: actors and props…`);
             await renderBTSetup(scene, buffer3, mapId, mapName);
             addActorBitclipEdges(scene, getPropInstances());
+        } catch (err) {
+            console.error(err);
+        }
+    }
+    else if (game == "DK64") {
+        // models/DK64/<dir>/{geometry,floors,walls}.bin, see DK64_Maps in
+        // dk64_map_list.js and tools/dk64/extract_dk64_maps.py. The collision
+        // (floors + walls) is the plain mesh; the display lists hang under it
+        // as the textured mesh, as for BK / BT.
+        const mapName = document.getElementById("mapDropdown").value;
+        const mapDir = getMapProperty(game, mapName, "dir");
+        const scale = getMapProperty(game, mapName, "scale") ?? 3;
+        const load = async file => {
+            const res = await fetch(`./models/DK64/${mapDir}/${file}`);
+            if (!res.ok) throw new Error(`${mapDir}/${file}: ${res.status}`);
+            return res.arrayBuffer();
+        };
+        try {
+            const [geometry, floorsBuf, wallsBuf] = await Promise.all(["geometry.bin", "floors.bin", "walls.bin"].map(load));
+            await showLoading(`${mapName}: collision…`);
+            const floors = parseDK64Collision(floorsBuf, true);
+            const walls = parseDK64Collision(wallsBuf, false);
+            const verts = floors.verts.concat(walls.verts);
+            const tris = floors.tris.concat(walls.tris.map(t => t.map(i => i + floors.verts.length)));
+            console.log(`${mapDir}: ${floors.tris.length} floor + ${walls.tris.length} wall triangles`);
+            clearTexturedPairs();
+            buildGeometry(scene, verts, tris, null, null, "Main Model", true);
+
+            await showLoading(`${mapName}: textured geometry…`);
+            const entry = loadedModels[loadedModels.length - 1];
+            const textured = await buildDK64TexturedMesh(geometry, scale);
+            if (entry && entry.name === "Main Model") attachTextured(entry.mesh, textured, entry.edges);
+
+            // Water surfaces (their own row: they are drawn by the game's water
+            // code, not the map's display lists)
+            const water = await buildDK64Water(geometry);
+            if (water) {
+                scene.add(water);
+                loadedModels.push({ name: water.name, root: water, mesh: water, edges: null });
+                addModelCheckbox(scene, water.name, water, null, false, true, null, false, false);
+            }
         } catch (err) {
             console.error(err);
         }
