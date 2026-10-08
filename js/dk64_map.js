@@ -239,6 +239,38 @@ export function parseDK64PropModel(buffer) {
     });
 }
 
+const PROP_WALL_SIZE = 0x16;
+const PROP_FLOOR_SIZE = 0x18;
+
+/**
+ * A prop model's collision, in the model's own units (like its display list):
+ * walls at header +0x4C (u32 count, then 0x16 bytes each: s16 (x, y, z)[3],
+ * u8, u8, s8 matrix (-1 = the prop's own; else one of its animated parts),
+ * u8; global_asm func_8066C2D0's Prop_Wall), floors at +0x50 (u32 count, s16
+ * min / max x, y, z bounds, then 0x18 bytes each: s16 (x, y, z)[3], 6 bytes
+ * of flags). The animated parts' matrices only exist at run time, so walls on
+ * them are drawn in their rest position, as the display list is.
+ * -> { walls: Float32Array, floors: Float32Array } of triangle corners.
+ */
+export function parseDK64PropCollision(buffer) {
+    const dv = new DataView(buffer);
+    const out = { walls: new Float32Array(0), floors: new Float32Array(0) };
+    if (dv.byteLength < 0x58 || dv.getUint8(0x1C) !== 1) return out;
+    const read = (table, header, size) => {
+        if (table + 4 > dv.byteLength) return new Float32Array(0);
+        const count = Math.min(dv.getUint32(table, false), Math.floor((dv.byteLength - table - header) / size));
+        const corners = new Float32Array(Math.max(0, count) * 9);
+        for (let i = 0; i < count; i++) {
+            const o = table + header + i * size;
+            for (let k = 0; k < 9; k++) corners[i * 9 + k] = dv.getInt16(o + 2 * k, false);
+        }
+        return corners;
+    };
+    out.walls = read(dv.getUint32(0x4C, false), 4, PROP_WALL_SIZE);
+    out.floors = read(dv.getUint32(0x50, false), 16, PROP_FLOOR_SIZE);
+    return out;
+}
+
 const PROP_ANIMATION_SIZE = 0x84;
 
 /**
@@ -281,18 +313,7 @@ export function parseDK64ActorModel(buffer) {
     const table = at(dv.getUint32(4, false));
     if (table < 0x28 || table + 4 > dv.byteLength) return null;
     const dlStart = at(dv.getUint32(table, false));
-    const boneCount = dv.getUint8(0x20);
-    const bonePtr = dv.getUint32(8, false);
-    const offsets = [];
-    if (bonePtr) {
-        const bones = at(bonePtr);
-        for (let i = 0; i < boneCount && bones + 0x10 * (i + 1) <= dv.byteLength; i++) {
-            const b = bones + 0x10 * i;
-            const parent = dv.getUint8(b);
-            const p = parent < i ? offsets[parent] : [0, 0, 0];
-            offsets.push([p[0] + dv.getFloat32(b + 4, false), p[1] + dv.getFloat32(b + 8, false), p[2] + dv.getFloat32(b + 0xC, false)]);
-        }
-    }
+    const offsets = dk64ActorBoneOffsets(dv);
     const segmentTextures = dk64ActorSegmentTextures(dv);
     return walkDK64DisplayList(dv, dlStart, table, {
         vertexEnd: dv.byteLength,
@@ -300,6 +321,78 @@ export function parseDK64ActorModel(buffer) {
         textureId: (o, w1) => segmentTextures.get(w1 >>> 24) ?? -1,
         boneOffset: (w1) => (w1 >>> 24) === 0x04 ? offsets[(w1 & 0xFFFFFF) >> 6] ?? null : null,
     });
+}
+
+/** An actor model's bones' rest positions: each bone's offsets summed up its parents. */
+function dk64ActorBoneOffsets(dv) {
+    const base = dv.getUint32(0, false);
+    const boneCount = dv.getUint8(0x20);
+    const bonePtr = dv.getUint32(8, false);
+    const offsets = [];
+    if (!bonePtr) return offsets;
+    const bones = bonePtr - base + 0x28;
+    for (let i = 0; i < boneCount && bones + 0x10 * (i + 1) <= dv.byteLength; i++) {
+        const b = bones + 0x10 * i;
+        const parent = dv.getUint8(b);
+        const p = parent < i ? offsets[parent] : [0, 0, 0];
+        offsets.push([p[0] + dv.getFloat32(b + 4, false), p[1] + dv.getFloat32(b + 8, false), p[2] + dv.getFloat32(b + 0xC, false)]);
+    }
+    return offsets;
+}
+
+/**
+ * An actor model's hit spheres and collision (header +0x0C, file offset
+ * +0x0C - +0x00 + 0x28; up to +0x10), in model units and the rest pose:
+ *   f32, f32 (unknown)
+ *   u32 n, n x 0x14: f32 x, y, z, radius, s32 bone        hit spheres
+ *   u32 n, n x 0x10: f32 x, y, z, s32 bone                points (unknown use)
+ *   u32 n, n x 0x2C: f32 (x, y, z)[3], u32, s32 bone      walls
+ *   u32 n, n x 0x34: f32 (x, y, z)[3], u32, s32 bone[3]   floors (a bone per corner)
+ * A bone is the offset of its matrix (0x40 bytes each), -1 for the model's
+ * own. Checked to end exactly at +0x10 on all 113 extracted actor models.
+ * -> { spheres: [{ center, radius, bone }], points, walls, floors }
+ *    (walls / floors: Float32Array of triangle corners), or null.
+ */
+export function parseDK64ActorCollision(buffer) {
+    const dv = new DataView(buffer);
+    if (dv.byteLength < 0x30 || !dv.getUint32(0x0C, false)) return null;
+    const base = dv.getUint32(0, false);
+    const start = dv.getUint32(0x0C, false) - base + 0x28;
+    const end = dv.getUint32(0x10, false) ? dv.getUint32(0x10, false) - base + 0x28 : dv.byteLength;
+    if (start < 0x28 || end > dv.byteLength) return null;
+    const offsets = dk64ActorBoneOffsets(dv);
+    const boneAt = matrix => matrix >= 0 ? offsets[matrix >> 6] ?? [0, 0, 0] : [0, 0, 0];
+    const f = o => dv.getFloat32(o, false);
+    let o = start + 8;
+    const list = size => {
+        if (o + 4 > end) return 0;
+        const n = Math.min(dv.getUint32(o, false), Math.floor((end - o - 4) / size));
+        o += 4;
+        return n;
+    };
+
+    const spheres = [];
+    for (let i = 0, n = list(0x14); i < n; i++, o += 0x14) {
+        const bone = dv.getInt32(o + 0x10, false), b = boneAt(bone);
+        spheres.push({ center: [f(o) + b[0], f(o + 4) + b[1], f(o + 8) + b[2]], radius: f(o + 0xC), bone: bone >= 0 ? bone >> 6 : -1 });
+    }
+    const points = list(0x10);
+    o += points * 0x10;
+    const n3 = list(0x2C);
+    const walls = new Float32Array(n3 * 9);
+    for (let i = 0; i < n3; i++, o += 0x2C) {
+        const b = boneAt(dv.getInt32(o + 0x28, false));
+        for (let k = 0; k < 9; k++) walls[i * 9 + k] = f(o + 4 * k) + b[k % 3];
+    }
+    const n4 = list(0x34);
+    const floors = new Float32Array(n4 * 9);
+    for (let i = 0; i < n4; i++, o += 0x34) {
+        for (let v = 0; v < 3; v++) {
+            const b = boneAt(dv.getInt32(o + 0x28 + 4 * v, false));
+            for (let k = 0; k < 3; k++) floors[i * 9 + v * 3 + k] = f(o + 12 * v + 4 * k) + b[k];
+        }
+    }
+    return { spheres, points, walls, floors };
 }
 
 /**

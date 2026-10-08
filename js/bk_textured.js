@@ -55,6 +55,23 @@ document.getElementById('selected-game')?.addEventListener('change', e => {
 });
 if (isBanjo()) restoreTextures();
 
+// Prop collision and the actor hitbox checkboxes are only shown for BK / BT /
+// DK64, so they are always saved. (Restored before any map builds, so the
+// setup code reads the saved state when it creates the objects.)
+for (const [id, key] of [['bkPropCollision', 'viewer.propCollision'],
+                         ['bkActorHitboxesEnemy', 'viewer.actorHitboxesEnemy'],
+                         ['bkActorHitboxesTouch', 'viewer.actorHitboxesTouch']]) {
+    const checkbox = document.getElementById(id);
+    if (!checkbox) continue;
+    try {
+        const saved = localStorage.getItem(key);
+        if (saved !== null) checkbox.checked = saved === '1';
+    } catch { /* storage unavailable */ }
+    checkbox.addEventListener('change', () => {
+        try { localStorage.setItem(key, checkbox.checked ? '1' : '0'); } catch { /* kept for this visit only */ }
+    });
+}
+
 // { plain: Mesh, textured: Object3D, edges: Object3D | null }
 const texturedPairs = [];
 

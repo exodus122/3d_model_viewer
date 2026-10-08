@@ -290,8 +290,8 @@ gameSel.addEventListener('change',(e)=>{
     // "Textures" also covers OOT's and MM's rooms (zelda_textured.js);
     // "Prop collision" is a BK / BT thing.
     bkViewModeLabel.style.display = (game == "BK" || game == "BT" || game == "DK64" || game == "OOT" || game == "MM") ? "block" : "none";
-    bkPropCollisionLabel.style.display = (game == "BK" || game == "BT") ? "" : "none";
-    bkActorHitboxesLabel.style.display = (game == "BK" || game == "BT") ? "block" : "none";
+    bkPropCollisionLabel.style.display = (game == "BK" || game == "BT" || game == "DK64") ? "" : "none";
+    bkActorHitboxesLabel.style.display = (game == "BK" || game == "BT" || game == "DK64") ? "block" : "none";
     document.getElementById('actorDisplay').style.display = (game == "OOT" || game == "MM") ? "" : "none";
 
     if (game == "BK" || game == "BT" || game == "DK64") {

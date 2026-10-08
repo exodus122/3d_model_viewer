@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { addModelCheckbox, getModelGroup, resetGroupModelState, applyGroupMasterState } from './render.js';
-import { parseDK64PropModel, parseDK64ActorModel, buildDK64Parts, loadDK64Texture, animateDK64Materials } from './dk64_map.js';
+import { parseDK64PropModel, parseDK64ActorModel, parseDK64PropCollision, parseDK64ActorCollision, buildDK64Parts,
+         loadDK64Texture, animateDK64Materials } from './dk64_map.js';
 
 ////////////////////////////////////////
 // System: Donkey Kong 64 objects
@@ -15,10 +16,13 @@ import { parseDK64PropModel, parseDK64ActorModel, buildDK64Parts, loadDK64Textur
 // Each type is a row; objects without a model (triggers, controllers, the
 // sprite-drawn pickups) are markers.
 
+// Actors are split as BK / BT's are: those whose model has standable
+// collision, and the rest (hit spheres only, or model-less triggers).
 const GROUPS = [
     ['dk64-props', 'Props'],
     ['dk64-pickups', 'Pickups (sprites)'],
-    ['dk64-actors', 'Actors'],
+    ['dk64-actors', 'Actors (collision)'],
+    ['dk64-actors-hitbox', 'Actors (hitbox only)'],
     ['dk64-enemies', 'Enemies'],
 ];
 
@@ -108,11 +112,202 @@ function loadModel(kind, id) {
             .then(buffer => {
                 if (!buffer) return null;
                 const batches = kind === 'props' ? parseDK64PropModel(buffer) : parseDK64ActorModel(buffer);
-                return batches && batches.length ? buildDK64Parts(batches) : null;
+                if (!batches || !batches.length) return null;
+                return buildDK64Parts(batches).then(parts => {
+                    // The flat view (Textures off): BK / BT's colours, flat shaded
+                    // (the display lists carry no normals), edges with the wireframe.
+                    const flat = PLAIN_STYLES[kind];
+                    parts.plainMaterial = flat.material;
+                    parts.plainEdgeMaterial = flat.edges;
+                    parts.plainEdges = new THREE.WireframeGeometry(parts.geometry);
+                    if (kind === 'props') {
+                        parts.collision = buildCollisionGeometry(parseDK64PropCollision(buffer));
+                    } else {
+                        // actors: hit spheres, and standable collision for some (boulders, cages)
+                        const collision = parseDK64ActorCollision(buffer);
+                        parts.hitSpheres = collision?.spheres ?? [];
+                        parts.collision = collision ? buildCollisionGeometry(collision) : null;
+                    }
+                    return parts;
+                });
             })
             .catch(err => { console.warn(`${file}: ${err.message}`); return null; }));
     }
     return modelCache.get(key);
+}
+
+// --- prop collision ------------------------------------------------------------
+//
+// The "Prop collision" checkbox, as for BK / BT (bk_textured.js): with
+// Textures on, each prop's collision (parseDK64PropCollision) is drawn
+// translucent over its textured model; with Textures off it replaces the
+// model, which is otherwise drawn in a flat colour. Floors, walls and
+// triangles that are both get their own colours, and the "Draw triangle
+// edges" checkbox outlines the triangles.
+const texturesCheckbox = document.getElementById('bkTextures');
+const propCollisionCheckbox = document.getElementById('bkPropCollision');
+const wireframeCheckbox = document.getElementById('wireframe');
+
+// Kept apart from the map collision's blue. Some props (Factory's platforms)
+// list every triangle as both a floor and a wall; those are drawn once, in
+// their own colour.
+const COLLISION_COLORS = {
+    floor: new THREE.Color(0xffb030), wall: new THREE.Color(0xff5a8c), both: new THREE.Color(0xb070ff),
+};
+const collisionSolid = new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide });
+// Drawn after the map's translucent parts and water (renderOrder 1), still depth-tested.
+const collisionOverlay = new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide,
+    transparent: true, opacity: 0.5, depthWrite: false });
+const collisionEdgeMaterial = new THREE.LineBasicMaterial({ color: 0x10203a, transparent: true, opacity: 0.8 });
+const COLLISION_OVERLAY_ORDER = 2;
+
+/**
+ * Non-indexed collision geometry, each triangle once and coloured as a floor,
+ * a wall, or both, plus its edges; null without collision.
+ */
+function buildCollisionGeometry({ floors, walls }) {
+    if (!floors.length && !walls.length) return null;
+    // A triangle's key: its corners in sorted order, so either list's winding matches.
+    const key = (corners, i) => {
+        const p = [0, 1, 2].map(k => `${corners[i + 3 * k]},${corners[i + 3 * k + 1]},${corners[i + 3 * k + 2]}`);
+        return p.sort().join('|');
+    };
+    const triangles = new Map();   // key -> { corners, floor, wall }
+    const add = (corners, kind) => {
+        for (let i = 0; i < corners.length; i += 9) {
+            const k = key(corners, i);
+            if (!triangles.has(k)) triangles.set(k, { corners: corners.subarray(i, i + 9), floor: false, wall: false });
+            triangles.get(k)[kind] = true;
+        }
+    };
+    add(floors, 'floor');
+    add(walls, 'wall');
+
+    const positions = new Float32Array(triangles.size * 9);
+    const colors = new Float32Array(triangles.size * 9);
+    const counts = { floor: 0, wall: 0, both: 0 };
+    let o = 0;
+    for (const t of triangles.values()) {
+        const kind = t.floor && t.wall ? 'both' : t.floor ? 'floor' : 'wall';
+        counts[kind]++;
+        const c = COLLISION_COLORS[kind];
+        positions.set(t.corners, o);
+        for (let k = 0; k < 9; k += 3) { colors[o + k] = c.r; colors[o + k + 1] = c.g; colors[o + k + 2] = c.b; }
+        o += 9;
+    }
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+    geometry.computeVertexNormals();
+    geometry.computeBoundingSphere();
+    const summary = [counts.floor && `${counts.floor} floor`, counts.wall && `${counts.wall} wall`,
+                     counts.both && `${counts.both} floor+wall`].filter(Boolean).join(', ') + ' triangles';
+    return { geometry, edges: new THREE.WireframeGeometry(geometry), summary };
+}
+
+// The flat view of a model with Textures off: BK / BT's model-prop purple and
+// actor orange (bk_setup.js MODEL_COLOR / ACTOR_COLOR and their edge colours).
+const PLAIN_STYLES = {
+    props: {
+        material: new THREE.MeshLambertMaterial({ color: 0xc77dff, side: THREE.DoubleSide, flatShading: true,
+            polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 }),
+        edges: new THREE.LineBasicMaterial({ color: 0x5a2d8a, transparent: true, opacity: 0.8 }),
+    },
+    actors: {
+        material: new THREE.MeshLambertMaterial({ color: 0xff7b24, side: THREE.DoubleSide, flatShading: true,
+            polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 }),
+        edges: new THREE.LineBasicMaterial({ color: 0x8a3d10, transparent: true, opacity: 0.8 }),
+    },
+};
+
+// { textured, plain, plainEdges, collision, edges } per model placement in the current map
+const propViews = [];
+
+function refreshPropViews() {
+    const textured = texturesCheckbox ? texturesCheckbox.checked : true;
+    const showCollision = propCollisionCheckbox ? propCollisionCheckbox.checked : false;
+    for (const view of propViews) {
+        const collision = showCollision && view.collision;
+        view.textured.visible = textured;
+        view.plain.visible = !textured && !collision;
+        view.plainEdges.visible = view.plain.visible && wireframeCheckbox.checked;
+        if (!view.collision) continue;
+        view.collision.visible = !!collision;
+        view.collision.material = textured ? collisionOverlay : collisionSolid;
+        view.collision.renderOrder = textured ? COLLISION_OVERLAY_ORDER : 0;
+        view.edges.visible = !!collision && wireframeCheckbox.checked;
+    }
+}
+for (const control of [texturesCheckbox, propCollisionCheckbox, wireframeCheckbox]) {
+    control?.addEventListener('change', refreshPropViews);
+}
+
+/** A prop placement: its textured model, the same in a flat colour, and its collision. */
+function propInstance(parts, describe) {
+    const group = new THREE.Group();
+    const info = describe;
+    const textured = new THREE.Mesh(parts.geometry, parts.materials);
+    if (parts.animated) textured.onBeforeRender = animatedBeforeRender;
+    const plain = new THREE.Mesh(parts.geometry, parts.plainMaterial);
+    const plainEdges = new THREE.LineSegments(parts.plainEdges, parts.plainEdgeMaterial);
+    plainEdges.userData.unselectable = true;
+    group.add(textured, plain, plainEdges);
+    const view = { textured, plain, plainEdges, collision: null, edges: null };
+    if (parts.collision) {
+        view.collision = new THREE.Mesh(parts.collision.geometry, collisionSolid);
+        view.edges = new THREE.LineSegments(parts.collision.edges, collisionEdgeMaterial);
+        view.edges.userData.unselectable = true;
+        view.collision.userData.bkInfo = `${info}\ncollision: ${parts.collision.summary}`;
+        group.add(view.collision, view.edges);
+    }
+    for (const mesh of [textured, plain]) mesh.userData.bkInfo = info + (parts.collision
+        ? `\ncollision: ${parts.collision.summary}` : '\nno collision');
+    textured.userData.textured = plain.userData.textured = true;   // keep their own materials (main.js setMaterialProps)
+    propViews.push(view);
+    return group;
+}
+
+// --- actor hitboxes ------------------------------------------------------------
+//
+// An actor model's hit spheres (parseDK64ActorCollision), drawn as wireframes
+// under the "Actor hitboxes" checkboxes as for BK / BT: enemies red, the other
+// actors (barrels, cannons, switches...) cyan as "touch". They hang under the
+// placed model, so they take its position, yaw and scale; spheres on a bone
+// are in the rest pose. Not pickable: their details go on the actor's text.
+const hitboxCheckboxes = {
+    enemy: document.getElementById('bkActorHitboxesEnemy'),
+    touch: document.getElementById('bkActorHitboxesTouch'),
+};
+const hitboxMaterials = {
+    enemy: new THREE.MeshBasicMaterial({ color: 0xff4a4a, wireframe: true, transparent: true, opacity: 0.6 }),
+    touch: new THREE.MeshBasicMaterial({ color: 0x2ee6ff, wireframe: true, transparent: true, opacity: 0.6 }),
+};
+const hitSphereGeometry = new THREE.SphereGeometry(1, 12, 8);
+const hitboxes = [];   // every hit sphere in the current map
+
+function addHitSpheres(host, kind, spheres) {
+    if (!spheres?.length) return;
+    const lines = [`\n${kind} hitbox: ${spheres.length} sphere${spheres.length > 1 ? 's' : ''} (model units)`];
+    for (const s of spheres) {
+        const mesh = new THREE.Mesh(hitSphereGeometry, hitboxMaterials[kind]);
+        mesh.position.set(...s.center);
+        mesh.scale.setScalar(Math.max(s.radius, 1));
+        mesh.visible = !!hitboxCheckboxes[kind]?.checked;
+        mesh.userData.unselectable = true;
+        mesh.userData.hitboxKind = kind;
+        host.add(mesh);
+        hitboxes.push(mesh);
+        lines.push(`  sphere r=${s.radius.toFixed(1)} at (${s.center.map(v => v.toFixed(0)).join(', ')})` +
+            (s.bone >= 0 ? ` bone ${s.bone}` : ''));
+    }
+    const text = lines.join('\n');
+    host.traverse(child => { if (child.userData.bkInfo && !child.userData.unselectable) child.userData.bkInfo += text; });
+}
+
+for (const [kind, checkbox] of Object.entries(hitboxCheckboxes)) {
+    checkbox?.addEventListener('change', () => {
+        for (const mesh of hitboxes) if (mesh.userData.hitboxKind === kind) mesh.visible = checkbox.checked;
+    });
 }
 
 // Sprite-drawn props (pickups, plants, trees): DK64_Prop_Sprites quads, from
@@ -179,10 +374,18 @@ function markerMesh(color) {
     return new THREE.Mesh(markerGeometry, new THREE.MeshBasicMaterial({ color, wireframe: true }));
 }
 
-function addRow(scene, groupBody, rowName, list, parts, color, place, describe) {
+function addRow(scene, groupBody, rowName, list, parts, color, place, describe, hitboxKind = null) {
     const row = new THREE.Group();
     row.name = rowName;
     for (const item of list) {
+        if (parts?.plainMaterial) {
+            // a model with collision views: textured / flat / collision (propInstance)
+            const instance = propInstance(parts, describe(item));
+            place(item, instance, true);
+            if (hitboxKind) addHitSpheres(instance, hitboxKind, parts.hitSpheres);
+            row.add(instance);
+            continue;
+        }
         const mesh = parts ? new THREE.Mesh(parts.geometry, parts.materials) : markerMesh(color);
         place(item, mesh, !!parts);
         if (parts?.sprite) {
@@ -193,6 +396,7 @@ function addRow(scene, groupBody, rowName, list, parts, color, place, describe) 
         }
         mesh.userData.bkInfo = describe(item);
         mesh.userData.textured = true;   // keeps its own materials (main.js setMaterialProps)
+        if (hitboxKind && parts) addHitSpheres(mesh, hitboxKind, parts.hitSpheres);
         row.add(mesh);
     }
     scene.add(row);
@@ -242,6 +446,8 @@ const rowLabel = (name, list) => list.length > 1 ? `${name} (x${list.length})` :
 /** Draw a DK64 map's props, actors and enemies (one row per type). */
 export async function renderDK64Setup(scene, setupBuffer, spawnersBuffer) {
     for (const [key] of GROUPS) resetGroupModelState(key);
+    propViews.length = 0;
+    hitboxes.length = 0;
     const { props, actors } = parseDK64Setup(setupBuffer);
     const enemies = spawnersBuffer ? parseDK64Spawners(spawnersBuffer) : [];
 
@@ -270,17 +476,20 @@ export async function renderDK64Setup(scene, setupBuffer, spawnersBuffer) {
             p => `${propName(p.type)} #${p.index}, id ${p.id}\npos ${fmtPos(p.position)}, scale ${p.scale.toFixed(2)}`));
     }
 
-    // setup actors
+    // setup actors, split by whether their model has standable collision
     if (actors.length) {
-        const group = getModelGroup('dk64-actors', 'Actors');
         const byType = [...groupBy(actors, a => a.actor)].sort((a, b) => actorName(a[0]).localeCompare(actorName(b[0])));
         const parts = await Promise.all(byType.map(([actor]) =>
             DK64_Setup_Actor_Models[actor] ? loadModel('actors', DK64_Setup_Actor_Models[actor]) : null));
-        byType.forEach(([actor, list], i) => addRow(scene, group.body, rowLabel(actorName(actor), list), list, parts[i],
-            COLORS.actor, placeActor,
-            a => `${actorName(a.actor)} (actor ${a.actor}) #${a.index}, id ${a.id}\npos ${fmtPos(a.position)}, ` +
-                 `yaw ${Math.round(a.yaw * 360 / YAW_UNITS)}, scale ${a.scale.toFixed(2)}` +
-                 (DK64_Setup_Actor_Models[a.actor] ? `, model ${DK64_Setup_Actor_Models[a.actor]}` : ', no model')));
+        byType.forEach(([actor, list], i) => {
+            const group = parts[i]?.collision ? getModelGroup('dk64-actors', 'Actors (collision)')
+                                              : getModelGroup('dk64-actors-hitbox', 'Actors (hitbox only)');
+            addRow(scene, group.body, rowLabel(actorName(actor), list), list, parts[i], COLORS.actor, placeActor,
+                a => `${actorName(a.actor)} (actor ${a.actor}) #${a.index}, id ${a.id}\npos ${fmtPos(a.position)}, ` +
+                     `yaw ${Math.round(a.yaw * 360 / YAW_UNITS)}, scale ${a.scale.toFixed(2)}` +
+                     (DK64_Setup_Actor_Models[a.actor] ? `, model ${DK64_Setup_Actor_Models[a.actor]}` : ', no model'),
+                'touch');
+        });
     }
 
     // enemies
@@ -296,9 +505,11 @@ export async function renderDK64Setup(scene, setupBuffer, spawnersBuffer) {
         byType.forEach(([type, list], i) => addRow(scene, group.body, rowLabel(enemyName(type), list), list, parts[i],
             COLORS.enemy, placeEnemy,
             e => `${enemyName(e.type)} (enemy type ${e.type}) #${e.index}\npos ${fmtPos(e.position)}, ` +
-                 `yaw ${Math.round((e.yaw & 0xFFF) * 360 / YAW_UNITS)}, scale ${e.scaleByte}, spawn trigger ${e.spawnTrigger}`));
+                 `yaw ${Math.round((e.yaw & 0xFFF) * 360 / YAW_UNITS)}, scale ${e.scaleByte}, spawn trigger ${e.spawnTrigger}`,
+            'enemy'));
     }
 
     for (const [key] of GROUPS) applyGroupMasterState(key);
+    refreshPropViews();
     console.log(`DK64 setup: ${modelProps.length} props, ${pickups.length} pickups, ${actors.length} actors, ${enemies.length} enemies`);
 }
