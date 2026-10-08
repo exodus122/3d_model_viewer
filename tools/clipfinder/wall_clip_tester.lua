@@ -1934,12 +1934,17 @@ local function runActionTest3DS(t, r)
 	local slowTurn = nil   -- (the frame he turned round on, if he lost his speed doing it)
 	local aShift = 0          -- emulated frames A is moved by from the start of frame aFrame
 	local leadIdx = 1
+	-- (every attempt is judged: one that clips is kept, whichever try it was -
+	-- the aim correction can move off a start that already clips)
+	local clipDone, inputs = nil, {}
 	for aimTry = 1, aimTries do
 		local aimPos, gameYaw, spinFrame
 		local fixes = 0
 		while true do
 			holdStart()
 			spun = false
+			inputs = {}
+			r.tryStart, r.tryFacing = r.start, runFacing % 0x10000
 			aimPos, gameYaw, spinFrame = nil, nil, nil
 			local adj = 0          -- the stick's correction for the camera (steered from Player.yaw)
 			local gf = read_u32(K.play + K.gameplayFrames)
@@ -1948,6 +1953,9 @@ local function runActionTest3DS(t, r)
 			local turns, prevShape = 0, read_u16(K.player + K.shapeRotY)
 			local emuN, aStart, newFrame = 0, nil, true
 			local turned, turnFrame = not back, 0   -- (backwalk: the frame he turned round on)
+			-- (out of bounds on this attempt: he dropped well below where he was before
+			-- the clip frame, or the game moved him far in one frame - a void out)
+			local oobFrame, oobKind = nil, nil
 			for _ = 1, (40 + last + 4) * EMU_PER_GAME do
 				-- the inputs for frame `frame + 1`
 				local f = frame + 1
@@ -1978,6 +1986,8 @@ local function runActionTest3DS(t, r)
 				local sx, sy = stick3DS(on and s16v(row.angle + tn + over + adj) or nil)
 				-- (the frog: held until the A frame, then it's the game's)
 				if f <= aFrame then holdFrog() end
+				inputs[#inputs + 1] = string.format("emu %3d  game frame %2d  Circle Pad %s%s%s", emuN, f,
+					sx and string.format("X %4d Y %4d", sx, sy) or "let go     ", held.L and "  L" or "", held.A and "  A" or "")
 				emu.frameadvance()
 				local g = read_u32(K.play + K.gameplayFrames)
 				if g ~= gf then
@@ -1985,6 +1995,10 @@ local function runActionTest3DS(t, r)
 					newFrame = true
 					local pos = readVec(K.player + K.pos)
 					if frame > 0 or dist3(pos, prevPos) > 0.0001 then frame = frame + 1 else waited = waited + 1 end
+					if frame > 1 and not oobFrame then
+						if dist3(pos, prevPos) > 40 then oobFrame, oobKind = frame, "voided"
+						elseif aimPos and pos[2] < aimPos[2] - 30 then oobFrame, oobKind = frame, "fell" end
+					end
 					prevPos = pos
 					-- steer: his move yaw against the recording's for this frame
 					if frame > 0 and on and readfloat(K.player + K.speedXZ) > 0.5 then
@@ -2023,6 +2037,18 @@ local function runActionTest3DS(t, r)
 				end
 			end
 			releaseStick()
+			if oobFrame then
+				r.log[#r.log + 1] = string.format("frame %d: OUT OF BOUNDS - %s", oobFrame, oobKind == "fell" and "dropped over 30 below his spot before the clip frame" or "moved over 40 in one frame (void out)")
+				settle()
+				clipDone = oobKind
+				break
+			end
+			if spun then
+				-- (did this attempt clip? judged as the test is)
+				settle()
+				local st = judge(t, r.after, r.final)
+				if worked(st) and st ~= "away" then clipDone = st; break end
+			end
 			if spun and not back and spinFrame ~= recSpin and fixes < 3 then
 				-- spun on the wrong frame: A moved by the difference
 				fixes = fixes + 1
@@ -2036,7 +2062,7 @@ local function runActionTest3DS(t, r)
 				break
 			end
 		end
-		if not spun or aimTry == aimTries or not aimPos then break end
+		if clipDone or not spun or aimTry == aimTries or not aimPos then break end
 		local want = t.framePos[aimFrame]
 		local dx, dz = want[1] - aimPos[1], want[3] - aimPos[3]
 		local yawErr = gameYaw and s16v(gameYaw - (facing + rows[math.min(4, last)].angle)) or 0
@@ -2052,7 +2078,22 @@ local function runActionTest3DS(t, r)
 	releaseStick()
 	for i, n in ipairs(aimNotes) do table.insert(r.log, i, n) end
 	r.aimStart = startAt ~= t.prev and startAt or nil
-	settle()
+	-- the inputs of the run judged (the clip, if one did), to do by hand / TAS
+	local function inputLog()
+		r.log[#r.log + 1] = string.format("SETUP: Link at %s (shape / Angle 0x%04X, written to pos, home, yaw and shape before the hold), frog at %s",
+			fmt(r.tryStart or startAt), r.tryFacing or runFacing % 0x10000, t.frog and fmt(t.frog) or "-")
+		r.log[#r.log + 1] = string.format("  L pressed at %s with nothing touching (camera behind him), held while walking him to the start; " ..
+			"then from the next game frame (2 emulated frames each):", r.lSpot and fmt(r.lSpot) or "the start")
+		for _, l in ipairs(inputs) do r.log[#r.log + 1] = "  " .. l end
+	end
+	if clipDone then
+		r.status = clipDone
+		inputLog()
+		return r
+	end
+	-- (a run that spun was settled and judged already)
+	if not spun then settle() end
+	inputLog()
 	if slowTurn then
 		r.log[#r.log + 1] = string.format("frame %d: he lost his speed turning round - once L was let go the stick pointed over 0x6000 off his move, so he " ..
 			"stopped and turned on the spot (the camera moved when targeting ended?)", slowTurn)
