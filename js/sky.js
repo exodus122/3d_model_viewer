@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { addModelCheckbox } from './render.js';
 import { buildTexturedParts, makeTexturedMesh, isTexturedMode } from './bk_textured.js';
 import { loadDK64Texture } from './dk64_map.js';
+import { loadBTModelTextures } from './bt_textures.js';
 
 ////////////////////////////////////////
 // System: Banjo-Kazooie / Banjo-Tooie skyboxes
@@ -84,13 +85,14 @@ async function loadSkyModel(game, assetId) {
     const file = assetId.toString(16).toUpperCase().padStart(4, '0') + '.model.bin';
     const res = await fetch(`./models/${game}/props/` + file);
     if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
-    return buildTexturedParts(await res.arrayBuffer(), 0, { game });
+    const buffer = await res.arrayBuffer();
+    if (game === 'BT') await loadBTModelTextures(buffer);
+    return buildTexturedParts(buffer, 0, { game });
 }
 
 /**
  * Add the map's sky layers to the scene as one "Skybox" row. Resolves once
- * the models are loaded; maps without a sky add nothing. For BT the texture
- * bank must already be loaded (bt_textures.js).
+ * the models are loaded; maps without a sky add nothing.
  */
 export async function renderSky(scene, game, mapId) {
     clearSky();

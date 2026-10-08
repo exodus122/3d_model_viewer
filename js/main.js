@@ -17,7 +17,7 @@ import { renderBKSetup, getPropInstances } from './bk_setup.js';
 import { addActorBitclipEdges } from './bitclips.js';
 import { renderBTSetup } from './bt_setup.js';
 import { renderSky, renderDK64Sky, drawSky } from './sky.js';
-import { loadBTTextureBank, getBTTextureBank } from './bt_textures.js';
+import { loadBTModelTextures } from './bt_textures.js';
 import { renderZeldaSceneTextured, parseZeldaSceneInfo, zeldaRoomFileName, zeldaAreaTextureFileName, ROOM_GROUP_KEY } from './zelda_textured.js';
 import { renderOOTActors } from './oot_actors.js';
 import { addModelCheckbox, buildGeometry, buildTest, deferGroupBuild } from './render.js';
@@ -50,7 +50,7 @@ const loadingEl = document.getElementById('loading');
 const loadingTextEl = document.getElementById('loadingText');
 
 // Loading overlay over the canvas. Map parsing runs synchronously on the main
-// thread (a first BT map also indexes the 9 MB texture bank), so after
+// thread (the big maps take a while), so after
 // changing the message this yields a frame, otherwise the browser never gets
 // to paint it before the work starts.
 async function showLoading(message) {
@@ -450,15 +450,15 @@ async function loadSelectedMap(game) {
         if (hasXlu) files.push(["xlu.model.bin", "XLU Model"]);
 
         try {
-            // Textures are looked up by id in the shared bank (bt_textures.js)
-            if (!getBTTextureBank()) await showLoading('Loading the BT texture bank (once per session)…');
-            await loadBTTextureBank();
             for (let i = 0; i < files.length; i++) {
                 const [filename, label, offset] = files[i];
                 const res = await fetch('./models/BT/' + mapDir + '/' + filename);
                 const buffer = await res.arrayBuffer();
                 console.log(mapDir + "/" + filename + ": Binary file length:", buffer.byteLength);
                 await showLoading(`${mapName}: ${label ?? 'map model'}…`);
+                // Textures are looked up by id in the shared bank: fetch the
+                // chunks this model names first (bt_textures.js)
+                await loadBTModelTextures(buffer);
                 parseBKModelBinary(scene, buffer, i === 0, label, undefined, offset);
             }
 
@@ -520,8 +520,8 @@ async function loadSelectedMap(game) {
 
             // Props, actors and enemies (dk64_setup.js)
             await showLoading(`${mapName}: actors and props…`);
-            const [setup, spawners] = await Promise.all(["setup.bin", "spawners.bin"].map(load));
-            await renderDK64Setup(scene, setup, spawners);
+            const [setup, spawners, triggers] = await Promise.all(["setup.bin", "spawners.bin", "triggers.bin"].map(load));
+            await renderDK64Setup(scene, setup, spawners, triggers);
         } catch (err) {
             console.error(err);
         }
@@ -659,6 +659,7 @@ fileInput.addEventListener('change', async (ev)=>{
     if (game == "OOT" || game == "MM") {
         loadActorsInSceneJSON(game, f.name)
     }
+    if (game == "BT") await loadBTModelTextures(buf);
     parseModel(scene, buf, f.name);
 });
 

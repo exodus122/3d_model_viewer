@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { addModelCheckbox, getModelGroup, resetGroupModelState, applyGroupMasterState } from './render.js';
 import { parseBKModelGeometry } from './bk_model.js';
+import { loadBTModelTextures } from './bt_textures.js';
 import { buildTexturedParts, makeTexturedMesh, attachTextured, refreshTexturedMode, isPropCollisionShown, VIEW_CONTROLS } from './bk_textured.js';
 
 const wireframeCheckbox = document.getElementById('wireframe');
@@ -354,7 +355,10 @@ export function loadPropGeometry(assetId, game = 'BK') {
             if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
             return res.arrayBuffer();
         })
-        .then(buffer => {
+        .then(async buffer => {
+            // BT models name bank textures: fetch their chunks before the
+            // (synchronous, on demand) textured builds below
+            if (game === 'BT') await loadBTModelTextures(buffer);
             const model = parseBKModelGeometry(buffer, game);
             const loaded = {
                 visual: makeGeometrySet(model.positions, model.displayListIndices),

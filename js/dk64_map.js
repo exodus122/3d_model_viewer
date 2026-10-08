@@ -274,7 +274,7 @@ export function parseDK64PropCollision(buffer) {
 const PROP_ANIMATION_SIZE = 0x84;
 
 /**
- * A prop model's animated textures (header +0x60: u32 count, 0x84-byte
+ * A prop model's animated textures (header +0x6C: u32 count, 0x84-byte
  * layers of u32 first frame, mode, delay, frame count, other frames): a
  * G_SETTIMG of a first frame's id is not a pointer table 25 texture but these
  * pointer table 7 frames (global_asm func_80636EFC / func_80639CD0). Jungle
@@ -282,7 +282,7 @@ const PROP_ANIMATION_SIZE = 0x84;
  */
 function dk64PropTextureAnimations(dv) {
     const out = new Map();
-    const table = dv.getUint32(0x60, false);
+    const table = dv.getUint32(0x6C, false);
     if (table + 4 > dv.byteLength) return out;
     const count = dv.getUint32(table, false);
     for (let i = 0; i < count; i++) {

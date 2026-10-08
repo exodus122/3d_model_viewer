@@ -13,6 +13,7 @@ import { parseDK64PropModel, parseDK64ActorModel, parseDK64PropCollision, parseD
 //                 and actor spawners (pointer table 5 models: models/DK64/actors/,
 //                 picked by DK64_Setup_Actor_Models)
 //   spawners.bin  enemy spawners (models by DK64_Enemy_Types)
+//   triggers.bin  trigger cylinders; the loading zones among them are drawn
 // Each type is a row; objects without a model (triggers, controllers, the
 // sprite-drawn pickups) are markers.
 
@@ -24,9 +25,10 @@ const GROUPS = [
     ['dk64-actors', 'Actors (collision)'],
     ['dk64-actors-hitbox', 'Actors (hitbox only)'],
     ['dk64-enemies', 'Enemies'],
+    ['dk64-loading-zones', 'Loading zones'],
 ];
 
-const COLORS = { prop: 0x8fb8ff, pickup: 0xffd23a, actor: 0xff9a3a, enemy: 0xff4a4a };
+const COLORS = { prop: 0x8fb8ff, pickup: 0xffd23a, actor: 0xff9a3a, enemy: 0xff4a4a, loadingZone: 0x3aff8c };
 
 // Actors are drawn at 0.15 of their model's units (func_806134B4); a setup
 // spawner's scale and an enemy spawner's scale byte (50 = 1) multiply that.
@@ -35,6 +37,64 @@ const ENEMY_SCALE_ONE = 50;
 const YAW_UNITS = 4096;
 
 const hex = (v, n = 2) => '0x' + v.toString(16).toUpperCase().padStart(n, '0');
+
+/**
+ * triggers.bin (pointer table 18, global_asm/done/triggers.c): s16 count, then
+ * 0x38-byte cylinders: s16 x, y, z, radius, height (-1 = no vertical limit),
+ * ..., u8 command count at +0x0E, 4 commands of (s16 type, u16 args[4]) at
+ * +0x10. A command is a message to the loading zone controller; these types
+ * load a map (args: map, exit) -- they link back to each other across maps.
+ * The rest (camera / cutscene regions, ...) take no destination.
+ */
+const LOADING_ZONE_TYPES = new Set([9, 12, 13, 16, 17]);
+// An unbounded zone is drawn this tall above its base.
+const UNBOUNDED_HEIGHT = 150;
+
+export function parseDK64LoadingZones(buffer) {
+    const zones = [];
+    if (!buffer || buffer.byteLength < 2) return zones;
+    const dv = new DataView(buffer);
+    const count = dv.getInt16(0, false);
+    for (let i = 0; i < count && 2 + 0x38 * (i + 1) <= dv.byteLength; i++) {
+        const o = 2 + 0x38 * i;
+        const commands = Math.min(dv.getUint8(o + 0xE), 4);
+        for (let k = 0; k < commands; k++) {
+            const c = o + 0x10 + 10 * k;
+            const type = dv.getInt16(c, false);
+            if (!LOADING_ZONE_TYPES.has(type)) continue;
+            zones.push({
+                index: i,
+                position: [dv.getInt16(o, false), dv.getInt16(o + 2, false), dv.getInt16(o + 4, false)],
+                radius: dv.getInt16(o + 6, false),
+                height: dv.getInt16(o + 8, false),
+                type,
+                map: dv.getUint16(c + 2, false),
+                exit: dv.getUint16(c + 4, false),
+            });
+            break;
+        }
+    }
+    return zones;
+}
+
+const zoneGeometry = new THREE.CylinderGeometry(1, 1, 1, 24, 1, true).translate(0, 0.5, 0);
+const zoneEdges = new THREE.EdgesGeometry(new THREE.CylinderGeometry(1, 1, 1, 24, 1).translate(0, 0.5, 0));
+
+function loadingZoneMesh() {
+    const mesh = new THREE.Mesh(zoneGeometry, new THREE.MeshBasicMaterial({ color: COLORS.loadingZone, transparent: true,
+        opacity: 0.25, side: THREE.DoubleSide, depthWrite: false }));
+    const edges = new THREE.LineSegments(zoneEdges, new THREE.LineBasicMaterial({ color: COLORS.loadingZone }));
+    edges.userData.unselectable = true;
+    mesh.add(edges);
+    return mesh;
+}
+
+function placeLoadingZone(zone, mesh) {
+    mesh.position.set(...zone.position);
+    mesh.scale.set(zone.radius, zone.height < 0 ? UNBOUNDED_HEIGHT : zone.height, zone.radius);
+}
+
+const dk64MapName = id => DK64_Maps.find(m => m.mapID === id)?.name ?? `map ${id}`;
 
 /** setup.bin: { props: [...], actors: [...] } */
 export function parseDK64Setup(buffer) {
@@ -371,6 +431,7 @@ function animatedBeforeRender() {
 const markerGeometry = new THREE.OctahedronGeometry(12);
 
 function markerMesh(color) {
+    if (color === COLORS.loadingZone) return loadingZoneMesh();
     return new THREE.Mesh(markerGeometry, new THREE.MeshBasicMaterial({ color, wireframe: true }));
 }
 
@@ -444,7 +505,7 @@ function groupBy(list, key) {
 const rowLabel = (name, list) => list.length > 1 ? `${name} (x${list.length})` : name;
 
 /** Draw a DK64 map's props, actors and enemies (one row per type). */
-export async function renderDK64Setup(scene, setupBuffer, spawnersBuffer) {
+export async function renderDK64Setup(scene, setupBuffer, spawnersBuffer, triggersBuffer) {
     for (const [key] of GROUPS) resetGroupModelState(key);
     propViews.length = 0;
     hitboxes.length = 0;
@@ -509,7 +570,19 @@ export async function renderDK64Setup(scene, setupBuffer, spawnersBuffer) {
             'enemy'));
     }
 
+    // loading zones, one row per destination map
+    const zones = parseDK64LoadingZones(triggersBuffer);
+    if (zones.length) {
+        const group = getModelGroup('dk64-loading-zones', 'Loading zones');
+        const byMap = [...groupBy(zones, z => z.map)].sort((a, b) => dk64MapName(a[0]).localeCompare(dk64MapName(b[0])));
+        byMap.forEach(([map, list]) => addRow(scene, group.body, rowLabel(`To ${dk64MapName(map)}`, list), list, null,
+            COLORS.loadingZone, placeLoadingZone,
+            z => `Loading zone #${z.index} -> ${dk64MapName(z.map)} (map ${z.map}), exit ${z.exit}, type ${z.type}
+` +
+                 `pos ${fmtPos(z.position)}, radius ${z.radius}, height ${z.height < 0 ? 'unbounded' : z.height}`));
+    }
+
     for (const [key] of GROUPS) applyGroupMasterState(key);
     refreshPropViews();
-    console.log(`DK64 setup: ${modelProps.length} props, ${pickups.length} pickups, ${actors.length} actors, ${enemies.length} enemies`);
+    console.log(`DK64 setup: ${modelProps.length} props, ${pickups.length} pickups, ${actors.length} actors, ${enemies.length} enemies, ${zones.length} loading zones`);
 }

@@ -11,6 +11,8 @@ Reads <dk64>/baserom.us.z64 and the map names from <dk64>/include/enums.h
   models/DK64/<NNN>_<NAME>/floors.bin     pointer table 3
   models/DK64/<NNN>_<NAME>/walls.bin      pointer table 2
   models/DK64/<NNN>_<NAME>/setup.bin      pointer table 9, decompressed
+  models/DK64/<NNN>_<NAME>/spawners.bin   pointer table 16 (enemies)
+  models/DK64/<NNN>_<NAME>/triggers.bin   pointer table 18 (loading zones)
   models/DK64/textures/<ID>.bin           pointer table 25 entries the map
                                           display lists use (G_SETTIMG
                                           segment 0), decompressed
@@ -209,6 +211,10 @@ def measured_scale(geometry, floors, walls):
 # fences (u16 n + n * 6 bytes, u16 n + n * 10 bytes, 4 bytes), u16 spawner
 # count, 0x16-byte spawners (SpawnerFileData) each followed by byte +0x11 * 2
 # bytes.
+# triggers.bin (pointer table 18, global_asm/done/triggers.c TriggerFile): s16
+# count + 0x38-byte cylinders (s16 x, y, z, radius, height (-1 = unbounded),
+# ..., u8 command count at +0x0E, 4 x (s16 type, u16 args[4]) at +0x10). Types
+# 9, 12, 13, 16, 17 load a map (args: map, exit); the viewer draws those.
 # An actor's model is a pointer table 5 file (model index - 1): for setup
 # actors from D_8074E8B0 (0x30 bytes: u16 actor, u16 model), for enemies from
 # D_8075EB80 indexed by the spawner's enemy type (0x18 bytes: u16 actor, u16
@@ -217,6 +223,7 @@ def measured_scale(geometry, floors, walls):
 TABLE_PROP_GEOMETRY = 4
 TABLE_ACTOR_GEOMETRY = 5
 TABLE_SPAWNERS = 16
+TABLE_TRIGGERS = 18
 
 GLOBAL_ASM_CODE_ROM = 0x113F0
 GLOBAL_ASM_DATA_ROM = 0xC29D4
@@ -326,7 +333,7 @@ def prop_sprite_quads(rom, model):
     table = struct.unpack_from(">I", model, 0x70)[0]
     if table + 4 > len(model):
         return []
-    # +0x60: the animation, one layer per quad keyed by its texture (prop_animations)
+    # +0x6C: the animation, one layer per quad keyed by its texture (prop_animations)
     animations = prop_animations(model)
     quads = []
     for i in range(struct.unpack_from(">I", model, table)[0]):
@@ -368,19 +375,19 @@ def model_dl_textures(data, dl_start, dl_end):
 
 
 def prop_animations(model):
-    """A prop model's animated textures (header +0x60: u32 count, 0x84-byte
+    """A prop model's animated textures (header +0x6C: u32 count, 0x84-byte
     layers of u32 first frame, mode, delay, frame count, other frames): its
     display lists' G_SETTIMG of a first frame's id draws these pointer table 7
     frames instead of a table 25 texture (func_80636EFC / func_80639CD0).
     Sprite props use the same table for their quads' animation.
     -> {first frame: (delay, [frames])}"""
     out = {}
-    if len(model) < 0x64:
+    if len(model) < 0x70:
         return out
-    table = struct.unpack_from(">I", model, 0x60)[0]
+    table = struct.unpack_from(">I", model, 0x6C)[0]
     if table + 4 > len(model):
         return out
-    # Many models' +0x60 doesn't point at a real table, so the counts can be
+    # Many models' +0x6C doesn't point at a real table, so the counts can be
     # garbage (hundreds of millions): bound both by what the file can hold.
     layers = min(struct.unpack_from(">I", model, table)[0], (len(model) - table - 4) // SPRITE_ANIMATION_SIZE)
     for i in range(layers):
@@ -533,6 +540,7 @@ def main():
         write(os.path.join(out_dir, dir_name, "setup.bin"), setup)
         spawners = rom.file(TABLE_SPAWNERS, map_id)
         write(os.path.join(out_dir, dir_name, "spawners.bin"), spawners)
+        write(os.path.join(out_dir, dir_name, "triggers.bin"), rom.file(TABLE_TRIGGERS, map_id) or b"")
         props, actors = setup_objects(setup)
         prop_types.update(props)
         actor_models.update(setup_models[a] for a in actors if a in setup_models)

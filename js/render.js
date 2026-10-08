@@ -54,14 +54,12 @@ export function addModelCheckbox(scene, name, meshObj, edgesObj, clearFirst, che
     const chk = document.createElement('input');
     chk.type = 'checkbox';
 
-    // A row inside a group box is saved under the group's key (savedGroupRows);
-    // the rest by name (savedRows, loaded into modelState).
-    const ownerKey = parentEl?.closest?.('.model-group')?.dataset.groupKey ?? null;
-    const groupRowKey = ownerKey ? groupedRowKey(ownerKey, name) : null;
-    const savedVisible = groupRowKey ? savedGroupRows[groupRowKey] : modelState[name]?.visible;
+    // Rows outside a group come back as last left (savedRows, loaded into
+    // modelState). Rows inside a group box are not saved: they start from
+    // their default and follow the group's saved master (applyGroupMasterState).
+    const inGroup = !!parentEl?.closest?.('.model-group');
+    const savedVisible = inGroup ? undefined : modelState[name]?.visible;
     const isChecked = savedVisible !== undefined ? savedVisible : checked;
-    // applyGroupMasterState leaves rows that came back with their own state alone
-    if (groupRowKey && savedVisible !== undefined) container.dataset.restored = '1';
 
     chk.checked = isChecked;
     if (meshObj) meshObj.visible = isChecked;
@@ -80,8 +78,7 @@ export function addModelCheckbox(scene, name, meshObj, edgesObj, clearFirst, che
 
         // Save visibility
         modelState[name].visible = chk.checked;
-        if (groupRowKey) saveGroupRowVisibility(groupRowKey, chk.checked);
-        else if (!container.closest('.model-group')) saveRowVisibility(name, chk.checked);
+        if (!container.closest('.model-group')) saveRowVisibility(name, chk.checked);
 
         clearSelection(scene);
     });
@@ -456,13 +453,12 @@ export function getModelGroup(key, label) {
 
 /**
  * Forget the in-session VISIBILITY (modelState) of every row belonging to a
- * named group. Grouped rows now restore from savedGroupRows instead (kept
- * across maps and visits, by group and row name), so this only clears the
- * stale per-name copy. Colours are left alone; only `visible` is dropped.
+ * named group, so its rows start from their defaults and the group's master
+ * state. Colours are left alone; only `visible` is dropped.
  */
 // Master-checkbox choice per group key, kept across scene loads. Set by a
 // click on the master, or by rows being switched all on / all off by hand;
-// it decides the rows that have no saved state of their own (savedGroupRows).
+// it decides every row of the group when a scene loads (rows aren't saved).
 // Both maps are saved in localStorage, so they survive leaving the page too
 // (main.js's "Reset to defaults" clears them).
 const GROUP_STATE_KEY = 'viewer.modelGroups';
@@ -499,11 +495,9 @@ export function applyGroupMasterState(groupKey) {
     const group = modelGroups.get(groupKey);
     const saved = groupMasterState.get(groupKey);
     if (!group || !group.wrapper.isConnected || saved === undefined) return;
-    // Rows restored with their own saved state keep it; the master's last
-    // choice only fills in rows seen for the first time.
     group.syncing = true;
     for (const box of groupRowBoxes(group.body)) {
-        if (box.closest('.model-row')?.dataset.restored || box.checked === saved) continue;
+        if (box.checked === saved) continue;
         box.checked = saved;
         box.dispatchEvent(new Event('change', { bubbles: true }));
     }
@@ -548,7 +542,7 @@ const modelState = {};
 // The shown / hidden choice of the rows outside any group (Main Model,
 // Waterboxes, Standable Surface, the wall clip marker rows...), kept in
 // localStorage so it survives leaving the page (main.js's "Reset to defaults"
-// clears it). Rows inside a group are saved separately, by group (savedGroupRows).
+// clears it). Rows inside a group are not saved, only the group's master.
 const ROWS_KEY = 'viewer.modelRows';
 const savedRows = (() => {
     try { return JSON.parse(localStorage.getItem(ROWS_KEY) ?? 'null') ?? {}; }
@@ -563,22 +557,8 @@ function saveRowVisibility(name, visible) {
     catch { /* kept for this visit only */ }
 }
 
-// The shown / hidden choice of the rows inside group boxes (actor and prop
-// types...), kept across maps and visits too, keyed by "<group key>/<row name>"
-// with the row's "(xN)" count dropped, since the count differs from map to map.
-const GROUP_ROWS_KEY = 'viewer.modelGroupRows';
-const savedGroupRows = (() => {
-    try { return JSON.parse(localStorage.getItem(GROUP_ROWS_KEY) ?? 'null') ?? {}; }
-    catch { return {}; }
-})();
-function groupedRowKey(groupKey, name) {
-    return groupKey + '/' + name.replace(/ \(x\d+\)$/, '');
-}
-function saveGroupRowVisibility(key, visible) {
-    savedGroupRows[key] = visible;
-    try { localStorage.setItem(GROUP_ROWS_KEY, JSON.stringify(savedGroupRows)); }
-    catch { /* kept for this visit only */ }
-}
+// Grouped rows used to be saved per row under this key; drop what's left of it.
+try { localStorage.removeItem('viewer.modelGroupRows'); } catch { /* storage unavailable */ }
 
 ////////////////////////////////////////
 // System: Geometry creation
