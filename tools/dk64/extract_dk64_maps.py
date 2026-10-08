@@ -198,6 +198,250 @@ def measured_scale(geometry, floors, walls):
     return (3 if ratio > 1.7 else 1), "extent %.2f" % ratio
 
 
+# --- objects -----------------------------------------------------------------
+#
+# setup.bin (pointer table 9, global_asm/code_36880.c SetupFile): u32 count +
+# 0x30-byte props (model2: f32 x, y, z, scale, ..., f32 rotation x, y, z at
+# +0x18, s16 type at +0x28 = pointer table 4 file, s16 id), u32 count + 0x24-byte
+# "mystery" entries, u32 count + 0x38-byte actor spawners (f32 x, y, z, scale,
+# ..., s16 y rotation at +0x30, s16 type at +0x32 = actor - 0x10, s16 id).
+# spawners.bin (pointer table 16, enemies; func_80728300): u16 fence count,
+# fences (u16 n + n * 6 bytes, u16 n + n * 10 bytes, 4 bytes), u16 spawner
+# count, 0x16-byte spawners (SpawnerFileData) each followed by byte +0x11 * 2
+# bytes.
+# An actor's model is a pointer table 5 file (model index - 1): for setup
+# actors from D_8074E8B0 (0x30 bytes: u16 actor, u16 model), for enemies from
+# D_8075EB80 indexed by the spawner's enemy type (0x18 bytes: u16 actor, u16
+# model), both in global_asm's compressed .data.
+
+TABLE_PROP_GEOMETRY = 4
+TABLE_ACTOR_GEOMETRY = 5
+TABLE_SPAWNERS = 16
+
+GLOBAL_ASM_CODE_ROM = 0x113F0
+GLOBAL_ASM_DATA_ROM = 0xC29D4
+GLOBAL_ASM_VRAM = 0x805FB300
+SETUP_ACTOR_MODELS = 0x8074E8B0       # 0x80 entries of 0x30 bytes
+ENEMY_TYPES = 0x8075EB80              # entries of 0x18 bytes
+ENEMY_TYPE_COUNT = 0x60
+
+
+def global_asm_data(rom_data):
+    """global_asm's .data, decompressed, and its vram start (right after .text)."""
+    code = zlib.decompressobj(16 + zlib.MAX_WBITS).decompress(rom_data[GLOBAL_ASM_CODE_ROM:])
+    data = zlib.decompressobj(16 + zlib.MAX_WBITS).decompress(rom_data[GLOBAL_ASM_DATA_ROM:])
+    return data, GLOBAL_ASM_VRAM + len(code)
+
+
+def actor_model_tables(rom_data):
+    data, vram = global_asm_data(rom_data)
+    setup_models = {}
+    for i in range(0x80):
+        actor, model = struct.unpack_from(">hh", data, SETUP_ACTOR_MODELS - vram + 0x30 * i)
+        if actor > 0 and model > 0:
+            setup_models.setdefault(actor, model)
+    enemies = [struct.unpack_from(">HH", data, ENEMY_TYPES - vram + 0x18 * i) for i in range(ENEMY_TYPE_COUNT)]
+    return setup_models, enemies
+
+
+def actor_names(enums_h):
+    text = open(enums_h, encoding="utf-8").read()
+    body = re.search(r"typedef enum actors_e \{(.*?)\}", text, re.S).group(1)
+    names = [re.sub(r"//.*", "", line).strip().rstrip(",") for line in body.split("\n")]
+    return [n[len("ACTOR_"):] if n.startswith("ACTOR_") else n for n in names if n]
+
+
+def setup_objects(setup):
+    """(prop types, actor types) placed by a setup.bin."""
+    if len(setup) < 4:
+        return [], []
+    u32 = lambda o: struct.unpack_from(">I", setup, o)[0]
+    props = [struct.unpack_from(">h", setup, 4 + 0x30 * i + 0x28)[0] for i in range(u32(0))]
+    o = 4 + 0x30 * len(props)
+    o += 4 + 0x24 * u32(o)
+    actors = [struct.unpack_from(">h", setup, o + 4 + 0x38 * i + 0x32)[0] + 0x10 for i in range(u32(o))]
+    return props, actors
+
+
+def spawner_enemy_types(spawners):
+    """Enemy types placed by a spawners.bin (checked to parse to its end on all US maps)."""
+    if len(spawners) < 2:
+        return []
+    u16 = lambda o: struct.unpack_from(">H", spawners, o)[0]
+    o = 2
+    for _ in range(u16(0)):
+        o += 2 + 6 * u16(o)
+        o += 2 + 10 * u16(o)
+        o += 4
+    count = u16(o) if o + 2 <= len(spawners) else 0
+    o += 2
+    types = []
+    for _ in range(count):
+        types.append(spawners[o])
+        o += 0x16 + 2 * spawners[o + 0x11]
+    return types
+
+
+SPRITE_QUAD_SIZE = 0x30
+SPRITE_ANIMATION_SIZE = 0x84
+
+
+def prop_sprite_quads(rom, model):
+    """The quads of a sprite-drawn prop (+0x1C == 2): header +0x70 points at a
+    u32 count of 0x30-byte quads: u16 texture, u16 palette (0xFFFF none),
+    s16 x[4], y[4], z[4], (s, t)[4] (10.5 texels), u8 width, u8 height, u8
+    siz, u8 fmt. t = 0 is the bottom edge (y = 0, the prop's position): the
+    textures are stored bottom row first. A texture id is in pointer table 7
+    or 25, whichever file is width * height * size long (crates are in 7,
+    trees and plants in 25). Returns [(quad dict, table)], drawn with the
+    first frame of the prop's animation."""
+    if len(model) < 0x74 or model[0x1C] != 2:
+        return []
+    table = struct.unpack_from(">I", model, 0x70)[0]
+    if table + 4 > len(model):
+        return []
+    # +0x60: the animation, u32 count of 0x84-byte layers: u32 first frame
+    # (the quad's texture), u32 mode, u32 delay, u32 frame count, u32 the
+    # other frames[count - 1]
+    animations = {}
+    anim = struct.unpack_from(">I", model, 0x60)[0]
+    if anim + 4 <= len(model):
+        for i in range(struct.unpack_from(">I", model, anim)[0]):
+            o = anim + 4 + i * SPRITE_ANIMATION_SIZE
+            if o + 16 > len(model):
+                break
+            first, mode, delay, count = struct.unpack_from(">4I", model, o)
+            rest = struct.unpack_from(">%dI" % max(0, count - 1), model, o + 16) if o + 16 + 4 * (count - 1) <= len(model) else ()
+            animations[first] = (delay, (first,) + rest)
+    quads = []
+    for i in range(struct.unpack_from(">I", model, table)[0]):
+        o = table + 4 + i * SPRITE_QUAD_SIZE
+        if o + SPRITE_QUAD_SIZE > len(model):
+            break
+        tex, pal = struct.unpack_from(">HH", model, o)
+        v = struct.unpack_from(">12h", model, o + 4)
+        st = struct.unpack_from(">8h", model, o + 0x1C)
+        width, height, siz, fmt = model[o + 0x2C:o + 0x30]
+        size = width * height * (4 << siz) // 8
+        source = None
+        for t in (TABLE_TEXTURES_UNCOMPRESSED, TABLE_TEXTURES_GEOMETRY):
+            if tex < rom.count(t) and len(rom.file(t, tex)) == size:
+                source = t
+                break
+        if source is None:
+            print(f"  sprite texture {tex:#x} ({width}x{height} siz {siz}) not found")
+            continue
+        delay, frames = animations.get(tex, (0, (tex,)))
+        frames = [f for f in frames if f < rom.count(source) and len(rom.file(source, f)) == size]
+        quads.append(({
+            "tex": tex, "pal": None if pal == 0xFFFF else pal, "table": source,
+            "frames": frames, "delay": delay,
+            "x": v[0:4], "y": v[4:8], "z": v[8:12], "s": st[0::2], "t": st[1::2],
+            "width": width, "height": height, "siz": siz, "fmt": fmt,
+        }, source))
+    return quads
+
+
+def model_dl_textures(data, dl_start, dl_end):
+    ids = set()
+    for offset in range(dl_start, min(dl_end, len(data) - 7), 8):
+        if data[offset] == G_SETTIMG:
+            w1 = struct.unpack_from(">I", data, offset + 4)[0]
+            if w1 >> 24 == 0:
+                ids.add(w1)
+    return ids
+
+
+def prop_textures(model):
+    """Table 25 textures of a pointer table 4 model (display lists +0x40..+0x44..+0x48)."""
+    if len(model) < 0x50 or model[0x1C] != 1:
+        return set()
+    start, _, end = struct.unpack_from(">III", model, 0x40)
+    return model_dl_textures(model, start, end)
+
+
+def actor_textures(model):
+    """Table 25 textures of a pointer table 5 model: its display list runs from
+    the first pointer of the +0x04 array to the array itself; addresses are
+    relative to +0x00, which is file offset 0x28 (func_80612E90)."""
+    if len(model) < 0x28:
+        return set()
+    base, table = struct.unpack_from(">II", model, 0)
+    table = table - base + 0x28
+    start = struct.unpack_from(">I", model, table)[0] - base + 0x28
+    ids = model_dl_textures(model, start, table)
+    # +0x10: animated textures (u16 count; u16 frames, u16 segment, u16, u16 ids[frames])
+    ptr = struct.unpack_from(">I", model, 0x10)[0]
+    if ptr:
+        o = ptr - base + 0x28
+        if 0x28 <= o and o + 2 <= len(model):
+            count = struct.unpack_from(">H", model, o)[0]
+            o += 2
+            for _ in range(count):
+                if o + 6 > len(model):
+                    break
+                frames = struct.unpack_from(">H", model, o)[0]
+                ids.update(struct.unpack_from(">%dH" % frames, model, o + 6)[:frames] if o + 6 + 2 * frames <= len(model) else ())
+                o += 6 + 2 * frames
+    return ids
+
+
+# --- map order ---------------------------------------------------------------
+#
+# DK64_Maps lists the Isles first, then each level in game order (its main map
+# first, then the rest by map id), then K. Rool, the shops, the bonus barrel
+# minigames, the arenas, and cutscenes / menus / everything else.
+
+LEVELS = [
+    ("Jungle Japes", "JAPES"), ("Angry Aztec", "AZTEC"), ("Frantic Factory", "FACTORY"),
+    ("Gloomy Galleon", "GALLEON"), ("Fungi Forest", "FUNGI"), ("Crystal Caves", "CAVES"),
+    ("Creepy Castle", "CASTLE"), ("Hideout Helm", "HELM"),
+]
+ISLES_FIRST = ["DK_ISLES_OVERWORLD", "TRAINING_GROUNDS", "DK_HOUSE", "DK_ISLES_SNIDES_ROOM", "FAIRY_ISLAND",
+               "KLUMSY", "TROFF_N_SCOFF", "DIVE_BARREL", "ORANGE_BARREL", "BARREL_BARREL", "VINE_BARREL"] + \
+              [prefix + "_LOBBY" for _, prefix in LEVELS]
+CUTSCENES_AND_OTHER = ["NINTENDO_LOGO", "DK_RAP", "TITLE_SCREEN_NOT_FOR_RESALE_VERSION", "MAIN_MENU",
+                       "ROCK_INTRO_STORY", "HELM_INTRO_STORY", "HELM_LEVEL_INTROS_GAME_OVER", "DK_ISLES_DK_THEATRE",
+                       "TRAINING_GROUNDS_END_SEQUENCE", "KLUMSY_ENDING", "BLOOPERS_ENDING",
+                       "DK_ARCADE", "JETPAC", "TEST_MAP"]
+SHOPS = ["CRANKYS_LAB", "FUNKYS_STORE", "CANDYS_MUSIC_SHOP", "SNIDES_HQ"]
+MINIGAMES = ["KREMLING_KOSH", "STEALTHY_SNOOP", "TEETERING_TURTLE_TROUBLE", "MAD_MAZE_MAUL", "STASH_SNATCH",
+             "MINECART_MAYHEM", "BUSY_BARREL_BARRAGE", "BATTY_BARREL_BANDIT", "SPLISH_SPLASH_SALVAGE",
+             "SPEEDY_SWING_SORTIE", "KRAZY_KONG_KLAMOUR", "BIG_BUG_BASH", "SEARCHLIGHT_SEEK", "BEAVER_BOTHER",
+             "PERIL_PATH_PANIC"]
+DIFFICULTIES = ["VERY_EASY", "EASY", "EASY_2", "NORMAL", "NORMAL_NO_LOGO", "HARD", "INSANE"]
+
+
+def map_group(name):
+    """(group label, group rank, rank within the group) for a map."""
+    groups = ["DK Isles"] + [label for label, _ in LEVELS] + \
+             ["K. Rool", "Shops", "Bonus Minigames", "Arenas", "Cutscenes & Other"]
+    rank = groups.index
+    if name in ISLES_FIRST:
+        return "DK Isles", rank("DK Isles"), ISLES_FIRST.index(name)
+    if name in CUTSCENES_AND_OTHER:
+        return "Cutscenes & Other", rank("Cutscenes & Other"), CUTSCENES_AND_OTHER.index(name)
+    if name in SHOPS:
+        return "Shops", rank("Shops"), SHOPS.index(name)
+    if name.startswith("KROOL_FIGHT") or name.startswith("KROOLS_"):
+        return "K. Rool", rank("K. Rool"), 0
+    if name.startswith("KROOL_BARREL"):   # Hideout Helm's barrel minigames
+        return "Hideout Helm", rank("Hideout Helm"), 1
+    for label, prefix in LEVELS:
+        if name == prefix:
+            return label, rank(label), 0
+        if name.startswith(prefix + "_"):
+            return label, rank(label), 1
+    for i, game in enumerate(MINIGAMES):
+        if name.startswith(game):
+            rest = name[len(game) + 1:]
+            return "Bonus Minigames", rank("Bonus Minigames"), \
+                i * 10 + (DIFFICULTIES.index(rest) if rest in DIFFICULTIES else 9)
+    if name.startswith("BATTLE_ARENA") or name.startswith("KONG_BATTLE") or name.endswith("_ARENA"):
+        return "Arenas", rank("Arenas"), 0
+    return "Cutscenes & Other", rank("Cutscenes & Other"), 99
+
+
 def write(path, data):
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, "wb") as f:
@@ -217,6 +461,9 @@ def main():
     out_dir = os.path.join(ROOT, "models", "DK64")
     maps = []
     textures = set()
+    setup_models, enemy_types = actor_model_tables(data)
+    prop_types = set()
+    actor_models = set()
     for map_id, enum_name in enumerate(names):
         name = enum_name[len("MAP_"):]
         geometry = rom.file(TABLE_MAP_GEOMETRY, map_id)
@@ -236,6 +483,13 @@ def main():
         write(os.path.join(out_dir, dir_name, "floors.bin"), floors)
         write(os.path.join(out_dir, dir_name, "walls.bin"), walls)
         write(os.path.join(out_dir, dir_name, "setup.bin"), setup)
+        spawners = rom.file(TABLE_SPAWNERS, map_id)
+        write(os.path.join(out_dir, dir_name, "spawners.bin"), spawners)
+        props, actors = setup_objects(setup)
+        prop_types.update(props)
+        actor_models.update(setup_models[a] for a in actors if a in setup_models)
+        actor_models.update(enemy_types[e][1] for e in spawner_enemy_types(spawners)
+                            if e < len(enemy_types) and enemy_types[e][1])
         textures |= {(TABLE_TEXTURES_GEOMETRY, t) for t in geometry_textures(geometry)}
         textures |= {(TABLE_TEXTURES_UNCOMPRESSED, t) for t in animated_textures(geometry)}
         scale = geometry_scale(geometry)
@@ -246,6 +500,30 @@ def main():
         maps.append({"name": name, "mapID": map_id, "dir": dir_name, "scale": scale})
         print(f"{map_id:3d} {name}: geometry {len(geometry):#x}, floors {len(floors):#x}, "
               f"walls {len(walls):#x}, setup {len(setup):#x}, scale {scale}")
+
+    prop_info = {}
+    prop_sprites = {}
+    for prop in sorted(t for t in prop_types if 0 <= t < rom.count(TABLE_PROP_GEOMETRY)):
+        model = rom.file(TABLE_PROP_GEOMETRY, prop)
+        if len(model) < 0x50:
+            continue
+        category = model[0x0C:0x14].split(b"\0")[0].decode("ascii", "replace")
+        prop_info[prop] = (model[0x1C], category)
+        write(os.path.join(out_dir, "props", f"{prop:04X}.bin"), model)
+        textures |= {(TABLE_TEXTURES_GEOMETRY, t) for t in prop_textures(model)}
+        quads = prop_sprite_quads(rom, model)
+        if quads:
+            prop_sprites[prop] = [q for q, _ in quads]
+            for q, table in quads:
+                textures.add((table, q["tex"]))
+                textures.update((table, f) for f in q["frames"])
+                if q["pal"] is not None:
+                    textures.add((table, q["pal"]))
+    for model_index in sorted(m for m in actor_models if 0 < m <= rom.count(TABLE_ACTOR_GEOMETRY)):
+        model = rom.file(TABLE_ACTOR_GEOMETRY, model_index - 1)
+        write(os.path.join(out_dir, "actors", f"{model_index:04X}.bin"), model)
+        textures |= {(TABLE_TEXTURES_GEOMETRY, t) for t in actor_textures(model)}
+    print(f"{len(prop_info)} prop models, {len(actor_models)} actor models")
 
     textures |= set(WATER_TEXTURES)
     tex_bytes = 0
@@ -260,12 +538,57 @@ def main():
         "// Each map lives in models/DK64/<dir>/: geometry.bin (display lists + vertices),",
         "// floors.bin / walls.bin (collision), setup.bin; textures in models/DK64/textures/.",
         "// scale: geometry.bin units per world unit (3, or 1 for some arenas and minigames).",
+        "// group: the dropdown section; listed in map_group's order.",
         "const DK64_Maps = [",
     ]
-    lines += ['    { name: "%s", mapID: %d, dir: "%s", scale: %d },' % (m["name"], m["mapID"], m["dir"], m["scale"])
-              for m in maps]
+    def sort_key(m):
+        _, group_rank, rank = map_group(m["name"])
+        return group_rank, rank, m["mapID"]
+    lines += ['    { name: "%s", mapID: %d, dir: "%s", scale: %d, group: "%s" },' % (
+        m["name"], m["mapID"], m["dir"], m["scale"], map_group(m["name"])[0]) for m in sorted(maps, key=sort_key)]
     lines.append("];")
     with open(os.path.join(ROOT, "js", "dk64_map_list.js"), "w", newline="\n") as f:
+        f.write("\n".join(lines) + "\n")
+
+    names = actor_names(os.path.join(dk64, "include", "enums.h"))
+    lines = [
+        "// Generated by tools/dk64/extract_dk64_maps.py.",
+        "// DK64_Actor_Names: the decomp's actors_e. DK64_Setup_Actor_Models: actor -> model",
+        "// (models/DK64/actors/<model>.bin) for setup.bin actors (global_asm D_8074E8B0).",
+        "// DK64_Enemy_Types: spawners.bin enemy type -> [actor, model] (D_8075EB80).",
+        "// DK64_Prop_Info: prop type (models/DK64/props/<type>.bin) -> [kind, category];",
+        "// kind 1 = a model, 2 = a sprite-drawn pickup.",
+        "const DK64_Actor_Names = [",
+    ]
+    lines += ['    "%s",' % n for n in names]
+    lines.append("];")
+    lines.append("const DK64_Setup_Actor_Models = {")
+    lines += ["    %d: %d," % (a, m) for a, m in sorted(setup_models.items())]
+    lines.append("};")
+    lines.append("const DK64_Enemy_Types = [")
+    lines += ["    [%d, %d]," % e for e in enemy_types]
+    lines.append("];")
+    lines.append("const DK64_Prop_Info = {")
+    lines += ['    %d: [%d, "%s"],' % (p, k, c) for p, (k, c) in sorted(prop_info.items())]
+    lines.append("};")
+    lines.append("// DK64_Prop_Sprites: kind 2 props -> quads (prop_sprite_quads): texture file")
+    lines.append("// (models/DK64/textures/), palette file or null, animation frames (texture files,")
+    lines.append("// empty if static) shown for `delay` 30 Hz ticks each, corners x / y / z, texel s / t,")
+    lines.append("// texture width, height, siz, fmt.")
+    lines.append("const DK64_Prop_Sprites = {")
+    for p, quads in sorted(prop_sprites.items()):
+        parts = []
+        for q in quads:
+            pal = '"%s"' % texture_file(q["table"], q["pal"])[:-4] if q["pal"] is not None else "null"
+            frames = ", ".join('"%s"' % texture_file(q["table"], f)[:-4] for f in q["frames"]) if len(q["frames"]) > 1 else ""
+            parts.append('{ tex: "%s", pal: %s, frames: [%s], delay: %d, x: [%s], y: [%s], z: [%s], s: [%s], t: [%s], w: %d, h: %d, siz: %d, fmt: %d }' % (
+                texture_file(q["table"], q["tex"])[:-4], pal, frames, q["delay"],
+                ", ".join(map(str, q["x"])), ", ".join(map(str, q["y"])), ", ".join(map(str, q["z"])),
+                ", ".join(map(str, q["s"])), ", ".join(map(str, q["t"])),
+                q["width"], q["height"], q["siz"], q["fmt"]))
+        lines.append("    %d: [%s]," % (p, ", ".join(parts)))
+    lines.append("};")
+    with open(os.path.join(ROOT, "js", "dk64_object_list.js"), "w", newline="\n") as f:
         f.write("\n".join(lines) + "\n")
 
 

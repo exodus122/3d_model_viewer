@@ -25,6 +25,7 @@ import { setupWallPushClipUI } from './wall_push_clips.js';
 import { installWaterboxDepthToggle } from './waterboxes.js';
 import { parseDK64Collision, buildDK64TexturedMesh, buildDK64Water } from './dk64_map.js';
 import { attachTextured, clearTexturedPairs } from './bk_textured.js';
+import { renderDK64Setup } from './dk64_setup.js';
 
 ////////////////////////////////////////
 // System: DOM / Static UI Elements
@@ -250,7 +251,7 @@ const GAME_COLLISIONS = {
 
 gameSel.addEventListener('change',(e)=>{
     game = e.target.value;
-    mapDropdown.options.length = 0;
+    mapDropdown.replaceChildren();   // options and any <optgroup>s
     setupDropdown.options.length = 0;
     actorDropdown.options.length = 0;
     
@@ -264,11 +265,18 @@ gameSel.addEventListener('change',(e)=>{
         EPS = 0.00008;
     }
     
+    // Maps with a `group` (DK64) go under <optgroup> headings, in list order
+    let optgroup = null;
     maps.forEach(map => {
         const option = document.createElement("option");
         option.value = map.name; // This will be the value when selected
         option.textContent = map.name; // This is what’s shown to the user
-        mapDropdown.appendChild(option);
+        if (map.group && map.group !== optgroup?.label) {
+            optgroup = document.createElement("optgroup");
+            optgroup.label = map.group;
+            mapDropdown.appendChild(optgroup);
+        }
+        (map.group ? optgroup : mapDropdown).appendChild(option);
     });
     if(actors) {
         actors.forEach(actor => {
@@ -474,8 +482,14 @@ async function loadSelectedMap(game) {
             if (water) {
                 scene.add(water);
                 loadedModels.push({ name: water.name, root: water, mesh: water, edges: null });
+                // no swatch (colorTarget false): it would tint the first surface
                 addModelCheckbox(scene, water.name, water, null, false, true, null, false, false);
             }
+
+            // Props, actors and enemies (dk64_setup.js)
+            await showLoading(`${mapName}: actors and props…`);
+            const [setup, spawners] = await Promise.all(["setup.bin", "spawners.bin"].map(load));
+            await renderDK64Setup(scene, setup, spawners);
         } catch (err) {
             console.error(err);
         }

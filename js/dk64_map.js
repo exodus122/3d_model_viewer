@@ -194,10 +194,7 @@ export function parseDK64AnimatedTextures(dv) {
  */
 export function parseDK64Geometry(buffer, scale = 3) {
     const dv = new DataView(buffer);
-    const dlStart = dv.getUint32(0x34, false);
-    const dlEnd = dv.getUint32(0x38, false);
     const vtxStart = dv.getUint32(0x38, false);
-    const vtxEnd = dv.getUint32(0x40, false);
     // display list -> [start, end, vertex base (segment 6), chunk index]
     const ranges = dk64ListRanges(dv);
     let rangeIndex = 0;
@@ -210,6 +207,113 @@ export function parseDK64Geometry(buffer, scale = 3) {
         return inside ? r[2] : vtxStart;
     };
     const animated = parseDK64AnimatedTextures(dv);
+    return walkDK64DisplayList(dv, dv.getUint32(0x34, false), dv.getUint32(0x38, false), {
+        scale,
+        vertexEnd: dv.getUint32(0x40, false),
+        vertexAddress: (o, w1) => (w1 >>> 24) === 0x06 ? vertexBaseAt(o) + (w1 & 0xFFFFFF) : -1,
+        // 0x0B..0x0E: an animated texture, drawn with its first frame
+        textureId: (o, w1) => {
+            vertexBaseAt(o);
+            const segment = w1 >>> 24;
+            const entry = animated.find(a => a.segment === segment && a.chunk === chunkIndex) ??
+                          animated.find(a => a.segment === segment);
+            return entry && entry.frames.length ? entry.frames[0] | TABLE7_TEXTURE : -1;
+        },
+    });
+}
+
+/**
+ * A pointer table 4 prop model (model2, func_806368F0 / func_80636AE8): two
+ * display lists, +0x40..+0x44 and +0x44..+0x48 (the first is only a stub in
+ * some models), vertices (segment 8) from +0x48; segment 9 is the instance
+ * matrix. Null for the sprite-drawn kind (+0x1C == 2) and empty files.
+ */
+export function parseDK64PropModel(buffer) {
+    const dv = new DataView(buffer);
+    if (dv.byteLength < 0x50 || dv.getUint8(0x1C) !== 1) return null;
+    const vtxStart = dv.getUint32(0x48, false);
+    return walkDK64DisplayList(dv, dv.getUint32(0x40, false), vtxStart, {
+        vertexEnd: dv.byteLength,
+        vertexAddress: (o, w1) => (w1 >>> 24) === 0x08 ? vtxStart + (w1 & 0xFFFFFF) : -1,
+    });
+}
+
+/**
+ * A pointer table 5 actor model (func_80612E90). Its addresses are relative
+ * to the header's +0x00, which is file offset 0x28; +0x04 points at an array
+ * of +0x21 display list pointers right after the display list, the first one
+ * its start. Vertices are segment 3 from 0x28. Each bone (+0x08, +0x20 of
+ * them, 0x10 bytes: u8 parent (0xFF = root), ..., f32 x, y, z from the
+ * parent) is a G_MTX from segment 4 (0x40 bytes per bone); the model is
+ * drawn in its rest pose, each bone's vertices moved by its offsets.
+ */
+export function parseDK64ActorModel(buffer) {
+    const dv = new DataView(buffer);
+    if (dv.byteLength < 0x30) return null;
+    const base = dv.getUint32(0, false);
+    const at = p => p - base + 0x28;
+    const table = at(dv.getUint32(4, false));
+    if (table < 0x28 || table + 4 > dv.byteLength) return null;
+    const dlStart = at(dv.getUint32(table, false));
+    const boneCount = dv.getUint8(0x20);
+    const bonePtr = dv.getUint32(8, false);
+    const offsets = [];
+    if (bonePtr) {
+        const bones = at(bonePtr);
+        for (let i = 0; i < boneCount && bones + 0x10 * (i + 1) <= dv.byteLength; i++) {
+            const b = bones + 0x10 * i;
+            const parent = dv.getUint8(b);
+            const p = parent < i ? offsets[parent] : [0, 0, 0];
+            offsets.push([p[0] + dv.getFloat32(b + 4, false), p[1] + dv.getFloat32(b + 8, false), p[2] + dv.getFloat32(b + 0xC, false)]);
+        }
+    }
+    const segmentTextures = dk64ActorSegmentTextures(dv);
+    return walkDK64DisplayList(dv, dlStart, table, {
+        vertexEnd: dv.byteLength,
+        vertexAddress: (o, w1) => (w1 >>> 24) === 0x03 ? 0x28 + (w1 & 0xFFFFFF) : -1,
+        textureId: (o, w1) => segmentTextures.get(w1 >>> 24) ?? -1,
+        boneOffset: (w1) => (w1 >>> 24) === 0x04 ? offsets[(w1 & 0xFFFFFF) >> 6] ?? null : null,
+    });
+}
+
+/**
+ * An actor model's animated textures (header +0x10: u16 count, then u16
+ * frame count, u16 segment, u16, u16 table 25 ids[frame count]; eyes, mouths)
+ * as segment -> first frame.
+ */
+function dk64ActorSegmentTextures(dv) {
+    const out = new Map();
+    const base = dv.getUint32(0, false);
+    const ptr = dv.getUint32(0x10, false);
+    if (!ptr) return out;
+    let o = ptr - base + 0x28;
+    if (o < 0x28 || o + 2 > dv.byteLength) return out;
+    const count = dv.getUint16(o, false);
+    o += 2;
+    for (let i = 0; i < count && o + 6 <= dv.byteLength; i++) {
+        const frames = dv.getUint16(o, false), segment = dv.getUint16(o + 2, false);
+        if (frames && o + 8 <= dv.byteLength) out.set(segment, dv.getUint16(o + 6, false));
+        o += 6 + 2 * frames;
+    }
+    return out;
+}
+
+const G_MTX = 0xDA;
+
+const LIGHT_DIR = (() => { const l = [0.3, 0.85, 0.45], n = Math.hypot(...l); return l.map(x => x / n); })();
+const LIGHT_AMBIENT = 0.55;
+
+/**
+ * Gather a display list's triangles into batches by texture and render state.
+ * opts.vertexAddress(o, w1): file offset of a G_VTX's vertices, -1 to skip;
+ * opts.textureId(o, w1): table 25 / 7 id for a G_SETTIMG outside segment 0;
+ * opts.boneOffset(w1): translation for the vertices after a G_MTX;
+ * opts.scale: file units per world unit; opts.vertexEnd: vertex data bound.
+ */
+function walkDK64DisplayList(dv, dlStart, dlEnd, opts) {
+    const scale = opts.scale ?? 1;
+    const vtxEnd = opts.vertexEnd;
+    let offset = [0, 0, 0];
 
     const cache = new Array(64).fill(null);
     const tiles = Array.from({ length: 8 }, emptyTile);
@@ -261,8 +365,17 @@ export function parseDK64Geometry(buffer, scale = 3) {
             batch.positions.push(v.x / scale, v.y / scale, v.z / scale);
             if (tex) batch.uvs.push((v.s * ss - tile.uls / 4) / tex.width, (v.t * st - tile.ult / 4) / tex.height);
             else batch.uvs.push(0, 0);
-            if (lit) batch.colors.push(1, 1, 1, v.a / 255);
-            else batch.colors.push(v.r / 255, v.g / 255, v.b / 255, v.a / 255);
+            if (lit) {
+                // G_LIGHTING: the vertex colour is an s8 normal; shade it
+                // with a fixed light from above (not the game's lights)
+                const n = [v.r << 24 >> 24, v.g << 24 >> 24, v.b << 24 >> 24];
+                const len = Math.hypot(n[0], n[1], n[2]) || 1;
+                const d = (n[0] * LIGHT_DIR[0] + n[1] * LIGHT_DIR[1] + n[2] * LIGHT_DIR[2]) / len;
+                const shade = LIGHT_AMBIENT + (1 - LIGHT_AMBIENT) * Math.max(0, d);
+                batch.colors.push(shade, shade, shade, v.a / 255);
+            } else {
+                batch.colors.push(v.r / 255, v.g / 255, v.b / 255, v.a / 255);
+            }
         }
     };
 
@@ -273,13 +386,13 @@ export function parseDK64Geometry(buffer, scale = 3) {
             case G_VTX: {
                 const n = (w0 >>> 12) & 0xFF;
                 const v0 = ((w0 >>> 1) & 0x7F) - n;
-                if ((w1 >>> 24) !== 0x06) break;
-                const base = vertexBaseAt(o) + (w1 & 0xFFFFFF);
+                const base = opts.vertexAddress(o, w1);
+                if (base < 0) break;
                 for (let i = 0; i < n; i++) {
                     const p = base + i * 16;
                     if (v0 + i < 0 || v0 + i >= 64 || p + 16 > vtxEnd) continue;
                     cache[v0 + i] = {
-                        x: dv.getInt16(p, false), y: dv.getInt16(p + 2, false), z: dv.getInt16(p + 4, false),
+                        x: dv.getInt16(p, false) + offset[0], y: dv.getInt16(p + 2, false) + offset[1], z: dv.getInt16(p + 4, false) + offset[2],
                         s: dv.getInt16(p + 8, false), t: dv.getInt16(p + 10, false),
                         r: dv.getUint8(p + 12), g: dv.getUint8(p + 13), b: dv.getUint8(p + 14), a: dv.getUint8(p + 15),
                     };
@@ -319,19 +432,14 @@ export function parseDK64Geometry(buffer, scale = 3) {
                 break;
             }
             case G_SETTIMG: {
-                // segment 0: table 25 id; 0x0B..0x0E: an animated texture,
-                // drawn with its first frame
-                const segment = w1 >>> 24;
-                let id = segment === 0 ? w1 : -1;
-                if (segment !== 0) {
-                    vertexBaseAt(o);
-                    const entry = animated.find(a => a.segment === segment && a.chunk === chunkIndex) ??
-                                  animated.find(a => a.segment === segment);
-                    if (entry && entry.frames.length) id = entry.frames[0] | TABLE7_TEXTURE;
-                }
+                // segment 0: a table 25 id
+                const id = (w1 >>> 24) === 0 ? w1 : (opts.textureId?.(o, w1) ?? -1);
                 timg = { id, fmt: (w0 >>> 21) & 7, siz: (w0 >>> 19) & 3 };
                 break;
             }
+            case G_MTX:
+                if (opts.boneOffset) offset = opts.boneOffset(w1) ?? [0, 0, 0];
+                break;
             case G_SETTILE: {
                 const t = tiles[(w1 >>> 24) & 7];
                 t.fmt = (w0 >>> 21) & 7; t.siz = (w0 >>> 19) & 3;
@@ -429,6 +537,35 @@ function fetchTexture(id) {
             .catch(() => null));
     }
     return textureFileCache.get(id);
+}
+
+const namedTextureCache = new Map();   // file name -> Promise<Uint8Array | null>
+
+function fetchTextureFile(name) {
+    if (!namedTextureCache.has(name)) {
+        namedTextureCache.set(name, fetch(`./models/DK64/textures/${name}.bin`)
+            .then(res => res.ok ? res.arrayBuffer().then(b => new Uint8Array(b)) : null)
+            .catch(() => null));
+    }
+    return namedTextureCache.get(name);
+}
+
+/**
+ * A DataTexture from models/DK64/textures/<name>.bin, decoded as
+ * { width, height, fmt, siz } with an optional palette file; rows bottom first
+ * (as DK64's sprites store them) map to v = 0. Null if the file is missing.
+ */
+export async function loadDK64Texture(name, info, paletteName = null) {
+    const [bytes, palette] = await Promise.all([fetchTextureFile(name), paletteName ? fetchTextureFile(paletteName) : null]);
+    if (!bytes) return null;
+    const texture = new THREE.DataTexture(decodeDK64Texture(bytes, { ...info, line: 0 }, palette), info.width, info.height, THREE.RGBAFormat);
+    texture.colorSpace = THREE.SRGBColorSpace;
+    texture.magFilter = THREE.LinearFilter;
+    texture.minFilter = THREE.LinearFilter;
+    texture.generateMipmaps = false;
+    texture.wrapS = texture.wrapT = THREE.ClampToEdgeWrapping;
+    texture.needsUpdate = true;
+    return texture;
 }
 
 // --- water -------------------------------------------------------------------
@@ -536,6 +673,19 @@ export async function buildDK64Water(buffer) {
  */
 export async function buildDK64TexturedMesh(buffer, scale) {
     const batches = parseDK64Geometry(buffer, scale);
+    const { geometry, materials, triangleCount, textureCount } = await buildDK64Parts(batches);
+    const mesh = new THREE.Mesh(geometry, materials);
+    mesh.name = 'textured';
+    console.log(`DK64 geometry: ${triangleCount} triangles in ${batches.length} batches, ${textureCount} textures`);
+    return mesh;
+}
+
+/**
+ * Geometry (one group per batch) and materials for batches from
+ * walkDK64DisplayList, with their textures fetched; shareable between
+ * instances.
+ */
+export async function buildDK64Parts(batches) {
     const ids = new Set();
     for (const b of batches) {
         if (!b.texture) continue;
@@ -596,8 +746,7 @@ export async function buildDK64TexturedMesh(buffer, scale) {
     geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
     geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
     geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 4));
-    const mesh = new THREE.Mesh(geometry, materials);
-    mesh.name = 'textured';
-    console.log(`DK64 geometry: ${start / 3} triangles in ${batches.length} batches, ${ids.size} textures`);
-    return mesh;
+    geometry.computeBoundingBox();
+    geometry.computeBoundingSphere();
+    return { geometry, materials, triangleCount: start / 3, textureCount: ids.size };
 }
