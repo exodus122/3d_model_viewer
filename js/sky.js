@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { addModelCheckbox } from './render.js';
 import { buildTexturedParts, makeTexturedMesh, isTexturedMode } from './bk_textured.js';
+import { loadDK64Texture } from './dk64_map.js';
 
 ////////////////////////////////////////
 // System: Banjo-Kazooie / Banjo-Tooie skyboxes
@@ -127,6 +128,161 @@ export async function renderSky(scene, game, mapId) {
     currentSky = { row, entries };
 }
 
+////////////////////////////////////////
+// System: Donkey Kong 64 skies
+////////////////////////////////////////
+//
+// DK64 has no sky models. global_asm func_80707980 picks a background per map
+// (and, in a few maps, per chunk -- the viewer uses the outdoor one):
+//   - most maps: a black fill;
+//   - a gradient (func_80704B20): an 8-vertex strip of four colour rows
+//     (DK64_Sky_Gradients, from the ROM) drawn in screen space, moved
+//     300 * sin(camera pitch) (and, for gradient 5, by 0.08 * camera height
+//     - 75) -- so looking at elevation e shows the strip at row
+//     456 - 300 sin(e) - that shift. The viewer colours a camera-centred
+//     sphere that way;
+//   - a moon (func_80705F5C, HUD image 0x35) in the direction
+//     (sin a, h - 8 * camera height, cos a) * 32767-ish units;
+//   - a 320x240 backdrop image tiled around the view (func_807069A4: the
+//     beetle race's and the mazes' / Stealthy Snoop's walls);
+//   - a flat colour (two maps).
+// The sun some maps add (func_80705C00 -> func_8070033C) is not drawn.
+const DK64_MAZES = ['KROOL_BARREL_LANKY_MAZE', 'STEALTHY_SNOOP_NORMAL_NO_LOGO', 'STEALTHY_SNOOP_NORMAL',
+    'MAD_MAZE_MAUL_HARD', 'STASH_SNATCH_NORMAL', 'MAD_MAZE_MAUL_EASY', 'MAD_MAZE_MAUL_NORMAL', 'STASH_SNATCH_EASY',
+    'STASH_SNATCH_HARD', 'MAD_MAZE_MAUL_INSANE', 'STASH_SNATCH_INSANE', 'STEALTHY_SNOOP_VERY_EASY',
+    'STEALTHY_SNOOP_EASY', 'STEALTHY_SNOOP_HARD'];
+const DK64_Skies = {
+    AZTEC: { gradient: 0 },
+    GALLEON: { gradient: 0 },
+    GALLEON_SEAL_RACE: { gradient: 0 },
+    JAPES: { gradient: 4 },
+    JAPES_ARMY_DILLO: { gradient: 3, moon: [0, 0x7D00] },
+    FUNGI: { gradient: 2, moon: [0, 0x5DC0] },
+    FUNGI_MINECART: { gradient: 1 },
+    DK_ISLES_OVERWORLD: { gradient: 5 },
+    DK_ISLES_DK_THEATRE: { gradient: 5 },
+    ROCK_INTRO_STORY: { gradient: 5 },
+    GALLEON_PUFFTOSS: { gradient: 6, moon: [0xC8, 0x4268] },
+    CASTLE: { gradient: 6, moon: [0x3E8, 0x2EE0] },
+    KLUMSY_ENDING: { gradient: 7 },
+    MAIN_MENU: { gradient: 7, moon: [0xC8, 0x2EE0] },
+    BLOOPERS_ENDING: { fill: 0xffffff },
+    GALLEON_BARREL_BLAST: { fill: 0xffff84 },        // fill colour 0xFFC1 (RGBA5551)
+    AZTEC_BEETLE_RACE: { backdrop: 'T14_002D', tint: 1 },
+    ...Object.fromEntries(DK64_MAZES.map(name => [name, { backdrop: 'T14_002E', tint: 0x3F / 255 }])),
+};
+
+const SKY_RADIUS = 1000;
+const skySphere = new THREE.SphereGeometry(SKY_RADIUS, 48, 24);
+
+const skyVertexShader = `
+    varying vec3 vDir;
+    void main() {
+        vDir = normalize(position);
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+    }`;
+
+// Colours are the game's sRGB values, written as they are.
+function dk64GradientMaterial(gradient) {
+    const c = gradient.colors.map(hex => new THREE.Vector3(...[0, 2, 4].map(i => parseInt(hex.substr(i, 2), 16) / 255)));
+    return new THREE.ShaderMaterial({
+        uniforms: {
+            rows: { value: new THREE.Vector4(...gradient.rows) },
+            c0: { value: c[0] }, c1: { value: c[1] }, c2: { value: c[2] }, c3: { value: c[3] },
+            shift: { value: 0 },
+        },
+        vertexShader: skyVertexShader,
+        fragmentShader: `
+            uniform vec4 rows; uniform vec3 c0, c1, c2, c3; uniform float shift;
+            varying vec3 vDir;
+            void main() {
+                float r = 456.0 - 300.0 * normalize(vDir).y - shift;
+                vec3 col = r <= rows.y ? mix(c0, c1, clamp((r - rows.x) / (rows.y - rows.x), 0.0, 1.0))
+                         : r <= rows.z ? mix(c1, c2, (r - rows.y) / max(rows.z - rows.y, 1.0))
+                         :               mix(c2, c3, clamp((r - rows.z) / (rows.w - rows.z), 0.0, 1.0));
+                gl_FragColor = vec4(col, 1.0);
+            }`,
+        side: THREE.BackSide, depthTest: false, depthWrite: false,
+    });
+}
+
+function dk64BackdropMaterial(texture, tint) {
+    texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+    // sampled and written as the game's sRGB values, like the gradient colours
+    texture.colorSpace = THREE.NoColorSpace;
+    texture.needsUpdate = true;
+    return new THREE.ShaderMaterial({
+        uniforms: { map: { value: texture }, tint: { value: tint } },
+        vertexShader: skyVertexShader,
+        fragmentShader: `
+            uniform sampler2D map; uniform float tint;
+            varying vec3 vDir;
+            void main() {
+                vec3 d = normalize(vDir);
+                // four images around, about two from the horizon up or down
+                vec2 uv = vec2(atan(d.x, d.z) / 6.2831853 * 4.0, 1.0 - asin(d.y) / 1.5707963 * 2.0);
+                gl_FragColor = vec4(texture2D(map, uv).rgb * tint, 1.0);
+            }`,
+        side: THREE.BackSide, depthTest: false, depthWrite: false,
+    });
+}
+
+// The moon's apparent size: the game draws the 64x64 image at 4x (64 pixels of
+// a 320-wide screen), about 10 degrees.
+const MOON_ANGLE = THREE.MathUtils.degToRad(10);
+
+/** Add a DK64 map's sky (see above) as the "Skybox" row. Maps with a black fill add nothing. */
+export async function renderDK64Sky(scene, mapName) {
+    clearSky();
+    const spec = DK64_Skies[mapName];
+    if (!spec) return;
+    const entries = [];
+    if (spec.gradient !== undefined) {
+        const gradient = DK64_Sky_Gradients[spec.gradient];
+        const material = dk64GradientMaterial(gradient);
+        const mesh = new THREE.Mesh(skySphere, material);
+        mesh.frustumCulled = false;
+        entries.push({ mesh, speed: 0, update: camera => {
+            mesh.position.copy(camera.position);
+            material.uniforms.shift.value = spec.gradient === 5 ? 0.08 * camera.position.y - 75 : 0;
+        } });
+    } else if (spec.fill !== undefined) {
+        const mesh = new THREE.Mesh(skySphere, new THREE.MeshBasicMaterial({
+            color: spec.fill, side: THREE.BackSide, depthTest: false, depthWrite: false }));
+        mesh.frustumCulled = false;
+        entries.push({ mesh, speed: 0 });
+    } else if (spec.backdrop) {
+        const texture = await loadDK64Texture(spec.backdrop, { width: 320, height: 240, fmt: 0, siz: 2 });
+        if (texture) {
+            const mesh = new THREE.Mesh(skySphere, dk64BackdropMaterial(texture, spec.tint));
+            mesh.frustumCulled = false;
+            entries.push({ mesh, speed: 0 });
+        }
+    }
+    if (spec.moon) {
+        const texture = await loadDK64Texture('T14_0035', { width: 64, height: 64, fmt: 3, siz: 1 });
+        if (texture) {
+            const moon = new THREE.Sprite(new THREE.SpriteMaterial({ map: texture, depthTest: false, depthWrite: false }));
+            moon.renderOrder = 1;
+            moon.scale.setScalar(2 * SKY_RADIUS * 0.9 * Math.tan(MOON_ANGLE / 2));
+            const [angle, height] = spec.moon;
+            const a = angle / 4096 * Math.PI * 2;
+            entries.push({ mesh: moon, speed: 0, update: camera => {
+                const dir = new THREE.Vector3(Math.sin(a) * 32767, height - 8 * camera.position.y, Math.cos(a) * 32767).normalize();
+                moon.position.copy(camera.position).addScaledVector(dir, SKY_RADIUS * 0.9);
+            } });
+        }
+    }
+    if (!entries.length) return;
+    for (const { mesh } of entries) skyScene.add(mesh);
+    const row = new THREE.Group();
+    row.name = 'Skybox';
+    scene.add(row);
+    loadedModels.push({ name: row.name, root: row, mesh: row, edges: null });
+    addModelCheckbox(scene, row.name, row, null, false, true, null, false, false);
+    currentSky = { row, entries };
+}
+
 /**
  * Draw the sky as its own pass, clearing the frame first, and set the
  * renderer up so the main scene draws over it without clearing. Returns a
@@ -135,7 +291,8 @@ export async function renderSky(scene, game, mapId) {
  */
 export function drawSky(renderer, scene, camera, seconds) {
     if (!currentSky || !currentSky.row.parent || !currentSky.row.visible || !isTexturedMode()) return null;
-    for (const { mesh, speed } of currentSky.entries) {
+    for (const { mesh, speed, update } of currentSky.entries) {
+        if (update) { update(camera); continue; }   // DK64's camera-dependent layers
         mesh.position.copy(camera.position);
         if (speed) mesh.rotation.y = THREE.MathUtils.degToRad(speed * seconds); // sky_update's timer (BT: D_80128770+0x134)
     }

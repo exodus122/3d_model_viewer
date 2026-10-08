@@ -233,6 +233,31 @@ def global_asm_data(rom_data):
     return data, GLOBAL_ASM_VRAM + len(code)
 
 
+# Skies (global_asm/code_103AB0.c func_80707980 picks one per map): the
+# gradient drawn by func_80704B20 is an 8-vertex strip, D_80754ED8[sky]
+# (Vtx; rows of 2 at y), coloured by D_80754EF8[sky][4] (rgb, top first);
+# HUD (pointer table 14) images for the moon (0x35, 64x64 IA8,
+# func_80705F5C) and the 320x240 RGBA16 backdrops of the Aztec beetle race
+# (0x2D) and the mazes / Stealthy Snoop (0x2E) (func_807069A4).
+SKY_STRIPS = 0x80754ED8
+SKY_COLORS = 0x80754EF8
+SKY_COUNT = 8
+TABLE_TEXTURES_HUD = 14
+SKY_HUD_TEXTURES = [0x2D, 0x2E, 0x35]
+
+
+def sky_gradients(rom_data):
+    """[{ rows: [y of each colour row, top first], colors: ['rrggbb' x 4] }]"""
+    data, vram = global_asm_data(rom_data)
+    skies = []
+    for i in range(SKY_COUNT):
+        strip = struct.unpack_from(">I", data, SKY_STRIPS - vram + 4 * i)[0] - vram
+        ys = [struct.unpack_from(">h", data, strip + 16 * k + 2)[0] for k in range(8)]
+        colors = data[SKY_COLORS - vram + 12 * i:SKY_COLORS - vram + 12 * (i + 1)]
+        skies.append({"rows": ys[0::2], "colors": [colors[3 * k:3 * k + 3].hex() for k in range(4)]})
+    return skies
+
+
 def actor_model_tables(rom_data):
     data, vram = global_asm_data(rom_data)
     setup_models = {}
@@ -549,6 +574,7 @@ def main():
     print(f"{len(prop_info)} prop models, {len(actor_models)} actor models")
 
     textures |= set(WATER_TEXTURES)
+    textures |= {(TABLE_TEXTURES_HUD, t) for t in SKY_HUD_TEXTURES}
     tex_bytes = 0
     for table, tex_id in sorted(textures):
         tex = rom.file(table, tex_id)
@@ -598,6 +624,12 @@ def main():
     lines.append("// (models/DK64/textures/), palette file or null, animation frames (texture files,")
     lines.append("// empty if static) shown for `delay` 30 Hz ticks each, corners x / y / z, texel s / t,")
     lines.append("// texture width, height, siz, fmt.")
+    lines.append("// DK64_Sky_Gradients: the sky gradients (sky_gradients): colour rows' strip y, top first.")
+    lines.append("const DK64_Sky_Gradients = [")
+    for sky in sky_gradients(data):
+        lines.append('    { rows: [%s], colors: [%s] },' % (", ".join(map(str, sky["rows"])),
+                                                         ", ".join('"%s"' % c for c in sky["colors"])))
+    lines.append("];")
     lines.append("const DK64_Prop_Sprites = {")
     for p, quads in sorted(prop_sprites.items()):
         parts = []

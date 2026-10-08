@@ -1060,6 +1060,17 @@ const DK64_Prop_Info = {
 // (models/DK64/textures/), palette file or null, animation frames (texture files,
 // empty if static) shown for `delay` 30 Hz ticks each, corners x / y / z, texel s / t,
 // texture width, height, siz, fmt.
+// DK64_Sky_Gradients: the sky gradients (sky_gradients): colour rows' strip y, top first.
+const DK64_Sky_Gradients = [
+    { rows: [0, 492, 552, 960], colors: ["0040ff", "ff8f11", "ff8f11", "002c00"] },
+    { rows: [0, 492, 552, 960], colors: ["4682fa", "ffffff", "ffffff", "002c00"] },
+    { rows: [0, 492, 552, 960], colors: ["4682fa", "9696fa", "9696fa", "002c00"] },
+    { rows: [0, 492, 552, 960], colors: ["4682fa", "fffafa", "000000", "000000"] },
+    { rows: [0, 400, 440, 800], colors: ["000175", "ffffff", "1e7d19", "002d00"] },
+    { rows: [0, 480, 500, 800], colors: ["4682fa", "9dc4ff", "0019ff", "001923"] },
+    { rows: [0, 492, 552, 960], colors: ["0000a5", "000000", "280a14", "000000"] },
+    { rows: [0, 480, 500, 800], colors: ["ff0000", "ffbe00", "ffff00", "0000ff"] },
+];
 const DK64_Prop_Sprites = {
     3: [{ tex: "0B08", pal: null, frames: [], delay: 0, x: [9, 9, -8, -8], y: [0, 36, 36, 0], z: [0, 0, 0, 0], s: [1024, 1024, 0, 0], t: [0, 2048, 2048, 0], w: 32, h: 64, siz: 2, fmt: 0 }],
     5: [{ tex: "0B0A", pal: null, frames: [], delay: 0, x: [9, 9, -8, -8], y: [0, 18, 18, 0], z: [0, 0, 0, 0], s: [1024, 1024, 0, 0], t: [0, 1024, 1024, 0], w: 32, h: 32, siz: 2, fmt: 0 }],

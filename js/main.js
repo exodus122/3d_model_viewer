@@ -16,7 +16,7 @@ import { renderZeldaObjectBinary } from './render_actors.js';
 import { renderBKSetup, getPropInstances } from './bk_setup.js';
 import { addActorBitclipEdges } from './bitclips.js';
 import { renderBTSetup } from './bt_setup.js';
-import { renderSky, drawSky } from './sky.js';
+import { renderSky, renderDK64Sky, drawSky } from './sky.js';
 import { loadBTTextureBank, getBTTextureBank } from './bt_textures.js';
 import { renderZeldaSceneTextured, parseZeldaSceneInfo, zeldaRoomFileName, zeldaAreaTextureFileName, ROOM_GROUP_KEY } from './zelda_textured.js';
 import { renderOOTActors } from './oot_actors.js';
@@ -514,6 +514,9 @@ async function loadSelectedMap(game) {
                 // no swatch (colorTarget false): it would tint the first surface
                 addModelCheckbox(scene, water.name, water, null, false, true, null, false, false);
             }
+
+            // Sky gradient / moon / backdrop drawn behind the map (sky.js)
+            await renderDK64Sky(scene, mapName);
 
             // Props, actors and enemies (dk64_setup.js)
             await showLoading(`${mapName}: actors and props…`);
