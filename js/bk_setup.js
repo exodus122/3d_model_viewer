@@ -326,7 +326,7 @@ function pickGeometry(loaded) {
     return null;
 }
 
-// The Prop collision checkbox swaps every prop instance's geometry; Textures
+// The Prop/actor collision checkbox swaps every prop instance's geometry; Textures
 // only changes how bk_textured.js draws it, but re-picking is harmless.
 for (const control of VIEW_CONTROLS) control?.addEventListener('change', () => {
     for (const inst of propInstances) {

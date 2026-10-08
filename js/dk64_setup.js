@@ -138,7 +138,7 @@ function loadModel(kind, id) {
 
 // --- prop collision ------------------------------------------------------------
 //
-// The "Prop collision" checkbox, as for BK / BT (bk_textured.js): with
+// The "Prop/actor collision" checkbox, as for BK / BT (bk_textured.js): with
 // Textures on, each prop's collision (parseDK64PropCollision) is drawn
 // translucent over its textured model; with Textures off it replaces the
 // model, which is otherwise drawn in a flat colour. Floors, walls and

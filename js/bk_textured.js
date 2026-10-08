@@ -17,7 +17,7 @@ import { getBTTextureBank } from './bt_textures.js';
 //   Textures        - on: textured meshes; off: plain meshes only (the
 //                     flat-colour collision view: the map's collision mesh,
 //                     and each prop's geometry as picked below).
-//   Prop collision  - each prop's / actor's collision list rather than its
+//   Prop/actor collision - each prop's / actor's collision list rather than its
 //                     display-list triangles (bk_setup.js pickGeometry), since
 //                     the two differ (often a hitbox against the full model).
 //                     With textures on, the plain collision mesh is drawn
@@ -55,7 +55,7 @@ document.getElementById('selected-game')?.addEventListener('change', e => {
 });
 if (isBanjo()) restoreTextures();
 
-// Prop collision and the actor hitbox checkboxes are only shown for BK / BT /
+// Prop/actor collision and the actor hitbox checkboxes are only shown for BK / BT /
 // DK64, so they are always saved. (Restored before any map builds, so the
 // setup code reads the saved state when it creates the objects.)
 for (const [id, key] of [['bkPropCollision', 'viewer.propCollision'],

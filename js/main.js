@@ -249,6 +249,34 @@ const GAME_COLLISIONS = {
     MM3D: null,
 };
 
+// Tooltips of the view checkboxes the games share. index.html's text is BK /
+// BT's; DK64 swaps in its own (dk64_setup.js / dk64_map.js describe the data).
+const texturesLabel = document.getElementById('bkTextures').closest('label');
+const DEFAULT_TOOLTIPS = new Map([
+    [texturesLabel, texturesLabel.title],
+    [bkPropCollisionLabel, bkPropCollisionLabel.title],
+    [bkActorHitboxesLabel, bkActorHitboxesLabel.title],
+]);
+const DK64_TOOLTIPS = new Map([
+    [texturesLabel, "The map, props and actors drawn with their in-game textures and vertex colours " +
+        "(decoded from the display lists), with the water surfaces and animated textures. Off: the map's " +
+        "collision (floors and walls) as one flat mesh, props as flat purple triangles and actors as flat orange " +
+        "ones, like BK / BT."],
+    [bkPropCollisionLabel, "Draw each prop's and actor's own collision triangles: a prop model's wall and floor " +
+        "lists, and an actor model's (boulders, cages; most actors only have hit spheres). Floors amber, walls " +
+        "pink, triangles listed as both purple. With textures on they are drawn translucent over the model; with " +
+        "textures off they replace it. Models without any keep showing their model and say 'no collision' in " +
+        "their description. Parts the game animates (doors, moving platforms) are shown at rest."],
+    [bkActorHitboxesLabel, "Draw actors' hit spheres, from their model's collision block (each sphere on a bone, " +
+        "shown in the rest pose and scaled with the actor). Enemies = the enemy spawners' actors (red). Touch = " +
+        "the setup file's actors: barrels, cannons, boulders, switches (cyan). Actors without a model (balloons, " +
+        "triggers) have none."],
+]);
+function applyGameTooltips(game) {
+    const tooltips = game == "DK64" ? DK64_TOOLTIPS : DEFAULT_TOOLTIPS;
+    for (const [element, title] of tooltips) element.title = title;
+}
+
 gameSel.addEventListener('change',(e)=>{
     game = e.target.value;
     mapDropdown.replaceChildren();   // options and any <optgroup>s
@@ -288,10 +316,11 @@ gameSel.addEventListener('change',(e)=>{
     }
     
     // "Textures" also covers OOT's and MM's rooms (zelda_textured.js);
-    // "Prop collision" is a BK / BT thing.
+    // "Prop/actor collision" and "Actor hitboxes" are BK / BT / DK64 things.
     bkViewModeLabel.style.display = (game == "BK" || game == "BT" || game == "DK64" || game == "OOT" || game == "MM") ? "block" : "none";
     bkPropCollisionLabel.style.display = (game == "BK" || game == "BT" || game == "DK64") ? "" : "none";
     bkActorHitboxesLabel.style.display = (game == "BK" || game == "BT" || game == "DK64") ? "block" : "none";
+    applyGameTooltips(game);
     document.getElementById('actorDisplay').style.display = (game == "OOT" || game == "MM") ? "" : "none";
 
     if (game == "BK" || game == "BT" || game == "DK64") {
