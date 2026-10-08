@@ -284,6 +284,7 @@ def spawner_enemy_types(spawners):
 
 SPRITE_QUAD_SIZE = 0x30
 SPRITE_ANIMATION_SIZE = 0x84
+SPRITE_ANIMATION_MAX_FRAMES = (SPRITE_ANIMATION_SIZE - 16) // 4 + 1   # first frame + 29 slots
 
 
 def prop_sprite_quads(rom, model):
@@ -300,19 +301,8 @@ def prop_sprite_quads(rom, model):
     table = struct.unpack_from(">I", model, 0x70)[0]
     if table + 4 > len(model):
         return []
-    # +0x60: the animation, u32 count of 0x84-byte layers: u32 first frame
-    # (the quad's texture), u32 mode, u32 delay, u32 frame count, u32 the
-    # other frames[count - 1]
-    animations = {}
-    anim = struct.unpack_from(">I", model, 0x60)[0]
-    if anim + 4 <= len(model):
-        for i in range(struct.unpack_from(">I", model, anim)[0]):
-            o = anim + 4 + i * SPRITE_ANIMATION_SIZE
-            if o + 16 > len(model):
-                break
-            first, mode, delay, count = struct.unpack_from(">4I", model, o)
-            rest = struct.unpack_from(">%dI" % max(0, count - 1), model, o + 16) if o + 16 + 4 * (count - 1) <= len(model) else ()
-            animations[first] = (delay, (first,) + rest)
+    # +0x60: the animation, one layer per quad keyed by its texture (prop_animations)
+    animations = prop_animations(model)
     quads = []
     for i in range(struct.unpack_from(">I", model, table)[0]):
         o = table + 4 + i * SPRITE_QUAD_SIZE
@@ -352,12 +342,45 @@ def model_dl_textures(data, dl_start, dl_end):
     return ids
 
 
+def prop_animations(model):
+    """A prop model's animated textures (header +0x60: u32 count, 0x84-byte
+    layers of u32 first frame, mode, delay, frame count, other frames): its
+    display lists' G_SETTIMG of a first frame's id draws these pointer table 7
+    frames instead of a table 25 texture (func_80636EFC / func_80639CD0).
+    Sprite props use the same table for their quads' animation.
+    -> {first frame: (delay, [frames])}"""
+    out = {}
+    if len(model) < 0x64:
+        return out
+    table = struct.unpack_from(">I", model, 0x60)[0]
+    if table + 4 > len(model):
+        return out
+    # Many models' +0x60 doesn't point at a real table, so the counts can be
+    # garbage (hundreds of millions): bound both by what the file can hold.
+    layers = min(struct.unpack_from(">I", model, table)[0], (len(model) - table - 4) // SPRITE_ANIMATION_SIZE)
+    for i in range(layers):
+        o = table + 4 + SPRITE_ANIMATION_SIZE * i
+        first, _, delay, count = struct.unpack_from(">4I", model, o)
+        if not 1 <= count <= SPRITE_ANIMATION_MAX_FRAMES:
+            continue
+        out[first] = (delay, [first] + list(struct.unpack_from(">%dI" % (count - 1), model, o + 16)))
+    return out
+
+
 def prop_textures(model):
-    """Table 25 textures of a pointer table 4 model (display lists +0x40..+0x44..+0x48)."""
+    """(table, id) textures of a pointer table 4 model (display lists
+    +0x40..+0x44..+0x48): table 25, or table 7 for its animated ones."""
     if len(model) < 0x50 or model[0x1C] != 1:
         return set()
     start, _, end = struct.unpack_from(">III", model, 0x40)
-    return model_dl_textures(model, start, end)
+    animations = prop_animations(model)
+    out = set()
+    for tex in model_dl_textures(model, start, end):
+        if tex in animations:
+            out.update((TABLE_TEXTURES_UNCOMPRESSED, f) for f in animations[tex][1])
+        else:
+            out.add((TABLE_TEXTURES_GEOMETRY, tex))
+    return out
 
 
 def actor_textures(model):
@@ -510,7 +533,7 @@ def main():
         category = model[0x0C:0x14].split(b"\0")[0].decode("ascii", "replace")
         prop_info[prop] = (model[0x1C], category)
         write(os.path.join(out_dir, "props", f"{prop:04X}.bin"), model)
-        textures |= {(TABLE_TEXTURES_GEOMETRY, t) for t in prop_textures(model)}
+        textures |= prop_textures(model)
         quads = prop_sprite_quads(rom, model)
         if quads:
             prop_sprites[prop] = [q for q, _ in quads]

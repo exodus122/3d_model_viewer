@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { addModelCheckbox, getModelGroup, resetGroupModelState, applyGroupMasterState } from './render.js';
-import { parseDK64PropModel, parseDK64ActorModel, buildDK64Parts, loadDK64Texture } from './dk64_map.js';
+import { parseDK64PropModel, parseDK64ActorModel, buildDK64Parts, loadDK64Texture, animateDK64Materials } from './dk64_map.js';
 
 ////////////////////////////////////////
 // System: Donkey Kong 64 objects
@@ -137,10 +137,16 @@ function loadSprite(type) {
                     ? (await Promise.all(q.frames.map(f => loadDK64Texture(f, info, q.pal)))).filter(Boolean)
                     : [];
                 const map = frames[0] ?? await loadDK64Texture(q.tex, info, q.pal);
+                // Cut out on alpha rather than blended: the opaque pass draws
+                // (and depth-writes) them before any translucent surface, so
+                // water and the map's XLU parts in front cover them. Blended,
+                // three.js sorted them against the whole map mesh's centre and
+                // they could draw over water in front of them.
                 const material = new THREE.MeshBasicMaterial({
-                    map, color: map ? 0xffffff : COLORS.pickup, transparent: true, alphaTest: 0.3, side: THREE.DoubleSide,
+                    map, color: map ? 0xffffff : COLORS.pickup, alphaTest: 0.3, side: THREE.DoubleSide,
                 });
                 if (frames.length > 1) material.userData.animation = { frames, delay: Math.max(1, q.delay) };
+                // (stepped by animateDK64Materials, at the game's 30 Hz)
                 materials.push(material);
             }
             geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
@@ -153,22 +159,18 @@ function loadSprite(type) {
 }
 
 // Sprites turn about y to face the camera, and step through their animation
-// frames (coins spinning, bananas turning, flames): each frame shows for
-// `delay` ticks of the game's 30 Hz frame rate. The materials are shared by
-// every placement of a type, so they all turn in step.
-const SPRITE_TICKS_PER_SECOND = 30;
+// frames (coins spinning, bananas turning, flames; animateDK64Materials).
 const _spritePos = new THREE.Vector3();
 function spriteBeforeRender(renderer, scene, camera) {
     this.getWorldPosition(_spritePos);
     this.rotation.y = Math.atan2(camera.position.x - _spritePos.x, camera.position.z - _spritePos.z);
     this.updateMatrixWorld(true);
-    const tick = Math.floor(performance.now() / 1000 * SPRITE_TICKS_PER_SECOND);
-    for (const material of this.material) {
-        const anim = material.userData.animation;
-        if (!anim) continue;
-        const frame = anim.frames[Math.floor(tick / anim.delay) % anim.frames.length];
-        if (material.map !== frame) material.map = frame;
-    }
+    animateDK64Materials(this.material);
+}
+
+// Props with animated textures (grass, flowers, lamps) step them the same way.
+function animatedBeforeRender() {
+    animateDK64Materials(this.material);
 }
 
 const markerGeometry = new THREE.OctahedronGeometry(12);
@@ -186,6 +188,8 @@ function addRow(scene, groupBody, rowName, list, parts, color, place, describe) 
         if (parts?.sprite) {
             mesh.rotation.set(0, 0, 0);
             mesh.onBeforeRender = spriteBeforeRender;
+        } else if (parts?.animated) {
+            mesh.onBeforeRender = animatedBeforeRender;
         }
         mesh.userData.bkInfo = describe(item);
         mesh.userData.textured = true;   // keeps its own materials (main.js setMaterialProps)

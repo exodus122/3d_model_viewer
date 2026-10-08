@@ -233,9 +233,35 @@ export function parseDK64PropModel(buffer) {
     if (dv.byteLength < 0x50 || dv.getUint8(0x1C) !== 1) return null;
     const vtxStart = dv.getUint32(0x48, false);
     return walkDK64DisplayList(dv, dv.getUint32(0x40, false), vtxStart, {
+        animatedTextures: dk64PropTextureAnimations(dv),
         vertexEnd: dv.byteLength,
         vertexAddress: (o, w1) => (w1 >>> 24) === 0x08 ? vtxStart + (w1 & 0xFFFFFF) : -1,
     });
+}
+
+const PROP_ANIMATION_SIZE = 0x84;
+
+/**
+ * A prop model's animated textures (header +0x60: u32 count, 0x84-byte
+ * layers of u32 first frame, mode, delay, frame count, other frames): a
+ * G_SETTIMG of a first frame's id is not a pointer table 25 texture but these
+ * pointer table 7 frames (global_asm func_80636EFC / func_80639CD0). Jungle
+ * Japes' grass tufts and flowers, Fungi's lamps... -> Map id -> { frames, delay }.
+ */
+function dk64PropTextureAnimations(dv) {
+    const out = new Map();
+    const table = dv.getUint32(0x60, false);
+    if (table + 4 > dv.byteLength) return out;
+    const count = dv.getUint32(table, false);
+    for (let i = 0; i < count; i++) {
+        const o = table + 4 + PROP_ANIMATION_SIZE * i;
+        if (o + 16 > dv.byteLength) break;
+        const first = dv.getUint32(o, false), delay = dv.getUint32(o + 8, false), n = dv.getUint32(o + 12, false);
+        const frames = [first];
+        for (let k = 0; k + 1 < n && o + 16 + 4 * (k + 1) <= dv.byteLength; k++) frames.push(dv.getUint32(o + 16 + 4 * k, false));
+        out.set(first, { frames, delay });
+    }
+    return out;
 }
 
 /**
@@ -318,6 +344,7 @@ function walkDK64DisplayList(dv, dlStart, dlEnd, opts) {
     const cache = new Array(64).fill(null);
     const tiles = Array.from({ length: 8 }, emptyTile);
     const tmem = new Map();     // tmem address -> table 25 id loaded there
+    const tmemAnimation = new Map();   // texture id -> { frames, delay } (opts.animatedTextures)
     let timg = { id: -1, fmt: 0, siz: 0 };
     let texOn = false, texTile = 0, texScaleS = 1, texScaleT = 1;
     let geometryMode = 0, renderMode = 0, combineUsesTexture = true;
@@ -345,7 +372,9 @@ function walkDK64DisplayList(dv, dlStart, dlEnd, opts) {
             const palAddr = tile.siz === 0 ? 0x100 + tile.palette * 16 : 0x100;
             palette = tmem.get(palAddr) ?? -1;
         }
-        return { id, palette, fmt: tile.fmt, siz: tile.siz, width, height, line: tile.line, cms: tile.cms, cmt: tile.cmt };
+        const animation = tmemAnimation.get(id);
+        return { id, palette, fmt: tile.fmt, siz: tile.siz, width, height, line: tile.line, cms: tile.cms, cmt: tile.cmt,
+                 frames: animation ? animation.frames.map(f => f | TABLE7_TEXTURE) : null, delay: animation?.delay ?? 0 };
     };
 
     const emitTri = (a, b, c) => {
@@ -432,9 +461,12 @@ function walkDK64DisplayList(dv, dlStart, dlEnd, opts) {
                 break;
             }
             case G_SETTIMG: {
-                // segment 0: a table 25 id
-                const id = (w1 >>> 24) === 0 ? w1 : (opts.textureId?.(o, w1) ?? -1);
-                timg = { id, fmt: (w0 >>> 21) & 7, siz: (w0 >>> 19) & 3 };
+                // segment 0: a table 25 id, unless the model animates it
+                // (opts.animatedTextures: id -> { frames (table 7), delay })
+                const animation = (w1 >>> 24) === 0 ? opts.animatedTextures?.get(w1) : undefined;
+                const id = animation ? animation.frames[0] | TABLE7_TEXTURE
+                    : (w1 >>> 24) === 0 ? w1 : (opts.textureId?.(o, w1) ?? -1);
+                timg = { id, fmt: (w0 >>> 21) & 7, siz: (w0 >>> 19) & 3, animation };
                 break;
             }
             case G_MTX:
@@ -459,6 +491,7 @@ function walkDK64DisplayList(dv, dlStart, dlEnd, opts) {
             case G_LOADTILE:
             case G_LOADTLUT:
                 tmem.set(tiles[(w1 >>> 24) & 7].tmem, timg.id);
+                if (timg.animation) tmemAnimation.set(timg.id, timg.animation);
                 break;
         }
     }
@@ -482,8 +515,10 @@ function rgba16At(bytes, o, out, p) {
 export function decodeDK64Texture(bytes, tex, palette) {
     const { width, height, fmt, siz } = tex;
     const bitsPerTexel = 4 << siz;
-    // G_SETTILE line is the row stride in 64-bit words; 0 for some LOADBLOCKed tiles
-    const stride = tex.line ? tex.line * 8 : Math.ceil(width * bitsPerTexel / 8);
+    // G_SETTILE line is the row stride in 64-bit words of TMEM (0 for some
+    // LOADBLOCKed tiles); 32-bit texels are split across TMEM's two halves, so
+    // their line counts half the row's bytes.
+    const stride = tex.line ? tex.line * 8 * (siz === 3 ? 2 : 1) : Math.ceil(width * bitsPerTexel / 8);
     const out = new Uint8Array(width * height * 4);
     for (let y = 0; y < height; y++) {
         for (let x = 0; x < width; x++) {
@@ -685,12 +720,28 @@ export async function buildDK64TexturedMesh(buffer, scale) {
  * walkDK64DisplayList, with their textures fetched; shareable between
  * instances.
  */
+// Animated textures step every `delay` ticks of the game's 30 Hz frame rate;
+// materials are shared by all placements of a model, so they turn in step.
+const TEXTURE_TICKS_PER_SECOND = 30;
+
+/** Show the current frame on every material with userData.animation. */
+export function animateDK64Materials(materials) {
+    const tick = Math.floor(performance.now() / 1000 * TEXTURE_TICKS_PER_SECOND);
+    for (const material of materials) {
+        const anim = material.userData.animation;
+        if (!anim) continue;
+        const frame = anim.frames[Math.floor(tick / anim.delay) % anim.frames.length];
+        if (material.map !== frame) material.map = frame;
+    }
+}
+
 export async function buildDK64Parts(batches) {
     const ids = new Set();
     for (const b of batches) {
         if (!b.texture) continue;
         ids.add(b.texture.id);
         if (b.texture.palette >= 0) ids.add(b.texture.palette);
+        for (const f of b.texture.frames ?? []) ids.add(f);
     }
     const files = new Map();
     await Promise.all([...ids].map(async id => files.set(id, await fetchTexture(id))));
@@ -741,6 +792,11 @@ export async function buildDK64Parts(batches) {
             polygonOffsetUnits: batch.decal ? -1 : 0,
         });
         if (batch.texture) material.map = textureFor(batch.texture);
+        // A prop's animated texture: the frames step by animateDK64Materials
+        if (batch.texture?.frames?.length > 1) {
+            const frames = batch.texture.frames.map(id => textureFor({ ...batch.texture, id })).filter(Boolean);
+            if (frames.length > 1) material.userData.animation = { frames, delay: Math.max(1, batch.texture.delay) };
+        }
         materials.push(material);
     }
     geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
@@ -748,5 +804,6 @@ export async function buildDK64Parts(batches) {
     geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 4));
     geometry.computeBoundingBox();
     geometry.computeBoundingSphere();
-    return { geometry, materials, triangleCount: start / 3, textureCount: ids.size };
+    return { geometry, materials, triangleCount: start / 3, textureCount: ids.size,
+             animated: materials.some(m => m.userData.animation) };
 }
