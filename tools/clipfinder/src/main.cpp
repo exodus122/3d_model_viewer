@@ -373,7 +373,7 @@ int main(int argc, char** argv) {
 			"                  [--clip-kind walking|falling|slope|ground] [--drop D]  (with --refine / --yaw / --angles: which of the pair's clips; falling: posNext D below the floor)\n"
 			"                  [--sim X,Y,Z,YAW,SPEED[,DROP | ,vVY]]  (one frame from a standing start, printed step by step; SPEED as 15/7: a frame per speed)\n"
 			"                  [--tri ID[,ID...]]  (print those polys: vertices, normal, type)\n"
-			"                  [--max-move N]  (units Link can move in one frame: default 55 - speed 36.67, OOT3D / MM3D 55)\n"
+			"                  [--max-move N]  (units Link can move in one frame: default 40 - speed 26.67, OOT3D / MM3D 40)\n"
 			"                  [--dyna FILE|none [--dyna-only] [--setup N] [--night]]  (the viewer's dynapoly export; default tools/clipfinder/<GAME>_dyna_all.json)\n"
 			"                  [--slope-step 1|2|3] [--wall-step S] [--slope-starts] [--aerial] [--keep-load-void] [--ground-step 1|2|3]\n"
 			"                  [--max-per-pair N]  (at most N points per wall pair, spread out evenly: smaller files)\n"

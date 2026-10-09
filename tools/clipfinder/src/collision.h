@@ -152,8 +152,17 @@ struct Scratch {
 	// the floor heights it reached, per 10 x 10 cell. An end it can't reach
 	// takes the whole fill, and falling / ground clips land at many ends from
 	// the same few starts.
-	using WalkFill = std::unordered_map<int64_t, vector<std::array<float, 4>>>;  // x, z, floor y, walking distance
+	// (flat: the points sorted by cell, and each cell's first point in a dense
+	// grid around the start - a map of small vectors was ~1 MB a fill, 3 GB with
+	// 12 threads' caches full: MM Ikana Graveyard ran out of memory)
+	struct WalkFill {
+		int64_t bx = 0, bz = 0;  // the start's cell
+		int n = 0;               // the grid is n x n cells, the start's in the middle
+		vector<uint32_t> first;  // n * n + 1: cell (i, j)'s points are pts[first[c]] .. pts[first[c + 1]]
+		vector<std::array<float, 4>> pts;  // x, z, floor y, walking distance
+	};
 	std::unordered_map<uint64_t, std::shared_ptr<const WalkFill>> walkFills;
+	size_t walkFillPts = 0;  // the points in walkFills (the cache's size cap)
 
 	vector<uint32_t> stamp;
 	uint32_t curStamp = 0;

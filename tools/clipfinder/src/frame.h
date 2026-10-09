@@ -7,11 +7,11 @@
 // and how far a frame's move can go for reachability (REACH_DIST). --max-move
 // N: both up to N units a frame (speed N / SPEED_RATE); over 45 the starts go
 // on every 4 past 32. Set once in main, before any scan: by default
-// SCAN_MAX_MOVE units a frame in all four games (55: speed 36.67 on the N64,
-// 55 on the 3DS). DEFAULT_MAX_MOVE is the
+// SCAN_MAX_MOVE units a frame in all four games (40: speed 26.67 on the N64,
+// 40 on the 3DS). DEFAULT_MAX_MOVE is the
 // move a results file without "maxMove" was scanned with (45, speed 30 on the
 // N64: the old default).
-static const double SCAN_MAX_MOVE = 55;
+static const double SCAN_MAX_MOVE = 40;
 static const double DEFAULT_MAX_MOVE = 45;
 extern vector<double> MOVE_STEPS;
 extern double REACH_DIST;

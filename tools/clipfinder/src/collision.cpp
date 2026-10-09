@@ -1,4 +1,8 @@
 #include "collision.h"
+#include <memory>
+#ifndef _MSC_VER
+#include <pthread.h>
+#endif
 
 static void initPoly(Poly& p, int id, const int v[3][3], const int n[3], double d) {
 	p.exists = true;
@@ -162,15 +166,30 @@ static inline bool wallPush(const Poly& p, int pass, double R, double sphY, doub
 }
 
 // The lineHit scratch for sphereStep's final line check (it has no Scratch
-// of its own): one per thread, sized on first use. A pointer, never freed: a
-// thread_local object with a destructor is freed twice at thread exit in a
-// static mingw build.
+// of its own): one per thread, sized on first use, freed when the thread
+// exits - each scan step starts new threads, and a Scratch is ~5 MB (its
+// floor cache): never freed, an MM --all run leaked them until it ran out of
+// memory. Not a thread_local object with a destructor: that's freed twice at
+// thread exit in a static mingw build, so a pthread key's destructor there
+// (MSVC has no pthreads, and its thread_local destructors work).
+#ifdef _MSC_VER
 static Scratch& lineScratch(size_t numPolys) {
-	static thread_local Scratch* s = nullptr;
-	if (!s) s = new Scratch();
+	static thread_local std::unique_ptr<Scratch> s;
+	if (!s) s = std::make_unique<Scratch>();
 	if (s->stamp.size() < numPolys) s->stamp.assign(numPolys, 0);
 	return *s;
 }
+#else
+static Scratch& lineScratch(size_t numPolys) {
+	static pthread_key_t key;
+	static pthread_once_t once = PTHREAD_ONCE_INIT;
+	pthread_once(&once, [] { pthread_key_create(&key, [](void* p) { delete static_cast<Scratch*>(p); }); });
+	Scratch* s = static_cast<Scratch*>(pthread_getspecific(key));
+	if (!s) { s = new Scratch(); pthread_setspecific(key, s); }
+	if (s->stamp.size() < numPolys) s->stamp.assign(numPolys, 0);
+	return *s;
+}
+#endif
 
 V3 Model::sphereStep(const V3& pos, const Tol& tol, PushList* trace, const V3* prev, bool lineDyna) const {
 	const double R = radius;
@@ -532,9 +551,7 @@ double Model::walkShortcut(Scratch& s, const V3& end, const V3& from) const {
 
 double Model::walkDistance(Scratch& s, const V3& end, const V3& from) const {
 	auto q5 = [](double v) { return (uint64_t)(int64_t)std::floor(v / 5) & 0xFFFF; };
-	auto cellKey = [](double x, double z) {
-		return (int64_t)std::floor(x / WALK_STEP) << 32 ^ (int64_t)(uint32_t)(int32_t)std::floor(z / WALK_STEP);
-	};
+	auto cellOf = [](double v) { return (int64_t)std::floor(v / WALK_STEP); };
 	// The whole fill from this start spot, done once (Scratch::walkFills)
 	const uint64_t fillKey = q5(from.x) | q5(from.z) << 16 | (uint64_t)((int64_t)std::floor(from.y / 5) & 0xFFFF) << 32;
 	// reached: a filled point within a step of the end (xz) and 30 of its height;
@@ -555,10 +572,16 @@ double Model::walkDistance(Scratch& s, const V3& end, const V3& from) const {
 		vector<Node> todo = { { 0, 0, from.y, 0 } };
 		seen.insert({ 0, 0, (int)std::floor(from.y / 30) });
 		const int R = (int)(WALK_RADIUS / WALK_STEP);
+		// (a point's cell is its step from the start's, give or take 1 for rounding)
+		const int half = R + 2;
+		fill->bx = cellOf(from.x); fill->bz = cellOf(from.z); fill->n = 2 * half + 1;
+		vector<std::pair<uint32_t, std::array<float, 4>>> cellPts;
 		for (size_t k = 0; k < todo.size(); k++) {
 			const Node p = todo[k];
 			const double px = from.x + p.i * WALK_STEP, pz = from.z + p.j * WALK_STEP;
-			(*fill)[cellKey(px, pz)].push_back({ (float)px, (float)pz, (float)p.y, (float)(p.d * WALK_STEP) });
+			const int64_t ci = cellOf(px) - fill->bx + half, cj = cellOf(pz) - fill->bz + half;
+			if (ci >= 0 && ci < fill->n && cj >= 0 && cj < fill->n)
+				cellPts.push_back({ (uint32_t)(ci * fill->n + cj), { (float)px, (float)pz, (float)p.y, (float)(p.d * WALK_STEP) } });
 			if (p.i * p.i + p.j * p.j >= R * R) continue;
 			for (int di = -1; di <= 1; di++) for (int dj = -1; dj <= 1; dj++) {
 				if (!di && !dj) continue;
@@ -572,15 +595,28 @@ double Model::walkDistance(Scratch& s, const V3& end, const V3& from) const {
 				todo.push_back({ qi, qj, *fy, p.d + 1 });
 			}
 		}
-		if (s.walkFills.size() > 256) s.walkFills.clear();
+		// (by cell, each cell's points in fill order, as the map's vectors had them)
+		std::stable_sort(cellPts.begin(), cellPts.end(), [](const auto& a, const auto& b) { return a.first < b.first; });
+		fill->first.assign((size_t)fill->n * fill->n + 1, 0);
+		for (const auto& cp : cellPts) fill->first[cp.first + 1]++;
+		for (size_t c = 1; c < fill->first.size(); c++) fill->first[c] += fill->first[c - 1];
+		fill->pts.reserve(cellPts.size());
+		for (const auto& cp : cellPts) fill->pts.push_back(cp.second);
+		// (at most 2M points a thread, 32 MB: as many fills as fit, 257 at most as before)
+		if (s.walkFills.size() > 256 || s.walkFillPts + fill->pts.size() > (2u << 20)) { s.walkFills.clear(); s.walkFillPts = 0; }
+		s.walkFillPts += fill->pts.size();
 		fit = s.walkFills.emplace(fillKey, std::move(fill)).first;
 	}
 	const Scratch::WalkFill& fill = *fit->second;
 	double best = -1;
 	for (int di = -1; di <= 1; di++) for (int dj = -1; dj <= 1; dj++) {
-		auto c = fill.find(cellKey(end.x + di * WALK_STEP, end.z + dj * WALK_STEP));
-		if (c == fill.end()) continue;
-		for (const auto& q : c->second) if (nearEnd(q[0], q[1], q[2]) && (best < 0 || q[3] < best)) best = q[3];
+		const int64_t ci = cellOf(end.x + di * WALK_STEP) - fill.bx + (fill.n / 2), cj = cellOf(end.z + dj * WALK_STEP) - fill.bz + (fill.n / 2);
+		if (ci < 0 || ci >= fill.n || cj < 0 || cj >= fill.n) continue;
+		const size_t c = (size_t)(ci * fill.n + cj);
+		for (uint32_t k = fill.first[c]; k < fill.first[c + 1]; k++) {
+			const auto& q = fill.pts[k];
+			if (nearEnd(q[0], q[1], q[2]) && (best < 0 || q[3] < best)) best = q[3];
+		}
 	}
 	return best;
 }
