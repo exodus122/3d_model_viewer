@@ -23,7 +23,7 @@ import { renderOOTActors } from './oot_actors.js';
 import { addModelCheckbox, buildGeometry, buildTest, deferGroupBuild } from './render.js';
 import { setupWallPushClipUI } from './wall_push_clips.js';
 import { installWaterboxDepthToggle } from './waterboxes.js';
-import { parseDK64Collision, buildDK64TexturedMesh, buildDK64Water } from './dk64_map.js';
+import { parseDK64Collision, buildDK64TexturedMesh, buildDK64Water, parseDK64Water } from './dk64_map.js';
 import { attachTextured, clearTexturedPairs } from './bk_textured.js';
 import { renderDK64Setup } from './dk64_setup.js';
 
@@ -506,13 +506,21 @@ async function loadSelectedMap(game) {
             if (entry && entry.name === "Main Model") attachTextured(entry.mesh, textured, entry.edges);
 
             // Water surfaces (their own row: they are drawn by the game's water
-            // code, not the map's display lists)
-            const water = await buildDK64Water(geometry);
-            if (water) {
-                scene.add(water);
-                loadedModels.push({ name: water.name, root: water, mesh: water, edges: null });
-                // no swatch (colorTarget false): it would tint the first surface
-                addModelCheckbox(scene, water.name, water, null, false, true, null, false, false);
+            // code, not the map's display lists). Like BK / BT's XLU model, a
+            // plain polygon row with the textured water hung under it, so the
+            // Textures checkbox swaps between them.
+            const waterRects = parseDK64Water(new DataView(geometry));
+            if (waterRects.length) {
+                const waterVerts = [], waterTris = [];
+                for (const w of waterRects) {
+                    const i = waterVerts.length;
+                    waterVerts.push([w.x0, w.y, w.z0], [w.x0, w.y, w.z1], [w.x1, w.y, w.z1], [w.x1, w.y, w.z0]);
+                    waterTris.push([i, i + 1, i + 2], [i, i + 2, i + 3]);
+                }
+                buildGeometry(scene, waterVerts, waterTris, null, null, "Water", false);
+                const waterEntry = loadedModels[loadedModels.length - 1];
+                const water = await buildDK64Water(geometry);
+                if (water && waterEntry?.name === "Water") attachTextured(waterEntry.mesh, water, waterEntry.edges);
             }
 
             // Sky gradient / moon / backdrop drawn behind the map (sky.js)
