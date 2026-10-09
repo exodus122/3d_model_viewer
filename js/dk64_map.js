@@ -440,7 +440,7 @@ function walkDK64DisplayList(dv, dlStart, dlEnd, opts) {
     const tmemAnimation = new Map();   // texture id -> { frames, delay } (opts.animatedTextures)
     let timg = { id: -1, fmt: 0, siz: 0 };
     let texOn = false, texTile = 0, texScaleS = 1, texScaleT = 1;
-    let geometryMode = 0, renderMode = 0, combineUsesTexture = true;
+    let geometryMode = 0, renderMode = 0, combineUsesTexture = true, combineAlphaUsesTexture = true;
 
     const batches = new Map();
     const batchFor = (key, props) => {
@@ -467,6 +467,7 @@ function walkDK64DisplayList(dv, dlStart, dlEnd, opts) {
         }
         const animation = tmemAnimation.get(id);
         return { id, palette, fmt: tile.fmt, siz: tile.siz, width, height, line: tile.line, cms: tile.cms, cmt: tile.cmt,
+                 alpha: combineAlphaUsesTexture,
                  frames: animation ? animation.frames.map(f => f | TABLE7_TEXTURE) : null, delay: animation?.delay ?? 0 };
     };
 
@@ -478,7 +479,7 @@ function walkDK64DisplayList(dv, dlStart, dlEnd, opts) {
         const xlu = (renderMode & RM_FORCE_BL) !== 0 && (renderMode & RM_Z_UPD) === 0;
         const decal = (renderMode & RM_ZMODE_DEC) === RM_ZMODE_DEC;
         const cull = geometryMode & (G_CULL_BACK | G_CULL_FRONT);
-        const texKey = tex ? `${tex.id}/${tex.palette}/${tex.fmt}/${tex.siz}/${tex.width}x${tex.height}/${tex.line}/${tex.cms}/${tex.cmt}` : 'none';
+        const texKey = tex ? dk64TextureKey(tex) : 'none';
         const batch = batchFor(`${texKey}|${xlu}|${decal}|${cull}`, { texture: tex, xlu, decal, cull });
         const lit = (geometryMode & G_LIGHTING) !== 0;
         const ss = shiftScale(tile.shifts) * texScaleS / 32;
@@ -549,8 +550,13 @@ function walkDK64DisplayList(dv, dlStart, dlEnd, opts) {
                 // cycle 1 colour inputs a, b, c, d: 1 = TEXEL0, 2 = TEXEL1
                 const a = (w0 >>> 20) & 0xF, c = (w0 >>> 15) & 0x1F;
                 const b = (w1 >>> 28) & 0xF, d = (w1 >>> 15) & 0x7;
-                combineUsesTexture = [a, b, c, d].some(x => x === 1 || x === 2) ||
-                    [(w0 >>> 12) & 0x7, (w1 >>> 12) & 0x7, (w0 >>> 9) & 0x7, (w1 >>> 9) & 0x7].some(x => x === 1 || x === 2);
+                // alpha inputs a, b, c, d of both cycles: 1 = TEXEL0, 2 = TEXEL1.
+                // G_CC_MODULATERGB (Isles' Krem Isle plating) takes alpha from
+                // SHADE only, so its texture's alpha must not cut holes.
+                const alphaInputs = [(w0 >>> 12) & 7, (w1 >>> 12) & 7, (w0 >>> 9) & 7, (w1 >>> 9) & 7,
+                                     (w1 >>> 21) & 7, (w1 >>> 3) & 7, (w1 >>> 18) & 7, w1 & 7];
+                combineAlphaUsesTexture = alphaInputs.some(x => x === 1 || x === 2);
+                combineUsesTexture = [a, b, c, d].some(x => x === 1 || x === 2) || combineAlphaUsesTexture;
                 break;
             }
             case G_SETTIMG: {
@@ -828,6 +834,11 @@ export function animateDK64Materials(materials) {
     }
 }
 
+/** A texture's batch / cache key: its source and how it's sampled and combined. */
+function dk64TextureKey(tex) {
+    return `${tex.id}/${tex.palette}/${tex.fmt}/${tex.siz}/${tex.width}x${tex.height}/${tex.line}/${tex.cms}/${tex.cmt}/${tex.alpha}`;
+}
+
 export async function buildDK64Parts(batches) {
     const ids = new Set();
     for (const b of batches) {
@@ -841,12 +852,14 @@ export async function buildDK64Parts(batches) {
 
     const textures = new Map();
     const textureFor = (tex) => {
-        const key = `${tex.id}/${tex.palette}/${tex.fmt}/${tex.siz}/${tex.width}x${tex.height}/${tex.line}/${tex.cms}/${tex.cmt}`;
+        const key = dk64TextureKey(tex);
         if (textures.has(key)) return textures.get(key);
         const bytes = files.get(tex.id);
         let texture = null;
         if (bytes) {
             const rgba = decodeDK64Texture(bytes, tex, tex.palette >= 0 ? files.get(tex.palette) : null);
+            // the combiner ignores the texture's alpha: draw it opaque
+            if (tex.alpha === false) for (let i = 3; i < rgba.length; i += 4) rgba[i] = 255;
             texture = new THREE.DataTexture(rgba, tex.width, tex.height, THREE.RGBAFormat);
             texture.flipY = false;
             texture.colorSpace = THREE.SRGBColorSpace;
