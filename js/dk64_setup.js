@@ -181,7 +181,8 @@ function loadModel(kind, id) {
                     parts.plainEdgeMaterial = flat.edges;
                     parts.plainEdges = new THREE.WireframeGeometry(parts.geometry);
                     if (kind === 'props') {
-                        parts.collision = buildCollisionGeometry(parseDK64PropCollision(buffer));
+                        parts.rawCollision = parseDK64PropCollision(buffer);
+                        parts.collision = buildCollisionGeometry(parts.rawCollision);
                     } else {
                         // actors: hit spheres, and standable collision for some (boulders, cages)
                         const collision = parseDK64ActorCollision(buffer);
@@ -282,6 +283,71 @@ const PLAIN_STYLES = {
 
 // { textured, plain, plainEdges, collision, edges } per model placement in the current map
 const propViews = [];
+
+// Each placed prop's collision (parseDK64PropCollision), setup id and
+// placement matrix, for the ledge markers (getDK64PropCollisionWorld).
+const propCollisionPlacements = [];
+
+/**
+ * The prop setup ids whose behaviour script (scripts.bin, pointer table 10)
+ * lets their floors be ledge-grabbed: script command 0x39 with a non-zero
+ * argument sets the prop's Prop_ScriptData +0x4F (code_42630.c), which the
+ * floor query (asm 0x806694D8) requires for a prop floor; without it (or
+ * without a script) a prop's floors can't be grabbed. The file: u16 script
+ * count, then per script u16 prop id, u16 block count, u16; per block u16
+ * condition count + 8-byte instructions, u16 execution count + 8-byte
+ * instructions (s16 opcode, s16 args[3]). Conditions aren't evaluated: any
+ * 0x39 with a non-zero argument counts.
+ */
+export function parseDK64LedgeScripts(buffer) {
+    const ids = new Set();
+    if (!buffer || buffer.byteLength < 2) return ids;
+    const dv = new DataView(buffer);
+    let o = 2;
+    try {
+        for (let s = dv.getUint16(0, false); s > 0; s--) {
+            const id = dv.getUint16(o, false), blocks = dv.getUint16(o + 2, false);
+            o += 6;
+            for (let b = 0; b < blocks; b++) {
+                o += 2 + 8 * dv.getUint16(o, false);
+                const executions = dv.getUint16(o, false);
+                o += 2;
+                for (let k = 0; k < executions; k++, o += 8) {
+                    if (dv.getInt16(o, false) === 0x39 && dv.getInt16(o + 2, false) !== 0) ids.add(id);
+                }
+            }
+        }
+    } catch { /* truncated: keep what was read */ }
+    return ids;
+}
+
+const FLOOR_FLAG_NO_LEDGE_GRAB = 0x0008;   // as dk64_map.js findDK64Ledges
+
+/**
+ * The current map's prop collision in world units, as parseDK64Collision
+ * gives a map's: { floors: { verts, tris, info }, walls: { verts, tris } }.
+ * Floors of props not in `grabbableIds` (parseDK64LedgeScripts) carry the
+ * no-grab flag.
+ */
+export function getDK64PropCollisionWorld(grabbableIds = new Set()) {
+    const floors = { verts: [], tris: [], info: [] }, walls = { verts: [], tris: [] };
+    const v = new THREE.Vector3();
+    for (const { raw, matrix, id } of propCollisionPlacements) {
+        const flag = grabbableIds.has(id) ? 0 : FLOOR_FLAG_NO_LEDGE_GRAB;
+        for (const [corners, out, isFloor] of [[raw.floors, floors, true], [raw.walls, walls, false]]) {
+            for (let t = 0; t + 9 <= corners.length; t += 9) {
+                const base = out.verts.length;
+                for (let k = 0; k < 3; k++) {
+                    v.set(corners[t + 3 * k], corners[t + 3 * k + 1], corners[t + 3 * k + 2]).applyMatrix4(matrix);
+                    out.verts.push([v.x, v.y, v.z]);
+                }
+                out.tris.push([base, base + 1, base + 2]);
+                if (isFloor) out.info.push({ fields: [flag, 0, 0], prop: id });
+            }
+        }
+    }
+    return { floors, walls };
+}
 
 function refreshPropViews() {
     const textured = texturesCheckbox ? texturesCheckbox.checked : true;
@@ -443,6 +509,10 @@ function addRow(scene, groupBody, rowName, list, parts, color, place, describe, 
             // a model with collision views: textured / flat / collision (propInstance)
             const instance = propInstance(parts, describe(item));
             place(item, instance, true);
+            if (parts.rawCollision) {
+                instance.updateMatrix();
+                propCollisionPlacements.push({ raw: parts.rawCollision, matrix: instance.matrix.clone(), id: item.id });
+            }
             if (hitboxKind) addHitSpheres(instance, hitboxKind, parts.hitSpheres);
             row.add(instance);
             continue;
@@ -508,6 +578,7 @@ const rowLabel = (name, list) => list.length > 1 ? `${name} (x${list.length})` :
 export async function renderDK64Setup(scene, setupBuffer, spawnersBuffer, triggersBuffer) {
     for (const [key] of GROUPS) resetGroupModelState(key);
     propViews.length = 0;
+    propCollisionPlacements.length = 0;
     hitboxes.length = 0;
     const { props, actors } = parseDK64Setup(setupBuffer);
     const enemies = spawnersBuffer ? parseDK64Spawners(spawnersBuffer) : [];

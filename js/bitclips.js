@@ -48,7 +48,9 @@ import { OVERLAY_RENDER_ORDER } from './bk_textured.js';
 //    rounded sum can land above 1. Most common on skinny triangles. Sampled
 //    on a log scale towards both ends of the edge, plus evenly along it,
 //    each sample stepped a few floats across the seam.
-// An edge whose gaps are rarer than the sampling can still be missed.
+// The rows run this again on the edges still clean with more samples (the
+// fine passes below). An edge whose gaps are rarer than the finest pass's
+// sampling can still be missed.
 
 const COARSE_SAMPLES = 64;   // per snapping stretch
 const COARSE_OFFSETS = 8;    // random offsets per sample
@@ -145,8 +147,9 @@ function snappingStretches(a, b, i, d, tris) {
     return out;
 }
 
-// True when a gap point was found near the edge a-b.
-function edgeHasGap(a, b, edgeTris, tris) {
+// True when a gap point was found near the edge a-b. round picks the random
+// samples: each round is a fresh set, and the fine passes run more rounds.
+function edgeHasGap(a, b, edgeTris, tris, round = 0) {
     const d = [b[0] - a[0], b[1] - a[1], b[2] - a[2]];
     let i = 0;
     if (Math.abs(d[1]) > Math.abs(d[i])) i = 1;
@@ -161,8 +164,9 @@ function edgeHasGap(a, b, edgeTris, tris) {
     const used = [0, 1, 2].filter(c => tris.some(t => t.primary !== c));
     const j = used.find(c => c !== i);
 
-    // deterministic per edge, so a map always shows the same edges
-    let seed = (Math.imul(a[0], 73856093) ^ Math.imul(a[2], 19349663) ^ Math.imul(b[1], 83492791)) >>> 0;
+    // deterministic per edge and round, so a map always shows the same edges
+    let seed = (Math.imul(a[0], 73856093) ^ Math.imul(a[2], 19349663) ^ Math.imul(b[1], 83492791) ^
+        Math.imul(round, 0x9E3779B1)) >>> 0;
     const rnd = () => (seed = (Math.imul(seed, 1103515245) + 12345) >>> 0) / 4294967296;
 
     const p = [0, 0, 0], q = [0, 0, 0];
@@ -272,11 +276,17 @@ function bitclipJobs(positions, indices) {
  * segment endpoints (6 numbers per edge). Synchronous; the rows below run
  * the same search in time slices.
  */
-export function findBitclipEdges(positions, indices) {
+export function findBitclipEdges(positions, indices, rounds = 1) {
     const out = [];
     const done = new Set();
+    const hasGap = job => {
+        for (let r = 0; r < rounds; r++) {
+            if (edgeHasGap(job.edge.a, job.edge.b, job.edgeTris, job.tris, r)) return true;
+        }
+        return false;
+    };
     for (const job of bitclipJobs(positions, indices)) {
-        if (done.has(job.edge) || !edgeHasGap(job.edge.a, job.edge.b, job.edgeTris, job.tris)) continue;
+        if (done.has(job.edge) || !hasGap(job)) continue;
         done.add(job.edge);
         out.push(...job.edge.a, ...job.edge.b);
     }
@@ -290,7 +300,21 @@ export function findBitclipEdges(positions, indices) {
 // The search takes a few seconds on a big map, so a row starts empty and
 // searches the first time it is shown, a slice at a time, its edges
 // appearing as they are found and its label counting them.
+//
+// Then it keeps going: fine passes search the edges still clean again with
+// several times the samples, as that many rounds of fresh ones (edgeHasGap's
+// round), one round at a time so no slice blocks the page for long (the
+// longest single round on TTC is about 0.1 s). Rarer gaps turn up that way,
+// with less each time: TTC's "Bitclip Edges" has about 1150 edges after the
+// first pass (a few seconds) and 1500 when the fine passes end, about a
+// minute and a half in (its actors' 2235 -> 2384, searching alongside).
 
+// Off for now: the rows aren't accurate yet, so neither is added to the
+// sidebar (nor searched). Set to true to bring them back.
+const SHOW_BITCLIP_ROWS = false;
+
+const PASSES = [1, 4, 16];  // rounds per pass
+const FIRST_ROUND = PASSES.map((_, p) => PASSES.slice(0, p).reduce((s, n) => s + n, 0));
 const BITCLIP_COLOR = '#ff00ff';
 const SLICE_MS = 25;
 
@@ -319,29 +343,57 @@ function makeBitclipRow(scene, name) {
     const labelText = rowEl?.querySelector('.model-label-text');
     const checkbox = rowEl?.querySelector('.model-label > input[type="checkbox"]');
 
-    const row = { lines, sources: [], points: [], edgeCount: 0, running: false, sourceIndex: 0, jobs: null, jobIndex: 0 };
-    const setLabel = text => { if (labelText) labelText.textContent = text; };
+    // Where the search is: PASSES[pass], then sources[sourceIndex]'s jobs
+    // from jobIndex. A source's jobs and the edges found in it (done) are
+    // kept on the source, so later passes only redo the edges still clean.
+    const row = { lines, sources: [], points: [], edgeCount: 0, running: false, pass: 0, sourceIndex: 0, jobIndex: 0, round: 0 };
+    const setLabel = (text, title = text) => {
+        if (!labelText) return;
+        labelText.textContent = text;
+        labelText.title = title;
+    };
+    const finished = () => row.pass >= PASSES.length;
 
     const step = () => {
         if (!lines.parent) { row.running = false; return; } // scene cleared: a new map loaded
         const start = performance.now();
         let found = false;
-        while (performance.now() - start < SLICE_MS) {
+        while (!finished() && performance.now() - start < SLICE_MS) {
             const source = row.sources[row.sourceIndex];
-            if (!source) break;
-            if (!row.jobs) {
-                row.jobs = bitclipJobs(source.positions, source.indices);
+            if (!source) {
+                // every source done at this scale: the next, finer pass
+                row.pass++;
+                row.sourceIndex = 0;
                 row.jobIndex = 0;
-                row.doneEdges = new Set();
+                row.round = 0;
+                if (!finished()) console.log(`${name}: ${row.edgeCount} edges, fine pass x${PASSES[row.pass]}`);
+                continue;
             }
-            const job = row.jobs[row.jobIndex++];
-            if (!job) {
-                row.jobs = null;
+            if ((source.passesDone ?? 0) > row.pass) { // added before a restart, already done
                 row.sourceIndex++;
                 continue;
             }
-            if (row.doneEdges.has(job.edge) || !edgeHasGap(job.edge.a, job.edge.b, job.edgeTris, job.tris)) continue;
-            row.doneEdges.add(job.edge);
+            source.jobs ??= bitclipJobs(source.positions, source.indices);
+            source.done ??= new Set();
+            const job = source.jobs[row.jobIndex];
+            if (!job) {
+                source.passesDone = row.pass + 1;
+                row.sourceIndex++;
+                row.jobIndex = 0;
+                continue;
+            }
+            // one round of one edge at a time, so no slice runs long
+            if (source.done.has(job.edge)) {
+                row.jobIndex++;
+                row.round = 0;
+                continue;
+            }
+            const gap = edgeHasGap(job.edge.a, job.edge.b, job.edgeTris, job.tris, FIRST_ROUND[row.pass] + row.round);
+            if (!gap && ++row.round < PASSES[row.pass]) continue;
+            row.jobIndex++;
+            row.round = 0;
+            if (!gap) continue;
+            source.done.add(job.edge);
             const v = new THREE.Vector3();
             for (const m of source.matrices) {
                 for (const end of [job.edge.a, job.edge.b]) {
@@ -358,19 +410,42 @@ function makeBitclipRow(scene, name) {
             geometry.computeBoundingSphere();
         }
 
-        if (row.sourceIndex >= row.sources.length) {
+        if (finished()) {
             row.running = false;
             setLabel(`${name} (${row.edgeCount})`);
             console.log(`${name}: ${row.edgeCount} edges`);
             return;
         }
-        const part = row.jobs ? row.jobIndex / Math.max(row.jobs.length, 1) : 0;
-        setLabel(`${name} (searching ${Math.floor(100 * (row.sourceIndex + part) / row.sources.length)}%)`);
+        const jobs = row.sources[row.sourceIndex]?.jobs;
+        const part = jobs ? row.jobIndex / Math.max(jobs.length, 1) : 0;
+        const percent = Math.floor(100 * (row.sourceIndex + part) / row.sources.length);
+        if (row.pass === 0) {
+            setLabel(`${name} (searching ${percent}%)`);
+        } else {
+            const fine = Math.floor((100 * (row.pass - 1) + percent) / (PASSES.length - 1));
+            setLabel(`${name} (${row.edgeCount}, refining ${fine}%)`,
+                `${name}: ${row.edgeCount} edges so far; fine pass ${row.pass} of ${PASSES.length - 1} ` +
+                `(x${PASSES[row.pass]} samples on the edges still clean), ${percent}%`);
+        }
         setTimeout(step, 0);
     };
 
+    // A source added once the search is past the first pass (the map's next
+    // model file) starts it over from the first pass; the sources already
+    // through a pass are skipped in it.
+    row.addSources = sources => {
+        row.sources.push(...sources);
+        if (row.pass > 0) {
+            row.pass = 0;
+            row.sourceIndex = 0;
+            row.jobIndex = 0;
+            row.round = 0;
+        }
+        row.ensureRunning();
+    };
+
     row.ensureRunning = () => {
-        if (row.running || !lines.visible || row.sourceIndex >= row.sources.length) return;
+        if (row.running || !lines.visible || finished()) return;
         row.running = true;
         setTimeout(step, 0);
     };
@@ -389,10 +464,10 @@ let mapRow = null;
  * offset: [x, y, z] translation of the model.
  */
 export function addMapBitclipEdges(scene, positions, indices, fresh, offset = null) {
+    if (!SHOW_BITCLIP_ROWS) return;
     if (fresh || !mapRow?.lines.parent) mapRow = makeBitclipRow(scene, 'Bitclip Edges');
     const matrix = offset ? new THREE.Matrix4().makeTranslation(offset[0], offset[1], offset[2]) : null;
-    mapRow.sources.push({ positions, indices, matrices: [matrix] });
-    mapRow.ensureRunning();
+    mapRow.addSources([{ positions, indices, matrices: [matrix] }]);
 }
 
 /**
@@ -401,6 +476,7 @@ export function addMapBitclipEdges(scene, positions, indices, fresh, offset = nu
  * { mesh, loaded } prop instances (bk_setup.js's getPropInstances).
  */
 export function addActorBitclipEdges(scene, instances) {
+    if (!SHOW_BITCLIP_ROWS) return;
     const byModel = new Map(); // loaded -> source
     for (const inst of instances) {
         const geometry = inst.loaded?.collision?.geometry;
@@ -414,7 +490,5 @@ export function addActorBitclipEdges(scene, instances) {
         source.matrices.push(inst.mesh.matrixWorld.clone());
     }
     if (byModel.size === 0) return;
-    const row = makeBitclipRow(scene, 'Actor Bitclip Edges');
-    row.sources.push(...byModel.values());
-    row.ensureRunning();
+    makeBitclipRow(scene, 'Actor Bitclip Edges').addSources([...byModel.values()]);
 }

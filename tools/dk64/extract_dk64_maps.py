@@ -13,6 +13,7 @@ Reads <dk64>/baserom.us.z64 and the map names from <dk64>/include/enums.h
   models/DK64/<NNN>_<NAME>/setup.bin      pointer table 9, decompressed
   models/DK64/<NNN>_<NAME>/spawners.bin   pointer table 16 (enemies)
   models/DK64/<NNN>_<NAME>/triggers.bin   pointer table 18 (loading zones)
+  models/DK64/<NNN>_<NAME>/scripts.bin    pointer table 10 (prop behaviour scripts)
   models/DK64/textures/<ID>.bin           pointer table 25 entries the map
                                           display lists use (G_SETTIMG
                                           segment 0), decompressed
@@ -224,6 +225,7 @@ TABLE_PROP_GEOMETRY = 4
 TABLE_ACTOR_GEOMETRY = 5
 TABLE_SPAWNERS = 16
 TABLE_TRIGGERS = 18
+TABLE_SCRIPTS = 10
 
 GLOBAL_ASM_CODE_ROM = 0x113F0
 GLOBAL_ASM_DATA_ROM = 0xC29D4
@@ -541,6 +543,7 @@ def main():
         spawners = rom.file(TABLE_SPAWNERS, map_id)
         write(os.path.join(out_dir, dir_name, "spawners.bin"), spawners)
         write(os.path.join(out_dir, dir_name, "triggers.bin"), rom.file(TABLE_TRIGGERS, map_id) or b"")
+        write(os.path.join(out_dir, dir_name, "scripts.bin"), rom.file(TABLE_SCRIPTS, map_id) or b"")
         props, actors = setup_objects(setup)
         prop_types.update(props)
         actor_models.update(setup_models[a] for a in actors if a in setup_models)

@@ -702,6 +702,183 @@ export async function loadDK64Texture(name, info, paletteName = null) {
     return texture;
 }
 
+// --- ledges ------------------------------------------------------------------
+//
+// Ledge grabs (control state 0x5B, global_asm code_CEAE0.c func_806CF9CC):
+// while falling more than 15 above its own floor, with a wall in front (or
+// moving slowly), a Kong probes for a floor 15 units ahead (30 in the Dogadon
+// arenas), searching down from 30 above itself. It grabs when that floor
+//   - has bit 0x0008 of its u16 flags (+0x12) clear (func_80666428 sets the
+//     "grabbable" byte 0x807F94AB unless the bit is set), and
+//   - is within ~10.8 degrees of flat (its normal's elevation, in 4096ths of
+//     a turn, >= 0x385; flat = 0x400),
+// and its height is 5..15 above the Kong's grab height (y + a per-kong
+// offset, D_80753E00). A prop's floors are a separate candidate (asm
+// 0x806694D8): grabbable only when its behaviour script set Prop_ScriptData
+// +0x4F (dk64_setup.js parseDK64LedgeScripts), whatever the floor's own bytes
+// (prop floors don't use map floors' flag layout).
+// So a ledge is the edge of such a floor where the
+// ground drops away: here, a flat floor triangle's edge that no other floor
+// continues from and no wall rises from, with a face going down from it to
+// climb up to: a wall, or a steep floor (cliff faces are often floor
+// triangles in floors.bin). Open edges with nothing below (the map's outer
+// rim) are left out.
+const FLOOR_FLAG_NO_LEDGE_GRAB = 0x0008;
+const LEDGE_MAX_SLOPE = (0x400 - 0x385) * Math.PI * 2 / 4096;
+const LEDGE_DROP_SLOPE = Math.PI / 4;   // a floor this steep, going down, is a drop
+const LEDGE_RIBBON_DEPTH = 15;   // the band below a ledge drawn as its marker
+
+/**
+ * Ledge edges of the map's floors.
+ * -> { grab: [[a, b, out]], noGrab: [[a, b, out]] }, a / b world points,
+ * out the unit horizontal direction away from the floor.
+ */
+export function findDK64Ledges(floors, walls) {
+    // Wall edges, keyed by their midpoint on a 4-unit grid
+    const cell = p => p.map(v => Math.round(v / 4)).join(',');
+    const wallEdges = new Map();
+    for (const tri of walls.tris) {
+        for (let k = 0; k < 3; k++) {
+            const a = walls.verts[tri[k]], b = walls.verts[tri[(k + 1) % 3]], c = walls.verts[tri[(k + 2) % 3]];
+            const key = cell([(a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (a[2] + b[2]) / 2]);
+            if (!wallEdges.has(key)) wallEdges.set(key, []);
+            wallEdges.get(key).push({ a, b, other: c });
+        }
+    }
+    const near = (p, q) => Math.abs(p[0] - q[0]) <= 2 && Math.abs(p[1] - q[1]) <= 2 && Math.abs(p[2] - q[2]) <= 2;
+    // The walls on edge a-b: 'rises' if one's third corner is above the edge
+    // (it blocks the ledge), else 'drops' if one goes down from it, else null
+    const wallsOn = (a, b) => {
+        const m = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (a[2] + b[2]) / 2].map(v => Math.round(v / 4));
+        const top = Math.max(a[1], b[1]), low = Math.min(a[1], b[1]);
+        let drops = false;
+        for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) for (let dz = -1; dz <= 1; dz++) {
+            for (const e of wallEdges.get(`${m[0] + dx},${m[1] + dy},${m[2] + dz}`) ?? []) {
+                if (!((near(e.a, a) && near(e.b, b)) || (near(e.a, b) && near(e.b, a)))) continue;
+                if (e.other[1] > top + 1) return 'rises';
+                if (e.other[1] < low - 1) drops = true;
+            }
+        }
+        return drops ? 'drops' : null;
+    };
+
+    // The distinct triangles on each edge (a triangle can be stored more than
+    // once with different flag words) and each triangle's slope.
+    const slope = tri => {
+        const [p, q, r] = tri.map(i => floors.verts[i]);
+        const u = [q[0] - p[0], q[1] - p[1], q[2] - p[2]], v = [r[0] - p[0], r[1] - p[1], r[2] - p[2]];
+        const n = [u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2], u[0] * v[1] - u[1] * v[0]];
+        return Math.PI / 2 - Math.atan2(Math.abs(n[1]), Math.hypot(n[0], n[2]));
+    };
+    const edgeKey = (i, j) => i < j ? i + ',' + j : j + ',' + i;
+    const edgeTris = new Map();
+    const distinct = new Map();   // sorted corner key -> triangle
+    for (const tri of floors.tris) {
+        const key = [...tri].sort((x, y) => x - y).join(',');
+        if (distinct.has(key)) continue;
+        const entry = { tri, key, slope: slope(tri) };
+        distinct.set(key, entry);
+        for (let k = 0; k < 3; k++) {
+            const e = edgeKey(tri[k], tri[(k + 1) % 3]);
+            if (!edgeTris.has(e)) edgeTris.set(e, []);
+            edgeTris.get(e).push(entry);
+        }
+    }
+    // Edge i-j of triangle `key`: null if a walkable floor continues from it,
+    // else whether a steep floor goes down from it
+    const floorsOn = (i, j, key) => {
+        const low = Math.min(floors.verts[i][1], floors.verts[j][1]);
+        let steepDrop = false;
+        for (const o of edgeTris.get(edgeKey(i, j))) {
+            if (o.key === key) continue;
+            const third = o.tri.find(x => x !== i && x !== j);
+            if (!(o.slope > LEDGE_DROP_SLOPE && floors.verts[third][1] < low - 1)) return null;
+            steepDrop = true;
+        }
+        return { steepDrop };
+    };
+
+    const grab = [], noGrab = [];
+    const done = new Set();   // edge + grabbability already listed
+    floors.tris.forEach((tri, t) => {
+        if (slope(tri) > LEDGE_MAX_SLOPE) return;
+        const [p, q, r] = tri.map(i => floors.verts[i]);
+        const key = [...tri].sort((x, y) => x - y).join(',');
+        const centre = [(p[0] + q[0] + r[0]) / 3, (p[2] + q[2] + r[2]) / 3];
+        const list = (floors.info[t].fields[0] & FLOOR_FLAG_NO_LEDGE_GRAB) ? noGrab : grab;
+        for (let k = 0; k < 3; k++) {
+            const e = edgeKey(tri[k], tri[(k + 1) % 3]);
+            if (done.has(e + (list === grab))) continue;
+            const onEdge = floorsOn(tri[k], tri[(k + 1) % 3], key);
+            if (!onEdge) continue;
+            done.add(e + (list === grab));
+            const a = floors.verts[tri[k]], b = floors.verts[tri[(k + 1) % 3]];
+            const wall = wallsOn(a, b);
+            if (wall === 'rises' || (wall !== 'drops' && !onEdge.steepDrop)) continue;
+            // horizontal normal of the edge, pointing away from the floor
+            let out = [b[2] - a[2], a[0] - b[0]];
+            const len = Math.hypot(out[0], out[1]);
+            if (len < 1e-6) continue;
+            out = [out[0] / len, out[1] / len];
+            const mid = [(a[0] + b[0]) / 2, (a[2] + b[2]) / 2];
+            if ((mid[0] - centre[0]) * out[0] + (mid[1] - centre[1]) * out[1] < 0) out = [-out[0], -out[1]];
+            list.push([a, b, out]);
+        }
+    });
+    return { grab, noGrab };
+}
+
+/**
+ * Collision from several sources ({ verts, tris, info? }, world units) as
+ * one, corners within 0.05 merged so edges shared across sources line up.
+ */
+export function mergeDK64Collision(sources) {
+    const verts = [], tris = [], info = [];
+    const index = new Map();
+    const vertex = p => {
+        const key = p.map(v => Math.round(v * 20)).join(',');
+        let i = index.get(key);
+        if (i === undefined) {
+            i = verts.length;
+            verts.push(p);
+            index.set(key, i);
+        }
+        return i;
+    };
+    for (const source of sources) {
+        source.tris.forEach((tri, n) => {
+            tris.push(tri.map(i => vertex(source.verts[i])));
+            info.push(source.info?.[n] ?? { fields: [0, 0, 0] });
+        });
+    }
+    return { verts, tris, info };
+}
+
+/** A ledge marker: the edges as lines over a band hanging below them. */
+export function buildDK64LedgeMarker(edges, color) {
+    const ribbon = [], lines = [];
+    for (const [a, b, out] of edges) {
+        // nudged off the floor so the band doesn't fight the wall below it
+        const o = [out[0] * 0.5, out[1] * 0.5];
+        const A = [a[0] + o[0], a[1], a[2] + o[1]], B = [b[0] + o[0], b[1], b[2] + o[1]];
+        const A2 = [A[0], A[1] - LEDGE_RIBBON_DEPTH, A[2]], B2 = [B[0], B[1] - LEDGE_RIBBON_DEPTH, B[2]];
+        ribbon.push(...A, ...B, ...B2, ...A, ...B2, ...A2);
+        lines.push(...A, ...B);
+    }
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.Float32BufferAttribute(ribbon, 3));
+    const mesh = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial({
+        color, transparent: true, opacity: 0.45, side: THREE.DoubleSide, depthWrite: false }));
+    mesh.renderOrder = 2;
+    const lineGeometry = new THREE.BufferGeometry();
+    lineGeometry.setAttribute('position', new THREE.Float32BufferAttribute(lines, 3));
+    const edgeLines = new THREE.LineSegments(lineGeometry, new THREE.LineBasicMaterial({ color }));
+    edgeLines.userData.unselectable = true;
+    mesh.add(edgeLines);
+    mesh.userData.textured = true;   // keeps its own material (main.js setMaterialProps)
+    return mesh;
+}
+
 // --- water -------------------------------------------------------------------
 
 const WATER_SIZE = 0x6C;

@@ -23,9 +23,10 @@ import { renderOOTActors } from './oot_actors.js';
 import { addModelCheckbox, buildGeometry, buildTest, deferGroupBuild } from './render.js';
 import { setupWallPushClipUI } from './wall_push_clips.js';
 import { installWaterboxDepthToggle } from './waterboxes.js';
-import { parseDK64Collision, buildDK64TexturedMesh, buildDK64Water, parseDK64Water } from './dk64_map.js';
+import { parseDK64Collision, buildDK64TexturedMesh, buildDK64Water, parseDK64Water, findDK64Ledges, buildDK64LedgeMarker,
+         mergeDK64Collision } from './dk64_map.js';
 import { attachTextured, clearTexturedPairs } from './bk_textured.js';
-import { renderDK64Setup } from './dk64_setup.js';
+import { renderDK64Setup, getDK64PropCollisionWorld, parseDK64LedgeScripts } from './dk64_setup.js';
 
 ////////////////////////////////////////
 // System: DOM / Static UI Elements
@@ -530,6 +531,29 @@ async function loadSelectedMap(game) {
             await showLoading(`${mapName}: actors and props…`);
             const [setup, spawners, triggers] = await Promise.all(["setup.bin", "spawners.bin", "triggers.bin"].map(load));
             await renderDK64Setup(scene, setup, spawners, triggers);
+
+            // Ledge grab markers: floor edges a Kong can grab (dk64_map.js
+            // findDK64Ledges), over the map's collision and the placed props'
+            // together (a prop's floor can top a map wall). Off by default.
+            const scripts = await load("scripts.bin").catch(() => null);
+            const propCollision = getDK64PropCollisionWorld(parseDK64LedgeScripts(scripts));
+            const ledges = findDK64Ledges(mergeDK64Collision([floors, propCollision.floors]),
+                                          mergeDK64Collision([walls, propCollision.walls]));
+            for (const [rowName, edges, color] of [
+                ["Grabbable ledges", ledges.grab, 0xffe14d],
+                ["No-grab ledges", ledges.noGrab, 0xff4040],
+            ]) {
+                if (!edges.length) continue;
+                const marker = buildDK64LedgeMarker(edges, color);
+                marker.name = rowName;
+                marker.userData.bkInfo = `${rowName}: ${edges.length} floor edges` + (color === 0xff4040
+                    ? " (map floors with flag 0x8, and prop floors whose script doesn't enable grabs)" : "");
+                scene.add(marker);
+                loadedModels.push({ name: rowName, root: marker, mesh: marker, edges: null });
+                addModelCheckbox(scene, rowName, marker, null, false, false, '#' + color.toString(16).padStart(6, '0'), false, null);
+            }
+            console.log(`${mapDir}: ${ledges.grab.length} grabbable ledge edges, ${ledges.noGrab.length} no-grab ` +
+                        `(${propCollision.floors.tris.length} prop floor triangles)`);
         } catch (err) {
             console.error(err);
         }
