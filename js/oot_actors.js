@@ -6,6 +6,7 @@ import { addTypeRow, makeYawLine, groupBy, ACTOR_COLOR } from './bk_setup.js';
 import { decodeActorSpawnEntry, actorShapeRot, buildDynaPolyActors, ootActorPresent, ootSetupAges } from './render_actors.js';
 import { clearSelection } from './selection.js';
 import { MM_ACTOR_OVERRIDES } from './mm_actor_overrides.js';
+import { renderLoadingPlanes } from './loading_planes.js';
 
 ////////////////////////////////////////
 // System: Ocarina of Time / Majora's Mask actors (every spawn in the scene's
@@ -1968,6 +1969,7 @@ function forEachSetupSpawn(game, sceneDv, setup, setupID, onSpawn) {
     for (const t of transitionActors(sceneDv, setupID, game)) {
         addInstance({ position: t.position }, {
             actorId: t.id & 0x1FFF, params: t.params, rot: [0, t.rotY, 0], rotRaw: [0, t.rotY & 0xFFFF, 0],
+            transition: { frontRoom: t.frontRoom, backRoom: t.backRoom },
         }, t.frontRoom);
     }
 }
@@ -2042,7 +2044,7 @@ export async function renderOOTActors(scene, sceneBuffer, sceneName, game = 'OOT
             position: spawn.position, rot, rotRaw: spawn.rotRaw,
             scale,
             yOffset: (typeof override?.yOffset === 'function' ? override.yOffset(spawn.params) : override?.yOffset) ?? base?.yOffset ?? 0,
-            model,
+            model, transition: spawn.transition ?? null,
         };
         if (override?.place) Object.assign(inst, override.place(inst, collision));
         instances.push(inst);
@@ -2095,6 +2097,7 @@ export async function renderOOTActors(scene, sceneBuffer, sceneName, game = 'OOT
     }
     for (const key of [GROUP_MODELS, GROUP_MARKERS]) applyGroupMasterState(key);
     if (pending.length) pendingModels = { scene, ctx, rows: pending };
+    renderLoadingPlanes(scene, instances, game, sceneName);
 
     console.log(`${sceneName} setup ${setupID}: ${instances.length} actors, ${modelRows} modelled types (${triangles} triangles),` +
                 ` ${markerRows} marker types` + (missing ? `, ${missing} texture loads from unmapped segments` : ''));
