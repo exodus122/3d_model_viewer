@@ -20,6 +20,7 @@ import { renderSky, renderDK64Sky, drawSky } from './sky.js';
 import { loadBTModelTextures } from './bt_textures.js';
 import { renderZeldaSceneTextured, parseZeldaSceneInfo, zeldaRoomFileName, zeldaAreaTextureFileName, ROOM_GROUP_KEY } from './zelda_textured.js';
 import { renderOOTActors } from './oot_actors.js';
+import { renderLoadingPlanes3DS } from './loading_planes.js';
 import { addModelCheckbox, buildGeometry, buildTest, deferGroupBuild } from './render.js';
 import { setupWallPushClipUI } from './wall_push_clips.js';
 import { installWaterboxDepthToggle } from './waterboxes.js';
@@ -603,6 +604,9 @@ async function loadSelectedMap(game) {
                 await showLoading(`${mapName}: actors…`);
                 await renderOOTActors(scene, buffer1, mapFilename, game);
             }
+            // OOT3D / MM3D: no actor rows, but the loading planes (En_Holl) are
+            // read from the scene's transition actor list (loading_planes.js).
+            if (game == "OOT3D" || game == "MM3D") renderLoadingPlanes3DS(scene, buffer1, game, mapFilename);
 
             // The map is in: wall_push_clips.js auto-imports its results
             if (game == "OOT" || game == "MM" || game == "OOT3D" || game == "MM3D") {

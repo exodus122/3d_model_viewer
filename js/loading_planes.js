@@ -219,6 +219,54 @@ function buildHoll(inst, h, game) {
     return g;
 }
 
+// OoT3D / MM3D (.zsi): the same scene commands and TransitionActorEntry as
+// the N64 games, little-endian, with the commands at 0x10 and offsets
+// relative to it. En_Holl is 0x023 in OoT3D, 0x017 in MM3D (0x018 on N64:
+// MM3D's actor table is one short before it). Only the main header's list
+// is read (the 3DS games have no setup picker).
+const ZSI_BASE = 0x10;
+const HOLL_3DS_ID = { OOT3D: 0x023, MM3D: 0x017 };
+
+function zsiTransitionActors(buffer, game) {
+    const dv = new DataView(buffer);
+    for (let off = ZSI_BASE; off + 8 <= dv.byteLength; off += 8) {
+        const cmd = dv.getUint8(off);
+        if (cmd === 0x14) break;
+        if (cmd !== 0x0E) continue;
+        const count = dv.getUint8(off + 1), addr = dv.getUint32(off + 4, true) + ZSI_BASE;
+        const out = [];
+        for (let i = 0; i < count && addr + (i + 1) * 0x10 <= dv.byteLength; i++) {
+            const o = addr + i * 0x10;
+            if ((dv.getInt16(o + 4, true) & 0x1FFF) !== HOLL_3DS_ID[game]) continue;
+            let rotY = dv.getInt16(o + 12, true), params = dv.getUint16(o + 14, true);
+            if (game === 'MM3D') {
+                rotY = Math.trunc(((rotY >> 7) & 0x1FF) * (0x8000 / 180)) << 16 >> 16;
+                params &= 0x3FF;
+            }
+            out.push({
+                name: 'En_Holl', params: ((i << 10) + params) & 0xFFFF,
+                position: [dv.getInt16(o + 6, true), dv.getInt16(o + 8, true), dv.getInt16(o + 10, true)],
+                rot: [0, rotY, 0],
+                transition: { frontRoom: dv.getInt8(o), backRoom: dv.getInt8(o + 2) },
+            });
+        }
+        return out;
+    }
+    return [];
+}
+
+/**
+ * OoT3D / MM3D: the loading planes of a .zsi scene file (sceneFile, e.g.
+ * "jyasinzou_info.zsi"), drawn as the N64 game's.
+ */
+export function renderLoadingPlanes3DS(scene, buffer, game, sceneFile) {
+    const base = sceneFile.replace(/_info\.zsi$/i, '');
+    // The N64 scene names the per-scene sizes are keyed by (a Master Quest
+    // "_dd" file is the same scene).
+    const sceneName = game === 'MM3D' ? base.toUpperCase() : base.replace(/_dd$/i, '') + '_scene';
+    renderLoadingPlanes(scene, zsiTransitionActors(buffer, game), game === 'MM3D' ? 'MM' : 'OOT', sceneName);
+}
+
 /**
  * Draw the scene's En_Holl instances (oot_actors.js's decoded instances,
  * with `transition` = { frontRoom, backRoom } for transition actor spawns)
