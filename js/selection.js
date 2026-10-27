@@ -650,7 +650,7 @@ export function performSelection(ev, renderer, camera, scene) {
         index: triIndex,
         verts: [va, vb, vc],
         modelName: hit.object.name,
-        bkInfo: hit.object.userData.bkInfo ?? null,
+        bkInfo: hit.object.userData.faceInfo?.(triIndex) ?? hit.object.userData.bkInfo ?? null,
         actorInfo: dynaActorInfo(hit.object),
 
         // include metadata if available:

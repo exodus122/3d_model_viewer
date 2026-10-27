@@ -509,14 +509,27 @@ export function applyGroupMasterState(groupKey) {
  * Skip building a group whose master was last left unchecked: create it
  * empty and unchecked, and run build() (which adds its rows, then calls
  * applyGroupMasterState) the first time the master is checked. Returns true
- * when deferred; false means the caller should build now.
+ * when deferred; false means the caller should build now. defaultOn false
+ * defers a group the user never toggled too (it starts unchecked).
  */
-export function deferGroupBuild(groupKey, label, build) {
-    if (groupMasterState.get(groupKey) !== false) return false;
+export function deferGroupBuild(groupKey, label, build, defaultOn = true) {
+    if ((groupMasterState.get(groupKey) ?? defaultOn) !== false) return false;
     const group = getModelGroup(groupKey, label);
     group.pendingBuild = build;
     group.count.textContent = 'not loaded';
     return true;
+}
+
+/**
+ * Show a group (created if need be) as busy while its rows are worked out in
+ * the background: the master is disabled and the count reads `text`. Pass
+ * null to end it.
+ */
+export function setGroupBusy(groupKey, label, text) {
+    const group = getModelGroup(groupKey, label);
+    group.master.disabled = text !== null;
+    if (text !== null) group.count.textContent = text;
+    else syncGroupMaster(group);
 }
 
 /** Take a row (by model name) out of a group box, keeping its master and count in step. */

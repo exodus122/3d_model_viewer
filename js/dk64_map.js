@@ -437,6 +437,7 @@ function walkDK64DisplayList(dv, dlStart, dlEnd, opts) {
     const cache = new Array(64).fill(null);
     const tiles = Array.from({ length: 8 }, emptyTile);
     const tmem = new Map();     // tmem address -> table 25 id loaded there
+    const tmemDxt = new Map();  // tmem address -> G_LOADBLOCK dxt (absent: LOADTILE, rows unswapped)
     const tmemAnimation = new Map();   // texture id -> { frames, delay } (opts.animatedTextures)
     let timg = { id: -1, fmt: 0, siz: 0 };
     let texOn = false, texTile = 0, texScaleS = 1, texScaleT = 1;
@@ -466,7 +467,7 @@ function walkDK64DisplayList(dv, dlStart, dlEnd, opts) {
             palette = tmem.get(palAddr) ?? -1;
         }
         const animation = tmemAnimation.get(id);
-        return { id, palette, fmt: tile.fmt, siz: tile.siz, width, height, line: tile.line, cms: tile.cms, cmt: tile.cmt,
+        return { id, palette, fmt: tile.fmt, siz: tile.siz, width, height, line: tile.line, dxt: tmemDxt.get(tile.tmem), cms: tile.cms, cmt: tile.cmt,
                  alpha: combineAlphaUsesTexture,
                  frames: animation ? animation.frames.map(f => f | TABLE7_TEXTURE) : null, delay: animation?.delay ?? 0 };
     };
@@ -588,10 +589,14 @@ function walkDK64DisplayList(dv, dlStart, dlEnd, opts) {
             }
             case G_LOADBLOCK:
             case G_LOADTILE:
-            case G_LOADTLUT:
-                tmem.set(tiles[(w1 >>> 24) & 7].tmem, timg.id);
+            case G_LOADTLUT: {
+                const addr = tiles[(w1 >>> 24) & 7].tmem;
+                tmem.set(addr, timg.id);
+                if ((w0 >>> 24) === G_LOADBLOCK) tmemDxt.set(addr, w1 & 0xFFF);
+                else tmemDxt.delete(addr);
                 if (timg.animation) tmemAnimation.set(timg.id, timg.animation);
                 break;
+            }
         }
     }
     return [...batches.values()];
@@ -618,12 +623,20 @@ export function decodeDK64Texture(bytes, tex, palette) {
     // LOADBLOCKed tiles); 32-bit texels are split across TMEM's two halves, so
     // their line counts half the row's bytes.
     const stride = tex.line ? tex.line * 8 * (siz === 3 ? 2 : 1) : Math.ceil(width * bitsPerTexel / 8);
+    // TMEM odd rows: the sampler swaps the 32-bit halves of each 64-bit word
+    // on odd rows. G_LOADBLOCK swaps the words it writes while its dxt counter
+    // (+dxt per word) has bit 11 set, so with a matching dxt the two cancel;
+    // a block loaded with dxt 0 (Isles' hedge leaves) must be stored swapped.
+    // 32-bit texels: each TMEM half holds 16 bits of two RDRAM words' texels.
+    const dxt = tex.dxt;
+    const wordBytes = siz === 3 ? 16 : 8, swapBytes = siz === 3 ? 8 : 4;
     const out = new Uint8Array(width * height * 4);
     for (let y = 0; y < height; y++) {
         for (let x = 0; x < width; x++) {
             const p = (y * width + x) * 4;
             const bit = y * stride * 8 + x * bitsPerTexel;
-            const o = bit >> 3;
+            let o = bit >> 3;
+            if (dxt !== undefined && tex.line && ((y & 1) ^ ((Math.floor(o / wordBytes) * dxt >> 11) & 1))) o ^= swapBytes;
             if (o + (bitsPerTexel >> 3) > bytes.length) { out[p] = 255; out[p + 2] = 255; out[p + 3] = 255; continue; }
             const nibble = (bit & 4) ? bytes[o] & 0xF : bytes[o] >> 4;
             if (fmt === FMT_RGBA && siz === 2) {
@@ -1013,7 +1026,7 @@ export function animateDK64Materials(materials) {
 
 /** A texture's batch / cache key: its source and how it's sampled and combined. */
 function dk64TextureKey(tex) {
-    return `${tex.id}/${tex.palette}/${tex.fmt}/${tex.siz}/${tex.width}x${tex.height}/${tex.line}/${tex.cms}/${tex.cmt}/${tex.alpha}`;
+    return `${tex.id}/${tex.palette}/${tex.fmt}/${tex.siz}/${tex.width}x${tex.height}/${tex.line}/${tex.dxt}/${tex.cms}/${tex.cmt}/${tex.alpha}`;
 }
 
 export async function buildDK64Parts(batches) {

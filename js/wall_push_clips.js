@@ -97,10 +97,10 @@ const SNORMAL_CEIL = Math.trunc(-0.8 * 32767);   // COLPOLY_SNORMAL(-0.8f)
 // decomp's evaluation order, so positions match the game's bit for bit (MIPS
 // has no fused multiply-add). A double product or quotient of two f32s rounded
 // once to f32 is the correctly rounded f32 result.
-const F = Math.fround;
-const NORMAL_FRAC = F(1.0 / 32767.0);   // COLPOLY_NORMAL_FRAC
+export const F = Math.fround;
+export const NORMAL_FRAC = F(1.0 / 32767.0);   // COLPOLY_NORMAL_FRAC
 const EPSILON = F(0.008);               // IS_ZERO
-const isZero = v => Math.abs(v) < EPSILON;
+export const isZero = v => Math.abs(v) < EPSILON;
 const sq = v => F(v * v);
 
 function buildPoly(tri) {
@@ -189,17 +189,17 @@ function edgeDistSq(x0, y0, x1, y1, x2, y2) {
 }
 
 const triChkX = (p, y, z, detMax, chk) => triChkPara(p.ay, p.az, p.by, p.bz, p.cy, p.cz, y, z, detMax, chk, p.nx);
-const triChkY = (p, z, x, detMax, chk) => triChkPara(p.az, p.ax, p.bz, p.bx, p.cz, p.cx, z, x, detMax, chk, p.ny);
+export const triChkY = (p, z, x, detMax, chk) => triChkPara(p.az, p.ax, p.bz, p.bx, p.cz, p.cx, z, x, detMax, chk, p.ny);
 const triChkZ = (p, x, y, detMax, chk) => triChkPara(p.ax, p.ay, p.bx, p.by, p.cx, p.cy, x, y, detMax, chk, p.nz);
 
 // The game's tolerances (the extended plane), or none at all.
-const LOOSE = { detMax: 300, chkDist: 1, lineChkDist: 1 };
+export const LOOSE = { detMax: 300, chkDist: 1, lineChkDist: 1 };
 const STRICT = { detMax: 0, chkDist: 0, lineChkDist: 0 };
 
 // f32 -> s16 as the game stores it (truncating)
-const toS16 = v => (Math.trunc(v) << 16) >> 16;
+export const toS16 = v => (Math.trunc(v) << 16) >> 16;
 
-class CollisionModel {
+export class CollisionModel {
     // dyna: an export's actors (exportDynapolys), in bgId order; their polys
     // get the ids after the scene's own, in order (as tools/clipfinder does).
     constructor(colCtx, triangles, radius, checkHeight, dyna = null) {

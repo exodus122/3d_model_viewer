@@ -23,6 +23,7 @@ import { renderOOTActors } from './oot_actors.js';
 import { renderLoadingPlanes3DS } from './loading_planes.js';
 import { addModelCheckbox, buildGeometry, buildTest, deferGroupBuild } from './render.js';
 import { setupWallPushClipUI } from './wall_push_clips.js';
+import { setupBombStacking } from './bomb_stacking.js';
 import { installWaterboxDepthToggle } from './waterboxes.js';
 import { parseDK64Collision, buildDK64TexturedMesh, buildDK64Water, parseDK64Water, findDK64Ledges, buildDK64LedgeMarker,
          mergeDK64Collision } from './dk64_map.js';
@@ -92,6 +93,7 @@ renderer.shadowMap.enabled = false;
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x0b1220);
 setupWallPushClipUI(scene);
+setupBombStacking(scene);
 installWaterboxDepthToggle(scene, document.getElementById('showFullWaterboxDepth'));
 
 // Depth precision goes as near / distance^2, and the meshes use polygonOffset
