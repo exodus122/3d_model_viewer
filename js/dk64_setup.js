@@ -233,12 +233,13 @@ function buildCollisionGeometry({ floors, walls }) {
         const p = [0, 1, 2].map(k => `${corners[i + 3 * k]},${corners[i + 3 * k + 1]},${corners[i + 3 * k + 2]}`);
         return p.sort().join('|');
     };
-    const triangles = new Map();   // key -> { corners, floor, wall }
+    const triangles = new Map();   // key -> { corners, floor, wall, floorIndex, wallIndex }
     const add = (corners, kind) => {
         for (let i = 0; i < corners.length; i += 9) {
             const k = key(corners, i);
             if (!triangles.has(k)) triangles.set(k, { corners: corners.subarray(i, i + 9), floor: false, wall: false });
             triangles.get(k)[kind] = true;
+            triangles.get(k)[kind + 'Index'] = i / 9;
         }
     };
     add(floors, 'floor');
@@ -263,7 +264,44 @@ function buildCollisionGeometry({ floors, walls }) {
     geometry.computeBoundingSphere();
     const summary = [counts.floor && `${counts.floor} floor`, counts.wall && `${counts.wall} wall`,
                      counts.both && `${counts.both} floor+wall`].filter(Boolean).join(', ') + ' triangles';
-    return { geometry, edges: new THREE.WireframeGeometry(geometry), summary };
+    // each drawn triangle's place in the file's lists (wall k / floor k, as crouch_gaps.py names them)
+    const sources = [...triangles.values()].map(t => ({ wall: t.wall ? t.wallIndex : null, floor: t.floor ? t.floorIndex : null }));
+    geometry.userData.triangleIds = sources.map(s =>
+        [s.floor !== null && `floor ${s.floor}`, s.wall !== null && `wall ${s.wall}`].filter(Boolean).join(' / '));
+    return { geometry, edges: new THREE.WireframeGeometry(geometry), summary, sources };
+}
+
+const _faceCorners = [new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3()];
+
+/**
+ * Which collision triangle `tri` of a placed model's collision mesh is: its
+ * wall / floor index, and for a wall how the game treats it. Prop walls
+ * (global_asm func_8066D2F4, from the placed corners truncated to s16): the
+ * normal's elevation above horizontal < 10 deg pushes, < 45 deg pushes only
+ * while the Kong's feet are 2.625+ from its plane (80673B78), else never; a
+ * push needs the feet on the side the winding normal (v1-v0)x(v2-v0) points
+ * to (8066D4DC / 80673D48).
+ */
+function collisionFaceInfo(mesh, sources, tri) {
+    const src = sources[tri];
+    if (!src) return '';
+    const pos = mesh.geometry.attributes.position;
+    for (let k = 0; k < 3; k++) _faceCorners[k].fromBufferAttribute(pos, tri * 3 + k).applyMatrix4(mesh.matrixWorld);
+    const lines = [];
+    if (src.floor !== null) lines.push(`floor ${src.floor}`);
+    if (src.wall !== null) {
+        const [a, b, c] = _faceCorners.map(v => [Math.trunc(v.x), Math.trunc(v.y), Math.trunc(v.z)]);
+        const u = [b[0] - a[0], b[1] - a[1], b[2] - a[2]], w = [c[0] - a[0], c[1] - a[1], c[2] - a[2]];
+        const n = [u[1] * w[2] - u[2] * w[1], u[2] * w[0] - u[0] * w[2], u[0] * w[1] - u[1] * w[0]];
+        const h = Math.hypot(n[0], n[2]);
+        const elev = h < 0.01 ? 90 : Math.atan2(Math.abs(n[1]), h) * 180 / Math.PI;
+        const mode = elev < 10 ? 'mode 1 (pushes)' : elev < 45 ? 'mode 2 (pushes while the feet are 2.625+ from its plane)'
+            : 'mode 0 (never pushes)';
+        const len = Math.hypot(...n) || 1;
+        lines.push(`wall ${src.wall}: normal ${elev.toFixed(1)} deg above horizontal, ${mode}; ` +
+            `pushes from the side of (${n.map(x => (x / len).toFixed(3)).join(', ')})`);
+    }
+    return lines.join('\n');
 }
 
 // The flat view of a model with Textures off: BK / BT's model-prop purple and
@@ -342,7 +380,7 @@ export function getDK64PropCollisionWorld(grabbableIds = new Set()) {
                     out.verts.push([v.x, v.y, v.z]);
                 }
                 out.tris.push([base, base + 1, base + 2]);
-                if (isFloor) out.info.push({ fields: [flag, 0, 0], prop: id });
+                if (isFloor) out.info.push({ fields: [flag, 0, 0], prop: id, surface: raw.floorSurfaces[t / 9] });
             }
         }
     }
@@ -358,6 +396,8 @@ function refreshPropViews() {
         view.plain.visible = !textured && !collision;
         view.plainEdges.visible = view.plain.visible && wireframeCheckbox.checked;
         if (!view.collision) continue;
+        // with the collision shown, clicks pick its triangles (wall / floor index), not the model's
+        view.textured.userData.unselectable = !!collision;
         view.collision.visible = !!collision;
         view.collision.material = textured ? collisionOverlay : collisionSolid;
         view.collision.renderOrder = textured ? COLLISION_OVERLAY_ORDER : 0;
@@ -384,6 +424,9 @@ function propInstance(parts, describe) {
         view.edges = new THREE.LineSegments(parts.collision.edges, collisionEdgeMaterial);
         view.edges.userData.unselectable = true;
         view.collision.userData.bkInfo = `${info}\ncollision: ${parts.collision.summary}`;
+        const collisionMesh = view.collision, sources = parts.collision.sources;
+        collisionMesh.userData.faceInfo = tri =>
+            `${collisionMesh.userData.bkInfo}\n${collisionFaceInfo(collisionMesh, sources, tri)}`;
         group.add(view.collision, view.edges);
     }
     for (const mesh of [textured, plain]) mesh.userData.bkInfo = info + (parts.collision

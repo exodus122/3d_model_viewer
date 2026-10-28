@@ -641,7 +641,9 @@ export function clearAllModels(scene) {
     clearSelection(scene);
 }
 
-export function buildGeometry(scene, verts, tris, allTriangleData, colCtx, name = "Main Model", clearFirst = true, noPrimaryModel = false, color = 0x3aa6ff) {
+// color: a '#rrggbb' string sets the row's colour (a number is ignored);
+// parentEl: the group body to put the row in (getModelGroup), default the panel.
+export function buildGeometry(scene, verts, tris, allTriangleData, colCtx, name = "Main Model", clearFirst = true, noPrimaryModel = false, color = 0x3aa6ff, parentEl = null) {
     
     if ((!verts || !tris || verts.length === 0 || tris.length === 0) && clearFirst) { 
         alert('No valid vertices or triangles found'); 
@@ -707,8 +709,9 @@ export function buildGeometry(scene, verts, tris, allTriangleData, colCtx, name 
     // Store and register in UI
     loadedModels.push({ name, mesh: meshObj, edges: edgesObj });
     //console.log(loadedModels);
-    addModelCheckbox(scene, name, meshObj, edgesObj, clearFirst, true, noPrimaryModel ? '#3aff78' : null);
-    
+    addModelCheckbox(scene, name, meshObj, edgesObj, clearFirst, true,
+        typeof color === 'string' ? color : noPrimaryModel ? '#3aff78' : null, false, null, parentEl);
+
     updateSamplePointsUIVisibility(game);
 }
 

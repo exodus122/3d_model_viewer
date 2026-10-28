@@ -58,7 +58,7 @@ export function parseDK64Collision(buffer, isFloor) {
                 ? [0, 1, 2].map(i => vertex(s[i], s[3 + i], s[6 + i]))
                 : [0, 1, 2].map(i => vertex(s[3 * i], s[3 * i + 1], s[3 * i + 2]));
             tris.push(idx);
-            info.push({ fields: tail });
+            info.push(isFloor ? { fields: tail, surface: tail[1] >> 8 } : { fields: tail });
         }
         pos = end;
     }
@@ -67,7 +67,7 @@ export function parseDK64Collision(buffer, isFloor) {
 
 // --- display lists -------------------------------------------------------
 
-const G_VTX = 0x01, G_TRI1 = 0x05, G_TRI2 = 0x06, G_QUAD = 0x07;
+const G_VTX = 0x01, G_TRI1 = 0x05, G_TRI2 = 0x06, G_QUAD = 0x07, G_ENDDL = 0xDF;
 const G_TEXTURE = 0xD7, G_GEOMETRYMODE = 0xD9, G_SETOTHERMODE_L = 0xE2;
 const G_LOADTLUT = 0xF0, G_SETTILESIZE = 0xF2, G_LOADBLOCK = 0xF3, G_LOADTILE = 0xF4;
 const G_SETTILE = 0xF5, G_SETCOMBINE = 0xFC, G_SETTIMG = 0xFD;
@@ -166,6 +166,50 @@ export function dk64ListRanges(dv) {
     return ranges.sort((a, b) => a[0] - b[0]);
 }
 
+// --- effect surfaces -----------------------------------------------------
+//
+// Some lists (waterfalls, fog, lava) set no texture: the map's BSP tree
+// (header +0x30, global_asm func_8062F420) lists them per leaf (node +0xB8 =
+// 1 or 2) as effect display lists (+0x1C s32[], from the display list base),
+// effect types (+0x70 s16[]), draw phases (+0xB9 u8[]), count +0xC5, and
+// func_8062CEA8 runs the type's setup from D_80747D80 before each one
+// (func_8063C418). The setups as the walker's state: texture (table 25 id, or
+// a table 7 id | TABLE7_TEXTURE), how the tile reads it, translucency, and the
+// prim alpha the combiner multiplies in. Scrolling and the second texture of
+// the 2-cycle ones are left out.
+const DK64_EFFECTS = {
+    // func_8063C7C4: RGBA16 32x32 (mipmapped, loaded with dxt 0), opaque
+    2: { id: 0x565, fmt: FMT_RGBA, siz: 2, width: 32, height: 32, line: 8, dxt: 0, tile: 0, shift: 0, xlu: false, alphaTex: false },
+    // func_8063CB40: T7 0x3B7 on tile 1 (0x3B8 on tile 2 blends with it), translucent
+    3: { id: 0x3B7 | TABLE7_TEXTURE, fmt: FMT_RGBA, siz: 2, width: 32, height: 32, line: 8, dxt: 0x200, tile: 1, shift: 0, xlu: true, alphaTex: true },
+    // func_8063CF3C (Isles waterfalls): T7 0x3E0 loaded as IA16, read as IA8 64x64 at half scale
+    4: { id: 0x3E0 | TABLE7_TEXTURE, fmt: FMT_IA, siz: 1, width: 64, height: 64, line: 8, dxt: 0x100, tile: 1, shift: 1, xlu: true, alphaTex: true, cull: 0 },
+    // func_8063D638 (fog): RGBA16 32x32, modulated by the vertex colour and a per-map prim alpha
+    7: { id: 0x1765, fmt: FMT_RGBA, siz: 2, width: 32, height: 32, line: 8, dxt: 0x100, tile: 0, shift: 0, xlu: true, alphaTex: true,
+         primAlpha: map => [0x022, 0x0BB].includes(map) ? 0xFF : [0x036, 0x0BC].includes(map) ? 0x96 : 0x50 },
+};
+
+/** Effect display lists from the BSP tree: file offset -> effect type. */
+export function parseDK64EffectLists(dv) {
+    const root = dv.getUint32(0x30, false), dlBase = dv.getUint32(0x34, false);
+    const out = new Map(), seen = new Set();
+    const walk = (off, depth) => {
+        const n = root + off;
+        if (seen.has(n) || n + 0xC6 > dv.byteLength || depth > 64) return;
+        seen.add(n);
+        const kind = dv.getUint8(n + 0xB8);
+        if (kind === 0) {
+            walk(dv.getUint32(n, false), depth + 1);
+            walk(dv.getUint32(n + 4, false), depth + 1);
+        } else if (kind === 1 || kind === 2) {
+            for (let i = 0; i < dv.getUint8(n + 0xC5); i++)
+                out.set(dlBase + dv.getUint32(n + 0x1C + 4 * i, false), dv.getInt16(n + 0x70 + 2 * i, false));
+        }
+    };
+    walk(0, 0);
+    return out;
+}
+
 const ANIMATED_TEXTURE_SIZE = 0x7C;
 
 /**
@@ -192,7 +236,7 @@ export function parseDK64AnimatedTextures(dv) {
  * and gather triangles into batches by texture and render state.
  * Positions are divided by `scale` into world units.
  */
-export function parseDK64Geometry(buffer, scale = 3) {
+export function parseDK64Geometry(buffer, scale = 3, mapId = -1) {
     const dv = new DataView(buffer);
     const vtxStart = dv.getUint32(0x38, false);
     // display list -> [start, end, vertex base (segment 6), chunk index]
@@ -207,8 +251,14 @@ export function parseDK64Geometry(buffer, scale = 3) {
         return inside ? r[2] : vtxStart;
     };
     const animated = parseDK64AnimatedTextures(dv);
+    const effects = new Map();
+    for (const [offset, type] of parseDK64EffectLists(dv)) {
+        const e = DK64_EFFECTS[type];
+        if (e) effects.set(offset, { ...e, primAlpha: typeof e.primAlpha === 'function' ? e.primAlpha(mapId) : e.primAlpha ?? 0xFF });
+    }
     return walkDK64DisplayList(dv, dv.getUint32(0x34, false), dv.getUint32(0x38, false), {
         scale,
+        effects,
         vertexEnd: dv.getUint32(0x40, false),
         vertexAddress: (o, w1) => (w1 >>> 24) === 0x06 ? vertexBaseAt(o) + (w1 & 0xFFFFFF) : -1,
         // 0x0B..0x0E: an animated texture, drawn with its first frame
@@ -248,13 +298,15 @@ const PROP_FLOOR_SIZE = 0x18;
  * u8, u8, s8 matrix (-1 = the prop's own; else one of its animated parts),
  * u8; global_asm func_8066C2D0's Prop_Wall), floors at +0x50 (u32 count, s16
  * min / max x, y, z bounds, then 0x18 bytes each: s16 (x, y, z)[3], 6 bytes
- * of flags). The animated parts' matrices only exist at run time, so walls on
- * them are drawn in their rest position, as the display list is.
- * -> { walls: Float32Array, floors: Float32Array } of triangle corners.
+ * of flags, the first (+0x12) the surface type, as a map floor's +0x14). The
+ * animated parts' matrices only exist at run time, so walls on them are drawn
+ * in their rest position, as the display list is.
+ * -> { walls: Float32Array, floors: Float32Array } of triangle corners, and
+ * floorSurfaces: Uint8Array, each floor's surface type.
  */
 export function parseDK64PropCollision(buffer) {
     const dv = new DataView(buffer);
-    const out = { walls: new Float32Array(0), floors: new Float32Array(0) };
+    const out = { walls: new Float32Array(0), floors: new Float32Array(0), floorSurfaces: new Uint8Array(0) };
     if (dv.byteLength < 0x58 || dv.getUint8(0x1C) !== 1) return out;
     const read = (table, header, size) => {
         if (table + 4 > dv.byteLength) return new Float32Array(0);
@@ -267,7 +319,12 @@ export function parseDK64PropCollision(buffer) {
         return corners;
     };
     out.walls = read(dv.getUint32(0x4C, false), 4, PROP_WALL_SIZE);
-    out.floors = read(dv.getUint32(0x50, false), 16, PROP_FLOOR_SIZE);
+    const floorTable = dv.getUint32(0x50, false);
+    out.floors = read(floorTable, 16, PROP_FLOOR_SIZE);
+    out.floorSurfaces = new Uint8Array(out.floors.length / 9);
+    for (let i = 0; i < out.floorSurfaces.length; i++) {
+        out.floorSurfaces[i] = dv.getUint8(floorTable + 16 + i * PROP_FLOOR_SIZE + 0x12);
+    }
     return out;
 }
 
@@ -442,6 +499,31 @@ function walkDK64DisplayList(dv, dlStart, dlEnd, opts) {
     let timg = { id: -1, fmt: 0, siz: 0 };
     let texOn = false, texTile = 0, texScaleS = 1, texScaleT = 1;
     let geometryMode = 0, renderMode = 0, combineUsesTexture = true, combineAlphaUsesTexture = true;
+    // opts.effects (file offset -> DK64_EFFECTS setup): the state an effect
+    // list starts from, kept until its G_ENDDL (after its first triangle; the
+    // first entry can be a G_DL to the list), then the walker's state is put back
+    let primAlpha = 1, effectSaved = null, effectTris = 0;
+    const saveState = () => ({
+        timg, texOn, texTile, texScaleS, texScaleT, geometryMode, renderMode, combineUsesTexture, combineAlphaUsesTexture, primAlpha,
+        tiles: tiles.map(t => ({ ...t })), tmem: new Map(tmem), tmemDxt: new Map(tmemDxt),
+    });
+    const restoreState = (st) => {
+        ({ timg, texOn, texTile, texScaleS, texScaleT, geometryMode, renderMode, combineUsesTexture, combineAlphaUsesTexture, primAlpha } = st);
+        st.tiles.forEach((t, i) => { tiles[i] = t; });
+        tmem.clear(); st.tmem.forEach((v, k) => tmem.set(k, v));
+        tmemDxt.clear(); st.tmemDxt.forEach((v, k) => tmemDxt.set(k, v));
+    };
+    const applyEffect = (e) => {
+        tiles[e.tile] = { ...emptyTile(), fmt: e.fmt, siz: e.siz, line: e.line, tmem: 0,
+                          lrs: (e.width - 1) << 2, lrt: (e.height - 1) << 2, shifts: e.shift, shiftt: e.shift };
+        tmem.set(0, e.id);
+        tmemDxt.set(0, e.dxt);
+        texOn = true; texTile = e.tile; texScaleS = texScaleT = 0xFFFF / 0x10000;
+        combineUsesTexture = true; combineAlphaUsesTexture = e.alphaTex;
+        renderMode = e.xlu ? RM_FORCE_BL : RM_Z_UPD;
+        geometryMode = e.cull ?? G_CULL_BACK;
+        primAlpha = e.primAlpha / 255;
+    };
 
     const batches = new Map();
     const batchFor = (key, props) => {
@@ -483,6 +565,7 @@ function walkDK64DisplayList(dv, dlStart, dlEnd, opts) {
         const texKey = tex ? dk64TextureKey(tex) : 'none';
         const batch = batchFor(`${texKey}|${xlu}|${decal}|${cull}`, { texture: tex, xlu, decal, cull });
         const lit = (geometryMode & G_LIGHTING) !== 0;
+        effectTris++;
         const ss = shiftScale(tile.shifts) * texScaleS / 32;
         const st = shiftScale(tile.shiftt) * texScaleT / 32;
         for (const v of [va, vb, vc]) {
@@ -496,9 +579,9 @@ function walkDK64DisplayList(dv, dlStart, dlEnd, opts) {
                 const len = Math.hypot(n[0], n[1], n[2]) || 1;
                 const d = (n[0] * LIGHT_DIR[0] + n[1] * LIGHT_DIR[1] + n[2] * LIGHT_DIR[2]) / len;
                 const shade = LIGHT_AMBIENT + (1 - LIGHT_AMBIENT) * Math.max(0, d);
-                batch.colors.push(shade, shade, shade, v.a / 255);
+                batch.colors.push(shade, shade, shade, v.a / 255 * primAlpha);
             } else {
-                batch.colors.push(v.r / 255, v.g / 255, v.b / 255, v.a / 255);
+                batch.colors.push(v.r / 255, v.g / 255, v.b / 255, v.a / 255 * primAlpha);
             }
         }
     };
@@ -506,7 +589,16 @@ function walkDK64DisplayList(dv, dlStart, dlEnd, opts) {
     for (let o = dlStart; o + 8 <= dlEnd; o += 8) {
         const w0 = dv.getUint32(o, false);
         const w1 = dv.getUint32(o + 4, false);
+        const effect = opts.effects?.get(o);
+        if (effect) {
+            if (!effectSaved) effectSaved = saveState();
+            applyEffect(effect);
+            effectTris = 0;
+        }
         switch (w0 >>> 24) {
+            case G_ENDDL:
+                if (effectSaved && effectTris) { restoreState(effectSaved); effectSaved = null; }
+                break;
             case G_VTX: {
                 const n = (w0 >>> 12) & 0xFF;
                 const v0 = ((w0 >>> 1) & 0x7F) - n;
@@ -776,7 +868,13 @@ export function findDK64Ledges(floors, walls) {
     };
 
     // The distinct triangles on each edge (a triangle can be stored more than
-    // once with different flag words) and each triangle's slope.
+    // once with different flag words), each triangle's slope, and whether it
+    // faces down: the floor probe skips those (func_8066893C's winding test,
+    // see dk64FloorElevation), so they're ceilings, not ground.
+    const facesDown = tri => {
+        const [p, q, r] = tri.map(i => floors.verts[i]);
+        return (q[2] - p[2]) * (r[0] - p[0]) - (q[0] - p[0]) * (r[2] - p[2]) < 0;
+    };
     const slope = tri => {
         const [p, q, r] = tri.map(i => floors.verts[i]);
         const u = [q[0] - p[0], q[1] - p[1], q[2] - p[2]], v = [r[0] - p[0], r[1] - p[1], r[2] - p[2]];
@@ -789,7 +887,7 @@ export function findDK64Ledges(floors, walls) {
     for (const tri of floors.tris) {
         const key = [...tri].sort((x, y) => x - y).join(',');
         if (distinct.has(key)) continue;
-        const entry = { tri, key, slope: slope(tri) };
+        const entry = { tri, key, slope: slope(tri), down: facesDown(tri) };
         distinct.set(key, entry);
         for (let k = 0; k < 3; k++) {
             const e = edgeKey(tri[k], tri[(k + 1) % 3]);
@@ -798,14 +896,18 @@ export function findDK64Ledges(floors, walls) {
         }
     }
     // Edge i-j of triangle `key`: null if a walkable floor continues from it,
-    // else whether a steep floor goes down from it
+    // else whether a steep floor goes down from it (a ceiling doesn't continue
+    // the floor, but a steep one going down still counts as a face below)
     const floorsOn = (i, j, key) => {
         const low = Math.min(floors.verts[i][1], floors.verts[j][1]);
         let steepDrop = false;
         for (const o of edgeTris.get(edgeKey(i, j))) {
             if (o.key === key) continue;
             const third = o.tri.find(x => x !== i && x !== j);
-            if (!(o.slope > LEDGE_DROP_SLOPE && floors.verts[third][1] < low - 1)) return null;
+            if (!(o.slope > LEDGE_DROP_SLOPE && floors.verts[third][1] < low - 1)) {
+                if (o.down) continue;
+                return null;
+            }
             steepDrop = true;
         }
         return { steepDrop };
@@ -814,7 +916,7 @@ export function findDK64Ledges(floors, walls) {
     const grab = [], noGrab = [];
     const done = new Set();   // edge + grabbability already listed
     floors.tris.forEach((tri, t) => {
-        if (slope(tri) > LEDGE_MAX_SLOPE) return;
+        if (slope(tri) > LEDGE_MAX_SLOPE || facesDown(tri)) return;
         const [p, q, r] = tri.map(i => floors.verts[i]);
         const key = [...tri].sort((x, y) => x - y).join(',');
         const centre = [(p[0] + q[0] + r[0]) / 3, (p[2] + q[2] + r[2]) / 3];
@@ -886,6 +988,105 @@ export function buildDK64LedgeMarker(edges, color) {
     const lineGeometry = new THREE.BufferGeometry();
     lineGeometry.setAttribute('position', new THREE.Float32BufferAttribute(lines, 3));
     const edgeLines = new THREE.LineSegments(lineGeometry, new THREE.LineBasicMaterial({ color }));
+    edgeLines.userData.unselectable = true;
+    mesh.add(edgeLines);
+    mesh.userData.textured = true;   // keeps its own material (main.js setMaterialProps)
+    return mesh;
+}
+
+// --- slippery slopes ---------------------------------------------------------
+//
+// Slipping (global_asm code_69E60.c func_80665564): each floor has a surface
+// type (map floor +0x14, prop floor +0x12; 0xFE / 0xFF read as 0) that picks a
+// row of D_80748D40 (0x214DA40 in the decompressed ROM, 10 bytes per row).
+// On the ground, a Kong's slide speed (actor +0xE0) is
+//   0 if elevation > (maxDeg << 12) / 360, else (0x400 - elevation) / divisor,
+// elevation being the floor normal's angle above horizontal in 4096ths of a
+// turn, truncated (func_80666AF8; flat = 0x400). maxDeg is the row's +3, or
+// its +2 while actor +0x6A bit 0x20 is set (falling from a slide). After about
+// 21 frames with a non-zero slide speed (func_806CA540's counter, extra player
+// info +0xC2) the Kong slips (setAction 0x21 / 0x22, code_CEAE0.c).
+// So a floor is slippery when its elevation is at or below its type's maxDeg
+// and not flat.
+export const DK64_SURFACES = {
+    //  divisor, maxDeg (in a slide), maxDeg
+    0:  [1, 90, 90],
+    1:  [32, 70, 53],     // most floors: slips at 37 degrees of slope or more
+    2:  [32, 60, 45],
+    3:  [32, 60, 45],
+    4:  [32, 70, 53],
+    5:  [32, 60, 45],
+    6:  [1024, 0, 90],    // slips on any slope, slowly
+    7:  [1024, 0, 90],
+    8:  [1024, 0, 90],
+    9:  [32, 70, 53],
+    10: [8, 85, 75],      // slips at 15 degrees
+    11: [16, 75, 75],
+    12: [4, 90, 80],
+    13: [16, 0, 0],
+    14: [1024, 0, 0],
+    15: [32, 30, 20],     // most prop floors: slips at 70 degrees
+    16: [32, 35, 25],
+    17: [8, 85, 75],
+    18: [8, 85, 75],
+};
+
+/**
+ * A floor normal's elevation, in 4096ths of a turn, as func_80666AF8 has it,
+ * or null for a triangle wound to face down: the floor probe
+ * (func_806679BC) skips those (func_8066893C's winding test), so they're
+ * ceilings, not ground.
+ */
+function dk64FloorElevation(p, q, r) {
+    const u = [q[0] - p[0], q[1] - p[1], q[2] - p[2]], v = [r[0] - p[0], r[1] - p[1], r[2] - p[2]];
+    const n = [u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2], u[0] * v[1] - u[1] * v[0]];
+    if (n[1] < 0) return null;
+    const h = Math.hypot(n[0], n[2]);
+    if (h < 1e-6) return 0x400;
+    return Math.trunc(Math.atan2(Math.abs(n[1]), h) / Math.PI * 2048);
+}
+
+/**
+ * The floors ({ verts, tris, info }, info[t].surface the surface type) a Kong
+ * slips on. -> [{ corners: [p, q, r], surface, elevation, slopeDegrees }]
+ */
+export function findDK64SlipperyFloors(floors) {
+    const out = [];
+    const seen = new Set();
+    floors.tris.forEach((tri, t) => {
+        const key = [...tri].sort((x, y) => x - y).join(',');
+        if (seen.has(key)) return;
+        let surface = floors.info[t]?.surface ?? 0;
+        if (surface === 0xFE || surface === 0xFF) surface = 0;
+        const row = DK64_SURFACES[surface];
+        if (!row) return;
+        const corners = tri.map(i => floors.verts[i]);
+        const elevation = dk64FloorElevation(...corners);
+        if (elevation === null || elevation >= 0x400 || elevation >Math.trunc((row[2] << 12) / 360)) return;
+        seen.add(key);
+        out.push({ corners, surface, elevation, slopeDegrees: (0x400 - elevation) * 360 / 4096 });
+    });
+    return out;
+}
+
+/** The slippery floors as a translucent overlay, lifted a little off them. */
+export function buildDK64SlopeMarker(slopes, color) {
+    const positions = [], lines = [];
+    for (const { corners } of slopes) {
+        const lifted = corners.map(c => [c[0], c[1] + 0.5, c[2]]);
+        for (const c of lifted) positions.push(...c);
+        for (let k = 0; k < 3; k++) lines.push(...lifted[k], ...lifted[(k + 1) % 3]);
+    }
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    const mesh = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial({
+        color, transparent: true, opacity: 0.45, side: THREE.DoubleSide, depthWrite: false,
+        polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }));
+    mesh.renderOrder = 2;
+    const lineGeometry = new THREE.BufferGeometry();
+    lineGeometry.setAttribute('position', new THREE.Float32BufferAttribute(lines, 3));
+    const edgeLines = new THREE.LineSegments(lineGeometry, new THREE.LineBasicMaterial({
+        color, transparent: true, opacity: 0.6 }));
     edgeLines.userData.unselectable = true;
     mesh.add(edgeLines);
     mesh.userData.textured = true;   // keeps its own material (main.js setMaterialProps)
@@ -995,8 +1196,8 @@ export async function buildDK64Water(buffer) {
  * The map's display lists as one textured, vertex-coloured Mesh (a material
  * per batch), in world units.
  */
-export async function buildDK64TexturedMesh(buffer, scale) {
-    const batches = parseDK64Geometry(buffer, scale);
+export async function buildDK64TexturedMesh(buffer, scale, mapId = -1) {
+    const batches = parseDK64Geometry(buffer, scale, mapId);
     const { geometry, materials, triangleCount, textureCount } = await buildDK64Parts(batches);
     const mesh = new THREE.Mesh(geometry, materials);
     mesh.name = 'textured';

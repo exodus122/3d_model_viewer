@@ -325,6 +325,29 @@ button {
     width: 20px;
 }
 
+/* A row's "go to" button (DK64 crouch clips), in the delete button's column */
+.model-goto {
+    flex: none;
+    width: 20px;
+    height: 20px;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    line-height: 1;
+    border: 1px solid #3a4a5e;
+    border-radius: 3px;
+    background: #1e2a38;
+    color: #9cc4ff;
+}
+
+.model-goto:hover {
+    background: #2563eb;
+    color: white;
+}
+
 /* ---- Grouped model rows (getModelGroup in render.js) ----
    A titled box with a master checkbox and a scrolling body, so a scene with
    dozens of dynapoly actors doesn't push the rest of the panel off-screen. */
@@ -837,4 +860,37 @@ a.download-link {
     margin-top: 4px;
     padding: 4px 6px;
     font-size: 12px;
+}
+
+/* Camera "Go to" / "Go to poly": a label + text field per line, buttons below */
+.camera-goto label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 6px;
+    font-size: 12px;
+}
+
+.camera-goto input[type=text] {
+    flex: 1;
+    min-width: 0;
+    padding: 4px 6px;
+    font-size: 12px;
+    font-family: monospace;
+    background: #1e1e1e;
+    color: #efefef;
+    border: 1px solid #555;
+    border-radius: 4px;
+}
+
+.camera-goto button {
+    margin-top: 6px;
+    padding: 5px 10px;
+}
+
+.goto-status {
+    margin-top: 4px;
+    font-size: 12px;
+    color: #9aa4b2;
+    white-space: pre-wrap;
 }

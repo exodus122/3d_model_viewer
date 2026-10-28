@@ -20,7 +20,8 @@ Reads <dk64>/baserom.us.z64 and the map names from <dk64>/include/enums.h
   models/DK64/textures/T7_<ID>.bin        pointer table 7 entries: animated
                                           texture frames (header +0x48) and,
                                           with a few table 25 ones, the water
-                                          textures (WATER_TEXTURES)
+                                          textures (WATER_TEXTURES) and the
+                                          effect ones (EFFECT_TEXTURES)
   js/dk64_map_list.js                     DK64_Maps
 
 ROM layout (global_asm/code_6AF80.c): the pointer tables live at romAssetBin
@@ -142,6 +143,11 @@ def animated_textures(geometry):
 # (pointer table, file id)
 WATER_TEXTURES = [(7, 0x3C5), (25, 0x2EE), (25, 0x2EF), (25, 0xF0), (25, 0x75C),
                   (7, 0x3B9), (7, 0x3D2), (7, 0x3BA), (25, 0xAF4)]
+
+# Effect surface textures (waterfalls, fog: the BSP tree's effect display lists
+# set none; the D_80747D80 setups in global_asm/code_36880.c load them, see
+# js/dk64_map.js DK64_EFFECTS): (pointer table, file id)
+EFFECT_TEXTURES = [(25, 0x565), (7, 0x3B7), (7, 0x3B8), (7, 0x3E0), (25, 0x1765)]
 
 
 def texture_file(table, tex_id):
@@ -585,6 +591,7 @@ def main():
     print(f"{len(prop_info)} prop models, {len(actor_models)} actor models")
 
     textures |= set(WATER_TEXTURES)
+    textures |= set(EFFECT_TEXTURES)
     textures |= {(TABLE_TEXTURES_HUD, t) for t in SKY_HUD_TEXTURES}
     tex_bytes = 0
     for table, tex_id in sorted(textures):

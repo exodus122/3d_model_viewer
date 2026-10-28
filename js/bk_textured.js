@@ -289,6 +289,16 @@ export function attachTextured(plain, textured, edges = null) {
     applyTexturedMode(texturedPairs[texturedPairs.length - 1]);
 }
 
+/**
+ * A plain (collision) mesh whose textured version hangs elsewhere (DK64's
+ * Floors / Walls / Ceilings rows share one textured map): hidden while
+ * Textures is on, like an attachTextured plain mesh.
+ */
+export function registerPlain(plain, edges = null) {
+    texturedPairs.push({ plain, textured: null, edges });
+    applyTexturedMode(texturedPairs[texturedPairs.length - 1]);
+}
+
 export function clearTexturedPairs() {
     texturedPairs.length = 0;
 }
@@ -318,7 +328,7 @@ function applyTexturedMode(pair) {
         m.opacity = overlay ? 0.5 : 1;
     }
     pair.plain.renderOrder = overlay ? OVERLAY_RENDER_ORDER : 0;
-    pair.textured.visible = on;
+    if (pair.textured) pair.textured.visible = on;
     if (pair.edges) {
         pair.edges.renderOrder = overlay ? OVERLAY_RENDER_ORDER + 1 : 0;
         // A prop instance's row visibility lives on its parent group.

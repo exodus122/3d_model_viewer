@@ -311,11 +311,14 @@ export function resetSetupState() {
     actorHitboxes.length = 0;
 }
 
-export function makeGeometrySet(positions, indices) {
+// triangleIds: each triangle's id in the model's collision list, shown on
+// selection (selection.js)
+export function makeGeometrySet(positions, indices, triangleIds = null) {
     if (!indices || indices.length === 0) return null;
     const geometry = new THREE.BufferGeometry();
     geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
     geometry.setIndex(new THREE.BufferAttribute(indices, 1));
+    if (triangleIds) geometry.userData.triangleIds = triangleIds;
     return { geometry, edges: new THREE.WireframeGeometry(geometry) };
 }
 
@@ -362,7 +365,7 @@ export function loadPropGeometry(assetId, game = 'BK') {
             const model = parseBKModelGeometry(buffer, game);
             const loaded = {
                 visual: makeGeometrySet(model.positions, model.displayListIndices),
-                collision: makeGeometrySet(model.positions, model.collisionIndices),
+                collision: makeGeometrySet(model.positions, model.collisionIndices, model.collisionIds),
                 bounds: model.bounds,
                 hitVolumes: model.hitVolumes,
                 refPoints: model.refPoints,

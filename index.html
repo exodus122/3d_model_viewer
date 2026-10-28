@@ -125,6 +125,14 @@
           <div>pos: <span id="cam-pos">0,0,0</span></div>
           <div>rot (deg): <span id="cam-rot">0,0,0</span></div>
         </div>
+        <div class="camera-goto">
+          <label title="Camera position, as the pos readout above (x, y, z)">pos <input id="gotoPos" type="text" placeholder="x, y, z"></label>
+          <label title="Optional camera rotation in degrees, as the rot readout above (pitch, yaw, roll); left empty, the camera keeps its current rotation">rot <input id="gotoRot" type="text" placeholder="pitch, yaw, roll (optional)"></label>
+          <button id="gotoBtn" type="button">Go to</button>
+          <label title="A collision polygon's id, as the TRI line in Selected Entities shows it (e.g. 123, or wall 12 / floor 3 on DK64). Searches the loaded map first, then other models and props.">poly <input id="gotoPoly" type="text" placeholder="poly id (123, wall 12)"></label>
+          <button id="gotoPolyBtn" type="button">Go to poly</button>
+          <div id="gotoStatus" class="goto-status"></div>
+        </div>
       </div>
 
       <!--<div class="section footer muted">

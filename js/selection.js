@@ -35,9 +35,10 @@ export function updateSelectionUI() {
     let sampled_triangles = [];
     for (const t of selectedTriangles) {
         // BK setup markers carry their placement info instead of triangle data
+        // (and, when a triangle was clicked, its corners below it)
         if (t.bkInfo) {
             lines.push(t.bkInfo);
-            continue;
+            if (!t.verts || t.verts.length < 3) continue;
         }
 
         // A dynapoly actor's collision: which actor it belongs to, then the
@@ -623,7 +624,24 @@ export function performSelection(ev, renderer, camera, scene) {
         updateSelectionUI();
         return;
     }
+    // With Textures on, the display-list mesh and the collision mesh under it
+    // (material hidden) are both hit: prefer the collision triangle, which has
+    // an id, when it is at the same spot.
+    if (!hit.object.geometry.userData.triangleIds) {
+        const col = inter.find(i => i.face && i.object.visible && !i.object.userData.unselectable &&
+            i.object.geometry.userData.triangleIds && i.distance <= hit.distance + 1);
+        if (col) hit = col;
+    }
 
+    return selectHit(hit, scene);
+}
+
+/**
+ * Select the triangle a raycast hit (or a { object, faceIndex, face } built by
+ * hand, main.js "Go to poly") names. toggle: clicking a selected triangle
+ * deselects it. -> the sampled standable points model, if one was made.
+ */
+export function selectHit(hit, scene, toggle = true) {
     const face = hit.face;
     const geom = hit.object.geometry;
     const pos = geom.attributes.position;
@@ -646,7 +664,9 @@ export function performSelection(ev, renderer, camera, scene) {
     }
 
     const newTri = {
-        id: meta ? meta.id : null,
+        // BK / BT / DK64 keep the collision list ids on the geometry (bk_setup.js
+        // makeGeometrySet, parse_model.js finishBKModel, main.js DK64)
+        id: meta ? meta.id : (hit.object.geometry.userData.triangleIds?.[triIndex] ?? null),
         index: triIndex,
         verts: [va, vb, vc],
         modelName: hit.object.name,
@@ -666,11 +686,12 @@ export function performSelection(ev, renderer, camera, scene) {
     );
 
     if (existingIndex !== -1) {
+        if (!toggle && multiSelectCheckbox.checked) return null;   // keep it (and the rest) selected
         // It's already selected → remove it
         selectedTriangles.splice(existingIndex, 1);
         updateSelectionUI();
         removeSelectionMarker(newTri, scene);
-        return;
+        if (toggle) return;
     }
 
     // If single-select mode is active, clear previous selections

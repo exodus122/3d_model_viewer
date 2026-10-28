@@ -10,7 +10,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
-import { performSelection, clearSelection } from './selection.js';
+import { performSelection, clearSelection, selectHit } from './selection.js';
 import { parseModel, parseModelText, parseModelBinary, parseBKModelBinary, parseZeldaSceneBinary, parseInvisibleSeams1D } from './parse_model.js';
 import { renderZeldaObjectBinary } from './render_actors.js';
 import { renderBKSetup, getPropInstances } from './bk_setup.js';
@@ -21,14 +21,15 @@ import { loadBTModelTextures } from './bt_textures.js';
 import { renderZeldaSceneTextured, parseZeldaSceneInfo, zeldaRoomFileName, zeldaAreaTextureFileName, ROOM_GROUP_KEY } from './zelda_textured.js';
 import { renderOOTActors } from './oot_actors.js';
 import { renderLoadingPlanes3DS } from './loading_planes.js';
-import { addModelCheckbox, buildGeometry, buildTest, deferGroupBuild } from './render.js';
+import { addModelCheckbox, buildGeometry, buildTest, deferGroupBuild, clearAllModels, getModelGroup, applyGroupMasterState } from './render.js';
 import { setupWallPushClipUI } from './wall_push_clips.js';
 import { setupBombStacking } from './bomb_stacking.js';
 import { installWaterboxDepthToggle } from './waterboxes.js';
 import { parseDK64Collision, buildDK64TexturedMesh, buildDK64Water, parseDK64Water, findDK64Ledges, buildDK64LedgeMarker,
-         mergeDK64Collision } from './dk64_map.js';
-import { attachTextured, clearTexturedPairs } from './bk_textured.js';
+         mergeDK64Collision, findDK64SlipperyFloors, buildDK64SlopeMarker } from './dk64_map.js';
+import { attachTextured, clearTexturedPairs, registerPlain } from './bk_textured.js';
 import { renderDK64Setup, getDK64PropCollisionWorld, parseDK64LedgeScripts } from './dk64_setup.js';
+import { buildDK64CrouchGapItems } from './dk64_crouch_gaps.js';
 
 ////////////////////////////////////////
 // System: DOM / Static UI Elements
@@ -498,16 +499,51 @@ async function loadSelectedMap(game) {
             await showLoading(`${mapName}: collision…`);
             const floors = parseDK64Collision(floorsBuf, true);
             const walls = parseDK64Collision(wallsBuf, false);
-            const verts = floors.verts.concat(walls.verts);
-            const tris = floors.tris.concat(walls.tris.map(t => t.map(i => i + floors.verts.length)));
-            console.log(`${mapDir}: ${floors.tris.length} floor + ${walls.tris.length} wall triangles`);
+            clearAllModels(scene);
             clearTexturedPairs();
-            buildGeometry(scene, verts, tris, null, null, "Main Model", true);
+
+            // The map is a "Main Model" group box: Floors, Walls and Ceilings
+            // rows, one mesh each under one scene group that also holds the
+            // textured map. floors.bin triangles facing down are ceilings: the
+            // floor finder (global_asm 806679BC) only stands on one whose normal
+            // points up (8066893C), 806685E0 tags the others 2 (ceiling).
+            const main = new THREE.Group();
+            main.name = "Main Model";
+            scene.add(main);
+            const group = getModelGroup("dk64-main", "Main Model");
+            const facesUp = ([a, b, c]) => {
+                const [p, q, r] = [a, b, c].map(i => floors.verts[i]);
+                return (q[2] - p[2]) * (r[0] - p[0]) - (q[0] - p[0]) * (r[2] - p[2]) >= 0;
+            };
+            // selection ids: the triangle's place in floors.bin / walls.bin (first
+            // grid-cell copy; crouch_gaps.py's "map floor k" / "map wall k")
+            const floorKs = [], ceilingKs = [];
+            floors.tris.forEach((t, k) => (facesUp(t) ? floorKs : ceilingKs).push(k));
+            const parts = [
+                ["Floors", floors, floorKs, "floor", "#3aa6ff"],
+                ["Walls", walls, walls.tris.map((_, k) => k), "wall", "#3aa6ff"],
+                ["Ceilings", floors, ceilingKs, "floor", "#3aa6ff"],
+            ];
+            for (const [rowName, source, ks, kind, color] of parts) {
+                if (!ks.length) continue;
+                buildGeometry(scene, source.verts, ks.map(k => source.tris[k]), null, null, rowName, false, false, color, group.body);
+                const entry = loadedModels[loadedModels.length - 1];
+                main.add(entry.mesh);
+                entry.mesh.geometry.userData.triangleIds = ks.map(k => `${kind} ${k}`);
+                registerPlain(entry.mesh, entry.edges);
+            }
+            loadedModels.push({ name: "Main Model", mesh: main, edges: null });
+            // The master is the whole map: the textured map shows while any row is on.
+            const syncMain = () => { main.visible = group.master.checked || group.master.indeterminate; };
+            group.body.addEventListener('change', syncMain);
+            group.master.addEventListener('change', syncMain);
+            applyGroupMasterState("dk64-main");
+            syncMain();
+            console.log(`${mapDir}: ${floorKs.length} floor + ${walls.tris.length} wall + ${ceilingKs.length} ceiling triangles`);
 
             await showLoading(`${mapName}: textured geometry…`);
-            const entry = loadedModels[loadedModels.length - 1];
-            const textured = await buildDK64TexturedMesh(geometry, scale);
-            if (entry && entry.name === "Main Model") attachTextured(entry.mesh, textured, entry.edges);
+            const textured = await buildDK64TexturedMesh(geometry, scale, getMapProperty(game, mapName, "mapID") ?? -1);
+            attachTextured(main, textured, null);
 
             // Water surfaces (their own row: they are drawn by the game's water
             // code, not the map's display lists). Like BK / BT's XLU model, a
@@ -557,6 +593,69 @@ async function loadSelectedMap(game) {
             }
             console.log(`${mapDir}: ${ledges.grab.length} grabbable ledge edges, ${ledges.noGrab.length} no-grab ` +
                         `(${propCollision.floors.tris.length} prop floor triangles)`);
+
+            // Slippery slopes: floors steep enough for their surface type that
+            // a Kong slips on them (dk64_map.js findDK64SlipperyFloors).
+            // Cliff faces are often floor triangles too, and slippery, so the
+            // steep ones get a row of their own.
+            const slopes = findDK64SlipperyFloors(mergeDK64Collision([floors, propCollision.floors]));
+            const steep = s => s.slopeDegrees >= 60;
+            for (const [rowName, list, color, range] of [
+                ["Slippery slopes", slopes.filter(s => !steep(s)), 0xff8c1a, "under 60 degrees"],
+                ["Steep slippery floors", slopes.filter(steep), 0xff40c0, "60 degrees or steeper (mostly cliff faces)"],
+            ]) {
+                if (!list.length) continue;
+                const marker = buildDK64SlopeMarker(list, color);
+                marker.name = rowName;
+                const types = [...new Set(list.map(s => s.surface))].sort((a, b) => a - b);
+                const info = `${rowName}: floors a Kong slips on with a slope ${range}\n` +
+                    `${list.length} triangles, surface types ${types.join(', ')}`;
+                marker.userData.bkInfo = info;
+                scene.add(marker);
+                loadedModels.push({ name: rowName, root: marker, mesh: marker, edges: null });
+                addModelCheckbox(scene, rowName, marker, null, false, false, '#' + color.toString(16).padStart(6, '0'), false, null);
+                const row = [...document.querySelectorAll('.model-row')].find(el => el.dataset.modelName === rowName);
+                if (row) row.title = info;
+            }
+            console.log(`${mapDir}: ${slopes.length} slippery floor triangles (${slopes.filter(steep).length} steep)`);
+
+            // Crouch gaps: openings only crouching Diddy fits through
+            // (dk64_crouch_gaps.js; crouch_gaps.json from the dk64 repo's
+            // tools/kong_viewer/scripts/crouch_gaps.py, absent until it's run).
+            // One row per clip in a "Crouch clips (Diddy)" group, each with a
+            // button that points the camera at it.
+            const gaps = await load("crouch_gaps.json").then(b => JSON.parse(new TextDecoder().decode(b))).catch(() => null);
+            const gapItems = buildDK64CrouchGapItems(gaps);
+            if (gapItems.length) {
+                const group = getModelGroup("dk64-crouch", "Crouch clips (Diddy)");
+                group.wrapper.title = 'Leaning walls a crouch slide gets through (purple: Diddy only, grey: a standing ' +
+                    'Kong too), gaps only crouching Diddy fits (red passage, orange pocket, blue corridor) and the jugs ' +
+                    'stump check (green). The arrow buttons move the camera to one.';
+                for (const item of gapItems) {
+                    const rowName = item.label;
+                    item.object.name = rowName;
+                    scene.add(item.object);
+                    loadedModels.push({ name: rowName, root: item.object, mesh: item.object, edges: null });
+                    addModelCheckbox(scene, rowName, item.object, null, false, false, null, false, false, group.body);
+                    const row = group.body.lastElementChild;
+                    row.title = item.info;
+                    const go = document.createElement('button');
+                    go.type = 'button';
+                    go.className = 'model-goto';
+                    go.textContent = '➜';
+                    go.title = 'Go to this clip (and show it)';
+                    go.addEventListener('click', () => {
+                        const box = row.querySelector('.model-label > input');
+                        if (!box.checked) box.click();
+                        const { from, to } = item.focus;
+                        const dir = to.clone().sub(from).normalize();
+                        setCameraPose(from.toArray(), Math.asin(dir.y), Math.atan2(-dir.x, -dir.z));
+                        if (orbitControls) orbitControls.target.copy(to);
+                    });
+                    row.querySelector('.model-delete-spacer')?.replaceWith(go);
+                }
+                applyGroupMasterState("dk64-crouch");
+            }
         } catch (err) {
             console.error(err);
         }
@@ -871,6 +970,8 @@ function disableOrbitControls(){
 
 // Movement keyboard (only affects pointer-lock / fly mode)
 document.addEventListener('keydown',(e)=>{
+    // typing in a text field (e.g. the camera Go to boxes) doesn't fly the camera
+    if(e.target.closest?.('input[type=text], input[type=number], textarea')) return;
     if(e.code==='KeyW') move.forward=true;
     if(e.code==='KeyS') move.back=true;
     if(e.code==='KeyA') move.left=true;
@@ -886,6 +987,121 @@ document.addEventListener('keyup',(e)=>{
     if(e.code==='Space') move.up=false;
     if(e.code==='KeyC') move.down=false;
 });
+
+////////////////////////////////////////
+// System: Camera "Go to" / "Go to poly"
+////////////////////////////////////////
+
+const gotoPosEl = document.getElementById('gotoPos');
+const gotoRotEl = document.getElementById('gotoRot');
+const gotoPolyEl = document.getElementById('gotoPoly');
+const gotoStatusEl = document.getElementById('gotoStatus');
+
+// "x, y, z" (commas and / or spaces) -> [x, y, z], or null
+function parseTriple(text) {
+    const parts = text.trim().split(/[\s,]+/).filter(Boolean).map(Number);
+    return parts.length === 3 && parts.every(Number.isFinite) ? parts : null;
+}
+
+// Put the camera at pos looking along the mouse-look yaw / pitch (radians);
+// roll only lasts until the mouse turns the camera again. Orbit mode orbits a
+// point straight ahead.
+function setCameraPose(pos, newPitch, newYaw, roll = 0) {
+    camera.position.set(pos[0], pos[1], pos[2]);
+    yaw = newYaw;
+    pitch = Math.max(-PITCH_LIMIT, Math.min(PITCH_LIMIT, newPitch));
+    _lookEuler.set(pitch, yaw, roll, 'YXZ');
+    camera.quaternion.setFromEuler(_lookEuler);
+    if (orbitControls) {
+        const dist = Math.max(orbitControls.target.distanceTo(camera.position), 50);
+        orbitControls.target.copy(camera.position)
+            .add(new THREE.Vector3(0, 0, -dist).applyQuaternion(camera.quaternion));
+    }
+}
+
+function gotoPosition() {
+    const pos = parseTriple(gotoPosEl.value);
+    if (!pos) { gotoStatusEl.textContent = 'pos: enter x, y, z'; return; }
+    let rot = null;
+    if (gotoRotEl.value.trim()) {
+        rot = parseTriple(gotoRotEl.value);
+        if (!rot) { gotoStatusEl.textContent = 'rot: enter pitch, yaw, roll in degrees, or leave it empty'; return; }
+    }
+    const deg = THREE.MathUtils.degToRad;
+    if (rot) {
+        setCameraPose(pos, deg(rot[0]), deg(rot[1]), deg(rot[2]));
+    } else {
+        // keep the current view direction
+        const cur = new THREE.Euler().setFromQuaternion(camera.quaternion, 'YXZ');
+        setCameraPose(pos, cur.x, cur.y, cur.z);
+    }
+    gotoStatusEl.textContent = '';
+}
+
+// Every loaded collision triangle whose id (the TRI line's: userData.triangles
+// metadata or geometry.userData.triangleIds) is `query`, in sidebar order
+// (the map first), as { object, faceIndex }.
+function findPolys(query) {
+    const norm = v => String(v).trim().toLowerCase().replace(/\s+/g, ' ');
+    const want = norm(query);
+    const found = [];
+    const seen = new Set();   // a mesh can sit under two entries (DK64's Main Model group and its rows)
+    for (const m of loadedModels) {
+        m.mesh?.traverse(obj => {
+            if (!obj.isMesh || !obj.geometry?.index || seen.has(obj)) return;
+            seen.add(obj);
+            const meta = obj.userData.triangles;
+            const ids = obj.geometry.userData.triangleIds;
+            if (!meta && !ids) return;
+            const count = obj.geometry.index.count / 3;
+            for (let i = 0; i < count; i++) {
+                const id = meta ? meta[i]?.id : ids[i];
+                if (id != null && norm(id) === want) found.push({ object: obj, faceIndex: i, model: m.name });
+            }
+        });
+    }
+    return found;
+}
+
+// Repeated clicks with the same id step through its matches (props share ids).
+let gotoPolyState = { query: null, next: 0 };
+
+function gotoPoly() {
+    const query = gotoPolyEl.value.trim();
+    if (!query) { gotoStatusEl.textContent = 'poly: enter an id'; return; }
+    const found = findPolys(query);
+    if (!found.length) { gotoStatusEl.textContent = `no loaded polygon has id "${query}"`; return; }
+    if (gotoPolyState.query !== query) gotoPolyState = { query, next: 0 };
+    const k = gotoPolyState.next % found.length;
+    gotoPolyState.next = k + 1;
+    const { object, faceIndex, model } = found[k];
+
+    object.updateWorldMatrix(true, false);
+    const index = object.geometry.index, pos = object.geometry.attributes.position;
+    const face = { a: index.getX(3 * faceIndex), b: index.getX(3 * faceIndex + 1), c: index.getX(3 * faceIndex + 2) };
+    const [va, vb, vc] = [face.a, face.b, face.c].map(i => new THREE.Vector3().fromBufferAttribute(pos, i).applyMatrix4(object.matrixWorld));
+
+    // look at the centroid from the front side, far enough back to see the whole triangle
+    const centre = va.clone().add(vb).add(vc).divideScalar(3);
+    const normal = vb.clone().sub(va).cross(vc.clone().sub(va));
+    if (normal.lengthSq() < 1e-12) normal.set(0, 1, 0);
+    normal.normalize();
+    const size = Math.max(va.distanceTo(vb), vb.distanceTo(vc), vc.distanceTo(va));
+    const eye = centre.clone().addScaledVector(normal, Math.max(size * 1.2, 60));
+    const dir = centre.clone().sub(eye).normalize();
+    setCameraPose(eye.toArray(), Math.asin(dir.y), Math.atan2(-dir.x, -dir.z));
+    if (orbitControls) orbitControls.target.copy(centre);
+
+    const pts = selectHit({ object, faceIndex, face }, scene, false);
+    if (pts) addModelCheckbox(scene, "Points", pts, null, false, true, "#ff0000", true);
+    gotoStatusEl.textContent = found.length > 1
+        ? `${model}: match ${k + 1} of ${found.length} (click again for the next)` : model;
+}
+
+document.getElementById('gotoBtn').addEventListener('click', gotoPosition);
+document.getElementById('gotoPolyBtn').addEventListener('click', gotoPoly);
+for (const [el, run] of [[gotoPosEl, gotoPosition], [gotoRotEl, gotoPosition], [gotoPolyEl, gotoPoly]])
+    el.addEventListener('keydown', e => { if (e.key === 'Enter') run(); });
 
 async function fetchActorsByAreaJSON(path, sceneName) {
     try {

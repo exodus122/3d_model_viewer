@@ -202,6 +202,7 @@ export function parseBKModelBinary(scene, buffer, fresh, name, mapId, worldOffse
     // added too, so the back face draws with the front-face material.
     const COLLISION_FLAG_DOUBLE_SIDED = 0x10000;
     const tris = [];
+    const ids = [];           // each drawn triangle's index in BKCollisionTriangle[] (shown on selection)
     const collisionTris = []; // as stored: no reversed copies (bitclips.js)
     const seenTris = new Set();
     let duplicateTris = 0, doubleSidedTris = 0;
@@ -222,6 +223,7 @@ export function parseBKModelBinary(scene, buffer, fresh, name, mapId, worldOffse
         if (seenTris.has(key)) { duplicateTris++; continue; }
         seenTris.add(key);
         tris.push([a,b,c]);
+        ids.push(i);
         collisionTris.push(a - 1, b - 1, c - 1);
 
         if (flags & COLLISION_FLAG_DOUBLE_SIDED) {
@@ -229,6 +231,7 @@ export function parseBKModelBinary(scene, buffer, fresh, name, mapId, worldOffse
             if (!seenTris.has(backKey)) {
                 seenTris.add(backKey);
                 tris.push([c,b,a]);
+                ids.push(i);
                 doubleSidedTris++;
             }
         }
@@ -247,19 +250,24 @@ export function parseBKModelBinary(scene, buffer, fresh, name, mapId, worldOffse
         for(let i=0;i<tris.length;i++) tris[i]=tris[i].map(x=>x-1);
     }
 
-    finishBKModel(scene, buffer, verts, tris, fresh, name, mapId, worldOffset);
+    finishBKModel(scene, buffer, verts, tris, fresh, name, mapId, worldOffset, ids);
     addMapBitclipEdges(scene, verts.flat(), collisionTris, fresh, worldOffset);
 }
 
 // Second half of parseBKModelBinary: build the plain mesh from verts / tris
-// and hang the textured mesh under it.
-function finishBKModel(scene, buffer, verts, tris, fresh, name, mapId, worldOffset) {
+// and hang the textured mesh under it. ids: each triangle's collision list
+// index (null for display-list triangles).
+function finishBKModel(scene, buffer, verts, tris, fresh, name, mapId, worldOffset, ids = null) {
     let modelName = name ?? "Main Model";
     if(!fresh && !name)
         modelName = `Model ${loadedModels.length+1}`;
 
     if (fresh) clearTexturedPairs();
     buildGeometry(scene, verts, tris, null, null, modelName, fresh);
+    if (ids) {
+        const entry = loadedModels[loadedModels.length - 1];
+        if (entry && entry.name === modelName) entry.mesh.geometry.userData.triangleIds = ids;
+    }
 
     if (worldOffset) {
         // The textured mesh is a child of the plain mesh; the edges are not.

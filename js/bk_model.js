@@ -81,7 +81,7 @@ function vertexListCount(dv, vtxListOffset, game) {
 /**
  * @param {ArrayBuffer} buffer a decompressed BKModelBin
  * @returns {{positions: Float32Array, vertexCount: number,
- *            collisionIndices: Uint16Array|Uint32Array|null,
+ *            collisionIndices: Uint16Array|Uint32Array|null, collisionIds: number[],
  *            displayListIndices: Uint16Array|Uint32Array|null,
  *            bounds: {center: number[], localNorm: number, globalNorm: number},
  *            hitVolumes: object|null}}
@@ -125,6 +125,7 @@ export function parseBKModelGeometry(buffer, game = "BK") {
     const IndexArray = vertexCount > 65535 ? Uint32Array : Uint16Array;
 
     let collisionIndices = null;
+    const collisionIds = [];   // each kept triangle's index in BKCollisionTriangle[] (first grid-cell copy)
     if (collisionListOffset) {
         // BKCollisionList: min[3], max[3], y_stride, z_stride, geo_count, scale,
         // tri_count, pad, BKCollisionGeometry[geo_count], BKCollisionTriangle[tri_count]
@@ -138,6 +139,7 @@ export function parseBKModelGeometry(buffer, game = "BK") {
             const b = dv.getInt16(o + 2, false);
             const c = dv.getInt16(o + 4, false);
             if (pushUniqueTri(out, seen, a, b, c, vertexCount)) continue;
+            collisionIds.push(i);
         }
         collisionIndices = IndexArray.from(out);
     }
@@ -187,7 +189,7 @@ export function parseBKModelGeometry(buffer, game = "BK") {
     }
 
     return {
-        positions, vertexCount, collisionIndices, displayListIndices, bounds,
+        positions, vertexCount, collisionIndices, collisionIds, displayListIndices, bounds,
         refPoints: collectRefPoints(dv), hitVolumes: parseHitVolumes(dv),
     };
 }
