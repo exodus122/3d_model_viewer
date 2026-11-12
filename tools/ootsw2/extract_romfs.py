@@ -465,6 +465,49 @@ class ActorShapes:
         return {"tris": np.concatenate(tris) if tris else havok.EMPTY_TRIS, "hulls": hulls}
 
 
+def airwall_kind(shapes, name):
+    """Who an air wall actor blocks, from its pack: the entities' hit masks
+    (EnableLayerHitMask / EnableSubLayerHitMask) and the shapes' material
+    presets. -> player, climb, push, enemy, npc (NPCs, animals, horses),
+    camera (camera and sight), object (bombs, hookshot, rocks, lures), other."""
+    if name.startswith("PushAirWall"):
+        return "push"
+    masks, presets = set(), set()
+    files = shapes._pack(name)
+    if files:
+        actor = shapes._gyml(files, f"Work/Actor/{name}.engine__actor__ActorParam.gyml")
+        phys = shapes._gyml(files, (actor.get("Components") or {}).get("PhysicsRef"))
+        cset = shapes._gyml(files, phys.get("ControllerSetPath"))
+        for key in ("RigidBodyEntityNamePathAry", "ControllerEntityNamePathAry"):
+            for e in cset.get(key) or []:
+                p = shapes._gyml(files, e.get("FilePath"))
+                masks.update(v for k, v in p.items() if "HitMask" in k and isinstance(v, str))
+        for s in cset.get("ShapeNamePathAry") or []:
+            for v in shapes._gyml(files, s.get("FilePath")).values():
+                for item in v if isinstance(v, list) else []:
+                    if isinstance(item, dict):
+                        presets.update(item.get("MaterialPresets") or [])
+    text = " ".join(sorted(masks | presets))
+    if "AirWallForClimb" in text:
+        return "climb"
+    if "ForCrawlHole" in text or "Material_FakeWall" in text:
+        return "other"   # crawl-hole only walls; a FakeWall (stone) piece
+    if "ForCamera" in text:
+        return "camera"
+    if "HitOnlyCharacterSight" in text or (not masks and "EnemyPerceptionSight" in name):
+        return "camera"
+    if re.search(r"HitOnly(Enemy|Dodongo|Poe|DungeonBoss)", text):
+        return "enemy"
+    if re.search(r"HitOnly_?(Npc|Animal|Horse|Cucco)", text):
+        return "npc"
+    if re.search(r"HitOnly(Bomb|Hookshot|RollingRock|SmallObject)|ObjectAndSmallObject|Filter_Player", text):
+        return "object"
+    if "HitOnlyPlayer" in text or not masks or text.startswith("Material_AirWall") or masks <= {"Default"}:
+        # no hit mask: it hits every layer, Link included (incl. the level's Land_ air walls)
+        return "player"
+    return "other"
+
+
 def write_ocol(path, shapes, baked):
     """OCOL v1 (see parseOCOL in js/ootsw2_map.js)."""
     out = bytearray(b"OCOL" + struct.pack("<II", 1, len(shapes)))
@@ -762,6 +805,15 @@ def main():
         entries.append((area, banc, previous.get(dir_key), [min(xs), max(xs), min(zs), max(zs)], True,
                         bool(manifest and manifest["tiled"])))
 
+    # airwall_kinds.json: who each air wall actor blocks (every map's objects)
+    wall_names = set()
+    for dirpath, _, fs in os.walk(OUT):
+        if "objects.json" in fs:
+            wall_names.update(o["n"] for o in json.load(open(os.path.join(dirpath, "objects.json")))
+                              if AIRWALL.search(o["n"]) or o["n"].startswith("PushAirWall"))
+    with open(os.path.join(OUT, "airwall_kinds.json"), "w", newline="\n") as f:
+        json.dump({n: airwall_kind(shapes, n) for n in sorted(wall_names)}, f, indent=0, separators=(",", ":"))
+    print(f"airwall_kinds.json: {len(wall_names)} air wall actors", flush=True)
     if args.voxels_only:
         print(f"done in {time.time() - t0:.0f} s")
         return

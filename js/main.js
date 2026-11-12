@@ -30,7 +30,7 @@ import { parseDK64Collision, buildDK64TexturedMesh, buildDK64Water, parseDK64Wat
 import { attachTextured, clearTexturedPairs, registerPlain } from './bk_textured.js';
 import { renderDK64Setup, getDK64PropCollisionWorld, parseDK64LedgeScripts } from './dk64_setup.js';
 import { buildDK64CrouchGapItems } from './dk64_crouch_gaps.js';
-import { parseOCOL, buildOOTSW2Collision, typedMeshList, groupOOTSW2ByActor, buildOOTSW2ObjectPoints, OOTSW2_SCALE, isOOTSW2Terrain, splitSourceByOwner,
+import { parseOCOL, buildOOTSW2Collision, typedMeshList, groupOOTSW2ByActor, buildOOTSW2ObjectPoints, OOTSW2_SCALE, isOOTSW2Terrain,
          splitSourceByTriangle, describeOOTSW2Surface,
          loadOOTSW2Compound, mergeOOTSW2Compound, buildOOTSW2Mesh, buildOOTSW2Edges, lazyTriangleIds } from './ootsw2_map.js';
 
@@ -39,10 +39,12 @@ import { loadOOTSW2Voxels, activeVoxelTiles, VoxelSet, buildVoxelPoints, buildVo
          VOID_COLORS, VOID_RADIUS } from './ootsw2_voidmap.js';
 
 let ootsw2Airwalls = null;   // models/OOTSW2/airwalls.json, shared by every map
+let ootsw2WallKinds = null;  // models/OOTSW2/airwall_kinds.json: air wall actor -> who it blocks
 const wireframeOn = () => document.getElementById('wireframe').checked;
 const OOTSW2_LINK_COLOR = '#ffd040';
 // The "Collision types" checkboxes, kept across map loads
 const ootsw2KindShown = { static: true, staticObj: true, ocarina: true, actor: true, hull: true, airwall: true, climbWall: true, pushWall: false,
+    airwallSurface: true, enemyWall: false, npcWall: false, cameraWall: false, otherWall: false,
     detail: false, bakedArea: false,
     zone: true, link: false,
     ...Object.fromEntries(OOTSW2_AREA_KINDS.map(([kind, , , shown]) => [kind, shown])) };
@@ -729,45 +731,63 @@ async function loadSelectedMap(game) {
             // are kinds of their own, hidden at first
             const surfaceTable = compound?.manifest?.surfaces ?? [];
             const compoundLayers = compound?.manifest?.layers ?? [];
-            // Air walls Link can only climb, and push walls (doors and the
-            // like), are kinds of their own: they don't simply block him
-            const wallKind = owner => {
+            // Air walls split by who they block (models/OOTSW2/airwall_kinds.json,
+            // from each actor's hit masks and material presets): Link, climb-only,
+            // push walls, enemies, NPCs / animals, camera / sight, objects. An
+            // AirWall-material piece of a level mesh with no air wall actor
+            // behind it is "air-wall surface": who it blocks isn't known.
+            ootsw2WallKinds ??= await fetch('./models/OOTSW2/airwall_kinds.json').then(r => r.ok ? r.json() : {}).catch(() => ({}));
+            const WALL_CLASSES = { player: "airwall", climb: "climbWall", push: "pushWall", enemy: "enemyWall", npc: "npcWall",
+                                   camera: "cameraWall", object: "otherWall", other: "otherWall" };
+            const AIR = /Air[Ww]all/;
+            const wallClass = owner => {
                 const name = owner >= 0 ? objects[owner].n : '';
-                return /Climb/.test(name) ? "climbWall" : /^PushAir[Ww]all/.test(name) ? "pushWall" : "airwall";
+                const known = WALL_CLASSES[ootsw2WallKinds[name]];
+                if (known) return known;
+                if (/Climb/.test(name)) return "climbWall";
+                if (/^PushAir[Ww]all/.test(name)) return "pushWall";
+                return AIR.test(name) ? "airwall" : "airwallSurface";
             };
-            let staticMain = staticSource, staticExtra = [];
-            if (staticSource.layers) {
-                const AIR = /Air[Ww]all/;
-                const parts = splitSourceByTriangle(staticSource, t => {
-                    const layer = staticSource.layers[t];
+            // Every triangle gets a collision kind (its sidebar group) and, for
+            // air walls, a wall class: part kinds are "kind" or "kind|wall".
+            // An air wall is static collision like the rest (an AirWall
+            // material, or an air wall object baked into the compound); what
+            // sets it apart is who it blocks, the wall class.
+            const staticKind = owner => permanent(owner) ? "static" : haveFlags && ocarinaJumpable(owner) ? "ocarina" : "staticObj";
+            const sources = [
+                ...splitSourceByTriangle(staticSource, t => {
+                    const layer = staticSource.layers?.[t];
                     if (layer === 2) return "detail";
                     if (layer === 3) return "bakedArea";
                     const owner = staticSource.owners[t];
-                    if (surfaceTable[staticSource.surfaces[t]]?.m === "AirWall" || (owner >= 0 && AIR.test(objects[owner].n))) return wallKind(owner);
-                    return "static";
-                });
-                staticMain = parts.find(p => p.kind === "static") ??
-                    { kind: "static", positions: staticSource.positions, indices: new Uint32Array(0), owners: new Int32Array(0), surfaces: new Uint16Array(0) };
-                staticExtra = parts.filter(p => p.kind !== "static");
-            }
-            const [staticPermanent, staticRemovable] = splitSourceByOwner(staticMain, "staticObj", permanent);
-            const sources = [
-                staticPermanent,
-                ...(haveFlags ? splitSourceByOwner(staticRemovable, "ocarina", owner => !ocarinaJumpable(owner)) : [staticRemovable]),
-                ...staticExtra,
+                    const kind = staticKind(owner);
+                    const wall = surfaceTable[staticSource.surfaces?.[t]]?.m === "AirWall" || (owner >= 0 && AIR.test(objects[owner].n));
+                    return wall ? `${kind}|${wallClass(owner)}` : kind;
+                }),
                 { kind: "actor", ...typedMeshList(col.actors, objects) },
                 { kind: "hull", ...typedMeshList(col.hulls, objects) },
                 ...(() => {
-                    const walls = { kind: "airwall", ...typedMeshList(col.airwalls, objects) };
-                    return splitSourceByTriangle(walls, t => wallKind(walls.owners[t]));
+                    const walls = { kind: "actor", ...typedMeshList(col.airwalls, objects) };
+                    return splitSourceByTriangle(walls, t => `actor|${wallClass(walls.owners[t])}`);
                 })(),
             ];
             const actorRows = groupOOTSW2ByActor(sources, objects);
-            const KIND_COLORS = { static: "#3aa6ff", staticObj: "#3ddc84", ocarina: "#ffe14d", actor: "#b05cff", hull: "#ff9a3a", airwall: "#ff4f6a",
-                                  climbWall: "#ffc400", pushWall: "#4f8cff", detail: "#9aa0a6", bakedArea: "#3fc1b0" };
+            const baseKind = kind => kind.split('|')[0];
+            const wallOf = kind => kind.split('|')[1] ?? null;
+            // Collision kinds: the sidebar's groups, in this order
+            const KIND_COLORS = { static: "#3aa6ff", staticObj: "#3ddc84", ocarina: "#ffe14d", actor: "#b05cff", hull: "#ff9a3a",
+                                  detail: "#9aa0a6", bakedArea: "#3fc1b0" };
             const KIND_LABELS = { static: "static permanent", staticObj: "static removable", ocarina: "static removable (ocarina jump)",
-                                  actor: "actor collision", hull: "hulls", airwall: "air wall", climbWall: "climb-only wall",
-                                  pushWall: "push wall", detail: "detail copy", bakedArea: "baked areas" };
+                                  actor: "actor collision", hull: "hulls", detail: "detail copy", bakedArea: "baked areas" };
+            const KIND_DEFAULT = { detail: false, bakedArea: false };
+            // Air wall classes: a filter (and colour) across every kind
+            const WALL_COLORS = { airwall: "#ff4f6a", airwallSurface: "#ff8fa3", climbWall: "#ffc400", pushWall: "#4f8cff",
+                                  enemyWall: "#c2185b", npcWall: "#8d6e63", cameraWall: "#78909c", otherWall: "#a1887f" };
+            const WALL_LABELS = { airwall: "blocks Link", airwallSurface: "unknown (level surface)", climbWall: "climb-only",
+                                  pushWall: "push", enemyWall: "enemies only", npcWall: "NPCs / animals", cameraWall: "camera / sight",
+                                  otherWall: "objects / other" };
+            const partColor = kind => WALL_COLORS[wallOf(kind)] ?? KIND_COLORS[baseKind(kind)];
+            const partLabel = kind => wallOf(kind) ? `air wall (${WALL_LABELS[wallOf(kind)]})` : KIND_LABELS[baseKind(kind)];
             const KIND_TITLES = {
                 static: "Static collision of objects that never become actors (IsNotTurnToActor): level geometry, the heightmap ground",
                 staticObj: "Static collision of objects the game can turn into actors (no IsNotTurnToActor): crack walls, " +
@@ -778,21 +798,44 @@ async function loadSelectedMap(game) {
                     "collision's extent, not its visible height: a bean plant's reaches 0.8 m below its leaf. Click an object to see it",
                 actor: "Its own triangle mesh: doors, platforms, moving parts",
                 hull: "Convex physics shapes: NPC / enemy bodies, pots, crates, bomb flowers",
-                airwall: "Invisible walls: air wall objects, and static collision whose surface material is AirWall",
-                climbWall: "Air walls Link can only climb (air wall objects with Climb in their name)",
+                airwall: "Invisible walls that block Link: air wall objects whose hit mask lets Link collide (HitOnlyPlayer, " +
+                    "or no mask), including each map's Land_ outer boundary / inner walls",
+                airwallSurface: "AirWall-material triangles of level meshes with no air wall object behind them: who they " +
+                    "block depends on collision layers that aren't decoded (many only stop the camera or NPCs)",
+                climbWall: "Air walls Link can only climb (AirWallForClimb)",
                 pushWall: "Push walls: air walls that push Link back (doors and the like)",
+                enemyWall: "Air walls that only stop enemies (HitOnlyEnemy, Dodongo, Poe, Gohma...): Link walks through",
+                npcWall: "Air walls that only stop NPCs, animals, horses or Cuccos: Link walks through",
+                cameraWall: "Air walls that only stop the camera or line of sight: Link walks through",
+                otherWall: "Air walls for objects only (bombs, hookshot, rolling rocks, small objects, fishing lure) and " +
+                    "special ones (crawl holes, a fake wall)",
                 detail: compoundLayers.find(l => l.index === 2)?.title,
                 bakedArea: compoundLayers.find(l => l.index === 3)?.title,
             };
-            const categories = new Map();
+            // Sidebar groups by collision kind: a row per actor name within
+            // each kind (a Land_ piece with static and actor collision shows
+            // up in both groups)
+            const categories = new Map(Object.keys(KIND_COLORS).map(k => [k, { rows: [], triangles: 0 }]));
             for (const row of actorRows) {
-                if (!categories.has(row.category)) categories.set(row.category, { rows: [], triangles: 0 });
-                const cat = categories.get(row.category);
-                cat.rows.push(row);
-                cat.triangles += row.triangles;
+                const byKind = new Map();
+                for (const part of row.parts) {
+                    const k = baseKind(part.kind);
+                    if (!byKind.has(k)) byKind.set(k, []);
+                    byKind.get(k).push(part);
+                }
+                for (const [k, parts] of byKind) {
+                    const instances = new Set();
+                    let triangles = 0;
+                    for (const p of parts) {
+                        triangles += p.owners.length;
+                        for (const o of p.owners) if (o >= 0) instances.add(o);
+                    }
+                    const cat = categories.get(k);
+                    cat.rows.push({ ...row, parts, instances: instances.size, triangles });
+                    cat.triangles += triangles;
+                }
             }
-            const order = [...categories.keys()].sort((a, b) =>
-                (a === "Other") - (b === "Other") || categories.get(b).triangles - categories.get(a).triangles);
+            const order = [...categories.keys()].filter(k => categories.get(k).rows.length);
 
             // Loading zones and areas (ootsw2_areas.js), see-through volumes
             const areaData = buildOOTSW2Areas(objects, await loadOOTSW2AreaTables(), ootsw2Airwalls,
@@ -828,20 +871,26 @@ async function loadSelectedMap(game) {
                 box.append(chk, dot, label);
                 kindRow.appendChild(box);
             };
-            for (const kind of Object.keys(KIND_COLORS))
-                if (actorRows.some(r => r.parts.some(p => p.kind === kind))) addKind(kind, KIND_LABELS[kind], KIND_COLORS[kind], KIND_TITLES[kind]);
-            if (areaData.zones.length || areaKinds.length) {
-                const brk = document.createElement('span');
-                brk.className = 'ootsw2-kinds-break';
-                kindRow.appendChild(brk);
-            }
-            if (areaData.zones.length) addKind('zone', 'loading zones', OOTSW2_ZONE_COLOR);
-            for (const [kind, label, color, , short] of areaKinds) addKind(kind, short, color, label);
+            // the collision kinds are the sidebar's groups; each group that
+            // holds air walls gets its own air wall filter under its header
+            // Volumes (loading zones, area categories) and links have no
+            // checkbox here: their group (or row) is the one switch
             const byHash = new Map(objects.map(o => [o.h, o]));
             const linkCount = objects.reduce((n, o) => n + (o.l ?? []).filter(([dst]) => byHash.has(dst)).length, 0);
-            if (linkCount) addKind('link', 'links', OOTSW2_LINK_COLOR,
-                'Lines from each object to the objects it links to (its Links), yellow at the source end, cyan at the target');
             document.querySelector('.controls').appendChild(kindRow);
+            // A group header's colour swatch (and title), so the header reads
+            // like the kind checkbox it replaces
+            const decorateGroup = (group, color, title) => {
+                const titleEl = group.wrapper.querySelector('.model-group-title');
+                if (color && titleEl && !titleEl.querySelector('.ootsw2-kind-dot')) {
+                    const dot = document.createElement('span');
+                    dot.className = 'ootsw2-kind-dot';
+                    dot.style.background = color;
+                    titleEl.insertBefore(dot, group.master.nextSibling);
+                }
+                if (title) group.wrapper.title = title;
+            };
+            const AREA_SHOWN = Object.fromEntries(OOTSW2_AREA_KINDS.map(([kind, , , shown]) => [kind, shown]));
             // Selection info for one placed object: name, hash, objmap's
             // friendly name and its link count
             // and whether an ocarina jump should work on it (with the height
@@ -859,19 +908,63 @@ async function loadSelectedMap(game) {
             for (const o of objects) if (o.u && !friendlyName.has(o.n)) friendlyName.set(o.n, o.u);
             // Mesh and edge mesh joined to their kind's checkbox
             const joinKind = (kind, mesh, edge) => {
+                if (!kindParts[kind]) return;   // volumes: their group is the switch
                 kindParts[kind].push([mesh, edge]);
                 mesh.visible = edge.visible = ootsw2KindShown[kind] ?? true;
             };
 
             for (const category of order) {
                 const { rows } = categories.get(category);
-                const key = `ootsw2-${category}`;
-                const group = getModelGroup(key, `${category} (${rows.length})`);
+                const key = `ootsw2-kind-${category}`;
+                const group = getModelGroup(key, `${KIND_LABELS[category]} (${rows.length})`);
+                // The static groups get a filter line under the header: their
+                // plain collision ("static", with the group's colour) and their
+                // air walls by who they block, each switched on its own (keys
+                // "kind|plain" / "kind|wall"), so the walls can be seen alone.
+                // The other groups carry their colour on the header.
+                const isStatic = ['static', 'staticObj', 'ocarina'].includes(category);
+                decorateGroup(group, isStatic ? null : KIND_COLORS[category], KIND_TITLES[category]);
+                const walls = Object.keys(WALL_COLORS).filter(w => rows.some(r => r.parts.some(p => wallOf(p.kind) === w)));
+                group.wrapper.querySelector('.ootsw2-group-walls')?.remove();
+                if (isStatic) {
+                    const line = document.createElement('div');
+                    line.className = 'ootsw2-group-walls';
+                    const addFilter = (wk, label, color, title, shown) => {
+                        kindParts[wk] = [];
+                        ootsw2KindShown[wk] ??= shown;
+                        const box = document.createElement('label');
+                        box.className = 'ootsw2-kind';
+                        box.title = title ?? '';
+                        const chk = document.createElement('input');
+                        chk.type = 'checkbox';
+                        chk.checked = ootsw2KindShown[wk];
+                        chk.addEventListener('change', () => {
+                            ootsw2KindShown[wk] = chk.checked;
+                            for (const [mesh, edge] of kindParts[wk]) mesh.visible = edge.visible = chk.checked;
+                            clearSelection(scene);
+                        });
+                        const dot = document.createElement('span');
+                        dot.className = 'ootsw2-kind-dot';
+                        dot.style.background = color;
+                        box.append(chk, dot, label);
+                        line.append(box);
+                    };
+                    addFilter(`${category}|plain`, 'static', KIND_COLORS[category],
+                              'This group\'s collision other than its air walls', true);
+                    if (walls.length) {
+                        const lead = document.createElement('span');
+                        lead.textContent = 'air walls:';
+                        lead.title = "Air walls in this group (an AirWall surface material, or an air wall object), by who they block";
+                        line.append(lead);
+                    }
+                    for (const w of walls) addFilter(`${category}|${w}`, WALL_LABELS[w], WALL_COLORS[w], KIND_TITLES[w], ootsw2KindShown[w] ?? true);
+                    group.wrapper.querySelector('.model-group-header').after(line);
+                }
                 for (const row of rows.sort((a, b) => a.name.localeCompare(b.name))) {
                     const root = new THREE.Group();
                     for (const part of row.parts) {
-                        const mesh = buildOOTSW2Mesh(part.positions, part.indices, KIND_COLORS[part.kind]);
-                        mesh.name = `${row.name} ${KIND_LABELS[part.kind]}`;
+                        const mesh = buildOOTSW2Mesh(part.positions, part.indices, partColor(part.kind));
+                        mesh.name = `${row.name} ${partLabel(part.kind)}`;
                         const owners = part.owners, surfaces = part.surfaces;
                         const surfaceNote = k => surfaces ? ` · ${describeOOTSW2Surface(surfaceTable[surfaces[k]])}` : '';
                         mesh.geometry.userData.triangleIds = lazyTriangleIds(owners.length, k =>
@@ -883,17 +976,20 @@ async function loadSelectedMap(game) {
                     scene.add(root);
                     const edges = buildOOTSW2Edges(root.children);
                     scene.add(edges);
-                    row.parts.forEach((part, i) => joinKind(part.kind, root.children[i], edges.children[i]));
+                    // air wall parts follow their wall class's filter checkbox
+                    row.parts.forEach((part, i) => {
+                        joinKind(`${category}|${wallOf(part.kind) ?? 'plain'}`, root.children[i], edges.children[i]);
+                    });
                     loadedModels.push({ name: rowName, mesh: root, edges });
                     // The swatch drives the row's biggest part; the others (an
-                    // air wall on a Land_ piece) keep their kind's colour
+                    // air wall on a Land_ piece) keep their own colour
                     const main = row.parts.reduce((best, p, i) => p.owners.length > row.parts[best].owners.length ? i : best, 0);
-                    addModelCheckbox(scene, rowName, root, edges, false, true, KIND_COLORS[row.parts[main].kind], false,
+                    addModelCheckbox(scene, rowName, root, edges, false, KIND_DEFAULT[category] ?? true, partColor(row.parts[main].kind), false,
                                      root.children[main], group.body);
                     edges.visible = root.visible && wireframeOn();
                     group.body.lastElementChild.title = (friendlyName.has(row.name) ? `${friendlyName.get(row.name)}\n` : '') +
                         `${row.name}: ` + (row.instances ? `${row.instances} placed, ` : '') + `${row.triangles} triangles (` +
-                        row.parts.map(p => `${p.owners.length} ${KIND_LABELS[p.kind]}`).join(', ') + ')';
+                        row.parts.map(p => `${p.owners.length} ${partLabel(p.kind)}`).join(', ') + ')';
                 }
                 applyGroupMasterState(key);
             }
@@ -1186,7 +1282,18 @@ async function loadSelectedMap(game) {
                 const line2 = document.createElement('div');
                 line2.className = 'ootsw2-surface-row';
                 line2.append(whole, floorStep, scan, stepPick, lift, clear, status);
-                kindRow.append(line, cubeLegend, line2, legend);
+                // its own collapsible section, after the model groups and
+                // before Selected Entities
+                const voxelSection = document.createElement('details');
+                voxelSection.className = 'section map-tool-section ootsw2-voxel-section';
+                voxelSection.open = ootsw2KindShown.voxelOpen ?? false;
+                voxelSection.addEventListener('toggle', () => { ootsw2KindShown.voxelOpen = voxelSection.open; });
+                const summary = document.createElement('summary');
+                summary.textContent = 'Void probe & cubes';
+                summary.title = "The game's 1 m VolumeStats cubes and its void probe: Link voids in the air once he is " +
+                    `${VOID_RADIUS} m or more sideways from the nearest cube face the probe's 64 rays hit`;
+                voxelSection.append(summary, line, cubeLegend, line2, legend);
+                document.querySelector('.controls').after(voxelSection);
                 showCubes();
             }
 
@@ -1212,6 +1319,7 @@ async function loadSelectedMap(game) {
             if (areaData.zones.length) {
                 const key = "ootsw2-zones";
                 const group = getModelGroup(key, `Loading zones (${areaData.zones.length})`);
+                decorateGroup(group, OOTSW2_ZONE_COLOR, 'Loading zones: the entrance actor and its area volumes, labelled with the destination');
                 const used = new Map();
                 for (const zone of areaData.zones.sort((a, b) => a.label.localeCompare(b.label))) {
                     const n = (used.get(zone.label) ?? 0) + 1;
@@ -1234,13 +1342,14 @@ async function loadSelectedMap(game) {
                 const parts = splitMeshList(areaData.areas[kind], o => areaData.rowKey(kind, o));
                 const key = `ootsw2-area-${kind}`;
                 const group = getModelGroup(key, `${label} (${parts.size})`);
+                decorateGroup(group, color, label);
                 for (const [name, list] of [...parts].sort(([a], [b]) => a.localeCompare(b))) {
                     const count = new Set(list.owners).size;
                     let rowName = count > 1 ? `${name} ×${count}` : name;
                     if (usedNames.has(rowName)) rowName += ` (${label})`;
                     usedNames.add(rowName);
                     const { root, edges, mesh } = buildVolume(rowName, list, color, kind, areaData.labelOf);
-                    addModelCheckbox(scene, rowName, root, edges, false, true, color, false, mesh, group.body);
+                    addModelCheckbox(scene, rowName, root, edges, false, AREA_SHOWN[kind] ?? true, color, false, mesh, group.body);
                     edges.visible = root.visible && wireframeOn();
                     group.body.lastElementChild.title = `${label}: ${name}, ${count} object${count > 1 ? 's' : ''}`;
                 }
@@ -1248,7 +1357,7 @@ async function loadSelectedMap(game) {
             }
 
             // Links: a line per link between two objects of this map, from the
-            // source (yellow) to the target (cyan); only the "links" checkbox
+            // source (yellow) to the target (cyan); a row of its own, off at first
             if (linkCount) {
                 const pos = new Float32Array(linkCount * 6), col = new Float32Array(linkCount * 6);
                 const src = new THREE.Color(0xffd040), dst = new THREE.Color(0x40e0ff);
@@ -1272,7 +1381,9 @@ async function loadSelectedMap(game) {
                 lines.userData.unselectable = true;
                 scene.add(lines);
                 loadedModels.push({ name: "Links", mesh: lines, edges: null });
-                joinKind('link', lines, new THREE.Object3D());
+                addModelCheckbox(scene, "Links", lines, null, false, false, OOTSW2_LINK_COLOR, false, null);
+                document.querySelector('.controls').lastElementChild.title =
+                    'Lines from each object to the objects it links to (its Links), yellow at the source end, cyan at the target';
             }
 
             const compoundBox = new THREE.Box3();
@@ -1287,7 +1398,7 @@ async function loadSelectedMap(game) {
             loadedModels.push({ name: "Objects", root: points, mesh: points, edges: null });
             addModelCheckbox(scene, "Objects", points, null, false, false, '#ffd040', false, null);
 
-            const tris = sources.map(s => `${s.indices.length / 3} ${KIND_LABELS[s.kind]}`).join(', ');
+            const tris = sources.map(s => `${s.indices.length / 3} ${partLabel(s.kind)}`).join(', ');
             console.log(`${mapDir}: ${objects.length} objects, ${col.counts.placed} placed from collision.bin ` +
                         `(${col.counts.skipped} in the compound, ${col.counts.noShape} without a shape); ` +
                         `${actorRows.length} actor rows in ${categories.size} groups; triangles: ${tris}` +

@@ -240,6 +240,8 @@ export function removeAllModelCheckboxes() {
     // otherwise an empty "DynaPoly Actors" box survives every scene change.
     section.querySelectorAll('.model-group').forEach(group => group.remove());
     modelGroups.clear();
+    // per-map tool sections placed after .controls (OOT Switch 2 void probe)
+    document.querySelectorAll('.map-tool-section').forEach(el => el.remove());
     //delete modelVisibilityState[name];
 }
 

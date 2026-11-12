@@ -263,6 +263,50 @@ button {
     width: 10px;
     height: 10px;
     border-radius: 2px;
+    /* a fixed square: never squeezed by a long label next to it */
+    flex: 0 0 10px;
+    min-width: 10px;
+}
+
+/* OOT (Switch 2) void probe & cubes: a compact collapsible section */
+.ootsw2-voxel-section {
+    padding: 6px 10px;
+}
+
+.ootsw2-voxel-section > summary {
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 14px;
+}
+
+.ootsw2-voxel-section[open] > summary {
+    margin-bottom: 4px;
+}
+
+.ootsw2-voxel-section .ootsw2-surface-row {
+    margin-top: 2px;
+    gap: 4px 6px;
+}
+
+.ootsw2-voxel-section select,
+.ootsw2-voxel-section button {
+    font-size: 12px;
+    padding: 3px 6px;
+}
+
+/* a collision group's air wall filter, under its header */
+.ootsw2-group-walls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 2px 10px;
+    padding: 2px 8px 6px 30px;
+    font-size: 12px;
+    opacity: 0.9;
+}
+
+.ootsw2-group-walls .ootsw2-kind {
+    font-size: 12px;
 }
 
 /* surface colours checkbox + highlight picker, on a line of their own */

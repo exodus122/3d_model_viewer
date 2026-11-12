@@ -32,8 +32,14 @@ New compared to the objmap data:
   (`zk` / `zl` in objects.json): void out (incl. quicksand and scripted voids), no respawn, safe path,
   whirlpool, cutscene trigger (named after its `Dm_` event). Shared logic is matched by name, scene modules
   by the nodes in their `Logic/*.logic.module.ainb`. They take precedence over objmap's void out table.
-- **Wall kinds.** Air walls named `...Climb...` are "climb-only walls", `PushAirWall_*` are "push walls"
-  (hidden at first).
+- **Wall kinds, by who they block.** `airwall_kinds.json` classifies every air wall actor from its pack:
+  the entities' hit masks (`HitOnlyPlayer`, `HitOnlyCharacter` + `HitOnlyEnemy` / `HitOnlyNpc` /
+  `HitOnlyAnimal`, `HitOnlyBomb`, `HitOnlyHookshot`...) and the shapes' material presets
+  (`Material_AirWall` filters only camera and sight, `Material_AirWall_ForCamera` hits only the camera,
+  `AirWallForClimb`...). Kinds: air wall (blocks Link, incl. each map's `Land_*_Airwall_*` boundary and inner
+  walls), climb-only, push, enemy-only, NPC / animal, camera / sight, object / other. The non-Link kinds start
+  hidden. AirWall-material triangles of level meshes with no air wall actor behind them are "air-wall
+  surface (unknown)": who they block depends on per-body collision layers that aren't decoded.
 - **Void probe (voxels).** The game decides void-outs with a probe that ignores the collision triangles: it
   casts 64 rays (a golden spiral) from Link into a grid of 1 m cubes, keeps the nearest hit, and voids Link
   once he is 8 m or more sideways from it (worked out in game by the shared oottools mod, `voidmap.cpp`).
