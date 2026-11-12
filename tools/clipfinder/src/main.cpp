@@ -18,6 +18,7 @@
 //   search.h/.cpp    the scan over a whole map
 //   slope.h/.cpp     slope clips: the floor check lifting Link behind a wall
 //   ground.h/.cpp    ground clips: falling fast through the floor, under a wall
+//   aerial.h/.cpp    aerial acute clips: in the air, pushed through an acute corner
 //   reach.h/.cpp     --min-speed, --refine, --angles, --yaw
 //   action.h/.cpp    --type actions: sword lunges doing the clip
 //   output.h/.cpp    the results JSON
@@ -27,7 +28,7 @@
 // Build: build.sh (g++ / clang++, any OS) or build.bat (Visual Studio) next to
 // this file; see the README.
 // Usage:
-//   clipfinder --game MM --map "Laundry Pool" --form Human [--type acute,extended,slope,ground,falling,actions] [--first-per-pair] [-o out.json]
+//   clipfinder --game MM --map "Laundry Pool" --form Human [--type acute,extended,slope,ground,falling,actions,aerial-acute] [--first-per-pair] [-o out.json]
 //     (--first-per-pair: one clip point per wall pair, the first found - much faster)
 //   clipfinder --game OOT --all --form Adult [--type all] --out-dir results/
 //   clipfinder --game OOT --map "Spot 01 - Kakariko Village" --form All -o kak.json
@@ -44,6 +45,7 @@
 // Every option is explained in README.md next to this file.
 
 #include "action.h"
+#include "aerial.h"
 #include "corners.h"
 #include "dyna.h"
 #include "output.h"
@@ -272,6 +274,21 @@ int main(int argc, char** argv) {
 		else if (a == "--night") night = true;
 		else if (a == "--slope-starts") slopeStarts = true;
 		else if (a == "--aerial") aerial = true;
+		else if (a == "--aerial-vys") {
+			// (aerial.h aerialVys: the y velocities aerial acute frames are tried at)
+			string v = val();
+			for (size_t p0 = 0; p0 <= v.size();) {
+				size_t p1 = v.find(',', p0);
+				if (p1 == string::npos) p1 = v.size();
+				const string t = v.substr(p0, p1 - p0);
+				p0 = p1 + 1;
+				if (t.empty()) continue;
+				char* endp = nullptr;
+				const double n = strtod(t.c_str(), &endp);
+				if (*endp || n < -20 || n > 20) { fprintf(stderr, "--aerial-vys wants y velocities from -20 to 20, e.g. 6,0,-14.5\n"); return 2; }
+				AERIAL_VY_LIST.push_back(n);
+			}
+		}
 		else if (a == "--no-corners") corners = false;
 		else if (a == "--slope-step") {
 			slopeStepMax = std::stoi(val());
@@ -339,6 +356,9 @@ int main(int argc, char** argv) {
 	const bool extendedOnly = (types & TYPE_EXTENDED) && !(types & TYPE_ACUTE);
 	if (aerial && !falling) { fprintf(stderr, "--aerial needs falling clips: --type with falling (e.g. --type acute,extended,falling)\n"); return 2; }
 	if (aerial && (minSpeed || atYaw >= 0 || angleSweep)) { fprintf(stderr, "--aerial can't be used with --min-speed / --refine / --yaw / --angles\n"); return 2; }
+	// (aerial acute clips: their move is their reach, and the per-pair tools don't run their frame)
+	if ((types & TYPE_AERIAL) && (refine || atYaw >= 0 || angleSweep)) { fprintf(stderr, "--type aerial-acute can't be used with --refine / --yaw / --angles\n"); return 2; }
+	if ((types & TYPE_AERIAL) && (types & TYPE_ACTIONS)) { fprintf(stderr, "--type aerial-acute can't be used with actions: scan them separately\n"); return 2; }
 	if (exact && atYaw < 0) { fprintf(stderr, "--exact needs --yaw\n"); return 2; }
 	if (gridSpeed > 0 && atYaw < 0 && !angleSweep) { fprintf(stderr, "--speed needs --yaw or --angles\n"); return 2; }
 	// (--speed without --max-speed: the search for starts goes up to that speed)
@@ -362,7 +382,7 @@ int main(int argc, char** argv) {
 		fprintf(stderr,
 			"usage: clipfinder --game OOT|MM|OOT3D|MM3D (--map \"<name in the viewer's map list>\" | --all)\n"
 			"                  [--form Adult|Child|Crawlspace|Human|Deku|Zora|Goron|FierceDeity|All, or a list: Adult,Child] [--radius R] [--first-per-pair]\n"
-			"                  [--type acute,extended,slope,ground,falling,actions | all]  (which clips; default acute,extended,slope; all: every one but actions)\n"
+			"                  [--type acute,extended,slope,ground,falling,actions,aerial-acute | all]  (which clips; default acute,extended,slope; all: every one but actions and aerial-acute)\n"
 			"                  [--min-speed] [--pair PUSHER,CROSSED] [--refine (with --pair: the exact lowest walking speed)]\n"
 			"                  [--angles (with --pair: also every yaw that works from the refined start)]\n"
 			"                  [--from X,Y,Z[,SPEED] (--angles from this start instead, and at this speed)]\n"
@@ -371,11 +391,12 @@ int main(int argc, char** argv) {
 			"                  [--exact (with --yaw: then every f32 x, z around each region found)]\n"
 			"                  [--speed S (with --yaw: the CSV grids at exactly speed S; stands in for --max-speed)]\n"
 			"                  [--clip-kind walking|falling|slope|ground] [--drop D]  (with --refine / --yaw / --angles: which of the pair's clips; falling: posNext D below the floor)\n"
-			"                  [--sim X,Y,Z,YAW,SPEED[,DROP | ,vVY]]  (one frame from a standing start, printed step by step; SPEED as 15/7: a frame per speed)\n"
+			"                  [--sim X,Y,Z,YAW,SPEED[,DROP | ,vVY | ,air | ,airVY]]  (one frame from a standing start, printed step by step; SPEED as 15/7: a frame per speed; air[VY]: in the air at y velocity VY (0), the aerial acute verdict)\n"
 			"                  [--tri ID[,ID...]]  (print those polys: vertices, normal, type)\n"
 			"                  [--max-move N]  (units Link can move in one frame: default 40 - speed 26.67, OOT3D / MM3D 40)\n"
 			"                  [--dyna FILE|none [--dyna-only] [--setup N] [--night]]  (the viewer's dynapoly export; default tools/clipfinder/<GAME>_dyna_all.json)\n"
 			"                  [--slope-step 1|2|3] [--wall-step S] [--slope-starts] [--aerial] [--keep-load-void] [--ground-step 1|2|3]\n"
+			"                  [--aerial-vys VY,...]  (with --type aerial-acute: the y velocities tried, default 6,3,0,-5,-10,<fastest with pushes>,-20)\n"
 			"                  [--max-per-pair N]  (at most N points per wall pair, spread out evenly: smaller files)\n"
 			"                  [--max-mb N]  (default 5: a bigger file keeps fewer points per wall pair, as --max-per-pair; 0: no limit)\n"
 			"                  [--action-keys 1h-slash,1h-stab,2h-slash,2h-stab,stick-slash,...,deku-spin,deku-spin-backwalk]  (with --type actions: which, default all; MM3D: the ones recorded in tools/clipfinder/tools/mm3d_actions)\n"
@@ -705,6 +726,7 @@ int main(int argc, char** argv) {
 				m.slopeStarts = slopeStarts;
 				m.aerial = aerial;
 				m.ground = types & TYPE_GROUND;
+				m.aerialAcute = types & TYPE_AERIAL;
 				m.groundStepMax = groundStepMax;
 				m.slopeStepMax = slopeStepMax;
 				m.wallStep = wallStep;

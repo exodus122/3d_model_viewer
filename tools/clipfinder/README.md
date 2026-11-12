@@ -159,7 +159,7 @@ the radius, so scan each form you care about.
 
 `--type` picks the clips, as a comma-separated list, e.g. `--type acute,falling`.
 
-Types: `acute`, `extended`, `slope`, `ground`, `falling`, `actions`
+Types: `acute`, `extended`, `slope`, `ground`, `falling`, `actions`, `aerial-acute`
 
 | Type | Clips |
 |---|---|
@@ -169,8 +169,9 @@ Types: `acute`, `extended`, `slope`, `ground`, `falling`, `actions`
 | `ground` | Ground clips (see **Ground clips** below) |
 | `falling` | Falling wall push clips: of acute / extended pairs if either is picked too, else of both |
 | `actions` | Sword lunge, jumpslash and Deku spin clips (see `--action-keys` and **Action clips** below); not with `falling` or `ground` |
+| `aerial-acute` | Aerial acute clips: Link in the air moving into an acute corner at speed up to 18, rising or falling (see **Aerial acute clips** and `--aerial-vys` below); not with `actions` |
 
-Default: `acute,extended,slope`. `all` means `acute,extended,slope,ground,falling` (everything but `actions`).
+Default: `acute,extended,slope`. `all` means `acute,extended,slope,ground,falling` (everything but `actions` and `aerial-acute`).
 
 | Option | Meaning |
 |---|---|
@@ -189,6 +190,7 @@ Default: `acute,extended,slope`. `all` means `acute,extended,slope,ground,fallin
 | `--keep-load-void` | Keep the clips whose start is on a loading zone (a floor with an exit, `SurfaceType_GetExitIndex`) or a void plane (floor property 5 / 12, MM 13 too). Left out by default: standing there takes Link out of the scene before any clip matters. Only the floor under the start counts; dynapolys never do (the export has no surface types). E.g. OoT Death Mountain Trail, adult: 374 of 1818 points, nearly all of TRI 348 → 346 / 345, start on the summit's exit to the crater (TRI 453, exit 5). `--sim` prints the start's floor, and `--tri` a poly's exit and floor property. |
 | `--slope-starts` | Also search the crossing points whose surroundings are only in bounds when the rays that go into a slope first are ignored (see **In bounds** below). Finds some more crossing clips starting on slopes, but about 3x slower on a mountain: OoT Death Mountain Trail setup 2, adult, falling: 21333 points (4 more wall pairs) in 110 s instead of 21039 in 38 s. |
 | `--aerial` | With the `falling` type: a falling clip may also start in the air where Link couldn't stand still, exactly where the move starts, not moved to a resting spot (the walls there needn't have pushed him out: a bomb or an enemy knocks him there after the frame's wall pushes). Only for a clip point no resting start does. Not under a floor within 50 above him (the floor check would put him up on it). The JSON marks those clips `"aerial": true` (the viewer says so in the description), and the file name gets `_aerial`. E.g. MM West Clock Town, human: the step TRI 164 through TRI 59 from z 23.57, 11.4 in front of 59 (a community setup, bombed at the corner). Not with `--min-speed`, `--refine`, `--yaw` or `--angles`. |
+| `--aerial-vys VY,...` | With `--type aerial-acute`: the y velocities each aerial frame is tried at, from -20 to 20 (default `6,3,0,-5,-10`, the fastest fall with the line test at check height, and `-20`; see **Aerial acute clips**). Fewer is faster: each takes about as long as the rest. |
 | `--no-corners` | Don't try starts in convex wall corner pockets (see **Convex corner pockets**). The output is then the same as before they were added. |
 | `--dyna-only` | With `--dyna`: only scan the wall pairs that have a dynapoly wall in them (pusher or clipped wall), and skip maps without dynapolys. Much faster; the static-only pairs are what a scan without `--dyna` finds, give or take the dynapolys' effect on them. |
 | `--setup N` | With `--dyna`: only the dynapolys of setup N, for every form. Without it, OoT pairs each form with the setups it plays in (see **OoT forms and setups** below). |
@@ -242,7 +244,9 @@ then each step with its clip points and time (a count shows while it runs):
    floor check lifts Link onto a floor behind it.
 4. **Ground clips** (`--type ground`): falling fast from the floor, through
    it and under a wall.
-5. **Finer pass** (`--wall-step`): 1 and 2 again, finer, on the wall pairs
+5. **Aerial acute clips** (`--type aerial-acute`): in the air, at heights up
+   each wall pair, moving into the corner.
+6. **Finer pass** (`--wall-step`): 1 and 2 again, finer, on the wall pairs
    with no clip yet, one clip each.
 
 `= N clip points in all` is after the same point found twice is kept once
@@ -261,7 +265,7 @@ lists what each found; the last line says how many the file keeps.
   ],
   "clips": [
     {"form": "Human",
-     "kind": "acute" | "extended" | "slope" | "ground", // the wall pair's category (below), the same for all its points
+     "kind": "acute" | "extended" | "slope" | "ground" | "aerial", // the wall pair's category (below), the same for all its points
                                            // (files from before 2026-09-26: per point, and "low" for falling ones)
      "cross": true,                        // crossing (moving through the pusher's plane) vs standing point
      "drop": 0,                            // falling: how far below the floor posNext is (0 = walking)
@@ -274,7 +278,7 @@ lists what each found; the last line says how many the file keeps.
      "floorY": 0,
      "yaw": 65473, "speed": 9.8252573,     // the move from prev to next (s16 yaw, f32 speedXZ)
      "speed2": 4,                          // slope clips: the next frame's speed (same yaw), if it needs one
-     "vy": -20,                            // ground clips: velocity.y for the frame (next.y = prev.y + vy x 1.5)
+     "vy": -20,                            // ground / aerial clips: velocity.y for the frame (next.y = prev.y + vy x 1.5)
      "yaws": [...],                        // crossings: the yaws that worked, of the 32 start directions tried for this point
      "reach": {"speed": ..., "yaw": ..., "start": [...]}  // --min-speed (slope / ground clips: left out when it's the clip's own move, which the viewer fills in)
     }
@@ -682,6 +686,118 @@ The y velocity is the hard part: Link standing on the floor has -4. The
 tester writes `vy` (before gravity) as for falling clips, and runs ground
 clips in "move" mode. Not modelled: the ceiling check (from prevPos.y + 10,
 up to ceilingCheckHeight + dy - 10, which is small at this dy).
+
+## Aerial acute clips
+
+`"kind": "aerial"`, with `--type aerial-acute` (not in the default types or
+`all`). Link is in the air (a jump, a fall off a ledge) and moves with
+horizontal speed up to 18 (a frame's move up to 27; `AERIAL_MAX_SPEED` in
+`src/aerial.h`) into an acute corner of two walls: one wall's push takes him
+through the other, as in a walking acute clip, but at any height up the
+walls. OoT and MM; OoT3D / MM3D run the same frame at 30 fps (speed 18 moves
+18 there).
+
+Only acute points are kept: the clip also works without the walls'
+extended planes (`STRICT`), and the push that took him through started in
+front of the pusher's face (see **Acute or extended**).
+
+Each frame is tried at several y velocities (`--aerial-vys`, default `6, 3,
+0, -5, -10`, the fastest fall whose line test is still at check height -
+`(5 - checkHeight) / 1.5` rounded up, -14 for OoT adult, -14.53 for MM Human -
+and `-20`). The y velocity is the frame's own (`vy` in the JSON; posNext.y =
+prev.y + vy x 1.5): 6 / 3 are a jump's first frames (a backflip is 5.8, a
+sidehop 3.5, a jumpslash 5), 0 the top of a jump. It matters in three ways:
+
+- **Into the corner from below or above.** At the start's own check height
+  the walls needn't be there (under a fence's or an overhang's bottom edge,
+  over a ledge's top), so he can start right under or over the corner, and
+  the frame's rise or fall puts posNext deep in it with little or no move
+  across (speed 0 clips: straight up or down). Rising also lowers the speed
+  needed: OoT Kakariko Village, adult, 14.5 at y velocity 0, 6.5 at 6.
+- **Falling fast.** With checkHeight + dy < 5 (OoT adult: y velocity -14.5
+  or faster) the game's line test runs from his feet to posNext's feet
+  (floors included, as for ground clips) instead of at check height, and can
+  pass under the pusher's bottom edge: no snap to its face, so posNext's
+  pushes start deep in the corner. E.g. Kakariko adult, straight down at -20
+  from (-976.5625, 783.342102, -2337.5): TRI 718 pushes him through TRI 725.
+- **Landing in the frame.** The floor check (from prevPos.y + 50) puts Link
+  on a floor at or above his feet whatever his y velocity (OoT
+  `func_8002E2AC` sets `pos.y = floorHeight`; only standing on it needs
+  velocity.y <= 0), so a floor behind the wall he's pushed through lifts him
+  onto it, as in a slope clip. The JSON marks those `"landed": true`.
+  Kakariko adult: rising at 6, TRI 230 pushes him through TRI 668 and the
+  floor check puts him 18 up, on the floor behind it.
+
+The scan, per pushing wall and each of its wall pairs, every 5 of check
+height up both walls (at most 20 heights a pair, further apart on tall
+walls):
+
+- posNext in the corner, where the pusher's push can take him behind the
+  other wall (every 0.5, at most 10000 points a height), from starts 2 to 27
+  back in 16 directions (rising or falling: also right under / over it, and
+  1 off it);
+- moves through the pusher's face near the corner (every 0.25 along it),
+  the line test snapping him out of it, from starts 2 to 24 back in 32
+  directions, the move 1 past the face (not falling fast: no line test at
+  check height then).
+
+The pusher can also be a sloped floor, where it meets a wall at an acute
+angle (a slope coming down to the foot of a wall that faces back up it:
+90 degrees minus the slope's). Floors don't push, but moving more than his
+radius in a frame, the line test takes floors too, and one hitting a slope
+snaps him radius / nXZ out along the slope's horizontal normal, downhill:
+on a gentle slope that's several radii, through the wall. The walking scan
+finds these as crossings of a floor pusher (OoT Bottom of the Well TRI 863
+through TRI 876); in the air the line test can meet the slope at any
+height. Only the crossings, for a floor. OoT Bottom of the Well, child: 4
+floor -> wall pairs, 367 points, all falling (y velocity -10 and -14:
+falling brings the line's height down to where the slope is beside him),
+e.g. from (53.9637375, 24.5, 454) at yaw 0x58B2, speed 12.6573048, y
+velocity -14, the slope TRI 860 snaps him through TRI 885. Kakariko adult:
+7 pairs, 410 points.
+
+A start is wherever the walls' pushes settle in the air at its own height,
+in bounds, over a floor that's in bounds too (a pit has its void plane: no
+floor at all is outside the map), and not under a floor within 50 above his
+feet. The first start found for a point is kept per y velocity, the
+shortest move first, so `speed` is about the lowest for that point and y
+velocity. After the frame he falls (or stands where the floor check put
+him): where he ends up has to be out of bounds (or somewhere he couldn't
+walk to from the floor under his start), or there's no floor at all.
+`floorY` is the floor under the start, so his height above it is `prev[1] -
+floorY`; `reach` is the move itself.
+
+OoT Kakariko Village: adult 7237 points, 40 wall pairs (7 of them a floor
+and a wall; 16 only with a y velocity other than 0), in about 130 s; child 24073 points, 46 pairs (9), in
+about 100 s. MM West Clock Town, Human: 133 points, 8 pairs, about 27 s.
+Each y velocity is about one scan's worth of time: `--aerial-vys 0` alone
+takes about an eighth of that. The start isn't checked for how Link gets
+there: a start high over the top of a cliff (Kakariko adult TRI 47 -> 67,
+180 over the floor under him) is listed like one a jump off the ground
+reaches.
+
+```bash
+tools/clipfinder/clipfinder.exe --game OOT --map "Spot 01 - Kakariko Village" --form Adult,Child --type aerial-acute
+tools/clipfinder/clipfinder.exe --game OOT --map "Spot 01 - Kakariko Village" --form Adult --type aerial-acute --aerial-vys 6,-20
+```
+
+`--sim X,Y,Z,YAW,SPEED,airVY` runs one frame in the air from (X, Y, Z) at y
+velocity VY (`air` alone: 0) and prints whether that's a start the scan
+would use, the floor under him, and the aerial acute clip if it is one:
+
+```bash
+tools/clipfinder/clipfinder.exe --game OOT --map "Spot 01 - Kakariko Village" --form Adult --sim "-976.5625,783.342102,-2337.5,0,0,air-20"
+```
+
+Not with `--refine`, `--yaw`, `--angles` (`--min-speed` leaves them alone:
+the move is the reach) or `actions`. The viewer shows them in an "Aerial
+Acute Clips" row, each point saying how it works (rising, falling, the line
+test at the feet, landed behind the wall); its y velocity filter uses the
+frame's fall. `wall_clip_tester.lua` leaves them out: it can't put Link in
+the air yet. Not modelled: the ceiling check (rising into a ceiling), the
+y velocity changing across the frames after the clip (he's taken to stand
+still for two frames, then fall straight down, as falling clips are), and
+whether a jump can reach the start.
 
 ## Action clips
 

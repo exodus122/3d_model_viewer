@@ -3,3 +3,4 @@
 /tools/clipfinder/results/**/*.csv
 /tools/clipfinder/build/
 /tools/clipfinder/clipfinder
+/models/OOTSW2/*

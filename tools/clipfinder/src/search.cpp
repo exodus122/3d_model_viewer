@@ -2,6 +2,7 @@
 #include "ground.h"
 #include "slope.h"
 #include "corners.h"
+#include "aerial.h"
 
 ////////////////////////////////////////
 // Search
@@ -15,8 +16,6 @@ static const double REACH = 14;
 
 
 
-
-struct Pair { int A, B; double cosAB, lo, hi, x0, x1, z0, z1; };
 
 // Triangle-triangle distance: 0 if an edge of one passes through the other,
 // else the smallest vertex-triangle / edge-edge distance.
@@ -151,9 +150,7 @@ static vector<Pair> wallPairCandidates(const Model& m) {
 
 struct NextPos { V3 p; double lo, hi; };
 
-// Where walls A and B's planes meet (top down) at check height h, offset to
-// signed distances a from A and b from B. False for walls under ~3 degrees apart.
-static bool planesMeet(const Poly& A, const Poly& B, double h, double a, double b, double& x, double& z) {
+bool planesMeet(const Poly& A, const Poly& B, double h, double a, double b, double& x, double& z) {
 	double det = A.nx * B.nz - A.nz * B.nx;
 	if (std::fabs(det) < 0.05 * A.nXZ * B.nXZ) return false;
 	double ra = a * A.nMag - A.ny * h - A.dist, rb = b * B.nMag - B.ny * h - B.dist;
@@ -162,10 +159,7 @@ static bool planesMeet(const Poly& A, const Poly& B, double h, double a, double 
 	return true;
 }
 
-// cornerBox: the bounding box of the parallelogram (within
-// radius in front of A or 4 behind it, at most radius + 4 in front of B)
-// around where the planes meet, over check heights [lo, hi], plus a unit.
-static bool cornerBox(const Poly& A, const Poly& B, double R, double lo, double hi, double box[4]) {
+bool cornerBox(const Poly& A, const Poly& B, double R, double lo, double hi, double box[4]) {
 	double x0 = INFINITY, x1 = -INFINITY, z0 = INFINITY, z1 = -INFINITY;
 	for (double h : { lo, hi })
 		for (double a : { -(4 / A.nXZ) - 1, R })
@@ -992,6 +986,35 @@ vector<Clip> scan(const Model& m, int threads, bool firstPerPair) {
 		for (auto& t : ts) t.join();
 		stepDone(groundFound);
 	}
+	// Aerial acute clips (aerial.h): every pusher (a sloped floor: its line test snap only), at heights up its pairs
+	vector<int> airPushers;
+	if (m.aerialAcute) airPushers = pushers;
+	std::atomic<size_t> nextAir{ 0 }, airDone{ 0 };
+	size_t airFound = 0;
+	auto worker5 = [&]() {
+		Scratch s;
+		s.stamp.assign(m.polys.size(), 0);
+		vector<Clip> local;
+		for (;;) {
+			size_t ai = nextAir++;
+			if (ai >= airPushers.size()) break;
+			s.clearCache();
+			aerialClipsForPusher(m, s, m.polys[airPushers[ai]], pairsOf.at(airPushers[ai]), pairFound, [&](const Clip& c) {
+				if (claimPair(c.pusher, c.crossed)) local.push_back(c);
+			});
+			progress("walls", ++airDone, airPushers.size());
+		}
+		std::lock_guard<std::mutex> g(outMu);
+		airFound += local.size();
+		clips.insert(clips.end(), local.begin(), local.end());
+	};
+	if (!airPushers.empty()) {
+		stepStart("Aerial acute clips");
+		vector<std::thread> ts;
+		for (int i = 0; i < threads; i++) ts.emplace_back(worker5);
+		for (auto& t : ts) t.join();
+		stepDone(airFound);
+	}
 	// --wall-step: the wall push passes again, finer and uncapped, on the wall
 	// pairs without a clip yet, one clip each (a pair is known to clip then;
 	// --pair --refine / --angles look at it closely)
@@ -1024,6 +1047,11 @@ vector<Clip> scan(const Model& m, int threads, bool firstPerPair) {
 		if (a.floorY != b.floorY) return a.floorY < b.floorY;
 		if (a.prev.x != b.prev.x) return a.prev.x < b.prev.x;
 		if (a.prev.z != b.prev.z) return a.prev.z < b.prev.z;
+		// (aerial clips: the same posNext at each y velocity, from straight under / over it)
+		if (a.kind == 4 && b.kind == 4) {
+			if (a.vy != b.vy) return a.vy > b.vy;
+			if (a.prev.y != b.prev.y) return a.prev.y < b.prev.y;
+		}
 		return a.acutePoint > b.acutePoint;
 	});
 	// Low standing points can be found through more than one wall pair; keep
@@ -1035,8 +1063,11 @@ vector<Clip> scan(const Model& m, int threads, bool firstPerPair) {
 		if (m.extendedOnly && acutePairs.count({ c.pusher, c.crossed })) { acuteDropped++; continue; }
 		// starting on a loading zone or void plane: the game takes Link
 		// there before any clip matters (--keep-load-void keeps them)
-		if (!m.keepLoadVoid && m.startOnLoadVoid(c.prev)) { loadVoidDropped++; continue; }
-		string k = (c.cross ? "c" : "s") + std::to_string(c.pusher) + ":" + keyOf(c.from.x, c.from.z, c.hasFloorY ? c.floorY : c.from.y);
+		// (not an aerial start: the floor far under him doesn't matter yet)
+		if (!m.keepLoadVoid && c.kind != 4 && m.startOnLoadVoid(c.prev)) { loadVoidDropped++; continue; }
+		string k = (c.cross ? "c" : "s") + std::to_string(c.pusher) + ":" + keyOf(c.from.x, c.from.z, c.hasFloorY && c.kind != 4 ? c.floorY : c.from.y);
+		// (aerial clips: one per y velocity)
+		if (c.kind == 4) k += ":" + keyOf(c.vy, 0, 0);
 		if (!c.cross && !keep.insert(k).second) continue;
 		out.push_back(c);
 	}
@@ -1046,8 +1077,12 @@ vector<Clip> scan(const Model& m, int threads, bool firstPerPair) {
 		s.stamp.assign(m.polys.size(), 0);
 		for (Clip& c : out) {
 			c.inBounds = !c.endNoFloor && m.isInBounds(s, c.end);
-			// (in bounds: how far the walk there is - a shortcut, Model::walkUnreachable)
-			if (c.inBounds) c.walkDist = m.walkShortcut(s, c.end, c.prev);
+			// (in bounds: how far the walk there is - a shortcut, Model::walkUnreachable;
+			// an aerial start walks from the floor under him)
+			if (c.inBounds) {
+				auto under = c.kind == 4 ? floorUnder(m, c.prev) : std::optional<V3>(c.prev);
+				c.walkDist = under ? m.walkShortcut(s, c.end, *under) : -1;
+			}
 		}
 	}
 	// One category per wall pair: acute if any of its points is
@@ -1064,9 +1099,9 @@ vector<Clip> scan(const Model& m, int threads, bool firstPerPair) {
 }
 
 // thinClips' rows: a wall pair, its kind, crossing / standing, walking /
-// falling and the action
-using ThinKey = std::tuple<int, int, int, bool, bool, int>;
-static ThinKey thinKey(const Clip& c) { return { c.pusher, c.crossed, c.kind, c.cross, c.drop > 0, c.action }; }
+// falling, the action and (aerial clips) the y velocity
+using ThinKey = std::tuple<int, int, int, bool, bool, int, long>;
+static ThinKey thinKey(const Clip& c) { return { c.pusher, c.crossed, c.kind, c.cross, c.drop > 0, c.action, c.kind == 4 ? std::lround(c.vy * 100) : 0L }; }
 
 int thinCapForBudget(const vector<const vector<Clip>*>& sets, int maxN, int minN, size_t budget) {
 	vector<size_t> sizes;
@@ -1121,7 +1156,8 @@ size_t thinClips(vector<Clip>& clips, int n) {
 	return dropped;
 }
 
-static const char* const TYPE_NAMES[] = { "acute", "extended", "slope", "ground", "falling", "actions" };
+static const char* const TYPE_NAMES[] = { "acute", "extended", "slope", "ground", "falling", "actions", "aerial-acute" };
+static const int NUM_TYPES = 7;
 
 int parseTypes(const string& list, string& err) {
 	int t = 0;
@@ -1134,8 +1170,8 @@ int parseTypes(const string& list, string& err) {
 		if (name.empty()) continue;
 		if (name == "all") { t |= TYPE_ALL; continue; }
 		int bit = 0;
-		for (int k = 0; k < 6; k++) if (name == TYPE_NAMES[k]) bit = 1 << k;
-		if (!bit) { err = "unknown type " + name + " (acute, extended, slope, ground, falling, actions, or all: the first five)"; return 0; }
+		for (int k = 0; k < NUM_TYPES; k++) if (name == TYPE_NAMES[k]) bit = 1 << k;
+		if (!bit) { err = "unknown type " + name + " (acute, extended, slope, ground, falling, actions, aerial-acute, or all: the first five)"; return 0; }
 		t |= bit;
 	}
 	if (!t) err = "no types";
@@ -1146,7 +1182,7 @@ string typeTag(int types) {
 	if (types == (TYPE_ACUTE | TYPE_EXTENDED | TYPE_SLOPE)) return "";
 	if (types == TYPE_ALL) return "_all";
 	string s;
-	for (int k = 0; k < 6; k++) if (types & (1 << k)) s += (s.empty() ? "_" : "-") + string(TYPE_NAMES[k]);
+	for (int k = 0; k < NUM_TYPES; k++) if (types & (1 << k)) s += (s.empty() ? "_" : "-") + string(TYPE_NAMES[k]);
 	return s;
 }
 
@@ -1156,6 +1192,7 @@ void keepTypes(vector<Clip>& clips, int types) {
 	clips.erase(std::remove_if(clips.begin(), clips.end(), [&](const Clip& c) {
 		if (c.kind == 2) return !(types & TYPE_SLOPE);
 		if (c.kind == 3) return !(types & TYPE_GROUND);
+		if (c.kind == 4) return !(types & TYPE_AERIAL);
 		const int cat = c.kind == 0 ? TYPE_ACUTE : TYPE_EXTENDED;
 		if (c.drop == 0) return !(types & cat);
 		return !(types & TYPE_FALLING) || (cats && !(types & cat));

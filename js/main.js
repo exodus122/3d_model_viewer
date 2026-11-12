@@ -30,6 +30,22 @@ import { parseDK64Collision, buildDK64TexturedMesh, buildDK64Water, parseDK64Wat
 import { attachTextured, clearTexturedPairs, registerPlain } from './bk_textured.js';
 import { renderDK64Setup, getDK64PropCollisionWorld, parseDK64LedgeScripts } from './dk64_setup.js';
 import { buildDK64CrouchGapItems } from './dk64_crouch_gaps.js';
+import { parseOCOL, buildOOTSW2Collision, typedMeshList, groupOOTSW2ByActor, buildOOTSW2ObjectPoints, OOTSW2_SCALE, isOOTSW2Terrain, splitSourceByOwner,
+         splitSourceByTriangle, describeOOTSW2Surface,
+         loadOOTSW2Compound, mergeOOTSW2Compound, buildOOTSW2Mesh, buildOOTSW2Edges, lazyTriangleIds } from './ootsw2_map.js';
+
+import { loadOOTSW2AreaTables, buildOOTSW2Areas, splitMeshList, OOTSW2_AREA_KINDS, OOTSW2_ZONE_COLOR } from './ootsw2_areas.js';
+import { loadOOTSW2Voxels, activeVoxelTiles, VoxelSet, buildVoxelPoints, buildVoidMap, buildFloorVoidMap, availableCubeViews,
+         VOID_COLORS, VOID_RADIUS } from './ootsw2_voidmap.js';
+
+let ootsw2Airwalls = null;   // models/OOTSW2/airwalls.json, shared by every map
+const wireframeOn = () => document.getElementById('wireframe').checked;
+const OOTSW2_LINK_COLOR = '#ffd040';
+// The "Collision types" checkboxes, kept across map loads
+const ootsw2KindShown = { static: true, staticObj: true, ocarina: true, actor: true, hull: true, airwall: true, climbWall: true, pushWall: false,
+    detail: false, bakedArea: false,
+    zone: true, link: false,
+    ...Object.fromEntries(OOTSW2_AREA_KINDS.map(([kind, , , shown]) => [kind, shown])) };
 
 ////////////////////////////////////////
 // System: DOM / Static UI Elements
@@ -231,6 +247,7 @@ const GAME_MAPS = {
     MM: MM_Maps,
     OOT3D: OOT3D_Maps,
     MM3D: MM3D_Maps,
+    OOTSW2: OOTSW2_Maps,
 };
 
 // Map each game to its data array
@@ -328,7 +345,9 @@ gameSel.addEventListener('change',(e)=>{
     applyGameTooltips(game);
     document.getElementById('actorDisplay').style.display = (game == "OOT" || game == "MM") ? "" : "none";
 
-    if (game == "BK" || game == "BT" || game == "DK64") {
+    // OOT / MM / OOT3D / MM3D only: surface flags, waterboxes, subdivisions and
+    // the ground clip bands come from their collision format (not OOT Switch 2's)
+    if (["BK", "BT", "DK64", "OOTSW2"].includes(game)) {
         display_fwc_label.style.display = "none";
         dropdownElement.style.display = "none";
         waterboxCheckboxElement.style.display = "none";
@@ -655,6 +674,638 @@ async function loadSelectedMap(game) {
                     row.querySelector('.model-delete-spacer')?.replaceWith(go);
                 }
                 applyGroupMasterState("dk64-crouch");
+            }
+        } catch (err) {
+            console.error(err);
+        }
+    }
+    else if (game == "OOTSW2") {
+        // models/OOTSW2/<map_type>/<map_name>/{collision.bin,objects.json}, see
+        // OOTSW2_Maps in ootsw2_map_list.js and tools/ootsw2/extract_objmap.py.
+        // compound/ is the level, collision.bin the objects not baked into it (ootsw2_map.js).
+        const mapName = document.getElementById("mapDropdown").value;
+        const mapDir = getMapProperty(game, mapName, "dir");
+        try {
+            const objects = await fetch(`./models/OOTSW2/${mapDir}/objects.json`).then(r => r.json());
+            const ocol = getMapProperty(game, mapName, "collision")
+                ? parseOCOL(await fetch(`./models/OOTSW2/${mapDir}/collision.bin`).then(r => r.arrayBuffer()))
+                : null;
+            ootsw2Airwalls ??= await fetch('./models/OOTSW2/airwalls.json').then(r => r.json()).catch(() => ({}));
+            await showLoading(`${mapName}: static compound…`);
+            const compound = await loadOOTSW2Compound(`./models/OOTSW2/${mapDir}/compound`, getMapProperty(game, mapName, "bounds"));
+            await showLoading(`${mapName}: collision…`);
+            const col = buildOOTSW2Collision(ocol, objects, ootsw2Airwalls, !!compound);
+            clearAllModels(scene);
+            clearTexturedPairs();
+
+            // Every source split by actor name: one row per actor (all its
+            // instances), in a group per name prefix (Land, Obj, Npc...). The
+            // static compound (the game's baked static collision) is the level;
+            // without one, the Land_ actors are rebuilt from their own shapes.
+            // Static collision split by the owner's IsNotTurnToActor flag:
+            // "permanent" never becomes an actor; "removable" (crack walls,
+            // chain-lock doors, spider webs, boss fences...) is baked but the
+            // game can turn it into an actor (break, open, despawn). Data
+            // without the flags falls back to Land_ = permanent. The ground,
+            // far scenery and unknown bodies are permanent.
+            // Removable collision that matches what ocarina jumps were found to
+            // need in game is its own kind: neither Bakeable nor IsNotTurnToActor
+            // (Land_ pieces with neither and body byte 6 don't work), body byte 2
+            // in the bodies file, and static collision at least
+            // OCARINA_MIN_HEIGHT tall: large chests (1.75 m) and pullable
+            // gravestones (1.10 m) work, small chests (0.55 m) and grass
+            // (<= 0.42 m) don't. The byte's meaning is unknown and the height
+            // cut is somewhere between 0.55 and 1.10 m.
+            const OCARINA_MIN_HEIGHT = 0.6;
+            const haveFlags = objects.some(o => o.na);
+            const permanent = owner => owner < 0 || (haveFlags ? !!objects[owner].na : isOOTSW2Terrain(objects[owner].n));
+            const staticSource = compound ? mergeOOTSW2Compound(compound, objects) : { kind: "static", ...typedMeshList(col.terrain, objects) };
+            const ocarinaCandidate = owner => !objects[owner].b && !objects[owner].na && !!staticSource.bodyBytes?.get(owner)?.has(2);
+            const ocarinaJumpable = owner => ocarinaCandidate(owner) && staticSource.height(owner) >= OCARINA_MIN_HEIGHT;
+            // romfs data (extract_romfs.py) knows each triangle's surface and
+            // collision layer: AirWall-material triangles (invisible walls,
+            // also inside Land_ meshes) and air wall objects are air walls;
+            // the more detailed duplicate layer and the baked area volumes
+            // are kinds of their own, hidden at first
+            const surfaceTable = compound?.manifest?.surfaces ?? [];
+            const compoundLayers = compound?.manifest?.layers ?? [];
+            // Air walls Link can only climb, and push walls (doors and the
+            // like), are kinds of their own: they don't simply block him
+            const wallKind = owner => {
+                const name = owner >= 0 ? objects[owner].n : '';
+                return /Climb/.test(name) ? "climbWall" : /^PushAir[Ww]all/.test(name) ? "pushWall" : "airwall";
+            };
+            let staticMain = staticSource, staticExtra = [];
+            if (staticSource.layers) {
+                const AIR = /Air[Ww]all/;
+                const parts = splitSourceByTriangle(staticSource, t => {
+                    const layer = staticSource.layers[t];
+                    if (layer === 2) return "detail";
+                    if (layer === 3) return "bakedArea";
+                    const owner = staticSource.owners[t];
+                    if (surfaceTable[staticSource.surfaces[t]]?.m === "AirWall" || (owner >= 0 && AIR.test(objects[owner].n))) return wallKind(owner);
+                    return "static";
+                });
+                staticMain = parts.find(p => p.kind === "static") ??
+                    { kind: "static", positions: staticSource.positions, indices: new Uint32Array(0), owners: new Int32Array(0), surfaces: new Uint16Array(0) };
+                staticExtra = parts.filter(p => p.kind !== "static");
+            }
+            const [staticPermanent, staticRemovable] = splitSourceByOwner(staticMain, "staticObj", permanent);
+            const sources = [
+                staticPermanent,
+                ...(haveFlags ? splitSourceByOwner(staticRemovable, "ocarina", owner => !ocarinaJumpable(owner)) : [staticRemovable]),
+                ...staticExtra,
+                { kind: "actor", ...typedMeshList(col.actors, objects) },
+                { kind: "hull", ...typedMeshList(col.hulls, objects) },
+                ...(() => {
+                    const walls = { kind: "airwall", ...typedMeshList(col.airwalls, objects) };
+                    return splitSourceByTriangle(walls, t => wallKind(walls.owners[t]));
+                })(),
+            ];
+            const actorRows = groupOOTSW2ByActor(sources, objects);
+            const KIND_COLORS = { static: "#3aa6ff", staticObj: "#3ddc84", ocarina: "#ffe14d", actor: "#b05cff", hull: "#ff9a3a", airwall: "#ff4f6a",
+                                  climbWall: "#ffc400", pushWall: "#4f8cff", detail: "#9aa0a6", bakedArea: "#3fc1b0" };
+            const KIND_LABELS = { static: "static permanent", staticObj: "static removable", ocarina: "static removable (ocarina jump)",
+                                  actor: "actor collision", hull: "hulls", airwall: "air wall", climbWall: "climb-only wall",
+                                  pushWall: "push wall", detail: "detail copy", bakedArea: "baked areas" };
+            const KIND_TITLES = {
+                static: "Static collision of objects that never become actors (IsNotTurnToActor): level geometry, the heightmap ground",
+                staticObj: "Static collision of objects the game can turn into actors (no IsNotTurnToActor): crack walls, " +
+                    "chain-lock doors... It can disappear when the object breaks, opens or isn't spawned",
+                ocarina: "Objects an ocarina jump should work on, from in-game tests: in the static collision with neither Bakeable " +
+                    "nor IsNotTurnToActor, body byte 2, and collision at least 0.6 m from bottom to top (large chests 1.75 m, " +
+                    "pullable gravestones 1.10 m and bean plants 0.96 m work; small chests 0.55 m and grass don't). That is the " +
+                    "collision's extent, not its visible height: a bean plant's reaches 0.8 m below its leaf. Click an object to see it",
+                actor: "Its own triangle mesh: doors, platforms, moving parts",
+                hull: "Convex physics shapes: NPC / enemy bodies, pots, crates, bomb flowers",
+                airwall: "Invisible walls: air wall objects, and static collision whose surface material is AirWall",
+                climbWall: "Air walls Link can only climb (air wall objects with Climb in their name)",
+                pushWall: "Push walls: air walls that push Link back (doors and the like)",
+                detail: compoundLayers.find(l => l.index === 2)?.title,
+                bakedArea: compoundLayers.find(l => l.index === 3)?.title,
+            };
+            const categories = new Map();
+            for (const row of actorRows) {
+                if (!categories.has(row.category)) categories.set(row.category, { rows: [], triangles: 0 });
+                const cat = categories.get(row.category);
+                cat.rows.push(row);
+                cat.triangles += row.triangles;
+            }
+            const order = [...categories.keys()].sort((a, b) =>
+                (a === "Other") - (b === "Other") || categories.get(b).triangles - categories.get(a).triangles);
+
+            // Loading zones and areas (ootsw2_areas.js), see-through volumes
+            const areaData = buildOOTSW2Areas(objects, await loadOOTSW2AreaTables(), ootsw2Airwalls,
+                getMapProperty(game, mapName, "age"),
+                dest => OOTSW2_Maps.find(m => m.dir.endsWith(`/${dest}`))?.name ?? dest);
+            const areaKinds = OOTSW2_AREA_KINDS.filter(([kind]) => areaData.areas[kind].tris.length);
+
+            // Collision types: one checkbox per kind across every row, so a
+            // Land_ piece's air walls hide with the rest of the air walls while
+            // its static collision stays (and the reverse). A part shows when
+            // its row is on AND its kind is on. The second line is the volumes:
+            // loading zones (rows of their own too) and objmap's area categories.
+            const kindParts = {};   // kind -> [mesh, edge mesh] pairs
+            const kindRow = document.createElement('div');
+            kindRow.className = 'model-row ootsw2-kinds';
+            kindRow.title = 'Show or hide one kind of collision or volume on every row, including rows that hold several kinds';
+            const addKind = (kind, label, color, title = null) => {
+                kindParts[kind] = [];
+                const box = document.createElement('label');
+                box.className = 'ootsw2-kind';
+                if (title) box.title = title;
+                const chk = document.createElement('input');
+                chk.type = 'checkbox';
+                chk.checked = ootsw2KindShown[kind] ?? true;
+                chk.addEventListener('change', () => {
+                    ootsw2KindShown[kind] = chk.checked;
+                    for (const [mesh, edge] of kindParts[kind]) mesh.visible = edge.visible = chk.checked;
+                    clearSelection(scene);
+                });
+                const dot = document.createElement('span');
+                dot.className = 'ootsw2-kind-dot';
+                dot.style.background = color;
+                box.append(chk, dot, label);
+                kindRow.appendChild(box);
+            };
+            for (const kind of Object.keys(KIND_COLORS))
+                if (actorRows.some(r => r.parts.some(p => p.kind === kind))) addKind(kind, KIND_LABELS[kind], KIND_COLORS[kind], KIND_TITLES[kind]);
+            if (areaData.zones.length || areaKinds.length) {
+                const brk = document.createElement('span');
+                brk.className = 'ootsw2-kinds-break';
+                kindRow.appendChild(brk);
+            }
+            if (areaData.zones.length) addKind('zone', 'loading zones', OOTSW2_ZONE_COLOR);
+            for (const [kind, label, color, , short] of areaKinds) addKind(kind, short, color, label);
+            const byHash = new Map(objects.map(o => [o.h, o]));
+            const linkCount = objects.reduce((n, o) => n + (o.l ?? []).filter(([dst]) => byHash.has(dst)).length, 0);
+            if (linkCount) addKind('link', 'links', OOTSW2_LINK_COLOR,
+                'Lines from each object to the objects it links to (its Links), yellow at the source end, cyan at the target');
+            document.querySelector('.controls').appendChild(kindRow);
+            // Selection info for one placed object: name, hash, objmap's
+            // friendly name and its link count
+            // and whether an ocarina jump should work on it (with the height
+            // of its static collision, for objects that only miss on height)
+            const objectIndex = new Map(objects.map((o, i) => [o, i]));
+            const ocarinaNote = i => {
+                if (!haveFlags || !compound || !ocarinaCandidate(i)) return '';
+                const h = staticSource.height(i).toFixed(2);
+                return ocarinaJumpable(i) ? ` [ocarina jumpable, collision ${h} m top to bottom]`
+                                          : ` [collision too thin for an ocarina jump?, ${h} m top to bottom]`;
+            };
+            const objectInfo = o => `${o.n} ${o.h}` + (o.u ? ` - ${o.u}` : '') + ocarinaNote(objectIndex.get(o)) +
+                (o.l?.length ? ` (${o.l.length} link${o.l.length > 1 ? 's' : ''})` : '');
+            const friendlyName = new Map();
+            for (const o of objects) if (o.u && !friendlyName.has(o.n)) friendlyName.set(o.n, o.u);
+            // Mesh and edge mesh joined to their kind's checkbox
+            const joinKind = (kind, mesh, edge) => {
+                kindParts[kind].push([mesh, edge]);
+                mesh.visible = edge.visible = ootsw2KindShown[kind] ?? true;
+            };
+
+            for (const category of order) {
+                const { rows } = categories.get(category);
+                const key = `ootsw2-${category}`;
+                const group = getModelGroup(key, `${category} (${rows.length})`);
+                for (const row of rows.sort((a, b) => a.name.localeCompare(b.name))) {
+                    const root = new THREE.Group();
+                    for (const part of row.parts) {
+                        const mesh = buildOOTSW2Mesh(part.positions, part.indices, KIND_COLORS[part.kind]);
+                        mesh.name = `${row.name} ${KIND_LABELS[part.kind]}`;
+                        const owners = part.owners, surfaces = part.surfaces;
+                        const surfaceNote = k => surfaces ? ` · ${describeOOTSW2Surface(surfaceTable[surfaces[k]])}` : '';
+                        mesh.geometry.userData.triangleIds = lazyTriangleIds(owners.length, k =>
+                            (owners[k] >= 0 ? objectInfo(objects[owners[k]]) : row.name) + surfaceNote(k));
+                        root.add(mesh);
+                    }
+                    const rowName = row.instances > 1 ? `${row.name} ×${row.instances}` : row.name;
+                    root.name = rowName;
+                    scene.add(root);
+                    const edges = buildOOTSW2Edges(root.children);
+                    scene.add(edges);
+                    row.parts.forEach((part, i) => joinKind(part.kind, root.children[i], edges.children[i]));
+                    loadedModels.push({ name: rowName, mesh: root, edges });
+                    // The swatch drives the row's biggest part; the others (an
+                    // air wall on a Land_ piece) keep their kind's colour
+                    const main = row.parts.reduce((best, p, i) => p.owners.length > row.parts[best].owners.length ? i : best, 0);
+                    addModelCheckbox(scene, rowName, root, edges, false, true, KIND_COLORS[row.parts[main].kind], false,
+                                     root.children[main], group.body);
+                    edges.visible = root.visible && wireframeOn();
+                    group.body.lastElementChild.title = (friendlyName.has(row.name) ? `${friendlyName.get(row.name)}\n` : '') +
+                        `${row.name}: ` + (row.instances ? `${row.instances} placed, ` : '') + `${row.triangles} triangles (` +
+                        row.parts.map(p => `${p.owners.length} ${KIND_LABELS[p.kind]}`).join(', ') + ')';
+                }
+                applyGroupMasterState(key);
+            }
+
+            // Surface view (romfs data only): "surface colours" tints the
+            // static collision by material, hazards over it; "highlight"
+            // paints the triangles with one shape tag or material magenta.
+            // Both are overlays sharing the static collision's vertex buffer,
+            // drawn just in front of it.
+            if (staticSource.surfaces) {
+                const has = tag => s => !!s.t?.includes(tag);
+                const SURFACE_CLASSES = [   // [label, colour, test], first match wins
+                    ['Lava', '#ff6e00', s => s.m === 'Lava'],
+                    ['Abyss (void floor)', '#6a00b0', has('Abyss')],
+                    ['Edge of the world', '#c8003c', has('EdgeOfTheWorld')],
+                    ['No respawn (DisableRespawn)', '#28dcc8', has('DisableRespawn')],
+                    ['No restart pos (material)', '#00a08c', s => s.m === 'InvalidateRestartPos'],
+                    ['Slippery', '#bee9ff', s => has('Slip')(s) || /Slip$/.test(s.m)],
+                    ['Water', '#3c78e6', s => /Water$/.test(s.m)],
+                    ['Bog', '#6b5f3a', s => /Bog$/.test(s.m)],
+                    ['Soil', '#8c643c', s => s.m === 'Soil'],
+                    ['Grass', '#50a03c', s => s.m === 'Grass'],
+                    ['Sand', '#e1cd82', s => /Sand$/.test(s.m)],
+                    ['Snow / ice', '#dcf0ff', s => /Snow|Ice/.test(s.m)],
+                    ['Stone', '#8a8a8a', s => /^Stone/.test(s.m)],
+                    ['Metal', '#5f7391', s => /^Metal|WireNet/.test(s.m)],
+                    ['Wood', '#af7332', s => /^Wood/.test(s.m)],
+                    ['Other material', '#b4b4b4', () => true],
+                ];
+                const HIGHLIGHTS = [   // [label, test]
+                    ['Abyss flag (void floor)', has('Abyss')], ['DisableRespawn flag', has('DisableRespawn')],
+                    ['EdgeOfTheWorld flag', has('EdgeOfTheWorld')], ['NoPreventFall flag', has('NoPreventFall')],
+                    ['NoStick flag (no void point update)', has('NoStick')],
+                    ['InvalidateRestartPosForHorse flag', has('InvalidateRestartPosForHorse')], ['FlowFall flag', has('FlowFall')],
+                    ['NarrowPlace flag', has('NarrowPlace')], ['InvalidateRestartPos material', s => s.m === 'InvalidateRestartPos'],
+                    ['Lava material', s => s.m === 'Lava'], ['PoisonBog material', s => s.m === 'PoisonBog'],
+                    ['Bog material', s => s.m === 'Bog'], ['Water materials', s => /Water$/.test(s.m)],
+                    ['Slip flag', has('Slip')], ['SlipWithoutHeavyBoot flag', has('SlipWithoutHeavyBoot')],
+                    ['Climb flag', has('Climb')], ['NoClamber flag', has('NoClamber')], ['HookshotEffective flag', has('HookshotEffective')],
+                    ['StickHookshot flag', has('StickHookshot')], ['JumpField flag', has('JumpField')],
+                    ['Ladder flags', s => ['LadderUp', 'Ladder', 'LadderSide'].some(t => s.t?.includes(t))],
+                    ['AirWall material', s => s.m === 'AirWall'],
+                ];
+                const src = staticSource;
+                const triCount = src.owners.length;
+                // static collision only: not the detail copy / baked areas
+                const eligible = t => src.layers[t] <= 1 && surfaceTable[src.surfaces[t]];
+                const surfaceLabel = t => (src.owners[t] >= 0 ? objectInfo(objects[src.owners[t]])
+                                                              : src.owners[t] === -3 ? 'Ground (heightmap)' : 'static collision') +
+                                          ` · ${describeOOTSW2Surface(surfaceTable[src.surfaces[t]])}`;
+                const overlay = (tris, color, offset) => {
+                    const indices = new Uint32Array(tris.length * 3);
+                    tris.forEach((t, k) => indices.set(src.indices.subarray(t * 3, t * 3 + 3), k * 3));
+                    const mesh = buildOOTSW2Mesh(src.positions, indices, color);
+                    mesh.material.polygonOffsetFactor = offset;
+                    mesh.material.polygonOffsetUnits = offset;
+                    mesh.geometry.userData.triangleIds = lazyTriangleIds(tris.length, k => surfaceLabel(tris[k]));
+                    return mesh;
+                };
+                const register = (name, obj) => {
+                    obj.name = name;
+                    scene.add(obj);
+                    loadedModels.push({ name, mesh: obj, edges: null });
+                };
+
+                // Surface colours: one overlay per class
+                const classOf = surfaceTable.map(s => s && s.m !== 'AirWall' && s.m !== 'DropItem'
+                    ? SURFACE_CLASSES.findIndex(([, , test]) => test(s)) : -1);
+                const byClass = SURFACE_CLASSES.map(() => []);
+                for (let t = 0; t < triCount; t++) if (eligible(t) && classOf[src.surfaces[t]] >= 0) byClass[classOf[src.surfaces[t]]].push(t);
+                const surfaceGroup = new THREE.Group();
+                byClass.forEach((tris, c) => { if (tris.length) surfaceGroup.add(overlay(tris, SURFACE_CLASSES[c][1], 0)); });
+                surfaceGroup.visible = ootsw2KindShown.surfaces ?? false;
+                register('Surface colours', surfaceGroup);
+
+                const line = document.createElement('div');
+                line.className = 'ootsw2-surface-row';
+                const box = document.createElement('label');
+                box.className = 'ootsw2-kind';
+                box.title = 'Tint the static collision by surface material, hazards over it: ' +
+                    SURFACE_CLASSES.filter((_, c) => byClass[c].length).map(([label]) => label).join(', ') +
+                    '. The heightmap ground has no known material and stays untinted.';
+                const chk = document.createElement('input');
+                chk.type = 'checkbox';
+                chk.checked = surfaceGroup.visible;
+                const legend = document.createElement('div');
+                legend.className = 'ootsw2-surface-legend';
+                legend.innerHTML = SURFACE_CLASSES.filter((_, c) => byClass[c].length).map(([label, color]) =>
+                    `<span><i style="background:${color}"></i>${label}</span>`).join('');
+                legend.style.display = chk.checked ? '' : 'none';
+                chk.addEventListener('change', () => {
+                    ootsw2KindShown.surfaces = surfaceGroup.visible = chk.checked;
+                    legend.style.display = chk.checked ? '' : 'none';
+                    clearSelection(scene);
+                });
+                box.append(chk, 'surface colours');
+
+                // Highlight one tag / material
+                const pick = document.createElement('select');
+                pick.className = 'ootsw2-highlight';
+                pick.title = 'Paint every static collision triangle with this shape tag or material magenta';
+                pick.add(new Option('highlight: none', ''));
+                HIGHLIGHTS.forEach(([label], i) => pick.add(new Option(label, String(i))));
+                const count = document.createElement('span');
+                count.className = 'ootsw2-highlight-count';
+                let highlight = null;
+                pick.addEventListener('change', () => {
+                    if (highlight) {
+                        scene.remove(highlight);
+                        loadedModels.splice(loadedModels.findIndex(m => m.mesh === highlight), 1);
+                        highlight = null;
+                    }
+                    count.textContent = '';
+                    clearSelection(scene);
+                    if (pick.value === '') return;
+                    const test = HIGHLIGHTS[+pick.value][1];
+                    const match = surfaceTable.map(s => !!s && test(s));
+                    const tris = [];
+                    for (let t = 0; t < triCount; t++) if (eligible(t) && match[src.surfaces[t]]) tris.push(t);
+                    count.textContent = `${tris.length} triangles`;
+                    if (!tris.length) return;
+                    highlight = overlay(tris, '#ff00ff', -1);
+                    register(`Highlight: ${HIGHLIGHTS[+pick.value][0]}`, highlight);
+                });
+                line.append(box, pick, count);
+                kindRow.append(line, legend);
+            }
+
+            // Void probe (ootsw2_voidmap.js): the game voids Link by the 1 m
+            // cubes of its VolumeStats voxels, not the collision. "probe
+            // cubes" shows them; "void map here" runs the probe on a grid
+            // around the point the camera looks at.
+            const voxelData = await loadOOTSW2Voxels(`./models/OOTSW2/${mapDir}/voxels.bin.gz`);
+            if (voxelData) {
+                const variantNames = [...voxelData.variants.keys()].sort();
+                let variant = '', voxelSet = null, cubes = null, voidMap = null, floorMap = null;
+                const line = document.createElement('div');
+                line.className = 'ootsw2-surface-row';
+                const status = document.createElement('span');
+                status.className = 'ootsw2-highlight-count';
+                const drop = obj => {
+                    if (!obj) return;
+                    scene.remove(obj);
+                    const i = loadedModels.findIndex(m => m.mesh === obj);
+                    if (i >= 0) loadedModels.splice(i, 1);
+                };
+                const put = (name, obj) => {
+                    obj.name = name;
+                    scene.add(obj);
+                    loadedModels.push({ name, mesh: obj, edges: null });
+                };
+                const tiles = () => activeVoxelTiles(voxelData, variant);
+                const getSet = () => voxelSet ??= new VoxelSet(tiles());
+
+                // The game's 1 m cubes (VolumeStats), coloured by one of their
+                // attributes; only the views this map has data for
+                const views = availableCubeViews(tiles());
+                const cubePick = document.createElement('select');
+                cubePick.className = 'ootsw2-highlight';
+                cubePick.title = "The game's 1 m cubes (its VolumeStats voxels, a coarse copy of the world it asks quick " +
+                    "questions: is this indoors, in water, which dungeon room...). The void probe only hits the cube faces " +
+                    "marked for it: ground without them doesn't keep Link from voiding.";
+                cubePick.add(new Option('cubes: off', ''));
+                for (const [key, label] of views) cubePick.add(new Option(`cubes: ${label}`, key));
+                if (views.some(v => v[0] === ootsw2KindShown.cubeView)) cubePick.value = ootsw2KindShown.cubeView;
+                const cubeLegend = document.createElement('div');
+                cubeLegend.className = 'ootsw2-surface-legend';
+                const showCubes = () => {
+                    drop(cubes);
+                    cubes = null;
+                    const view = views.find(v => v[0] === cubePick.value);
+                    cubeLegend.style.display = view ? '' : 'none';
+                    if (!view) return;
+                    put('Cubes', cubes = buildVoxelPoints(tiles(), view[0]));
+                    cubeLegend.innerHTML = view[3].map(([label, color]) => `<span><i style="background:${color}"></i>${label}</span>`).join('') +
+                        `<span>${cubes.userData.count} cubes</span>`;
+                };
+                cubePick.addEventListener('change', () => { ootsw2KindShown.cubeView = cubePick.value; showCubes(); });
+                line.append(cubePick);
+
+                if (variantNames.length) {
+                    const pick = document.createElement('select');
+                    pick.className = 'ootsw2-highlight';
+                    pick.title = 'Story state: some volume tiles have one version per state (tomb open or closed, water level...)';
+                    pick.add(new Option('story state: default', ''));
+                    for (const v of variantNames) pick.add(new Option(v.replace(/_/g, ' '), v));
+                    pick.addEventListener('change', () => {
+                        variant = pick.value;
+                        voxelSet = null;
+                        drop(voidMap);
+                        drop(floorMap);
+                        voidMap = floorMap = null;
+                        status.textContent = '';
+                        showCubes();
+                    });
+                    line.append(pick);
+                }
+
+                const stepPick = document.createElement('select');
+                stepPick.className = 'ootsw2-highlight';
+                [['1 m grid, 30 m around', 1, 61], ['2 m grid, 40 m around', 2, 41], ['4 m grid, 80 m around', 4, 41]]
+                    .forEach(([label, step, side], i) => { const o = new Option(label, `${step},${side}`); o.selected = i === 1; stepPick.add(o); });
+                const lift = document.createElement('input');
+                lift.type = 'number';
+                lift.step = '0.5';
+                lift.value = '0';
+                lift.style.width = '4.5em';
+                lift.title = 'Height of the scanned plane above the cube the camera looks at (metres); 0 = standing on it';
+                const scan = document.createElement('button');
+                scan.textContent = 'void map here';
+                scan.title = `Runs the game's void probe (64 rays, nearest cube; void at ${VOID_RADIUS} m or more sideways) on a ` +
+                    'grid around the point at the screen centre. Green: under 6 m sideways, yellow: under 8, red: Link ' +
+                    'voids there while in the air (the check only runs off the ground), ' +
+                    'dark red: no cube at all. White dots: the cube each point found.';
+                scan.addEventListener('click', async () => {
+                    const set = getSet();
+                    const dir = new THREE.Vector3();
+                    camera.getWorldDirection(dir);
+                    const o = camera.position.clone().divideScalar(OOTSW2_SCALE);
+                    const t = set.cast(o.x, o.y, o.z, dir.x, dir.y, dir.z);
+                    let center = null;
+                    if (t >= 0) {
+                        const c = o.clone().addScaledVector(dir, t + 1e-3);
+                        center = [c.x, Math.floor(c.y) + 1, c.z];   // top of the cube looked at
+                    } else {
+                        // no cube there: the collision surface at the screen centre
+                        const ray = new THREE.Raycaster(camera.position, dir);
+                        const meshes = [];
+                        scene.traverseVisible(obj => { if (obj.isMesh && !obj.userData.unselectable && obj.material?.opacity === 1) meshes.push(obj); });
+                        const hit = ray.intersectObjects(meshes, false)[0];
+                        if (hit) center = hit.point.divideScalar(OOTSW2_SCALE).toArray();
+                        else if (controlMode === 'orbit' && orbitControls) center = orbitControls.target.clone().divideScalar(OOTSW2_SCALE).toArray();
+                    }
+                    if (!center) {
+                        status.textContent = 'look at the ground first (nothing under the screen centre)';
+                        return;
+                    }
+                    const [step, side] = stepPick.value.split(',').map(Number);
+                    const y = center[1] + (parseFloat(lift.value) || 0);
+                    drop(voidMap);
+                    voidMap = null;
+                    scan.disabled = true;
+                    const { group, counts } = await buildVoidMap(set, center[0], y, center[2], step, side,
+                        (done, total) => { status.textContent = `void map ${done} / ${total}`; });
+                    scan.disabled = false;
+                    put('Void map', voidMap = group);
+                    status.textContent = `void map at ${center[0].toFixed(1)}, ${y.toFixed(1)}, ${center[2].toFixed(1)}: ` +
+                        `${counts.safe} safe, ${counts.near} near, ${counts.void + counts.none} void`;
+                });
+                // Whole map: every walkable floor spot, coloured by the probe
+                const floorStep = document.createElement('select');
+                floorStep.className = 'ootsw2-highlight';
+                [['1 m spots', 1], ['2 m spots', 2], ['4 m spots', 4]]
+                    .forEach(([label, step], i) => { const o = new Option(label, String(step)); o.selected = i === 1; floorStep.add(o); });
+                const whole = document.createElement('button');
+                whole.textContent = 'void map: whole floor';
+                whole.title = 'Runs the void probe standing on every walkable floor of the map (one spot per grid square ' +
+                    'and floor level) and colours the floor: green safe, yellow close, red: Link voids if he leaves the ground ' +
+                    'there (jumps, falls, gets knocked back); standing and walking on it is fine, the check only runs in the air, ' +
+                    'dark red no cube at all. "void map here" checks a height in the air instead (jumps, falls).';
+                whole.addEventListener('click', async () => {
+                    if (!staticSource.indices.length) { status.textContent = 'no static collision'; return; }
+                    const set = getSet();
+                    drop(floorMap);
+                    floorMap = null;
+                    whole.disabled = true;
+                    const t0 = performance.now();
+                    const keep = t => !['AirWall', 'DropItem'].includes(surfaceTable[staticSource.surfaces?.[t]]?.m);
+                    const { points, counts } = await buildFloorVoidMap(set, staticSource, +floorStep.value, keep,
+                        (done, total) => { status.textContent = `whole floor ${done} / ${total}`; });
+                    whole.disabled = false;
+                    put('Void map (floors)', floorMap = points);
+                    const n = counts.safe + counts.near + counts.void + counts.none;
+                    status.textContent = `whole floor: ${n} spots, ${counts.safe} safe, ${counts.near} close, ` +
+                        `${counts.void + counts.none} void (${((performance.now() - t0) / 1000).toFixed(1)} s)`;
+                });
+                const clear = document.createElement('button');
+                clear.textContent = 'clear';
+                clear.addEventListener('click', () => {
+                    drop(voidMap);
+                    drop(floorMap);
+                    voidMap = floorMap = null;
+                    status.textContent = '';
+                });
+                const legend = document.createElement('div');
+                legend.className = 'ootsw2-surface-legend';
+                legend.innerHTML = [['under 6 m', VOID_COLORS.safe], ['6-8 m', VOID_COLORS.near],
+                                    [`${VOID_RADIUS} m+ (void in the air)`, VOID_COLORS.void], ['no cube (void in the air)', VOID_COLORS.none]]
+                    .map(([label, color]) => `<span><i style="background:${color}"></i>${label}</span>`).join('');
+                const line2 = document.createElement('div');
+                line2.className = 'ootsw2-surface-row';
+                line2.append(whole, floorStep, scan, stepPick, lift, clear, status);
+                kindRow.append(line, cubeLegend, line2, legend);
+                showCubes();
+            }
+
+            // A see-through volume: { root, edges } like an actor row (root
+            // for a row checkbox, its one child for the kind checkbox)
+            const buildVolume = (name, list, color, kind, label) => {
+                const typed = typedMeshList(list, objects);
+                const mesh = buildOOTSW2Mesh(typed.positions, typed.indices, color, 0.3);
+                mesh.name = name;
+                mesh.renderOrder = 1;
+                mesh.geometry.userData.triangleIds = lazyTriangleIds(typed.owners.length, k => label(objects[typed.owners[k]]));
+                const root = new THREE.Group();
+                root.name = name;
+                root.add(mesh);
+                scene.add(root);
+                const edges = buildOOTSW2Edges([mesh]);
+                scene.add(edges);
+                joinKind(kind, mesh, edges.children[0]);
+                loadedModels.push({ name, mesh: root, edges });
+                return { root, edges, mesh };
+            };
+            // Loading zones: a row each, in a group
+            if (areaData.zones.length) {
+                const key = "ootsw2-zones";
+                const group = getModelGroup(key, `Loading zones (${areaData.zones.length})`);
+                const used = new Map();
+                for (const zone of areaData.zones.sort((a, b) => a.label.localeCompare(b.label))) {
+                    const n = (used.get(zone.label) ?? 0) + 1;
+                    used.set(zone.label, n);
+                    const rowName = n > 1 ? `${zone.label} #${n}` : zone.label;
+                    const { root, edges, mesh } = buildVolume(rowName, zone.list, OOTSW2_ZONE_COLOR, 'zone',
+                                                              o => `Loading zone ${zone.label}: ${o.nm ?? ''} ${o.h}`);
+                    addModelCheckbox(scene, rowName, root, edges, false, true, OOTSW2_ZONE_COLOR, false, mesh, group.body);
+                    edges.visible = root.visible && wireframeOn();
+                    group.body.lastElementChild.title = `${zone.label}\n${zone.obj.nm ?? ''} ${zone.obj.h}` +
+                        (zone.obj.zc || zone.obj.za ? `\nChild: ${zone.obj.zc ?? '-'}, Adult: ${zone.obj.za ?? '-'}` : '');
+                }
+                applyGroupMasterState(key);
+            }
+            // Areas: a group per category (Location areas, Void outs, Other
+            // areas...), a row per actor name (location areas: per location).
+            // Their Collision types checkbox still switches the whole category.
+            const usedNames = new Set(loadedModels.map(m => m.name));
+            for (const [kind, label, color] of areaKinds) {
+                const parts = splitMeshList(areaData.areas[kind], o => areaData.rowKey(kind, o));
+                const key = `ootsw2-area-${kind}`;
+                const group = getModelGroup(key, `${label} (${parts.size})`);
+                for (const [name, list] of [...parts].sort(([a], [b]) => a.localeCompare(b))) {
+                    const count = new Set(list.owners).size;
+                    let rowName = count > 1 ? `${name} ×${count}` : name;
+                    if (usedNames.has(rowName)) rowName += ` (${label})`;
+                    usedNames.add(rowName);
+                    const { root, edges, mesh } = buildVolume(rowName, list, color, kind, areaData.labelOf);
+                    addModelCheckbox(scene, rowName, root, edges, false, true, color, false, mesh, group.body);
+                    edges.visible = root.visible && wireframeOn();
+                    group.body.lastElementChild.title = `${label}: ${name}, ${count} object${count > 1 ? 's' : ''}`;
+                }
+                applyGroupMasterState(key);
+            }
+
+            // Links: a line per link between two objects of this map, from the
+            // source (yellow) to the target (cyan); only the "links" checkbox
+            if (linkCount) {
+                const pos = new Float32Array(linkCount * 6), col = new Float32Array(linkCount * 6);
+                const src = new THREE.Color(0xffd040), dst = new THREE.Color(0x40e0ff);
+                let k = 0;
+                for (const o of objects) {
+                    for (const [h] of o.l ?? []) {
+                        const target = byHash.get(h);
+                        if (!target) continue;
+                        pos.set(o.p.map(v => v * OOTSW2_SCALE), k * 6);
+                        pos.set(target.p.map(v => v * OOTSW2_SCALE), k * 6 + 3);
+                        col.set([src.r, src.g, src.b, dst.r, dst.g, dst.b], k * 6);
+                        k++;
+                    }
+                }
+                const geom = new THREE.BufferGeometry();
+                geom.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+                geom.setAttribute('color', new THREE.BufferAttribute(col, 3));
+                const lines = new THREE.LineSegments(geom, new THREE.LineBasicMaterial({ vertexColors: true, depthTest: false, transparent: true, opacity: 0.8 }));
+                lines.name = "Links";
+                lines.renderOrder = 2;
+                lines.userData.unselectable = true;
+                scene.add(lines);
+                loadedModels.push({ name: "Links", mesh: lines, edges: null });
+                joinKind('link', lines, new THREE.Object3D());
+            }
+
+            const compoundBox = new THREE.Box3();
+            const bounds = getMapProperty(game, mapName, "bounds");
+            if (compound && bounds) compoundBox.set(new THREE.Vector3(bounds[0], 0, bounds[2]).multiplyScalar(OOTSW2_SCALE),
+                                                    new THREE.Vector3(bounds[1], 0, bounds[3]).multiplyScalar(OOTSW2_SCALE));
+
+            const points = buildOOTSW2ObjectPoints(objects);
+            points.name = "Objects";
+            points.userData.bkInfo = `Objects: ${objects.length} placed objects`;
+            scene.add(points);
+            loadedModels.push({ name: "Objects", root: points, mesh: points, edges: null });
+            addModelCheckbox(scene, "Objects", points, null, false, false, '#ffd040', false, null);
+
+            const tris = sources.map(s => `${s.indices.length / 3} ${KIND_LABELS[s.kind]}`).join(', ');
+            console.log(`${mapDir}: ${objects.length} objects, ${col.counts.placed} placed from collision.bin ` +
+                        `(${col.counts.skipped} in the compound, ${col.counts.noShape} without a shape); ` +
+                        `${actorRows.length} actor rows in ${categories.size} groups; triangles: ${tris}` +
+                        (compound ? `; ${compound.chunks.length} tiles (${compound.chunks.filter(c => c.level > 0).length} at lod1)` : ''));
+
+            // Start over the middle of the map (maps.json bounds, else the
+            // rebuilt terrain), at the objects' height, looking down
+            const box = new THREE.Box3().setFromPoints((col.terrain.verts.length ? col.terrain.verts : objects.map(o => o.p.map(v => v * OOTSW2_SCALE)))
+                .map(v => new THREE.Vector3(...v)));
+            if (!compoundBox.isEmpty()) {
+                compoundBox.min.y = box.isEmpty() ? 0 : box.min.y;
+                compoundBox.max.y = box.isEmpty() ? 0 : box.max.y;
+                box.copy(compoundBox);
+            }
+            if (!box.isEmpty()) {
+                const c = box.getCenter(new THREE.Vector3()), size = box.getSize(new THREE.Vector3());
+                setCameraPose([c.x, box.max.y + Math.max(size.x, size.z) * 0.4, c.z + Math.max(size.x, size.z) * 0.4], -0.8, 0);
+                if (orbitControls) orbitControls.target.copy(c);
             }
         } catch (err) {
             console.error(err);

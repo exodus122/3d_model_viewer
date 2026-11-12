@@ -980,6 +980,20 @@ if ACTION_KEYS then
 	if #tests == 0 then error("no tests left after ACTION_KEYS") end
 end
 
+-- Aerial acute clips (clipfinder --type aerial-acute, kind "aerial") start
+-- with Link in the air, which the tester can't set up yet: left out.
+do
+	local kept = {}
+	for _, t in ipairs(tests) do
+		if t.kind ~= "aerial" then kept[#kept + 1] = t end
+	end
+	if #kept < #tests then
+		print(string.format("left out %d aerial acute clip tests (starting in the air isn't supported yet)", #tests - #kept))
+	end
+	tests = kept
+	if #tests == 0 then error("no tests left: they were all aerial acute clips, which the tester can't run yet") end
+end
+
 -- Falling crossings whose drop makes checkHeight + dy < 5 can't work: the
 -- game's wall line test then runs from Link's feet with floors included and
 -- stops him on the floor he starts from (tested in game: OoT Kakariko child,

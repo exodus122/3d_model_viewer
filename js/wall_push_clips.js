@@ -57,8 +57,8 @@ function setMaxMove(n) {
     REACH_DIST = n;
 }
 let SPEED_RATE = 1.5;
-function setGameRate() {
-    const is3ds = game === "OOT3D" || game === "MM3D";
+function setGameRate(selected = game) {
+    const is3ds = selected === "OOT3D" || selected === "MM3D";
     SPEED_RATE = is3ds ? 1.0 : 1.5;
     GROUND_DROP = 5 * SPEED_RATE;
 }
@@ -70,6 +70,7 @@ const LOW_EXTENDED_COLOR = 0x30e0ff;
 const LOW_COLOR = 0x30c8ff; // falling clips from older files, not split by category
 const SLOPE_COLOR = 0xff90d0; // slope clips (clipfinder slope.h)
 const GROUND_COLOR = 0xd4a017; // ground clips (clipfinder ground.h)
+const AERIAL_COLOR = 0xffe040; // aerial acute clips (clipfinder aerial.h)
 const ACTION_1H_COLOR = 0x40e0ff; // action clips: a sword lunge's own move (clipfinder action.h), one-handed
 const ACTION_2H_COLOR = 0xb070ff; // and two-handed (OoT Biggoron / Giant's Knife, MM Great Fairy's Sword)
 const ACTION_STICK_COLOR = 0xc8a060; // and the Deku stick
@@ -730,6 +731,8 @@ function fileSpeed(c) {
 
 function describeReach(c) {
     if (c.action) return `  reachable: the ${isSpinKey(c.actionKey) ? "spin" : c.actionKey?.includes("jumpslash") ? "jumpslash" : "lunge"} is the move (no stick speed needed)`;
+    // (clipfinder aerial.h: the start is in the air, the move above is the reach)
+    if (c.kind === "aerial") return `  speed ${fileSpeed(c).toFixed(2)} in the air: the move above`;
     if (c.reach === null) return `  not reachable from a standable start (clipfinder --min-speed)`;
     if (c.reach) {
         const r = c.reach;
@@ -759,7 +762,7 @@ const isSpinKey = k => k?.startsWith("deku-spin");
 const CAT_TITLES = {
     acute: "acute angle", extended: "extended plane only",
     "low-acute": "falling, acute angle", "low-extended": "falling, extended plane only", low: "falling",
-    slope: "slope", ground: "ground", "action-1h": "action, one-handed", "action-2h": "action, two-handed", "action-stick": "action, Deku stick",
+    slope: "slope", ground: "ground", aerial: "aerial, acute angle", "action-1h": "action, one-handed", "action-2h": "action, two-handed", "action-stick": "action, Deku stick",
     "action-spin": "action, Deku spin", "action-backspin": "action, Deku spin from a backwalk",
     "action-zora": "action, Zora punch", "jump-zora": "jumpslash, Zora", "action-zoraclip": "action, Zora clip",
     "action-spinlock": "action, 2h spin attack locked on", "action-spinfwd": "action, spin attack with the stick forward", "jump-ls": "jumpslash, lunge stored",
@@ -768,7 +771,7 @@ const CAT_TITLES = {
 
 // What the wall pair's category means (none for older files' falling clips).
 function pairLine(g) {
-    if (g.cat === "low" || g.cat === "slope" || g.cat === "ground" || isActionCat(g.cat)) return [];
+    if (g.cat === "low" || g.cat === "slope" || g.cat === "ground" || g.cat === "aerial" || isActionCat(g.cat)) return [];
     return [g.cat.endsWith("acute")
         ? `  wall pair: acute angle (at least one of its points clips with the extended planes removed)`
         : `  wall pair: extended plane only (every point needs ${polyLabel(g.pusher)}'s extended plane: its 1 unit tolerance, or Link beside it, past its edge)`];
@@ -855,6 +858,35 @@ function describeClipLinesBase(g, c, checkHeight) {
             `  posNext ${fmt(c.next)}: the wall check (y ${num(F(c.next.y + checkHeight))}) is under ${polyLabel(g.crossed)}'s bottom there`,
             `  after the frame: ${fmt(c.res)}`,
             c.end.noFloor ? `  no floor under him: falls out of bounds` : `  ends at: ${fmt(c.end)} (out of bounds)`,
+        ].join("\n");
+    }
+    if (g.cat === "aerial") {
+        // (clipfinder aerial.h: one frame in the air into an acute corner at a
+        // y velocity: rising or falling into it, the line test at his feet
+        // falling fast, or the floor check putting him on a floor behind the wall)
+        const num = v => f32Str(v).split(" ")[0];
+        const vy = c.vy ?? 0;
+        const feet = checkHeight + vy * 1.5 < 5;
+        const across = Math.hypot(c.next.x - c.prev.x, c.next.z - c.prev.z);
+        const how = vy > 0 ? (across < 0.01 ? "rising straight up into the corner" : "rising into the corner")
+            : vy < 0 ? (across < 0.01 ? "falling straight down into the corner" : "falling into the corner") : "at the top of a jump";
+        return [
+            `AERIAL ACUTE CLIP: in the air, ${polyLabel(g.pusher)} pushes Link through ${polyLabel(g.crossed)}`,
+            `  clipfinder: --pair ${g.pusher.id},${g.crossed.id}, --sim X,Y,Z,YAW,SPEED,air${num(vy)}`,
+            `  in the air at ${fmt(c.prev)} (feet), ` +
+                (c.floorY !== undefined ? `${(c.prev.y - c.floorY).toFixed(1)} above the floor (y ${num(c.floorY)})` : `no floor under him`),
+            `  ${how}: yaw ${hex4(c.yaw)}, speed ${num(c.speed)}, y velocity ${num(vy)} this frame` +
+                (vy > 0 ? " (a jump: a backflip 5.8, a sidehop 3.5, a jumpslash 5)" : ""),
+            ...(feet ? [`  falling that fast (checkHeight + dy < 5) the line test runs at his feet, not at check height, and misses ${polyLabel(g.pusher)}`] : []),
+            // (a sloped floor pusher: moving more than the radius the line test takes
+            // floors, and snaps him radius / nXZ out along the slope)
+            g.pusher.isFloor ? `  the line test (moving more than his radius, it takes floors) hits the slope ${polyLabel(g.pusher)} at ${fmt(c.from)}: ` +
+                    `it snaps him out along the slope, downhill, and the pushes from there take him through ${polyLabel(g.crossed)}`
+                : c.cross ? `  the line test hits ${polyLabel(g.pusher)} at ${fmt(c.from)}: snapped out of it, the pushes take him through ${polyLabel(g.crossed)}`
+                : `  posNext ${fmt(c.next)}, in the corner`,
+            `  pushed to: ${fmt(c.res)}`,
+            c.landed ? `  the floor check puts him on the floor behind ${polyLabel(g.crossed)}: ends at ${fmt(c.end)} (out of bounds)`
+                : c.end.noFloor ? `  no floor under where he's pushed to: falls out of bounds` : `  lands at: ${fmt(c.end)} (out of bounds)`,
         ].join("\n");
     }
     if (c.cross) {
@@ -949,7 +981,7 @@ function buildMarkerGroup(model, groups, color, checkHeight) {
             // drawn on the floor under it instead, the end moved up with it.
             let up = lift;
             // (ground clips: posNext itself, under the ground)
-            if (!(c.drop > 0) && c.floorY !== undefined && g.cat !== "ground") {
+            if (!(c.drop > 0) && c.floorY !== undefined && g.cat !== "ground" && g.cat !== "aerial") {
                 const top = F(c.from.y + GROUND_DROP);
                 // (only a floor near his height: past the edge of a ledge the
                 // next one down can be far below)
@@ -996,7 +1028,7 @@ function buildMarkerGroup(model, groups, color, checkHeight) {
 const MODEL_NAMES = {
     acute: "Acute Angle Clips", extended: "Extended Plane Clips",
     "low-acute": "Low Wall Clips (falling, acute)", "low-extended": "Low Wall Clips (falling, extended)",
-    low: "Low Wall Clips (falling)", slope: "Slope Clips", ground: "Ground Clips",
+    low: "Low Wall Clips (falling)", slope: "Slope Clips", ground: "Ground Clips", aerial: "Aerial Acute Clips",
     "action-1h": "Action Clips (1h lunges)", "action-2h": "Action Clips (2h lunges)", "action-stick": "Action Clips (Deku stick lunges)",
     "action-spin": "Action Clips (Deku spin)", "action-backspin": "Action Clips (backwalk Deku spin)",
     "action-zora": "Action Clips (Zora punch)", "jump-zora": "Action Clips (Zora jumpslash)", "action-zoraclip": "Action Clips (Zora clip)",
@@ -1005,7 +1037,7 @@ const MODEL_NAMES = {
 };
 const CAT_COLORS = {
     acute: ACUTE_COLOR, extended: EXTENDED_COLOR,
-    "low-acute": LOW_ACUTE_COLOR, "low-extended": LOW_EXTENDED_COLOR, low: LOW_COLOR, slope: SLOPE_COLOR, ground: GROUND_COLOR,
+    "low-acute": LOW_ACUTE_COLOR, "low-extended": LOW_EXTENDED_COLOR, low: LOW_COLOR, slope: SLOPE_COLOR, ground: GROUND_COLOR, aerial: AERIAL_COLOR,
     "action-1h": ACTION_1H_COLOR, "action-2h": ACTION_2H_COLOR, "action-stick": ACTION_STICK_COLOR,
     "action-spin": SPIN_COLOR, "action-backspin": BACKSPIN_COLOR,
     "action-zora": ZORA_PUNCH_COLOR, "jump-zora": ZORA_JUMP_COLOR, "action-zoraclip": ZORA_CLIP_COLOR,
@@ -1063,6 +1095,7 @@ function exportJson(groups, info) {
             if (c.speed !== undefined) f.push(`"yaw":${c.yaw & 0xFFFF}`, `"speed":${num(c.speed)}`);
             if (c.speed2 !== undefined) f.push(`"speed2":${num(c.speed2)}`);
             if (c.vy !== undefined) f.push(`"vy":${num(c.vy)}`);
+            if (c.landed) f.push(`"landed":true`);
             if (c.action) {
                 f.push(`"action":${JSON.stringify(c.action)}`, `"actionKey":${JSON.stringify(c.actionKey)}`, `"facing":${c.facing & 0xFFFF}`,
                     `"actionFrames":[${c.actionFrames.map(([v, a]) => `[${num(v)},${a}]`).join(",")}]`, `"frames":[${c.frames.map(vec).join(",")}]`);
@@ -1205,8 +1238,11 @@ export function setupWallPushClipUI(scene) {
     let last = null;
 
     const refresh = () => {
-        container.style.display = ["OOT", "MM", "OOT3D", "MM3D"].includes(game) ? "flex" : "none";
-        setGameRate();
+        // the select's value, not `game`: main.js's change listener (which
+        // sets it) can run after this one
+        const selected = document.getElementById("selected-game").value;
+        container.style.display = ["OOT", "MM", "OOT3D", "MM3D"].includes(selected) ? "flex" : "none";
+        setGameRate(selected);
     };
     document.getElementById("selected-game").addEventListener("change", refresh);
     document.getElementById("loadMap").addEventListener("click", () => {
@@ -1228,6 +1264,8 @@ export function setupWallPushClipUI(scene) {
     // reachable start when `useReach` and the file has one). Walking and slope clips don't depend on it: 0, never filtered.
     const neededVy = (c, useReach) => {
         if (c.kind === "ground") return Math.abs(c.vy ?? -20);
+        // (aerial clips: their frame's fall; rising, none)
+        if (c.kind === "aerial") return Math.max(0, -(c.vy ?? 0));
         if (!(c.drop > 0)) return 0;
         if (useReach && c.reach) return (c.reach.start.y - c.from.y) / SPEED_RATE;
         return (c.next ? c.prev.y - c.next.y : c.drop) / SPEED_RATE;
@@ -1268,6 +1306,7 @@ export function setupWallPushClipUI(scene) {
         status.textContent = `${points("acute")} acute, ${points("extended")} extended-plane, ${low} low (falling` +
             (points("low") ? "" : `: ${points("low-acute")} acute, ${points("low-extended")} extended`) + `)` +
             (points("slope") ? `, ${points("slope")} slope` : "") + (points("ground") ? `, ${points("ground")} ground` : "") +
+            (points("aerial") ? `, ${points("aerial")} aerial acute` : "") +
             (points("action-1h") ? `, ${points("action-1h")} 1h lunge` : "") + (points("action-2h") ? `, ${points("action-2h")} 2h lunge` : "") +
             (points("action-stick") ? `, ${points("action-stick")} Deku stick lunge` : "") +
             (points("action-spin") ? `, ${points("action-spin")} Deku spin` : "") +
@@ -1469,7 +1508,7 @@ export function setupWallPushClipUI(scene) {
                 const pusher = f.model.polys.get(c.pusher), crossed = f.model.polys.get(c.crossed);
                 if (!pusher || !crossed) continue;
                 // (the same point in two files: a static scan and a dynapoly one)
-                const key = `${f.form}|${c.pusher}|${c.crossed}|${c.cross}|${c.drop}|${c.from}|${c.prev}|${c.action ?? ""}|${c.facing ?? ""}`;
+                const key = `${f.form}|${c.pusher}|${c.crossed}|${c.cross}|${c.drop}|${c.from}|${c.prev}|${c.action ?? ""}|${c.facing ?? ""}|${c.kind === "aerial" ? c.vy : ""}`;
                 if (seen.has(key)) continue;
                 seen.add(key);
                 const end = vec(c.end);
@@ -1489,13 +1528,14 @@ export function setupWallPushClipUI(scene) {
                 if (c.speed !== undefined) { clip.yaw = c.yaw; clip.speed = c.speed; }
                 if (c.speed2 !== undefined) clip.speed2 = c.speed2;
                 if (c.vy !== undefined) clip.vy = c.vy;
+                if (c.landed) clip.landed = true;
                 // clipfinder --type actions: the lunge that does it
                 if (c.action) Object.assign(clip, { action: c.action, actionKey: c.actionKey, facing: c.facing, actionFrames: c.actionFrames, airFrames: c.airFrames, stopAfter: c.stopAfter, frames: c.frames.map(vec) });
                 // clipfinder --min-speed: the reachability already worked out
                 if ("reach" in c) clip.reach = c.reach ? { speed: c.reach.speed, yaw: c.reach.yaw, start: vec(c.reach.start) } : null;
                 // (a slope / ground clip's own move is its reach: clipfinder
                 // leaves that out of the file)
-                else if ((c.kind === "slope" || c.kind === "ground") && c.speed !== undefined) clip.reach = slopeReach(clip);
+                else if ((c.kind === "slope" || c.kind === "ground" || c.kind === "aerial") && c.speed !== undefined) clip.reach = slopeReach(clip);
                 clips.push(clip);
             }
         }
@@ -1522,7 +1562,8 @@ export function setupWallPushClipUI(scene) {
                     : `${pre}-${k.startsWith("stick") ? "stick" : k.startsWith("2h") ? "2h" : "1h"}`;
                 continue;
             }
-            if (c.kind === "slope" || c.kind === "ground") { c.cat = c.kind; continue; }
+            // (and aerial acute clips: clipfinder aerial.h)
+            if (c.kind === "slope" || c.kind === "ground" || c.kind === "aerial") { c.cat = c.kind; continue; }
             const acute = acutePairs.has(`${c.form}:${c.pusher.id}:${c.crossed.id}`);
             if (c.kind === "low") { if (acute) c.kind = "acute"; }
             else c.kind = acute ? "acute" : "extended";

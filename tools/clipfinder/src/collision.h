@@ -289,6 +289,8 @@ struct Model {
 	bool dynaPairsOnly = false; // --dyna-only: wall pairs with a dynapoly wall in them
 	// which scans run (--type): wall pushes (walking, and falling with lowDrop), slope clips, ground clips
 	bool wallPushes = true, slope = true, ground = false;
+	// --type aerial-acute: the aerial acute clip scan (aerial.h)
+	bool aerialAcute = false;
 	// --pair: only scan the candidates (wall pairs, slope walls) near these
 	// two polys; -1 none. Every poly still collides as usual.
 	int focusA = -1, focusB = -1;

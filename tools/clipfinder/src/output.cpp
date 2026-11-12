@@ -25,7 +25,7 @@ static string jsonStr(const string& s) {
 // (one of `forms`), so the viewer can show them all at once.
 string toJson(const string& game, const string& map, int numPolygons, bool falling, bool extendedOnly,
 	const vector<FormResult>& forms, const string& dynaRaw, const vector<int>& setups) {
-	static const char* kinds[] = { "acute", "extended", "slope", "ground" };
+	static const char* kinds[] = { "acute", "extended", "slope", "ground", "aerial" };
 	std::ostringstream o;
 	o << "{\n  \"format\": \"wall-push-clips-2\",\n";
 	o << "  \"game\": " << jsonStr(game) << ", \"map\": " << jsonStr(map)
@@ -73,8 +73,10 @@ string toJson(const string& game, const string& map, int numPolygons, bool falli
 		if (c.hasMove) o << ",\"yaw\":" << c.yaw << ",\"speed\":" << num(c.speed);
 		// slope clips: the second frame's speed (the same yaw), if it needs one
 		if (c.speed2 > 0) o << ",\"speed2\":" << num(c.speed2);
-		// ground clips: velocity.y for the frame
-		if (c.kind == 3) o << ",\"vy\":" << num(c.vy);
+		// ground / aerial clips: velocity.y for the frame
+		if (c.kind == 3 || c.kind == 4) o << ",\"vy\":" << num(c.vy);
+		// aerial clips: the frame's floor check put him on a floor behind the wall
+		if (c.airLanded) o << ",\"landed\":true";
 		// action clips: the action, Link's facing at the start, and where each of its frames leaves him
 		if (c.action >= 0) {
 			o << ",\"action\":" << jsonStr(ACTIONS[c.action].name) << ",\"actionKey\":" << jsonStr(ACTIONS[c.action].key) << ",\"facing\":" << c.facing << ",\"actionFrames\":[";
@@ -90,7 +92,7 @@ string toJson(const string& game, const string& map, int numPolygons, bool falli
 			o << "]";
 		}
 		// --min-speed: the slowest move that does it, or null for none. Not for
-		// a slope / ground clip whose reach is its own move (most of them): the
+		// a slope / ground / aerial clip whose reach is its own move (most of them): the
 		// viewer fills that in on import (wall_push_clips.js slopeReach) - it
 		// was ~10% of a big file
 		const bool ownMove = c.kind >= 2 && c.hasReach && c.reachYaw == c.yaw && c.reachSpeed == std::max(c.speed, c.speed2) &&

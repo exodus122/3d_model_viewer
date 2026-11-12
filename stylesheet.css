@@ -237,6 +237,73 @@ button {
     min-height: 20px;
 }
 
+/* OOT (Switch 2) "Collision types" row: one checkbox per kind of collision */
+.ootsw2-kinds {
+    flex-wrap: wrap;
+    gap: 4px 12px;
+    margin-bottom: 6px;
+}
+
+.ootsw2-kind {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    margin: 0;
+    font-size: 13px;
+    cursor: pointer;
+}
+
+/* starts the volumes (loading zones, areas) on a line of their own */
+.ootsw2-kinds-break {
+    flex-basis: 100%;
+    height: 0;
+}
+
+.ootsw2-kind-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 2px;
+}
+
+/* surface colours checkbox + highlight picker, on a line of their own */
+.ootsw2-surface-row {
+    flex-basis: 100%;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px 10px;
+    margin-top: 4px;
+}
+
+.ootsw2-highlight {
+    min-width: 0;
+    max-width: 100%;
+    font-size: 12px;
+}
+
+.ootsw2-highlight-count {
+    font-size: 12px;
+    opacity: 0.75;
+}
+
+.ootsw2-surface-legend {
+    flex-basis: 100%;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2px 10px;
+    font-size: 11px;
+    opacity: 0.85;
+}
+
+.ootsw2-surface-legend i {
+    display: inline-block;
+    width: 9px;
+    height: 9px;
+    border-radius: 2px;
+    margin-right: 4px;
+    vertical-align: -1px;
+}
+
 .model-label {
     display: flex;
     align-items: center;

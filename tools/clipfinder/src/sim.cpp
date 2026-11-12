@@ -1,6 +1,7 @@
 #include "sim.h"
 #include "action.h"
 #include "corners.h"
+#include "aerial.h"
 
 static const char* P(const V3& v) {
 	static char b[4][96];
@@ -183,6 +184,34 @@ int runSim(const Model& m, const string& simArg, const string& game, const strin
 			else printf("CLIP: %s %s through %s (%s), ends %s\n", m.polyName(c->pusher).c_str(), c->kind == 2 ? "(the floor check) lifts Link" : "pushes Link",
 				m.polyName(c->crossed).c_str(), c->kind == 2 ? "slope" : c->acutePoint ? "acute point" : "needs the extended planes", P(c->end));
 			if (c && c->stopAfter) printf("  (stop after frame %d: out of bounds in the wall there; the rest of the frames would carry him on)\n", c->stopAfter);
+			return 0;
+		}
+	}
+	{
+		// X,Y,Z,YAW,SPEED,air[VY]: one frame in the air (aerial.h) at y velocity VY
+		// (default 0), and its aerial acute clip verdict
+		char yawS[32] = {}, tail[32] = {};
+		double x, y, z, speed;
+		if (sscanf(simArg.c_str(), "%lf,%lf,%lf,%31[^,],%lf,%31s", &x, &y, &z, yawS, &speed, tail) == 6 && string(tail).rfind("air", 0) == 0) {
+			const double vy = F(atof(tail + 3));
+			Scratch s;
+			s.stamp.assign(m.polys.size(), 0);
+			const V3 start = { F(x), F(y), F(z) };
+			const int yaw = (int)strtol(yawS, nullptr, 0) & 0xFFFF;
+			printf("in the air at %s, yaw 0x%04X, speed %.9g, y velocity %.9g%s\n", P(start), yaw, F(speed), vy,
+				feetLine(m.checkHeight, F(vy * SPEED_RATE)) ? " (the line test runs at his feet)" : "");
+			auto st = airStart(m, s, start);
+			printf("a start in the air: %s\n", !st ? "NO (pushed somewhere that doesn't settle, out of bounds, or under / on a floor)"
+				: st->x == start.x && st->z == start.z ? "yes" : (string("no, the pushes put him at ") + P(*st)).c_str());
+			if (auto u = floorUnder(m, start)) printf("floor under him: y %.9g (%.1f below)\n", u->y, start.y - u->y);
+			else printf("no floor under him\n");
+			auto c = aerialFrame(m, s, start, yaw, F(speed), vy, -2);
+			if (!c) { printf("no aerial acute clip (no clip, not acute, or ending in bounds)\n"); return 0; }
+			printf("posNext %s%s\n", P(c->next), c->cross ? (", the line test hits " + m.polyName(c->pusher)).c_str() : "");
+			printf("pushed to %s\n", P(c->res));
+			if (c->airLanded) printf("the floor check puts him on the floor behind %s\n", m.polyName(c->crossed).c_str());
+			printf("AERIAL ACUTE CLIP: %s pushes Link through %s, %s %s\n", m.polyName(c->pusher).c_str(), m.polyName(c->crossed).c_str(),
+				c->endNoFloor ? "no floor under" : "lands at", P(c->end));
 			return 0;
 		}
 	}

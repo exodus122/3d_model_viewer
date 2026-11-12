@@ -434,7 +434,7 @@ void findMinSpeeds(const Model& m, vector<Clip>& found, int threads) {
 		auto k = std::make_tuple(c.pusher, c.crossed, c.cross, c.drop > 0);
 		if (!best.count(k) || c.reachSpeed < best[k]->reachSpeed) best[k] = &c;
 	}
-	static const char* kinds[] = { "acute", "extended", "slope", "ground" };
+	static const char* kinds[] = { "acute", "extended", "slope", "ground", "aerial" };
 	for (auto& [k, c] : best) {
 		fprintf(stderr, "  %s %s TRI %d -> %d: min speed %.4f  start %.3f, %.3f, %.3f  yaw 0x%04X  (clip point %.3f, %.3f, %.3f%s)\n",
 			kinds[c->kind], c->cross ? "cross" : "stand", c->pusher, c->crossed, c->reachSpeed,

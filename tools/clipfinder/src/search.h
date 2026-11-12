@@ -8,7 +8,8 @@ struct Clip {
 	// falling): 0 acute if any of the pair's points is an acutePoint, else 1
 	// extended. Set at the end of the scan. 2: a slope clip (slope.h), whose
 	// pusher is the floor that lifts Link behind the wall. 3: a ground clip
-	// (ground.h), whose pusher is the floor Link falls through.
+	// (ground.h), whose pusher is the floor Link falls through. 4: an aerial
+	// acute clip (aerial.h): Link in the air, acute points only.
 	int kind = 1;
 	// This point on its own clips without the extended planes, pushed from in
 	// front of the pusher's face (pushOnFace)
@@ -19,6 +20,7 @@ struct Clip {
 	double walkDist = 0;   // (inBounds) how far Link walks there from the start, -1 he can't: a shortcut otherwise
 	int drop = 0;         // falling: posNext this far below the floor (0 walking)
 	bool aerial = false;  // --aerial: prev is in the air where he couldn't stand still (aerialSpot)
+	bool airLanded = false; // aerial acute clips: the frame's floor check put him on a floor behind the wall
 	int pusher = -1, crossed = -1;
 	V3 from, prev, next, res, end;
 	bool hasNext = false, hasFloorY = false, endNoFloor = false;
@@ -28,7 +30,7 @@ struct Clip {
 	bool hasMove = false;
 	double speed = 0;
 	double speed2 = 0;    // slope clips: a second frame's speed (same yaw) before standing still, 0 none
-	double vy = 0;        // ground clips: velocity.y for the frame (posNext.y = prev.y + vy x 1.5)
+	double vy = 0;        // ground / aerial clips: velocity.y for the frame (posNext.y = prev.y + vy x 1.5)
 	// action clips (action.h): the action (ACTIONS index, -1 none), the way
 	// Link faces at the start, and where each of its frames leaves him (after
 	// the floor check). yaw / speed are then the clip frame's move.
@@ -50,6 +52,20 @@ struct Clip {
 	V3 reachStart;
 };
 
+// A wall pair candidate: A can push Link through B. cosAB: their normals'
+// angle (top down); lo / hi: the heights both are at (+-1); x0..z1: where
+// Link can be near both.
+struct Pair { int A, B; double cosAB, lo, hi, x0, x1, z0, z1; };
+
+// Where walls A and B's planes meet (top down) at check height h, offset to
+// signed distances a from A and b from B. False for walls under ~3 degrees apart.
+bool planesMeet(const Poly& A, const Poly& B, double h, double a, double b, double& x, double& z);
+
+// cornerBox: the bounding box of the parallelogram (within
+// radius in front of A or 4 behind it, at most radius + 4 in front of B)
+// around where the planes meet, over check heights [lo, hi], plus a unit.
+bool cornerBox(const Poly& A, const Poly& B, double R, double lo, double hi, double box[4]);
+
 // firstPerPair: stop looking at a wall pair (pushing wall, clipped wall) once
 // one clip through it is found (like wall_clip_tester.lua's
 // RECORD_ONE_PER_PAIR) - one point per pair, much faster.
@@ -70,9 +86,10 @@ int thinCapForBudget(const vector<const vector<Clip>*>& sets, int maxN, int minN
 // --type: which clips to look for and keep
 enum : int {
 	TYPE_ACUTE = 1, TYPE_EXTENDED = 2, TYPE_SLOPE = 4, TYPE_GROUND = 8, TYPE_FALLING = 16, TYPE_ACTIONS = 32,
-	TYPE_ALL = 31,  // "all": every clip type, not the lunges
+	TYPE_AERIAL = 64,  // aerial acute clips (aerial.h)
+	TYPE_ALL = 31,  // "all": every clip type, not the lunges or aerial acute clips
 };
-// "acute,extended,slope,ground,falling,actions" (or "all": the first five) to TYPE_ bits; 0 and err if a name is wrong
+// "acute,extended,slope,ground,falling,actions,aerial-acute" (or "all": the first five) to TYPE_ bits; 0 and err if a name is wrong
 int parseTypes(const string& list, string& err);
 // The file name part for a set of types: "" for the default (acute,
 // extended, slope), "_all" for all, else "_" and the names joined by "-",
